@@ -1,5 +1,5 @@
-from utils import FText, cdata_str
-from qas_enums import Format
+from .utils import FText, cdata_str
+from .enums import Format
 from xml.etree import ElementTree as et
 
 class Answer:

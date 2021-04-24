@@ -1,9 +1,9 @@
 from typing import List
 from xml.etree import ElementTree as et
-from utils import CombinedFeedback, Dataset, FText, SelectOption, Subquestion, Unit, Hint, \
+from .utils import CombinedFeedback, Dataset, FText, SelectOption, Subquestion, Unit, Hint, \
                   Tags, UnitHandling, DropZone, DragItem, get_txt
-from qas_enums import Status, Distribution, Numbering
-from answer import Answer, NumericalAnswer, CalculatedAnswer, Choice
+from .enums import Status, Distribution, Numbering
+from .answer import Answer, NumericalAnswer, CalculatedAnswer, Choice
 from urllib.request import urlopen
 import base64
 import re

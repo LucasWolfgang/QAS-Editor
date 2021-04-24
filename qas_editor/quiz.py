@@ -1,9 +1,9 @@
-import questions
+import re
+import logging
 from xml.etree import ElementTree as et
 from typing import List, Dict
-from qas_enums import Numbering
-import logging
-import re
+from .enums import Numbering
+from . import questions
 
 def _escape_cdata(text):
     try:

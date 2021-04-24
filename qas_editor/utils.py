@@ -3,7 +3,7 @@ import base64
 from typing import List, Dict
 from xml.etree import ElementTree as et
 from urllib.request import urlopen
-from qas_enums import Format, Status, Distribution, Grading, ShowUnits
+from .enums import Format, Status, Distribution, Grading, ShowUnits
 
 def get_txt(data: dict, key: str, default=None) -> str:
     if key not in data:
