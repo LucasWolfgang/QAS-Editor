@@ -11,7 +11,38 @@ def get_txt(data: dict, key: str, default=None) -> str:
     return data[key].text
 
 def cdata_str(text: str):
-    return f"<![CDATA[{text if text else ''}]]>"
+    return f"<![CDATA[{text}]]>" if text else ""
+
+# ----------------------------------------------------------------------------------------
+
+class B64File():
+
+    def __init__(self, name: str, path: str, bfile: str=None) -> None:
+        self.path = path
+        self.name = name
+        if bfile:
+            self.bfile = bfile
+        else:
+            try:
+                with urlopen(self.path) as response:
+                    self.bfile = str(base64.b64encode(response.read()), "utf-8")
+            except Exception:
+                with open(self.path, "rb") as f:
+                    self.bfile = str(base64.b64encode(f.read()), "utf-8")
+
+    @classmethod
+    def from_xml(cls, root: et.Element) -> "B64File":
+        name = root.get("name")
+        path = root.get("path")
+        bfile = root.text
+        return cls(name, path, bfile)
+
+    def to_xml(self) -> et.Element:
+        bfile = et.Element("file", {"name": self.name, "encoding" : "base64"})
+        if self.path:
+            bfile.set("path", self.path)
+        bfile.text = self.bfile
+        return bfile
 
 class SelectOption:
 
@@ -71,7 +102,7 @@ class UnitHandling():
     def from_xml(cls, data: Dict[str, et.Element]) -> "UnitHandling":
         grading_type = Grading.get(get_txt(data, "unitgradingtype"))
         penalty = get_txt(data, "unitpenalty")
-        show = ShowUnits.get(data.get("showunits"))
+        show = ShowUnits.get(get_txt(data, "showunits"))
         left = True if data.get("unitsleft") else False
         return cls(grading_type, penalty, show, left)
 
@@ -109,19 +140,25 @@ class FText():
     def __init__(self, text: str, formatting: Format) -> None:
         self.text = text
         self.formatting = formatting
+        self.bfile: List[B64File] = []
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "FText":
         if not root:
             return None
-        formatting = Format.get(root.get("format"))
+        formatting = Format.get(root.get("format", "html"))
         text = root[0].text
-        return cls(text, formatting)
+        obj = cls(text, formatting)
+        for fls in root.findall("file"):
+            obj.bfile.append(B64File.from_xml(fls))
+        return obj 
 
     def to_xml(self, root: et.Element, tag: str) -> et.Element:
         elem = et.SubElement(root, tag, {"format": self.formatting.value})
         text = cdata_str(self.text) if self.formatting == Format.HTML else self.text
         et.SubElement(elem, "text").text = text
+        for fl in self.bfile:
+            elem.append(fl.to_xml())
 
 # ----------------------------------------------------------------------------------------
 
@@ -165,14 +202,14 @@ class Dataset():
         et.SubElement(dataset_definition, "minimum").text = self.minimum
         et.SubElement(dataset_definition, "maximum").text = self.maximum
         et.SubElement(dataset_definition, "decimals").text = self.decimals
-        et.SubElement(dataset_definition, "itemcount").text = len(self.items) # TODO ?
+        et.SubElement(dataset_definition, "itemcount").text = str(len(self.items)) # TODO ?
         dataset_items = et.SubElement(dataset_definition, "dataset_items")
         for num, item in enumerate(self.items):
             dataset_item = et.SubElement(dataset_definition, "dataset_item")
-            et.SubElement(dataset_item, "number").text = num
-            et.SubElement(dataset_item, "value").text = item
+            et.SubElement(dataset_item, "number").text = str(num)
+            et.SubElement(dataset_item, "value").text = str(item)
             dataset_items.append(dataset_item)
-        et.SubElement(dataset_definition, "number_of_items").text = len(self.items) # TODO ?
+        et.SubElement(dataset_definition, "number_of_items").text = str(len(self.items)) # TODO ?
         return dataset_definition
 
 # ----------------------------------------------------------------------------------------
@@ -226,6 +263,7 @@ class Hint():
             et.SubElement(hint, "shownumcorrect")
         if self.clear_wrong:
             et.SubElement(hint, "clearwrong")
+        return hint
 
 # ----------------------------------------------------------------------------------------
 
@@ -246,10 +284,10 @@ class CombinedFeedback():
         correct = FText.from_xml(data["correctfeedback"])
         incomplete = FText.from_xml(data["partiallycorrectfeedback"])
         incorrect = FText.from_xml(data["incorrectfeedback"])
-        show_num = True if data.get("shownumcorrect", None) else False
+        show_num = True if "shownumcorrect" in data else False
         return cls(correct, incomplete, incorrect, show_num)
 
-    def to_xml(self, root: et.Element) -> et.Element:
+    def to_xml(self, root: et.Element) -> None:
         self.correct.to_xml(root, "correctfeedback")
         self.incomplete.to_xml(root, "partiallycorrectfeedback")
         self.incorrect.to_xml(root, "incorrectfeedback")
@@ -267,7 +305,7 @@ class DragItem():
     """
 
     def __init__(self, number: int, text: str, unlimited: bool=False, group: int=None, 
-                 no_of_drags: str=None, image_path: str=None, image: str=None) -> None:
+                 no_of_drags: str=None, image: B64File=None) -> None:
         if self.group and self.no_of_drags:
             return ValueError("Both group and number of drags can\'t be provided to a single obj.")
         self.number = number
@@ -275,16 +313,7 @@ class DragItem():
         self.unlimited = unlimited
         self.group = group
         self.no_of_drags = no_of_drags
-        self.image_path = image_path
-        if image:
-            self.image = image
-        else:
-            try:
-                with urlopen(image_path) as response:
-                    self.image = str(base64.b64encode(response.read()), "utf-8")
-            except Exception:
-                with open(image_path, "rb") as f:
-                    self.image = str(base64.b64encode(f.read()), "utf-8")
+        self.image = image
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "DragItem":
@@ -294,9 +323,8 @@ class DragItem():
         unlimited = True if data.get("infinite", None) else False
         group = data.get("draggroup").text if data.get("draggroup") else None
         no_of_drags = data.get("draggroup").text if data.get("draggroup") else None
-        file_path = data.get("file").get("path", "") + data.get("file").get("name")
-        image = data.get("file").text
-        return cls(number, text, unlimited, group, no_of_drags, file_path, image)
+        image = B64File.from_xml(data.get("file"))
+        return cls(number, text, unlimited, group, no_of_drags, image)
 
     def to_xml(self) -> et.Element:
         dragitem = et.Element("drag")
@@ -308,17 +336,15 @@ class DragItem():
             et.SubElement(dragitem, "draggroup").text = str(self.group)
         if self.no_of_drags:
             et.SubElement(dragitem, "noofdrags").text = str(self.no_of_drags)
-        if self.file_path:
-            et.SubElement(dragitem, "file", {
-                    "name": os.path.basename(self.image_path), 
-                    "encoding": "base64"})
+        if self.image:
+            dragitem.append(self.image.to_xml())
         return dragitem
 
 # ----------------------------------------------------------------------------------------
 
 class DropZone():
     """
-    This class represents DropZone for Questions like DragAndDropOntoImageQuestion.
+    This class represents DropZone for Questions like QDragAndDropImage.
     """
 
     def __init__(self, x: int, y: int, text: str, choice: int, number: int):
@@ -357,18 +383,3 @@ class DropZone():
         return dropzone
 
 # ----------------------------------------------------------------------------------------
-
-def build_image_tag(root: et.Element, file_path: str) -> None:
-    """[summary]
-
-    Args:
-        root (et.Element): [description]
-        name (str): [description]
-        file_name (str): [description]
-    """
-    file = et.SubElement(root, "file", {"name": os.path.basename(file_path), "encoding": "base64"})
-    try:
-        file.text = urlopen(file_path).read()
-    except Exception:
-        with open(file_path, "rb") as f:
-            file.text = str(base64.b64encode(f.read()), "utf-8")

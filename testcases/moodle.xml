@@ -19,7 +19,7 @@
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.1000000</defaultgrade>
     <penalty>0.0000000</penalty>
     <hidden>0</hidden>
     <responseformat>editor</responseformat>
@@ -194,7 +194,7 @@
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.2000000</defaultgrade>
     <penalty>0.0000000</penalty>
     <hidden>0</hidden>
     <responseformat>editor</responseformat>
@@ -223,7 +223,7 @@
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.3000000</defaultgrade>
     <penalty>0.3333333</penalty>
     <hidden>0</hidden>
     <single>true</single>
@@ -311,7 +311,7 @@
     <generalfeedback format="html">
       <text><![CDATA[<p>global feedback<br></p>]]></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.4000000</defaultgrade>
     <penalty>0.3333333</penalty>
     <hidden>0</hidden>
     <single>true</single>
@@ -399,7 +399,7 @@
     <generalfeedback format="html">
       <text><![CDATA[<p>global feedback<br></p>]]></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.5000000</defaultgrade>
     <penalty>0.3333333</penalty>
     <hidden>0</hidden>
     <single>true</single>
@@ -595,7 +595,7 @@
          <p>{cof}x + {add} = {ans}</p>]]></text>
       </questiontext>
       <generalfeedback format="html"><text></text></generalfeedback>
-      <defaultgrade>1.0000000</defaultgrade>
+      <defaultgrade>1.6000000</defaultgrade>
       <penalty>0.3333333</penalty>
       <hidden>0</hidden>
       <idnumber></idnumber>
@@ -1872,7 +1872,7 @@
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.7000000</defaultgrade>
     <penalty>0.3333333</penalty>
     <hidden>0</hidden>
     <synchronize>0</synchronize>
@@ -1977,7 +1977,7 @@
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.8000000</defaultgrade>
     <penalty>0.3333333</penalty>
     <hidden>0</hidden>
     <synchronize>0</synchronize>
@@ -2065,7 +2065,7 @@
       <generalfeedback format="html">
          <text></text>
       </generalfeedback>
-      <defaultgrade>1.0000000</defaultgrade>
+      <defaultgrade>1.9000000</defaultgrade>
       <penalty>0.0000000</penalty>
       <hidden>0</hidden>
       <idnumber></idnumber>
@@ -2572,7 +2572,7 @@ markdown.markdown(text, extensions=['extra'])
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.1100000</defaultgrade>
     <penalty>0.3333333</penalty>
     <hidden>0</hidden>
     <idnumber></idnumber>
@@ -2624,7 +2624,7 @@ markdown.markdown(text, extensions=['extra'])
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.1200000</defaultgrade>
     <penalty>0.3333333</penalty>
     <hidden>0</hidden>
     <idnumber></idnumber>
@@ -2708,7 +2708,7 @@ markdown.markdown(text, extensions=['extra'])
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
+    <defaultgrade>1.1300000</defaultgrade>
     <penalty>0.0000000</penalty>
     <hidden>0</hidden>
     <idnumber></idnumber>
@@ -2743,8 +2743,8 @@ markdown.markdown(text, extensions=['extra'])
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.0000000</defaultgrade>
-    <penalty>1.0000000</penalty>
+    <defaultgrade>1.1400000</defaultgrade>
+    <penalty>1.1500000</penalty>
     <hidden>0</hidden>
     <idnumber></idnumber>
     <answer fraction="100" format="moodle_auto_format">

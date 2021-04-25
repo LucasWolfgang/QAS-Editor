@@ -1,7 +1,7 @@
 from typing import List
 from xml.etree import ElementTree as et
-from .utils import CombinedFeedback, Dataset, FText, SelectOption, Subquestion, Unit, Hint, \
-                  Tags, UnitHandling, DropZone, DragItem, get_txt
+from .utils import B64File, CombinedFeedback, Dataset, FText, SelectOption, Subquestion, \
+                    Unit, Hint, Tags, UnitHandling, DropZone, DragItem, get_txt
 from .enums import Status, Distribution, Numbering
 from .answer import Answer, NumericalAnswer, CalculatedAnswer, Choice
 from urllib.request import urlopen
@@ -53,15 +53,12 @@ class Question():
     @classmethod
     def from_xml(cls, root: et.Element, *args) -> "Question":
         data = {x.tag: x for x in root}
-        # try:
         name = data['name'][0].text
-        # except Exception:
-        #     print(data)
         question = FText.from_xml(data['questiontext'])
         grade = get_txt(data, "defaultgrade", 1.0)
         feedback = FText.from_xml(data.get('generalfeedback'))
         id_number = get_txt(data, "idnumber", None)
-        shuffle = bool(get_txt(data, "idnumber", 0))
+        shuffle = bool(get_txt(data, "shuffleanswers", 0))
         penalty = float(get_txt(data, "penalty", 0))
         tags = Tags.from_xml(data.get("Tags"))
         question = cls(*args, name, question, grade, feedback, id_number, shuffle, penalty, tags)
@@ -77,12 +74,14 @@ class Question():
         question.set("type", self._type)
         name = et.SubElement(question, "name")
         et.SubElement(name, "text").text = str(self.name)
+        if isinstance(self.question_text, str):
+            print(self.question_text, self.default_grade, self.penalty, self)
         self.question_text.to_xml(question, "questiontext")
         et.SubElement(question, "defaultgrade").text = str(self.default_grade)
         self.general_feedback.to_xml(question, "generalfeedback")
         et.SubElement(question, "hidden").text = "0"
         et.SubElement(question, "idnumber").text = self.id_number
-        et.SubElement(question, "shuffleanswers").text = self.shuffle
+        et.SubElement(question, "shuffleanswers").text = str(self.shuffle).lower()
         et.SubElement(question, "penalty").text = str(self.penalty)
         for h in self.hints:
             question.append(h.to_xml())
@@ -90,7 +89,7 @@ class Question():
 
 # ----------------------------------------------------------------------------------------
 
-class DescriptionQuestion(Question):
+class QDescription(Question):
     _type = "description"
 
     def __init__(self, *args, **kwargs) -> None:
@@ -98,7 +97,7 @@ class DescriptionQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class CalculatedQuestion(Question):
+class QCalculated(Question):
     _type = "calculated"
 
     def __init__(self, synchronize: int, single: bool=False, 
@@ -122,13 +121,12 @@ class CalculatedQuestion(Question):
         self.units.append(Unit(name, multiplier))
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "CalculatedQuestion":
+    def from_xml(cls, root: et.Element) -> "QCalculated":
         data = {x.tag: x for x in root}
-        #print(data)
         synchronize = get_txt(data, "synchronize")
         single = get_txt(data, "single")
         unit_handling = UnitHandling.from_xml(data)
-        question: "CalculatedQuestion" = super().from_xml(root, synchronize, single, 
+        question: "QCalculated" = super().from_xml(root, synchronize, single, 
                                                         unit_handling)
         for u in root.findall("units"):
             question.units.append(Unit.from_xml(u))
@@ -155,7 +153,7 @@ class CalculatedQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class CalculatedSimpleQuestion(CalculatedQuestion):
+class QCalculatedSimple(QCalculated):
     _type = "calculatedsimple"
 
     def __init__(self, *args, **kwargs):
@@ -163,7 +161,7 @@ class CalculatedSimpleQuestion(CalculatedQuestion):
 
 # ----------------------------------------------------------------------------------------
 
-class CalculatedMultichoiceQuestion(Question):
+class QCalculatedMultichoice(Question):
     _type = "calculatedmulti"
 
     def __init__(self, synchronize: int, single: bool=False, 
@@ -194,7 +192,7 @@ class CalculatedMultichoiceQuestion(Question):
         single = data["single"]
         answer_numbering = data["answernumbering"]
         combined_feedback = CombinedFeedback.from_xml(root)
-        question: "CalculatedMultichoiceQuestion" = super().from_xml(root, synchronize, single, 
+        question: "QCalculatedMultichoice" = super().from_xml(root, synchronize, single, 
                                                         answer_numbering, combined_feedback)
         for dataset in data["dataset_definitions"]:
             question.datasets.append(Dataset.from_xml(dataset))
@@ -207,7 +205,7 @@ class CalculatedMultichoiceQuestion(Question):
         et.SubElement(question, "synchronize").text = self.synchronize
         et.SubElement(question, "single").text = self.single
         et.SubElement(question, "answernumbering").text = self.answer_numbering
-        question.append(self.combined_feedback.to_xml())
+        self.combined_feedback.to_xml(question)
         for answer in self.answers:
             question.append(answer.to_xml()) 
         dataset_definitions = et.SubElement(question, "dataset_definitions")
@@ -217,7 +215,7 @@ class CalculatedMultichoiceQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class ClozeQuestion(Question):
+class QCloze(Question):
     """This is a very simples class that hold cloze data. All data is compressed inside
     the question text, so no further implementation is necessary.
     """
@@ -227,21 +225,21 @@ class ClozeQuestion(Question):
         super().__init__(*args, **kwargs)
         
     @classmethod
-    def from_xml(cls, root: et.Element) -> "ClozeQuestion":
+    def from_xml(cls, root: et.Element) -> "QCloze":
         return super().from_xml(root)
 
     def to_xml(self) -> et.Element:
         return super().to_xml()
 
     @staticmethod
-    def from_cloze() -> "ClozeQuestion":
+    def from_cloze() -> "QCloze":
         super().from_xml()
         # TODO
         pass
 
 # ----------------------------------------------------------------------------------------
 
-class DragAndDropIntoTextQuestion(Question):
+class QDragAndDropText(Question):
     """
     This class represents a drag and drop text onto image question. 
     It inherits from abstract class Question.
@@ -268,9 +266,9 @@ class DragAndDropIntoTextQuestion(Question):
         self._choices.append(Choice(text=text, group=group, unlimited=unlimited))
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "DragAndDropIntoTextQuestion":      
+    def from_xml(cls, root: et.Element) -> "QDragAndDropText":      
         feedback = CombinedFeedback.from_xml(root)
-        question: "DragAndDropIntoTextQuestion" = super().from_xml(root, feedback)
+        question: "QDragAndDropText" = super().from_xml(root, feedback)
         for c in root.findall("dragbox"):
             question._choices.append(Choice.from_xml(c))
         return question
@@ -284,15 +282,15 @@ class DragAndDropIntoTextQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class DragAndDropOntoImageQuestion(Question):
+class QDragAndDropImage(Question):
     """
     This class represents a drag and drop onto image question. 
     It inherits from abstract class Question.
     """
     _type = "ddimageortext"
 
-    def __init__(self, background: str, combined_feedback: CombinedFeedback=None, 
-                image: str=None, *args, **kwargs):
+    def __init__(self, background: B64File, combined_feedback: CombinedFeedback=None, 
+                *args, **kwargs) -> None:
         """Creates an drag and drop onto image type of question.
 
         Args:
@@ -300,15 +298,6 @@ class DragAndDropOntoImageQuestion(Question):
         """
         super().__init__(*args, **kwargs)
         self.background = background
-        if image:
-            self.image = image
-        else:
-            try:
-                with urlopen(background) as response:
-                    self.image = str(base64.b64encode(response.read()), "utf-8")
-            except Exception:
-                with open(background, "rb") as f:
-                    self.image = str(base64.b64encode(f.read()), "utf-8")
         self.combined_feedback = combined_feedback
         self._dragitems: List[DragItem] = []
         self._dropzones: List[DropZone] = []
@@ -350,10 +339,9 @@ class DragAndDropOntoImageQuestion(Question):
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":
         data = {x.tag: x for x in root}
-        background = data.get("file").get("path", "") + data.get("file").get("name")
-        image = data.get("file").text
+        background = B64File.from_xml(data.get("file"))
         combined_feedback = CombinedFeedback.from_xml(root)
-        question = super().from_xml(root, background, combined_feedback, image)
+        question = super().from_xml(root, background, combined_feedback)
         return question
 
     def to_xml(self):
@@ -363,18 +351,16 @@ class DragAndDropOntoImageQuestion(Question):
         for dropzone in self._dropzones:
             question.append(dropzone.to_xml())
         if self.background:
-            et.SubElement(question, "file", {
-                    "name": os.path.basename( self.background), 
-                    "encoding": "base64"})
+            question.append(self.background.to_xml())
         return question
 
 # ----------------------------------------------------------------------------------------
 
-class DragAndDropMarkersQuestion(Question):
+class QDragAndDropMarker(Question):
     _type = "ddmarker"
 
-    def __init__(self, background: str, combined_feedback: CombinedFeedback=None, 
-                image: str=None, *args, **kwargs):
+    def __init__(self, background: B64File, combined_feedback: CombinedFeedback=None, 
+                *args, **kwargs):
         """Creates an drag and drop onto image type of question.
 
         Args:
@@ -382,15 +368,6 @@ class DragAndDropMarkersQuestion(Question):
         """
         super().__init__(*args, **kwargs)
         self.background = background
-        if image:
-            self.image = image
-        else:
-            try:
-                with urlopen(background) as response:
-                    self.image = str(base64.b64encode(response.read()), "utf-8")
-            except Exception:
-                with open(background, "rb") as f:
-                    self.image = str(base64.b64encode(f.read()), "utf-8")
         self.combined_feedback = combined_feedback
         self._dragitems: List[DragItem] = []
 
@@ -406,12 +383,11 @@ class DragAndDropMarkersQuestion(Question):
         self._dragitems.append(dragitem)
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "Question":
+    def from_xml(cls, root: et.Element) -> "QDragAndDropMarker":
         data = {x.tag: x for x in root}
-        background = data.get("file").get("path", "") + data.get("file").get("name")
-        image = data.get("file").text
+        background = B64File.from_xml(data.get("file"))
         combined_feedback = CombinedFeedback.from_xml(root)
-        question = super().from_xml(root, background, combined_feedback, image)
+        question = super().from_xml(root, background, combined_feedback)
         return question
 
     def to_xml(self):
@@ -420,14 +396,12 @@ class DragAndDropMarkersQuestion(Question):
         for dragitem in self._dragitems:
             question.append(dragitem.to_xml())
         if self.background:
-            et.SubElement(question, "file", {
-                    "name": os.path.basename( self.background), 
-                    "encoding": "base64"})
+            question.append(self.background.to_xml())
         return question
 
 # ----------------------------------------------------------------------------------------
 
-class EssayQuestion(Question):
+class QEssay(Question):
     _type = "essay"
 
     def __init__(self, response_format: str="editor", response_required: bool=True, 
@@ -447,7 +421,7 @@ class EssayQuestion(Question):
         self.response_template = response_template
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "Question":
+    def from_xml(cls, root: et.Element) -> "QEssay":
         data = {x.tag: x for x in root}
         format = data["responseformat"].text
         required = data["responserequired"].text
@@ -482,7 +456,7 @@ class EssayQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class MatchingQuestion(Question):
+class QMatching(Question):
     IMPLEMENTED = False
     _type = "matching"
 
@@ -503,9 +477,9 @@ class MatchingQuestion(Question):
             self.subquestions.append((text, answer))
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "Question":
+    def from_xml(cls, root: et.Element) -> "QMatching":
         combined_feedback = CombinedFeedback.from_xml(root)
-        question: "MatchingQuestion" = super().from_xml(root, combined_feedback)
+        question: "QMatching" = super().from_xml(root, combined_feedback)
         for sub in root.findall("subquestion"):
             question.subquestions.append(Subquestion.from_xml(sub))
         return question
@@ -519,7 +493,7 @@ class MatchingQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class RandomShortAnswerMatchingQuestion(Question):
+class QRandomMatching(Question):
     _type = "randomsamatch"
 
     def __init__(self, choose: int, subcats: bool, combined_feedback: CombinedFeedback=None, 
@@ -530,7 +504,7 @@ class RandomShortAnswerMatchingQuestion(Question):
         self.subcats = subcats
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "Question":
+    def from_xml(cls, root: et.Element) -> "QRandomMatching":
         data = {x.tag: x for x in root}
         combined_feedback = CombinedFeedback.from_xml(root)
         choose = data["choose"].text
@@ -547,7 +521,7 @@ class RandomShortAnswerMatchingQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class SelectMissingWordsQuestion(Question):
+class QMissingWord(Question):
     _type = "gapselect"
 
     def __init__(self, combined_feedback: CombinedFeedback=None,*args, **kwargs):
@@ -556,9 +530,9 @@ class SelectMissingWordsQuestion(Question):
         self.options: List[SelectOption] = []
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "Question":
+    def from_xml(cls, root: et.Element) -> "QMissingWord":
         combined_feedback = CombinedFeedback.from_xml(root)
-        question: "SelectMissingWordsQuestion" = super().from_xml(root, combined_feedback)
+        question: "QMissingWord" = super().from_xml(root, combined_feedback)
         for option in root.findall("selectoption"):
             question.options.append(SelectOption.from_xml(option))
         return question
@@ -572,13 +546,13 @@ class SelectMissingWordsQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class MultipleChoiceQuestion(Question):
+class QMultichoice(Question):
     """
     This class represents 'Multiple choice' question.
     """
     _type = "multichoice"
 
-    def __init__(self, answer_numbering: Numbering=Numbering.ALF_LR, 
+    def __init__(self, single: bool=True, answer_numbering: Numbering=Numbering.ALF_LR, 
                 combined_feedback: CombinedFeedback=None, *args, **kwargs):
         """
         [summary]
@@ -587,16 +561,18 @@ class MultipleChoiceQuestion(Question):
             answer_numbering (str, optional): [description]. Defaults to "abc".
         """
         super().__init__(*args, **kwargs)
+        self.single = single
         self.combined_feedback = combined_feedback
-        self.answer_numbering: List[str] = answer_numbering
+        self.answer_numbering: Numbering = answer_numbering
         self.answers: List[Answer] = []
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "Question":
+    def from_xml(cls, root: et.Element) -> "QMultichoice":
         data = {x.tag: x for x in root}
-        num = Numbering.get(data["answernumbering"])
+        num = Numbering.get(data["answernumbering"].text)
         feedback = CombinedFeedback.from_xml(root)
-        question: "MultipleChoiceQuestion" = super().from_xml(root, num, feedback)
+        single = bool(get_txt(data, "single", True))
+        question: "QMultichoice" = super().from_xml(root, single, num, feedback)
         for answer in root.findall("answer"):
             question.answers.append(Answer.from_xml(answer))
         return question
@@ -610,6 +586,7 @@ class MultipleChoiceQuestion(Question):
         question = super().to_xml()
         self.combined_feedback.to_xml(question)
         et.SubElement(question, "answernumbering").text = self.answer_numbering.value
+        et.SubElement(question, "single").text = str(self.single).lower()
         for answer in self.answers:
             question.append(answer.to_xml())
         return question
@@ -628,7 +605,7 @@ class MultipleChoiceQuestion(Question):
     @staticmethod
     def from_markdown(category: str, lines: list, regex: str, answer_numbering: Numbering,
                         shuffle_answers: bool, penalty: int, 
-                        name: str="mkquestion") -> "MultipleChoiceQuestion":
+                        name: str="mkquestion") -> "QMultichoice":
         """[summary]
 
         Returns:
@@ -645,7 +622,7 @@ class MultipleChoiceQuestion(Question):
                     raise ValueError("No answer defined for the question")
                 elif match[4]:
                     if not question:
-                        question = MultipleChoiceQuestion(answer_numbering, name=name,
+                        question = QMultichoice(answer_numbering, name=name,
                                                 question_text=data, category=category,
                                                 shuffle=shuffle_answers)
                     data = lines.pop()                       
@@ -663,7 +640,7 @@ class MultipleChoiceQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class NumericalQuestion(Question):
+class QNumerical(Question):
     """
     This class represents 'Numerical Question' moodle question type.
     Units are currently not implemented, only numerical answer, which
@@ -684,10 +661,10 @@ class NumericalQuestion(Question):
         self.units.append(Unit(name, multiplier))
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "Question":
+    def from_xml(cls, root: et.Element) -> "QNumerical":
         data = {x.tag: x for x in root}
         unit_handling = UnitHandling.from_xml(data)
-        question: "NumericalQuestion" = super().from_xml(root, unit_handling)
+        question: "QNumerical" = super().from_xml(root, unit_handling)
         for answer in root.findall(""):
             question.answers.append(NumericalAnswer.from_xml(answer))
         return question
@@ -704,7 +681,7 @@ class NumericalQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class ShortAnswerQuestion(Question):
+class QShortAnswer(Question):
     """
     This class represents 'Short answer' question.
     """
@@ -729,7 +706,7 @@ class ShortAnswerQuestion(Question):
     def from_xml(cls, root: et.Element) -> "Question":
         data = {x.tag: x for x in root}
         use_case = data["usecase"]
-        question: "ShortAnswerQuestion" = super().from_xml(root, use_case)
+        question: "QShortAnswer" = super().from_xml(root, use_case)
         for answer in root.findall("answer"):
             question.answers.append(Answer.from_xml(answer))
         return question
@@ -743,33 +720,50 @@ class ShortAnswerQuestion(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class TrueFalseQuestion(Question):
+class QTrueFalse(Question):
     """
     This class represents true/false question.
     """
     _type = "truefalse"
 
-    def __init__(self, correct_answer: bool, *args, **kwargs):
+    def __init__(self, correct_answer: bool, correct_feeback: FText, incorrect_feeback: FText, 
+                *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.__answer_true = Answer(100, "True", correct_feeback)
+        self.__answer_false = Answer(100, "False", incorrect_feeback)
         self.correct_answer = correct_answer
-        self.answer_true = None
-        self.answer_false = None
 
-    def set_answer_for_true(self, text: str, feedback: str):
-        fraction = 100 if self.correct_answer else 0
-        self.answer_true = Answer(fraction, text, feedback)
+    def set_feedbacks(self, correct: FText, incorrect: FText):
+        self.__answer_true.feedback = correct if self.correct_answer else incorrect
+        self.__answer_false.feedback = correct if not self.correct_answer else incorrect
 
-    def set_answer_for_false(self, text: str, feedback: str):
-        fraction = 100 if not self.correct_answer else 0
-        self.answer_false = Answer(fraction, text, feedback)
+    @property
+    def correct_answer(self) -> bool:
+        return self.__correct_answer
+
+    @correct_answer.setter
+    def correct_answer(self, value: bool) -> None:
+        self.__answer_true.fraction = 100 if value else 0
+        self.__answer_false.fraction = 100 if not value else 0
+        self.__correct_answer = value
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":
-        question = super().from_xml(root)
+        answer_true = None
+        answer_false = None
+        correct = False
+        for answer in root.findall("answer"):
+            tmp = Answer.from_xml(answer)
+            if tmp.text.lower() == "true":
+                answer_true = tmp
+                correct = True if answer_true.fraction == 100 else False
+            elif tmp.text.lower() == "false":
+                answer_false = tmp
+        question = super().from_xml(root, correct, answer_true.feedback, answer_false.feedback)
         return question
 
     def to_xml(self) -> et.Element:
         question = super().to_xml()
-        question.append(self.answer_true.to_xml())
-        question.append(self.answer_false.to_xml())
+        question.append(self.__answer_true.to_xml())
+        question.append(self.__answer_false.to_xml())
         return question

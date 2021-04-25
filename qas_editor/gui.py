@@ -1,6 +1,6 @@
-import os
 import sys
-import uuid
+from os.path import splitext
+from uuid import uuid4
 from .quiz import Quiz
 from . import questions
 from PyQt5.QtCore import Qt, QSize
@@ -193,7 +193,7 @@ class TextEdit(QTextEdit):
 
         if source.hasUrls():
             for u in source.urls():
-                file_ext = os.path.splitext(str(u.toLocalFile()))[1].lower()
+                file_ext = splitext(str(u.toLocalFile()))[1].lower()
                 if u.isLocalFile() and file_ext in ['.jpg','.png','.bmp']:
                     image = QImage(u.toLocalFile())
                     document.addResource(QTextDocument.ImageResource, u, image)
@@ -207,7 +207,7 @@ class TextEdit(QTextEdit):
                 return
         elif source.hasImage():
             image = source.imageData()
-            uuid = uuid.uuid4().hex
+            uuid = uuid4().hex
             document.addResource(QTextDocument.ImageResource, uuid, image)
             cursor.insertImage(uuid)
             return

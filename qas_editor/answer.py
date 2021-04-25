@@ -7,7 +7,8 @@ class Answer:
     This is the basic class used to hold possible answers
     """
 
-    def __init__(self, fraction: float, text: str, feedback: FText, formatting: Format) -> None:
+    def __init__(self, fraction: float, text: str, feedback: FText, 
+                formatting: Format=None) -> None:
         self.fraction = fraction
         self.formatting = formatting
         self.text = text
@@ -19,15 +20,17 @@ class Answer:
         fraction = root.get("fraction")
         text = data["text"].text
         feedback = FText.from_xml(data.get("feedback"))
-        formatting = root.get("format")
+        formatting = Format.get(root.get("format"))
         return cls(*args, fraction, text, feedback, formatting)
 
     def to_xml(self) -> et.Element:
-        answer = et.Element("answer", {"fraction": str(self.fraction), "format": self.formatting.value})    
+        answer = et.Element("answer", {"fraction": str(self.fraction)})  
+        if self.formatting:
+            answer.set("format", self.formatting.value)
+        answer.set("fraction", str(self.fraction))
         text = cdata_str(self.text) if self.formatting == Format.HTML else self.text
         et.SubElement(answer, "text").text = text
-        feedback = et.SubElement(answer, "feedback", {"format": "html"})
-        et.SubElement(feedback, "text").text = self.feedback
+        self.feedback.to_xml(answer, "feedback")
         return answer
 
 # ----------------------------------------------------------------------------------------

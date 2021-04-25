@@ -73,9 +73,9 @@ class ToleranceFormat(Enum):
 # ----------------------------------------------------------------------------------------
 
 class Grading(Enum):
-    IGNORE = "1"        # Ignore
-    RESPONSE = "2"      # Fraction of reponse grade
-    QUESTION = "3"      # Fraction of question grade
+    IGNORE = "0"        # Ignore
+    RESPONSE = "1"      # Fraction of reponse grade
+    QUESTION = "2"      # Fraction of question grade
 
     @classmethod
     def get(cls, value: str) -> "Grading":
