@@ -1,9 +1,8 @@
-import os
 import base64
 from typing import List, Dict
 from xml.etree import ElementTree as et
 from urllib.request import urlopen
-from .enums import Format, Status, Distribution, Grading, ShowUnits
+from .enums import Format, Status, Distribution, Grading, ShowUnits, ShapeType
 
 def get_txt(data: dict, key: str, default=None) -> str:
     if key not in data:
@@ -32,6 +31,8 @@ class B64File():
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "B64File":
+        if root is None:
+            return None
         name = root.get("name")
         path = root.get("path")
         bfile = root.text
@@ -103,14 +104,14 @@ class UnitHandling():
         grading_type = Grading.get(get_txt(data, "unitgradingtype"))
         penalty = get_txt(data, "unitpenalty")
         show = ShowUnits.get(get_txt(data, "showunits"))
-        left = True if data.get("unitsleft") else False
+        left = "unitsleft" in data
         return cls(grading_type, penalty, show, left)
 
     def to_xml(self, root: et.Element) -> None:
         et.SubElement(root, "unitgradingtype").text = self.grading_type.value
         et.SubElement(root, "unitpenalty").text = str(self.penalty)
         et.SubElement(root, "showunits").text = self.show.value
-        et.SubElement(root, "unitsleft").text = self.left
+        et.SubElement(root, "unitsleft").text = str(int(self.left))
 
 # ----------------------------------------------------------------------------------------
 
@@ -144,7 +145,7 @@ class FText():
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "FText":
-        if not root:
+        if root is None:
             return None
         formatting = Format.get(root.get("format", "html"))
         text = root[0].text
@@ -223,37 +224,40 @@ class Tags(list):
     @classmethod
     def from_xml(cls, root: et.Element) -> "Tags":
         tags = cls()
-        if not root:
-            return tags
+        if root is None:
+            return None
         for x in root:
             tags.append(x[0].text)
         return tags
 
     def to_xml(self) -> et.Element:
         tags = et.Element("tags")
-        for item in self.__iter__:
+        for item in self.__iter__():
             tag = et.SubElement(tags, "tag")
             et.SubElement(tag, "text").text = item
+        return tags
 
 # ----------------------------------------------------------------------------------------
 
 class Hint():
 
     def __init__(self, formatting: Format, text: str, show_correct: bool, 
-                clear_wrong: bool) -> None:
+                clear_wrong: bool, state_incorrect: bool=False) -> None:
         self.formatting = formatting
         self.text = text
         self.show_correct = show_correct
         self.clear_wrong = clear_wrong
+        self.state_incorrect = state_incorrect
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Hint":
         data = {x.tag: x for x in root}
         formatting = Format.get(root.get("format"))
         text = data["text"].text
-        show_correct = True if data.get("shownumcorrect") else False
-        clear_wrong = True if data.get("clearwrong") else False
-        return cls(formatting, text, show_correct, clear_wrong)
+        state_incorrect = "options" in data
+        show_correct = "shownumcorrect" in data
+        clear_wrong = "clearwrong" in data
+        return cls(formatting, text, show_correct, clear_wrong, state_incorrect)
 
     def to_xml(self) -> et.Element:
         hint = et.Element("hint", {"format": self.formatting.value})
@@ -261,6 +265,8 @@ class Hint():
         et.SubElement(hint, "text").text = text
         if self.show_correct:
             et.SubElement(hint, "shownumcorrect")
+        if self.state_incorrect:
+            et.SubElement(hint, "options").text = "1"
         if self.clear_wrong:
             et.SubElement(hint, "clearwrong")
         return hint
@@ -306,7 +312,7 @@ class DragItem():
 
     def __init__(self, number: int, text: str, unlimited: bool=False, group: int=None, 
                  no_of_drags: str=None, image: B64File=None) -> None:
-        if self.group and self.no_of_drags:
+        if group and no_of_drags:
             return ValueError("Both group and number of drags can\'t be provided to a single obj.")
         self.number = number
         self.text = text
@@ -320,9 +326,9 @@ class DragItem():
         data = {x.tag: x for x in root}
         number = data["no"].text
         text = data["text"].text
-        unlimited = True if data.get("infinite", None) else False
-        group = data.get("draggroup").text if data.get("draggroup") else None
-        no_of_drags = data.get("draggroup").text if data.get("draggroup") else None
+        unlimited = "infinite" in data
+        group = data.get("draggroup").text if "draggroup" in data else None
+        no_of_drags = data.get("noofdrags").text if "noofdrags" in data else None
         image = B64File.from_xml(data.get("file"))
         return cls(number, text, unlimited, group, no_of_drags, image)
 
@@ -347,7 +353,8 @@ class DropZone():
     This class represents DropZone for Questions like QDragAndDropImage.
     """
 
-    def __init__(self, x: int, y: int, text: str, choice: int, number: int):
+    def __init__(self, shape: ShapeType, x: int, y: int, points: str, text: str, 
+                choice: int, number: int) -> None:
         """[summary]
 
         Args:
@@ -359,6 +366,8 @@ class DropZone():
         """
         self.x = x
         self.y = y
+        self.shape = shape
+        self.points = points
         self.text = text
         self.choice = choice
         self.number = number
@@ -366,20 +375,34 @@ class DropZone():
     @classmethod
     def from_xml(cls, root: et.Element) -> "DropZone":
         data = {x.tag: x for x in root}
-        x = data["xleft"]
-        y = data["ytop"]
-        text = data["text"]
-        choice = data["choice"]
-        number = data["no"]
-        return cls(x, y, text, choice, number)
+        if "coords" in data and "shape" in data:
+            shape = ShapeType.get(data["shape"].text)
+            coords = data["coords"].text.split(";", 1)
+            x, y = coords[0].split(",")
+        elif "xleft" in data and "ytop" in data:
+            x = data["xleft"].text
+            y = data["ytop"].text
+            coords = shape = None
+        else:
+            raise AttributeError("One or more coordenates are missing for the DropZone")
+        choice = data["choice"].text
+        number = data["no"].text
+        text = get_txt(data, "text")
+        return cls(shape, x, y, coords[1], text, choice, number)
 
     def to_xml(self) -> et.Element:
         dropzone = et.Element("drop")
-        et.SubElement(dropzone, "text").text = self.text
+        if self.text:
+            et.SubElement(dropzone, "text").text = self.text
         et.SubElement(dropzone, "no").text = str(self.number)
+        if self.shape:
+            et.SubElement(dropzone, "shape").text = self.shape.value
+        if not self.points:
+            et.SubElement(dropzone, "xleft").text = str(self.x)
+            et.SubElement(dropzone, "ytop").text = str(self.y)
+        else:
+            et.SubElement(dropzone, "coords").text = f"{self.x},{self.y};{self.points}"
         et.SubElement(dropzone, "choice").text = str(self.choice)
-        et.SubElement(dropzone, "xleft").text = str(self.x)
-        et.SubElement(dropzone, "ytop").text = str(self.y)
         return dropzone
 
 # ----------------------------------------------------------------------------------------

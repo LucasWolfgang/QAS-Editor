@@ -4,10 +4,7 @@ from .utils import B64File, CombinedFeedback, Dataset, FText, SelectOption, Subq
                     Unit, Hint, Tags, UnitHandling, DropZone, DragItem, get_txt
 from .enums import Status, Distribution, Numbering
 from .answer import Answer, NumericalAnswer, CalculatedAnswer, Choice
-from urllib.request import urlopen
-import base64
 import re
-import os
 # import markdown
 # import latex2mathml
 
@@ -60,7 +57,7 @@ class Question():
         id_number = get_txt(data, "idnumber", None)
         shuffle = bool(get_txt(data, "shuffleanswers", 0))
         penalty = float(get_txt(data, "penalty", 0))
-        tags = Tags.from_xml(data.get("Tags"))
+        tags = Tags.from_xml(data.get("tags"))
         question = cls(*args, name, question, grade, feedback, id_number, shuffle, penalty, tags)
         for h in root.findall("hint"):
             question.hints.append(Hint.from_xml(h))
@@ -74,17 +71,18 @@ class Question():
         question.set("type", self._type)
         name = et.SubElement(question, "name")
         et.SubElement(name, "text").text = str(self.name)
-        if isinstance(self.question_text, str):
-            print(self.question_text, self.default_grade, self.penalty, self)
         self.question_text.to_xml(question, "questiontext")
-        et.SubElement(question, "defaultgrade").text = str(self.default_grade)
         self.general_feedback.to_xml(question, "generalfeedback")
+        et.SubElement(question, "defaultgrade").text = str(self.default_grade)
+        et.SubElement(question, "penalty").text = str(self.penalty)
         et.SubElement(question, "hidden").text = "0"
         et.SubElement(question, "idnumber").text = self.id_number
-        et.SubElement(question, "shuffleanswers").text = str(self.shuffle).lower()
-        et.SubElement(question, "penalty").text = str(self.penalty)
+        if self.shuffle:
+            et.SubElement(question, "shuffleanswers").text = str(int(self.shuffle))
         for h in self.hints:
             question.append(h.to_xml())
+        if self.tags:
+            question.append(self.tags.to_xml())
         return question
 
 # ----------------------------------------------------------------------------------------
@@ -360,7 +358,7 @@ class QDragAndDropMarker(Question):
     _type = "ddmarker"
 
     def __init__(self, background: B64File, combined_feedback: CombinedFeedback=None, 
-                *args, **kwargs):
+                highlight_empty: bool=False, *args, **kwargs):
         """Creates an drag and drop onto image type of question.
 
         Args:
@@ -369,7 +367,9 @@ class QDragAndDropMarker(Question):
         super().__init__(*args, **kwargs)
         self.background = background
         self.combined_feedback = combined_feedback
+        self.highlight_empty = highlight_empty
         self._dragitems: List[DragItem] = []
+        self._dropzones: List[DropZone] = []
 
     def add_dragmarker(self, text: str, no_of_drags: str, unlimited: bool=False):
         """[summary]
@@ -386,15 +386,24 @@ class QDragAndDropMarker(Question):
     def from_xml(cls, root: et.Element) -> "QDragAndDropMarker":
         data = {x.tag: x for x in root}
         background = B64File.from_xml(data.get("file"))
+        highlight = "showmisplaced" in data
         combined_feedback = CombinedFeedback.from_xml(root)
-        question = super().from_xml(root, background, combined_feedback)
+        question: "QDragAndDropMarker" = super().from_xml(root, background, combined_feedback, highlight)
+        for dragitem in root.findall("drag"):
+            question._dragitems.append(DragItem.from_xml(dragitem))
+        for dropzone in root.findall("drop"):
+            question._dropzones.append(DropZone.from_xml(dropzone))
         return question
 
     def to_xml(self):
         question = super().to_xml()
+        if self.highlight_empty:
+            et.SubElement(question, "showmisplaced")
         self.combined_feedback.to_xml(question)
         for dragitem in self._dragitems:
             question.append(dragitem.to_xml())
+        for dropzone in self._dropzones:
+            question.append(dropzone.to_xml())
         if self.background:
             question.append(self.background.to_xml())
         return question
@@ -621,7 +630,7 @@ class QMultichoice(Question):
                 elif match[2]:
                     raise ValueError("No answer defined for the question")
                 elif match[4]:
-                    if not question:
+                    if question is None:
                         question = QMultichoice(answer_numbering, name=name,
                                                 question_text=data, category=category,
                                                 shuffle=shuffle_answers)

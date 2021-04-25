@@ -1,17 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <quiz>
-<!-- question: 0  -->
   <question type="category">
     <category>
         <text>$course$/moodle2amc</text>
-
     </category>
   </question>
-
-<!-- question: 10022  -->
   <question type="essay">
     <name>
-      <text>Essai</text>
+      <text>Essai1</text>
     </name>
     <questiontext format="html">
       <text><![CDATA[Explain in few words the aim of this course.<br>]]></text>
@@ -34,10 +30,9 @@
       <text></text>
     </responsetemplate>
   </question>
-
   <question type="ddwtos">
     <name>
-      <text><![CDATA[U1 p8-9 Reading "Coachella" #6]]></text>
+      <text>U1 p8-9 Reading "Coachella" #6</text>
     </name>
     <questiontext format="html">
       <text><![CDATA[<p><em>Six sentences have been removed from the article. Choose from sentences A - G the one which first each gap. There is one extra sentence which you do not need to use.</em></p>
@@ -98,8 +93,6 @@
       <group>1</group>
     </dragbox>
   </question>
-
-<!-- question: 1360  -->
   <question type="ddmarker">
     <name>
       <text>Drag and drop markers test</text>
@@ -174,27 +167,23 @@
       <tag><text>Advanced</text></tag>
     </tags>
   </question>
-
-<!-- question: 0  -->
   <question type="category">
     <category>
         <text>$course$/moodle2amc</text>
 
     </category>
   </question>
-
-<!-- question: 10022  -->
   <question type="essay">
     <name>
-      <text>Essai</text>
+      <text>Essai2</text>
     </name>
     <questiontext format="html">
       <text><![CDATA[Explain in few words the aim of this course.<br>]]></text>
     </questiontext>
+    <defaultgrade>1.2000000</defaultgrade>
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.2000000</defaultgrade>
     <penalty>0.0000000</penalty>
     <hidden>0</hidden>
     <responseformat>editor</responseformat>
@@ -209,16 +198,14 @@
       <text></text>
     </responsetemplate>
   </question>
-
-<!-- question: 9549  -->
   <question type="multichoice">
     <name>
       <text>html layout</text>
     </name>
     <questiontext format="html">
       <text><![CDATA[<p>a link <a href="https://github.com/nennigb/amc2moodle">here </a>and an image <img src="@@PLUGINFILE@@/4.png" alt="" role="presentation" style="">and an equation \( \int_{2\pi} x^2 \mathrm{d} x \)</p><p style="text-align: center;">centered text</p><p style="text-align: left;">flush left text</p><p style="text-align: right;">flush right text</p><p style="text-align: left;">In moodle editor, there is also <sub>exponent</sub> and <sup>indice</sup> and <strike>that</strike></p><p style="text-align: left;">and svg file <img src="@@PLUGINFILE@@/dessin.svg" alt="escargot" style="vertical-align:text-bottom; margin: 0 .5em;" class="img-responsive" width="100" height="141"><br></p>]]></text>
-    <file name="4.png" path="/" encoding="base64">iVBORw0KGgoAAAANSUhEUgAAACsAAAAzCAYAAAAO2PE2AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAPYQAAD2EBqD+naQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAASdSURBVGiBzZlbaB1VFIa/fZq0pa0xJlpKWhsraoO0TVOhRbzE3hBrQSKCVB8EIyXGFysU7JNPKgUFLw/FhwgipghVvIBFbQUfilSokkbTKtFSL9WI0caS5FjT/D7sPWafk5k5Zy4x+WExe/Zas+afvdesNXs2kgBtBr0H2iKJuSSgZf+1XUc32DNQP2g3aNEsk1wAehlUBN3nk33JIxvIMGg/qHkWiLaA+jwuAyATKD8KIRvIBOgtUPv/RLQTNFrGYbM/smdjyPrSB3oEVJ8zQQO6G/RJyD17puzQItBklWQDuehmoxvUlIHkYufjm4j7DIEaAnsDagO+ID0E9AFfAicDkfi93NAYlgIbPNkCXBHj+wGJg/69diUc1Wpl0s3AOOgC6K+E1x8un4kaoDnDqMbBALVOkmIC6C7vLAD1GUnNBN6XOFPeOVfJHgjrLBAf4FVgBBjI5qIUg8CRMEXGkT0GtDkZSu+mFK9IKEKn4+ne9oOCWgGCNYJLeWSQIqgxOi+jb5M7/VgwzxFF8E5e6a43voigc8kcfi9o8Ijekmdu3h1HtuBuWiXGgA7gD69vT9KYjMOJOGUBuFS9ry5sZfXRkJhRBP4B+uMMEpB9DXjdtf2itDAFr1D0S1yMMygAk5X9nAYec+1WYK+ny41sbAhAVSNbBO4HRoGrgHeBGzx9TWp2ZThdyaCKkX0C+9VngF7sd89yT/93anZlmKhkUGFkP2CqTO8Btrn2lZ7NeDpq01ExHGPIDgOdrr0OeMbT+RmgmI7adFRMoTVEPtGjwK/YF6gXWODpfLLnvHYROAR8hc3Hm3IlC+jE9Eryhlehng2pNMOefqvgRcEuQaPXXyv4Okn16qq8ZkOfl140JKh3N1wpGA9x/IJHKkpWCX5MQvapSmRDwmAfcN61n8ZO/3fYNHgE+BD4IWSGGoF24HZ3XF/FrJZgTRU2Ojb1dH0C443OJsGSCiO4UXBUMJH1I2Yg4cgeojTOj3ttA7QAG7Ev0puufy12RZ0Z1xvD/LiSW0NJ6moDVmO/rppce73r3wDUObsLHtnRPIgGXFqwFSjSYGTqtMNJJVyGjdFh7IPlhlZiyBZg+p+T6rDKHUdirRJiR5wyA9lmd/w53eXh2GEM86OUBexcpsA17vhTusvDUQdsjVLmMLJF4Ld0LsIR+dJkINvqtT9L5yIc9xhDIUyRgexNwDzXPprORTiWAveGKTLE7GLgLtc+m85FNPZF9KsxfYk8JegUDGYttWFyZ3m5NaACdhkcGieziE8l7vA7ChKTlP61mCtoN4ab/Y5gNFPG7YyjJHYDskkywhj2/+YgcIocV4wh2GkMa4OTYNEfR3YceBt4FRtHJQtMlxNXYr+YVmMT8Dbg6hzIGuBJ4EEAt7ZRT8jb+CeoC3R5yj2uG0GPgw6DxjJkhQnQtf4O4/4yg19A63LcQVwI2g56DnQyBeEDPtm9nuIM6Lo8tztDyDeBHnIzGrW76EsRtMxIwhgeBnqwOxnbpZKfATMOt/N4K3Abdp20HFgBLPHMng/IdmB/De6U5k7ONYY6LOkVQH1Atgk4L+W7Rskb/wJ+MRR3+5VIKgAAAABJRU5ErkJggg==</file>
-    <file name="dessin.svg" path="/" encoding="base64">PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhLS0gQ3JlYXRlZCB3aXRoIElua3NjYXBlIChodHRwOi8vd3d3Lmlua3NjYXBlLm9yZy8pIC0tPgoKPHN2ZwogICB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iCiAgIHhtbG5zOmNjPSJodHRwOi8vY3JlYXRpdmVjb21tb25zLm9yZy9ucyMiCiAgIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyIKICAgeG1sbnM6c3ZnPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICB4bWxuczpzb2RpcG9kaT0iaHR0cDovL3NvZGlwb2RpLnNvdXJjZWZvcmdlLm5ldC9EVEQvc29kaXBvZGktMC5kdGQiCiAgIHhtbG5zOmlua3NjYXBlPSJodHRwOi8vd3d3Lmlua3NjYXBlLm9yZy9uYW1lc3BhY2VzL2lua3NjYXBlIgogICB3aWR0aD0iMjEwbW0iCiAgIGhlaWdodD0iMjk3bW0iCiAgIHZpZXdCb3g9IjAgMCA3NDQuMDk0NDg4MTkgMTA1Mi4zNjIyMDQ3IgogICBpZD0ic3ZnMiIKICAgdmVyc2lvbj0iMS4xIgogICBpbmtzY2FwZTp2ZXJzaW9uPSIwLjkxIHIxMzcyNSIKICAgc29kaXBvZGk6ZG9jbmFtZT0iZGVzc2luLnN2ZyI+CiAgPGRlZnMKICAgICBpZD0iZGVmczQiIC8+CiAgPHNvZGlwb2RpOm5hbWVkdmlldwogICAgIGlkPSJiYXNlIgogICAgIHBhZ2Vjb2xvcj0iI2ZmZmZmZiIKICAgICBib3JkZXJjb2xvcj0iIzY2NjY2NiIKICAgICBib3JkZXJvcGFjaXR5PSIxLjAiCiAgICAgaW5rc2NhcGU6cGFnZW9wYWNpdHk9IjAuMCIKICAgICBpbmtzY2FwZTpwYWdlc2hhZG93PSIyIgogICAgIGlua3NjYXBlOnpvb209IjEuOTc5ODk5IgogICAgIGlua3NjYXBlOmN4PSIxMzMuNjA0NjYiCiAgICAgaW5rc2NhcGU6Y3k9IjY5OS40NjgxIgogICAgIGlua3NjYXBlOmRvY3VtZW50LXVuaXRzPSJweCIKICAgICBpbmtzY2FwZTpjdXJyZW50LWxheWVyPSJsYXllcjEiCiAgICAgc2hvd2dyaWQ9ImZhbHNlIgogICAgIGlua3NjYXBlOndpbmRvdy13aWR0aD0iMTkyMCIKICAgICBpbmtzY2FwZTp3aW5kb3ctaGVpZ2h0PSIxMDMwIgogICAgIGlua3NjYXBlOndpbmRvdy14PSIwIgogICAgIGlua3NjYXBlOndpbmRvdy15PSIwIgogICAgIGlua3NjYXBlOndpbmRvdy1tYXhpbWl6ZWQ9IjEiIC8+CiAgPG1ldGFkYXRhCiAgICAgaWQ9Im1ldGFkYXRhNyI+CiAgICA8cmRmOlJERj4KICAgICAgPGNjOldvcmsKICAgICAgICAgcmRmOmFib3V0PSIiPgogICAgICAgIDxkYzpmb3JtYXQ+aW1hZ2Uvc3ZnK3htbDwvZGM6Zm9ybWF0PgogICAgICAgIDxkYzp0eXBlCiAgICAgICAgICAgcmRmOnJlc291cmNlPSJodHRwOi8vcHVybC5vcmcvZGMvZGNtaXR5cGUvU3RpbGxJbWFnZSIgLz4KICAgICAgICA8ZGM6dGl0bGU+PC9kYzp0aXRsZT4KICAgICAgPC9jYzpXb3JrPgogICAgPC9yZGY6UkRGPgogIDwvbWV0YWRhdGE+CiAgPGcKICAgICBpbmtzY2FwZTpsYWJlbD0iQ2FscXVlIDEiCiAgICAgaW5rc2NhcGU6Z3JvdXBtb2RlPSJsYXllciIKICAgICBpZD0ibGF5ZXIxIj4KICAgIDxwYXRoCiAgICAgICBzdHlsZT0iZmlsbDojY2NjY2NjO2ZpbGwtcnVsZTpldmVub2RkO3N0cm9rZTpub25lO3N0cm9rZS13aWR0aDoxcHg7c3Ryb2tlLWxpbmVjYXA6YnV0dDtzdHJva2UtbGluZWpvaW46bWl0ZXI7c3Ryb2tlLW9wYWNpdHk6MSIKICAgICAgIGQ9Im0gOTYuNDMzNzY3LDI4NS40NzQwMyBjIDE1LjQ3NjI0MywzNi45OTg4MSAxNzEuNTQzMTAzLC0zMy4xOTQ3IDIwMy4wOTYyOTMsLTYxLjI1MjcyIDMxLjU1MzIsLTI4LjA1ODAyIDMzLjkwNDkyLC00MS4wOTUwOSAxMC41MjY3OCwtNDcuMzA4MzQgLTIzLjM3ODE0LC02LjIxMzI1IC00My4yNjM2MSwzNC44MzgwNCAtNzguNzQ0ODIsNTMuNzU5OCAtMzUuNDgxMjEsMTguOTIxNzUgLTE1MC4zNTQ0OTIsMTcuODAyNDUgLTEzNC44NzgyNTMsNTQuODAxMjYgeiIKICAgICAgIGlkPSJwYXRoNDEzOCIKICAgICAgIGlua3NjYXBlOmNvbm5lY3Rvci1jdXJ2YXR1cmU9IjAiCiAgICAgICBzb2RpcG9kaTpub2RldHlwZXM9Inp6enp6IiAvPgogICAgPHBhdGgKICAgICAgIHNvZGlwb2RpOnR5cGU9InNwaXJhbCIKICAgICAgIHN0eWxlPSJmaWxsOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpidXR0O3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2Utb3BhY2l0eToxIgogICAgICAgaWQ9InBhdGg0MTM2IgogICAgICAgc29kaXBvZGk6Y3g9IjE3MS40Mjg1NyIKICAgICAgIHNvZGlwb2RpOmN5PSIxOTguMDc2NDkiCiAgICAgICBzb2RpcG9kaTpleHBhbnNpb249IjEiCiAgICAgICBzb2RpcG9kaTpyZXZvbHV0aW9uPSIzIgogICAgICAgc29kaXBvZGk6cmFkaXVzPSI3MS40Mjg1NzQiCiAgICAgICBzb2RpcG9kaTphcmd1bWVudD0iLTE4LjIwNjA1NSIKICAgICAgIHNvZGlwb2RpOnQwPSIwIgogICAgICAgZD0ibSAxNzEuNDI4NTcsMTk4LjA3NjQ5IGMgMi44NjUwNiwyLjE0ODc5IC0xLjQ4MzAxLDQuOTIyMTcgLTMuNTcxNDMsNC43NjE5MSAtNS42NTk0OCwtMC40MzQzMSAtNy41NDUwNiwtNy4zMzQ1NyAtNS45NTIzOCwtMTEuOTA0NzcgMi44NDg5NCwtOC4xNzUgMTIuOTQzNjcsLTEwLjUyNzEzIDIwLjIzODEsLTcuMTQyODUgMTAuNzA0ODcsNC45NjY1NiAxMy41ODQsMTguNjIzOTQgOC4zMzMzMywyOC41NzE0MyAtNi45OTgzMiwxMy4yNTg0MyAtMjQuMzI4ODUsMTYuNjcxOTMgLTM2LjkwNDc2LDkuNTIzOCAtMTUuODI1NTEsLTguOTk1MTggLTE5Ljc3NTc2LC0zMC4wNDUzMyAtMTAuNzE0MjgsLTQ1LjIzODA5IDEwLjk3NDY2LC0xOC40MDA0NyAzNS43NjgzMSwtMjIuODg4NzcgNTMuNTcxNDMsLTExLjkwNDc2IDIwLjk4MDM1LDEyLjk0NDI4IDI2LjAwNzUzLDQxLjQ5NTM0IDEzLjA5NTIzLDYxLjkwNDc3IC0xNC45MDc3NiwyMy41NjM0OSAtNDcuMjI1MDUsMjkuMTMwMTMgLTcwLjIzODEsMTQuMjg1NyAtMjYuMTQ4ODgsLTE2Ljg2NzE4IC0zMi4yNTU0MiwtNTIuOTU2NjcgLTE1LjQ3NjE4LC03OC41NzE0MyAxOC44MjM3NywtMjguNzM1OSA1OC42ODk2NywtMzUuMzgyNjcgODYuOTA0NzcsLTE2LjY2NjY2IDMxLjMyNDExLDIwLjc3ODMyIDM4LjUxMTM3LDY0LjQyMzcxIDE3Ljg1NzEzLDk1LjIzODEiIC8+CiAgPC9nPgo8L3N2Zz4K</file>
+    <file encoding="base64" name="4.png" path="/">iVBORw0KGgoAAAANSUhEUgAAACsAAAAzCAYAAAAO2PE2AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAPYQAAD2EBqD+naQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAASdSURBVGiBzZlbaB1VFIa/fZq0pa0xJlpKWhsraoO0TVOhRbzE3hBrQSKCVB8EIyXGFysU7JNPKgUFLw/FhwgipghVvIBFbQUfilSokkbTKtFSL9WI0caS5FjT/D7sPWafk5k5Zy4x+WExe/Zas+afvdesNXs2kgBtBr0H2iKJuSSgZf+1XUc32DNQP2g3aNEsk1wAehlUBN3nk33JIxvIMGg/qHkWiLaA+jwuAyATKD8KIRvIBOgtUPv/RLQTNFrGYbM/smdjyPrSB3oEVJ8zQQO6G/RJyD17puzQItBklWQDuehmoxvUlIHkYufjm4j7DIEaAnsDagO+ID0E9AFfAicDkfi93NAYlgIbPNkCXBHj+wGJg/69diUc1Wpl0s3AOOgC6K+E1x8un4kaoDnDqMbBALVOkmIC6C7vLAD1GUnNBN6XOFPeOVfJHgjrLBAf4FVgBBjI5qIUg8CRMEXGkT0GtDkZSu+mFK9IKEKn4+ne9oOCWgGCNYJLeWSQIqgxOi+jb5M7/VgwzxFF8E5e6a43voigc8kcfi9o8Ijekmdu3h1HtuBuWiXGgA7gD69vT9KYjMOJOGUBuFS9ry5sZfXRkJhRBP4B+uMMEpB9DXjdtf2itDAFr1D0S1yMMygAk5X9nAYec+1WYK+ny41sbAhAVSNbBO4HRoGrgHeBGzx9TWp2ZThdyaCKkX0C+9VngF7sd89yT/93anZlmKhkUGFkP2CqTO8Btrn2lZ7NeDpq01ExHGPIDgOdrr0OeMbT+RmgmI7adFRMoTVEPtGjwK/YF6gXWODpfLLnvHYROAR8hc3Hm3IlC+jE9Eryhlehng2pNMOefqvgRcEuQaPXXyv4Okn16qq8ZkOfl140JKh3N1wpGA9x/IJHKkpWCX5MQvapSmRDwmAfcN61n8ZO/3fYNHgE+BD4IWSGGoF24HZ3XF/FrJZgTRU2Ojb1dH0C443OJsGSCiO4UXBUMJH1I2Yg4cgeojTOj3ttA7QAG7Ev0puufy12RZ0Z1xvD/LiSW0NJ6moDVmO/rppce73r3wDUObsLHtnRPIgGXFqwFSjSYGTqtMNJJVyGjdFh7IPlhlZiyBZg+p+T6rDKHUdirRJiR5wyA9lmd/w53eXh2GEM86OUBexcpsA17vhTusvDUQdsjVLmMLJF4Ld0LsIR+dJkINvqtT9L5yIc9xhDIUyRgexNwDzXPprORTiWAveGKTLE7GLgLtc+m85FNPZF9KsxfYk8JegUDGYttWFyZ3m5NaACdhkcGieziE8l7vA7ChKTlP61mCtoN4ab/Y5gNFPG7YyjJHYDskkywhj2/+YgcIocV4wh2GkMa4OTYNEfR3YceBt4FRtHJQtMlxNXYr+YVmMT8Dbg6hzIGuBJ4EEAt7ZRT8jb+CeoC3R5yj2uG0GPgw6DxjJkhQnQtf4O4/4yg19A63LcQVwI2g56DnQyBeEDPtm9nuIM6Lo8tztDyDeBHnIzGrW76EsRtMxIwhgeBnqwOxnbpZKfATMOt/N4K3Abdp20HFgBLPHMng/IdmB/De6U5k7ONYY6LOkVQH1Atgk4L+W7Rskb/wJ+MRR3+5VIKgAAAABJRU5ErkJggg==</file>
+    <file encoding="base64" name="dessin.svg" path="/">PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjwhLS0gQ3JlYXRlZCB3aXRoIElua3NjYXBlIChodHRwOi8vd3d3Lmlua3NjYXBlLm9yZy8pIC0tPgoKPHN2ZwogICB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iCiAgIHhtbG5zOmNjPSJodHRwOi8vY3JlYXRpdmVjb21tb25zLm9yZy9ucyMiCiAgIHhtbG5zOnJkZj0iaHR0cDovL3d3dy53My5vcmcvMTk5OS8wMi8yMi1yZGYtc3ludGF4LW5zIyIKICAgeG1sbnM6c3ZnPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICB4bWxuczpzb2RpcG9kaT0iaHR0cDovL3NvZGlwb2RpLnNvdXJjZWZvcmdlLm5ldC9EVEQvc29kaXBvZGktMC5kdGQiCiAgIHhtbG5zOmlua3NjYXBlPSJodHRwOi8vd3d3Lmlua3NjYXBlLm9yZy9uYW1lc3BhY2VzL2lua3NjYXBlIgogICB3aWR0aD0iMjEwbW0iCiAgIGhlaWdodD0iMjk3bW0iCiAgIHZpZXdCb3g9IjAgMCA3NDQuMDk0NDg4MTkgMTA1Mi4zNjIyMDQ3IgogICBpZD0ic3ZnMiIKICAgdmVyc2lvbj0iMS4xIgogICBpbmtzY2FwZTp2ZXJzaW9uPSIwLjkxIHIxMzcyNSIKICAgc29kaXBvZGk6ZG9jbmFtZT0iZGVzc2luLnN2ZyI+CiAgPGRlZnMKICAgICBpZD0iZGVmczQiIC8+CiAgPHNvZGlwb2RpOm5hbWVkdmlldwogICAgIGlkPSJiYXNlIgogICAgIHBhZ2Vjb2xvcj0iI2ZmZmZmZiIKICAgICBib3JkZXJjb2xvcj0iIzY2NjY2NiIKICAgICBib3JkZXJvcGFjaXR5PSIxLjAiCiAgICAgaW5rc2NhcGU6cGFnZW9wYWNpdHk9IjAuMCIKICAgICBpbmtzY2FwZTpwYWdlc2hhZG93PSIyIgogICAgIGlua3NjYXBlOnpvb209IjEuOTc5ODk5IgogICAgIGlua3NjYXBlOmN4PSIxMzMuNjA0NjYiCiAgICAgaW5rc2NhcGU6Y3k9IjY5OS40NjgxIgogICAgIGlua3NjYXBlOmRvY3VtZW50LXVuaXRzPSJweCIKICAgICBpbmtzY2FwZTpjdXJyZW50LWxheWVyPSJsYXllcjEiCiAgICAgc2hvd2dyaWQ9ImZhbHNlIgogICAgIGlua3NjYXBlOndpbmRvdy13aWR0aD0iMTkyMCIKICAgICBpbmtzY2FwZTp3aW5kb3ctaGVpZ2h0PSIxMDMwIgogICAgIGlua3NjYXBlOndpbmRvdy14PSIwIgogICAgIGlua3NjYXBlOndpbmRvdy15PSIwIgogICAgIGlua3NjYXBlOndpbmRvdy1tYXhpbWl6ZWQ9IjEiIC8+CiAgPG1ldGFkYXRhCiAgICAgaWQ9Im1ldGFkYXRhNyI+CiAgICA8cmRmOlJERj4KICAgICAgPGNjOldvcmsKICAgICAgICAgcmRmOmFib3V0PSIiPgogICAgICAgIDxkYzpmb3JtYXQ+aW1hZ2Uvc3ZnK3htbDwvZGM6Zm9ybWF0PgogICAgICAgIDxkYzp0eXBlCiAgICAgICAgICAgcmRmOnJlc291cmNlPSJodHRwOi8vcHVybC5vcmcvZGMvZGNtaXR5cGUvU3RpbGxJbWFnZSIgLz4KICAgICAgICA8ZGM6dGl0bGU+PC9kYzp0aXRsZT4KICAgICAgPC9jYzpXb3JrPgogICAgPC9yZGY6UkRGPgogIDwvbWV0YWRhdGE+CiAgPGcKICAgICBpbmtzY2FwZTpsYWJlbD0iQ2FscXVlIDEiCiAgICAgaW5rc2NhcGU6Z3JvdXBtb2RlPSJsYXllciIKICAgICBpZD0ibGF5ZXIxIj4KICAgIDxwYXRoCiAgICAgICBzdHlsZT0iZmlsbDojY2NjY2NjO2ZpbGwtcnVsZTpldmVub2RkO3N0cm9rZTpub25lO3N0cm9rZS13aWR0aDoxcHg7c3Ryb2tlLWxpbmVjYXA6YnV0dDtzdHJva2UtbGluZWpvaW46bWl0ZXI7c3Ryb2tlLW9wYWNpdHk6MSIKICAgICAgIGQ9Im0gOTYuNDMzNzY3LDI4NS40NzQwMyBjIDE1LjQ3NjI0MywzNi45OTg4MSAxNzEuNTQzMTAzLC0zMy4xOTQ3IDIwMy4wOTYyOTMsLTYxLjI1MjcyIDMxLjU1MzIsLTI4LjA1ODAyIDMzLjkwNDkyLC00MS4wOTUwOSAxMC41MjY3OCwtNDcuMzA4MzQgLTIzLjM3ODE0LC02LjIxMzI1IC00My4yNjM2MSwzNC44MzgwNCAtNzguNzQ0ODIsNTMuNzU5OCAtMzUuNDgxMjEsMTguOTIxNzUgLTE1MC4zNTQ0OTIsMTcuODAyNDUgLTEzNC44NzgyNTMsNTQuODAxMjYgeiIKICAgICAgIGlkPSJwYXRoNDEzOCIKICAgICAgIGlua3NjYXBlOmNvbm5lY3Rvci1jdXJ2YXR1cmU9IjAiCiAgICAgICBzb2RpcG9kaTpub2RldHlwZXM9Inp6enp6IiAvPgogICAgPHBhdGgKICAgICAgIHNvZGlwb2RpOnR5cGU9InNwaXJhbCIKICAgICAgIHN0eWxlPSJmaWxsOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7c3Ryb2tlOiMwMDAwMDA7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpidXR0O3N0cm9rZS1saW5lam9pbjptaXRlcjtzdHJva2Utb3BhY2l0eToxIgogICAgICAgaWQ9InBhdGg0MTM2IgogICAgICAgc29kaXBvZGk6Y3g9IjE3MS40Mjg1NyIKICAgICAgIHNvZGlwb2RpOmN5PSIxOTguMDc2NDkiCiAgICAgICBzb2RpcG9kaTpleHBhbnNpb249IjEiCiAgICAgICBzb2RpcG9kaTpyZXZvbHV0aW9uPSIzIgogICAgICAgc29kaXBvZGk6cmFkaXVzPSI3MS40Mjg1NzQiCiAgICAgICBzb2RpcG9kaTphcmd1bWVudD0iLTE4LjIwNjA1NSIKICAgICAgIHNvZGlwb2RpOnQwPSIwIgogICAgICAgZD0ibSAxNzEuNDI4NTcsMTk4LjA3NjQ5IGMgMi44NjUwNiwyLjE0ODc5IC0xLjQ4MzAxLDQuOTIyMTcgLTMuNTcxNDMsNC43NjE5MSAtNS42NTk0OCwtMC40MzQzMSAtNy41NDUwNiwtNy4zMzQ1NyAtNS45NTIzOCwtMTEuOTA0NzcgMi44NDg5NCwtOC4xNzUgMTIuOTQzNjcsLTEwLjUyNzEzIDIwLjIzODEsLTcuMTQyODUgMTAuNzA0ODcsNC45NjY1NiAxMy41ODQsMTguNjIzOTQgOC4zMzMzMywyOC41NzE0MyAtNi45OTgzMiwxMy4yNTg0MyAtMjQuMzI4ODUsMTYuNjcxOTMgLTM2LjkwNDc2LDkuNTIzOCAtMTUuODI1NTEsLTguOTk1MTggLTE5Ljc3NTc2LC0zMC4wNDUzMyAtMTAuNzE0MjgsLTQ1LjIzODA5IDEwLjk3NDY2LC0xOC40MDA0NyAzNS43NjgzMSwtMjIuODg4NzcgNTMuNTcxNDMsLTExLjkwNDc2IDIwLjk4MDM1LDEyLjk0NDI4IDI2LjAwNzUzLDQxLjQ5NTM0IDEzLjA5NTIzLDYxLjkwNDc3IC0xNC45MDc3NiwyMy41NjM0OSAtNDcuMjI1MDUsMjkuMTMwMTMgLTcwLjIzODEsMTQuMjg1NyAtMjYuMTQ4ODgsLTE2Ljg2NzE4IC0zMi4yNTU0MiwtNTIuOTU2NjcgLTE1LjQ3NjE4LC03OC41NzE0MyAxOC44MjM3NywtMjguNzM1OSA1OC42ODk2NywtMzUuMzgyNjcgODYuOTA0NzcsLTE2LjY2NjY2IDMxLjMyNDExLDIwLjc3ODMyIDM4LjUxMTM3LDY0LjQyMzcxIDE3Ljg1NzEzLDk1LjIzODEiIC8+CiAgPC9nPgo8L3N2Zz4K</file>
     </questiontext>
     <generalfeedback format="html">
       <text></text>
@@ -270,8 +257,6 @@
       </feedback>
     </answer>
   </question>
-
-<!-- question: 9537  -->
   <question type="multichoice">
     <name>
       <text>table</text>
@@ -379,8 +364,6 @@
       </feedback>
     </answer>
   </question>
-
-<!-- question: CODE  -->
   <question type="multichoice">
     <name>
       <text>code</text>
@@ -428,8 +411,6 @@
       </feedback>
     </answer>
   </question>
-  
- <!-- Example of description question --> 
   <question type="description">
     <name>
       <text>ProblemDescription</text>
@@ -445,15 +426,11 @@
     <hidden>0</hidden>
     <idnumber></idnumber>
   </question>  
-    
-  <!-- question: 0  -->
   <question type="category">
     <category>
         <text>$course$/moodle2amc/num</text>
     </category>
   </question>
-
-  <!-- Example of numerical question  -->
   <question type="numerical">
     <name>
       <text>num:int</text>
@@ -480,8 +457,6 @@
     <showunits>3</showunits>
     <unitsleft>0</unitsleft>
   </question>
-
-  <!-- Example of numerical question  -->
   <question type="numerical">
     <name>
       <text>num:float</text>
@@ -508,8 +483,6 @@
     <showunits>3</showunits>
     <unitsleft>0</unitsleft>
   </question>
- 
-    <!-- Example of numerical question with 2 answer (usefull for feedback)  -->
   <question type="numerical">
     <name>
       <text>num:2ans</text>
@@ -543,8 +516,6 @@
     <showunits>3</showunits>
     <unitsleft>0</unitsleft>
   </question>
-
-    <!-- Example of numerical question with 2 rounding levels  -->
   <question type="numerical">
     <name>
       <text>num:2rounding</text>
@@ -578,15 +549,11 @@
     <showunits>3</showunits>
     <unitsleft>0</unitsleft>
   </question>  
-
-<!-- question: 0  -->
   <question type="category">
     <category>
         <text>$course$/moodle2amc/calculated</text>
     </category>
   </question>
-
-<!-- question: 990  -->
    <question type="calculated">
       <name><text>Calculated</text></name>
       <questiontext format="html">
@@ -1860,8 +1827,6 @@
          </dataset_definition>
       </dataset_definitions>
    </question>
-
-<!-- question: 10079  -->
   <question type="calculatedmulti">
     <name>      
       <text>Calculée</text> <!-- Check for accent cleaning  -->
@@ -1965,8 +1930,6 @@
       </dataset_definition>
     </dataset_definitions>
   </question>
-
-<!-- question: 12656  -->
   <question type="calculatedmulti">
     <name>
       <text>CheckComputation</text>
@@ -2054,8 +2017,6 @@
       </dataset_definition>
     </dataset_definitions>
   </question>
-
-<!-- question: 993  -->
   <question type="calculatedsimple">
       <name><text>Simple calculated question</text></name>
       <questiontext format="html">
@@ -2394,8 +2355,6 @@
          <text><![CDATA[<p>Ok -try multiplying them together.</p>]]></text>
       </hint>
   </question>
-
-<!-- question: 999  -->
   <question type="cloze">
     <name>
       <text>Cloze</text>
@@ -2413,14 +2372,11 @@
     <hidden>0</hidden>
     <idnumber></idnumber>
   </question>
-
-<!-- question: 0  -->
   <question type="category">
     <category>
         <text>$course$/moodle2amc/alternative-format</text>
     </category>
   </question>
-<!-- question: with markdown -->
   <question type="multichoice">
     <name>
       <text>markdown</text>
@@ -2431,8 +2387,6 @@ Go to your editor preferences (via the user menu) and select 'Plain text area',
 then in the question box, select Markdown format.
 
 # Main title
-
-
 
 ## Basic text formatting
 
@@ -2446,10 +2400,8 @@ in**distinguish**able
   - top level bullet two
 
 Now numbered list
-
   1. numbered point one
   2. numbered point two
-
 
 ## More advanced features
 test for link [here](https://docs.moodle.org/310/en/Markdown)
@@ -2511,8 +2463,6 @@ markdown.markdown(text, extensions=['extra'])
       </feedback>
     </answer>
   </question>
-
-<!-- plain_text -->
    <question type="multichoice">
     <name>
       <text>plain text</text>
@@ -2560,8 +2510,6 @@ markdown.markdown(text, extensions=['extra'])
       </feedback>
     </answer>
   </question>
-
-<!-- question: 109  -->
   <question type="matching">
     <name>
       <text>h1</text>
@@ -2612,8 +2560,6 @@ markdown.markdown(text, extensions=['extra'])
       </answer>
     </subquestion>
   </question>
-
-<!-- question: 110  -->
   <question type="shortanswer">
     <name>
       <text>h3</text>
@@ -2642,8 +2588,6 @@ markdown.markdown(text, extensions=['extra'])
       </feedback>
     </answer>
   </question>
-
-<!-- question: 1351  -->
   <question type="ddimageortext">
     <name>
       <text>QName</text>
@@ -2696,8 +2640,6 @@ markdown.markdown(text, extensions=['extra'])
       <ytop>0</ytop>
     </drop>
   </question>
-
-<!-- question: 997  -->
   <question type="randomsamatch">
     <name>
       <text>Random short-answer matching</text>
@@ -2728,8 +2670,6 @@ markdown.markdown(text, extensions=['extra'])
       <text><![CDATA[<p>How about looking in the Moodle announcements on the front page of Moodle.org?</p>]]></text>
     </hint>
   </question>
-
-<!-- question: 1012  -->
   <question type="truefalse">
     <name>
       <text>tf</text>
@@ -2762,6 +2702,4 @@ markdown.markdown(text, extensions=['extra'])
       </feedback>
     </answer>
   </question>
-
-
 </quiz>

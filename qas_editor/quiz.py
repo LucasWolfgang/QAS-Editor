@@ -173,7 +173,7 @@ class Quiz:
             match = re.match(regex_exp, lines[-1])
             if match:
                 if match[0]:
-                    if not category or not quiz:
+                    if not category or quiz is None:
                         raise ValueError("No classification defined for this question")
                     quiz.add_question(questions.QMultichoice.from_markdown(
                                         category, lines, regex_exp, 
@@ -183,7 +183,7 @@ class Quiz:
                     category = lines.pop()
                     tmp = category.split("/")
                     tmp.reverse()
-                    if not top_quiz:
+                    if top_quiz is None:
                         top_quiz = Quiz(category_name=tmp[-1])
                     elif top_quiz.category_name != tmp[-1]:
                         raise ValueError("Top classification redefined")
@@ -191,7 +191,7 @@ class Quiz:
                     while tmp:
                         cur_cat = tmp.pop()
                         tmp_quiz = quiz.children.get(cur_cat, None)
-                        if not tmp_quiz:
+                        if tmp_quiz is None:
                             tmp_quiz = Quiz(category_name=cur_cat, parent=quiz)
                         quiz = tmp_quiz
                 elif match[4]:

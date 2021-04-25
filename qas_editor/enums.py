@@ -111,3 +111,17 @@ class Status(Enum):
             if i.value == value:
                 return i
         return None
+
+# ----------------------------------------------------------------------------------------
+
+class ShapeType(Enum):
+    CIRCLE = "circle"
+    RECT = "rectangle"
+    POLY = "polygon"
+
+    @classmethod
+    def get(cls, value: str) -> "Status":
+        for i in cls:
+            if i.value == value:
+                return i
+        return None
