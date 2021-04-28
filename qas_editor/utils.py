@@ -83,8 +83,7 @@ class Subquestion:
 
     def to_xml(self) -> et.Element:
         subquestion = et.Element("subquestion", {"format": self.formatting.value})
-        text = cdata_str(self.text) if self.formatting == Format.HTML else self.text
-        et.SubElement(subquestion, "text").text = text
+        et.SubElement(subquestion, "text").text = cdata_str(self.text)
         answer = et.SubElement(subquestion, "answer")
         et.SubElement(answer, "text").text = self.answer
         return subquestion
@@ -104,7 +103,7 @@ class UnitHandling():
         grading_type = Grading.get(get_txt(data, "unitgradingtype"))
         penalty = get_txt(data, "unitpenalty")
         show = ShowUnits.get(get_txt(data, "showunits"))
-        left = "unitsleft" in data
+        left = bool(data.get("unitsleft",False))
         return cls(grading_type, penalty, show, left)
 
     def to_xml(self, root: et.Element) -> None:
@@ -156,8 +155,7 @@ class FText():
 
     def to_xml(self, root: et.Element, tag: str) -> et.Element:
         elem = et.SubElement(root, tag, {"format": self.formatting.value})
-        text = cdata_str(self.text) if self.formatting == Format.HTML else self.text
-        et.SubElement(elem, "text").text = text
+        et.SubElement(elem, "text").text = cdata_str(self.text)
         for fl in self.bfile:
             elem.append(fl.to_xml())
 
@@ -174,42 +172,45 @@ class Dataset():
         self.minimum = minimum
         self.maximum =  maximum
         self.decimals = decimals
-        self.items: List[float] = []
+        self.items: Dict[str, float] = {}
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Dataset":
         data = {x.tag: x for x in root}
-        status = Status.get(data["status"].text)
-        name = data["name"].text
+        status = Status.get(data["status"][0].text)
+        name = data["name"][0].text
         ctype = data["type"].text
-        distribution = Distribution.get(data["distribution"].text)
-        minimum = data["minimum"].text
-        maximum = data["maximum"].text
-        decimals = data["decimals"].text
+        distribution = Distribution.get(data["distribution"][0].text)
+        minimum = data["minimum"][0].text
+        maximum = data["maximum"][0].text
+        decimals = data["decimals"][0].text
         qst = cls(status, name, ctype, distribution, minimum, maximum, decimals)
         for i in data["dataset_items"]:
-            for v in i:
-                if v.tag == "value":
-                    qst.items.append(v.text)
-                    break
+            _tmp = {v.tag: v for v in i}
+            qst.items[_tmp["number"].text] = float(_tmp["value"].text)
         return qst
 
     def to_xml(self) -> et.Element:
         dataset_definition = et.Element("dataset_definition")
-        et.SubElement(dataset_definition, "status").text = self.status
-        et.SubElement(dataset_definition, "name").text = self.name
+        status = et.SubElement(dataset_definition, "status")
+        et.SubElement(status, "text").text = self.status.value
+        name = et.SubElement(dataset_definition, "name")
+        et.SubElement(name, "text").text = self.name
         et.SubElement(dataset_definition, "type").text = self.type
-        et.SubElement(dataset_definition, "distribution").text = self.distribution
-        et.SubElement(dataset_definition, "minimum").text = self.minimum
-        et.SubElement(dataset_definition, "maximum").text = self.maximum
-        et.SubElement(dataset_definition, "decimals").text = self.decimals
+        distribution = et.SubElement(dataset_definition, "distribution")
+        et.SubElement(distribution, "text").text = self.distribution.value
+        minimum = et.SubElement(dataset_definition, "minimum")
+        et.SubElement(minimum, "text").text= self.minimum
+        maximum = et.SubElement(dataset_definition, "maximum")
+        et.SubElement(maximum, "text").text= self.maximum
+        decimals = et.SubElement(dataset_definition, "decimals")
+        et.SubElement(decimals, "text").text= self.decimals
         et.SubElement(dataset_definition, "itemcount").text = str(len(self.items)) # TODO ?
         dataset_items = et.SubElement(dataset_definition, "dataset_items")
-        for num, item in enumerate(self.items):
-            dataset_item = et.SubElement(dataset_definition, "dataset_item")
-            et.SubElement(dataset_item, "number").text = str(num)
+        for num, item in self.items.items():
+            dataset_item = et.SubElement(dataset_items, "dataset_item")
+            et.SubElement(dataset_item, "number").text = num
             et.SubElement(dataset_item, "value").text = str(item)
-            dataset_items.append(dataset_item)
         et.SubElement(dataset_definition, "number_of_items").text = str(len(self.items)) # TODO ?
         return dataset_definition
 
@@ -261,8 +262,7 @@ class Hint():
 
     def to_xml(self) -> et.Element:
         hint = et.Element("hint", {"format": self.formatting.value})
-        text = cdata_str(self.text) if self.formatting == Format.HTML else self.text
-        et.SubElement(hint, "text").text = text
+        et.SubElement(hint, "text").text = cdata_str(self.text)
         if self.show_correct:
             et.SubElement(hint, "shownumcorrect")
         if self.state_incorrect:
@@ -336,10 +336,10 @@ class DragItem():
         dragitem = et.Element("drag")
         et.SubElement(dragitem, "no").text = str(self.number)
         et.SubElement(dragitem, "text").text = self.text
-        if self.unlimited:
-            et.SubElement(dragitem, "infinite")
         if self.group:
             et.SubElement(dragitem, "draggroup").text = str(self.group)
+        if self.unlimited:
+            et.SubElement(dragitem, "infinite")
         if self.no_of_drags:
             et.SubElement(dragitem, "noofdrags").text = str(self.no_of_drags)
         if self.image:
@@ -364,9 +364,9 @@ class DropZone():
             choice ([type], optional): [description]. Defaults to None.
             number ([type], optional): [description]. Defaults to None.
         """
+        self.shape = shape
         self.x = x
         self.y = y
-        self.shape = shape
         self.points = points
         self.text = text
         self.choice = choice
@@ -379,22 +379,24 @@ class DropZone():
             shape = ShapeType.get(data["shape"].text)
             coords = data["coords"].text.split(";", 1)
             x, y = coords[0].split(",")
+            points = coords[1]
         elif "xleft" in data and "ytop" in data:
             x = data["xleft"].text
             y = data["ytop"].text
-            coords = shape = None
+            points = shape = None
         else:
             raise AttributeError("One or more coordenates are missing for the DropZone")
         choice = data["choice"].text
         number = data["no"].text
         text = get_txt(data, "text")
-        return cls(shape, x, y, coords[1], text, choice, number)
+        return cls(shape, x, y, points, text, choice, number)
 
     def to_xml(self) -> et.Element:
         dropzone = et.Element("drop")
         if self.text:
             et.SubElement(dropzone, "text").text = self.text
         et.SubElement(dropzone, "no").text = str(self.number)
+        et.SubElement(dropzone, "choice").text = str(self.choice)
         if self.shape:
             et.SubElement(dropzone, "shape").text = self.shape.value
         if not self.points:
@@ -402,7 +404,6 @@ class DropZone():
             et.SubElement(dropzone, "ytop").text = str(self.y)
         else:
             et.SubElement(dropzone, "coords").text = f"{self.x},{self.y};{self.points}"
-        et.SubElement(dropzone, "choice").text = str(self.choice)
         return dropzone
 
 # ----------------------------------------------------------------------------------------

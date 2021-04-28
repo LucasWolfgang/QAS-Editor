@@ -217,9 +217,8 @@ class Quiz:
                     cat_cur = cat_list.pop()
                     cat_path += "/" + cat_cur
                     if cat_cur not in quiz.children:
-                        tmp = Quiz(category_name=cat_path)
-                        quiz.children[cat_cur] = tmp
-                        quiz = tmp
+                        quiz.children[cat_cur] = Quiz(category_name=cat_path)
+                    quiz = quiz.children[cat_cur]           
             elif question.get("type") not in qdict:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:

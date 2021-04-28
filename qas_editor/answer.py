@@ -28,8 +28,7 @@ class Answer:
         if self.formatting:
             answer.set("format", self.formatting.value)
         answer.set("fraction", str(self.fraction))
-        text = cdata_str(self.text) if self.formatting == Format.HTML else self.text
-        et.SubElement(answer, "text").text = text
+        et.SubElement(answer, "text").text = cdata_str(self.text)
         self.feedback.to_xml(answer, "feedback")
         return answer
 
@@ -80,8 +79,8 @@ class NumericalAnswer(Answer):
     @classmethod
     def from_xml(cls, root: et.Element, *args) -> "NumericalAnswer":
         data = {x.tag: x for x in root}
-        tolerance = data["tolerance"]
-        answer = super().from_xml(root, tolerance, *args)
+        tolerance = data["tolerance"].text
+        answer = super().from_xml(root, *args, tolerance)
         return answer
 
     def to_xml(self) -> et.Element:
@@ -104,9 +103,9 @@ class CalculatedAnswer(NumericalAnswer):
     @classmethod
     def from_xml(cls, root: et.Element) -> "CalculatedAnswer":
         data = {x.tag: x for x in root}
-        tolerance_type = data["tolerancetype"]
-        correct_answer_format = data["correctanswerformat"]
-        correct_answer_length = data["correctanswerlength"]
+        tolerance_type = data["tolerancetype"].text
+        correct_answer_format = data["correctanswerformat"].text
+        correct_answer_length = data["correctanswerlength"].text
         answer: "CalculatedAnswer" = super().from_xml(root, tolerance_type, 
                                                     correct_answer_format, 
                                                     correct_answer_length)
