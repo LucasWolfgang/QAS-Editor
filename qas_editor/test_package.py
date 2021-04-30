@@ -3,8 +3,6 @@ import unittest
 from .quiz import Quiz
 from xml.etree import ElementTree as et
 
-import pprint
-
 class TestIO(unittest.TestCase):
 
     @classmethod

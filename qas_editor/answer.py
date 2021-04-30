@@ -1,4 +1,5 @@
-from .utils import FText, cdata_str
+from .wrappers import FText
+from .utils import cdata_str
 from .enums import Format
 from xml.etree import ElementTree as et
 

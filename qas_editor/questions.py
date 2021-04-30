@@ -1,7 +1,8 @@
 from typing import List
 from xml.etree import ElementTree as et
-from .utils import B64File, CombinedFeedback, Dataset, FText, SelectOption, Subquestion, \
-                    Unit, Hint, Tags, UnitHandling, DropZone, DragItem, get_txt
+from .wrappers import B64File, CombinedFeedback, Dataset, FText, SelectOption, Subquestion, \
+                    Unit, Hint, Tags, UnitHandling, DropZone, DragItem
+from .utils import get_txt
 from .enums import Status, Distribution, Numbering
 from .answer import Answer, NumericalAnswer, CalculatedAnswer, Choice
 import re

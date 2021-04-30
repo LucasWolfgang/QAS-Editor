@@ -1,9 +1,12 @@
 import re
 import logging
+import json
 from xml.etree import ElementTree as et
 from typing import List, Dict, Iterator
 from .enums import Numbering
 from . import questions
+from enum import Enum
+from pprint import pprint
 
 def _escape_cdata(text):
     try:
@@ -41,6 +44,21 @@ class Quiz:
     def __iter__(self) -> Iterator[str]:
         return  self.children.__iter__()
 
+    def _indent(self, elem: et.Element, level: int=0):
+        i = "\n" + level * "  "
+        if len(elem):
+            if not elem.text or not elem.text.strip():
+                elem.text = i + "  "
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = i
+            for elem in elem:
+                self._indent(elem, level + 1)
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = i
+        else:
+            if level and (not elem.tail or not elem.tail.strip()):
+                elem.tail = i
+
     def _to_xml_element(self, root: et.Element) -> None:
         """[summary]
 
@@ -59,20 +77,18 @@ class Quiz:
         for child in self.children.values():                # Then add children data
             child._to_xml_element(root)
 
-    def _indent(self, elem: et.Element, level: int=0):
-        i = "\n" + level * "  "
-        if len(elem):
-            if not elem.text or not elem.text.strip():
-                elem.text = i + "  "
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
-            for elem in elem:
-                self._indent(elem, level + 1)
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
-        else:
-            if level and (not elem.tail or not elem.tail.strip()):
-                elem.tail = i
+    def _to_json(self, data: dict):
+        for i in data:
+            if isinstance(data[i], list):
+                data[i] = [self._to_json(k.__dict__.copy()) if "__dict__" in dir(k) 
+                            else k for k in data[i]]
+            elif isinstance(data[i], dict):
+                data[i] = self._to_json(data[i])
+            elif "__dict__" in dir(data[i]):
+                data[i] = self._to_json(data[i].__dict__.copy())
+            elif "value" in dir(data[i]):
+                data[i] = data[i].value
+        return data
 
     def add_question(self, question: questions.Question):
         """
@@ -241,6 +257,13 @@ class Quiz:
         if pretty_print:
             self._indent(root)
         quiz.write(file_path, encoding="utf-8", xml_declaration=True, short_empty_elements=False)
+
+    def write_json(self, file_path: str, pretty_print: bool=False) -> None:
+        with open(file_path, "w") as ofile:
+            if pretty_print:
+                json.dump(self._to_json(self.__dict__.copy()), ofile, indent=4)
+            else:
+                json.dump(self._to_json(self.__dict__.copy()), ofile)
 
     def write_pdf(self):
         # TODO
