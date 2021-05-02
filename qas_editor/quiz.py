@@ -1,11 +1,11 @@
+from qas_editor.wrappers import FText
 import re
 import logging
 import json
 from xml.etree import ElementTree as et
 from typing import List, Dict, Iterator
-from .enums import Numbering
+from .enums import Format, Numbering
 from . import questions
-from enum import Enum
 from pprint import pprint
 
 def _escape_cdata(text):
@@ -32,7 +32,7 @@ class Quiz:
     This class represents Quiz as a set of Questions.
     """
 
-    def __init__(self, category_name: str="$course$", category_info: str="",
+    def __init__(self, category_name: str="$course$", category_info: str=None,
                 idnumber: int=None, parent: "Quiz"=None):
         self._questions: List[questions.Question] = []
         self.category_name = category_name
@@ -44,7 +44,27 @@ class Quiz:
     def __iter__(self) -> Iterator[str]:
         return  self.children.__iter__()
 
+    @staticmethod
+    def __gen_hier(top: "Quiz", category: str) -> "Quiz":
+        cat_list = category.split("/")
+        cat_list.reverse()
+        cat_path = cat_list.pop()
+        quiz = top
+        while cat_list:
+            cat_cur = cat_list.pop()
+            cat_path += "/" + cat_cur
+            if cat_cur not in quiz.children:
+                quiz.children[cat_cur] = Quiz(category_name=cat_path)
+            quiz = quiz.children[cat_cur]  
+        return quiz
+
     def _indent(self, elem: et.Element, level: int=0):
+        """[summary]
+
+        Args:
+            elem (et.Element): [description]
+            level (int, optional): [description]. Defaults to 0.
+        """
         i = "\n" + level * "  "
         if len(elem):
             if not elem.text or not elem.text.strip():
@@ -78,6 +98,14 @@ class Quiz:
             child._to_xml_element(root)
 
     def _to_json(self, data: dict):
+        """[summary]
+
+        Args:
+            data (dict): [description]
+
+        Returns:
+            [type]: [description]
+        """
         for i in data:
             if isinstance(data[i], list):
                 data[i] = [self._to_json(k.__dict__.copy()) if "__dict__" in dir(k) 
@@ -102,19 +130,24 @@ class Quiz:
         self._questions.append(question)
 
     def get_hier(self, root:dict) -> None:
+        """[summary]
+
+        Args:
+            root (dict): [description]
+        """
         root[self.category_name] = {"__questions__" : len(self._questions)}
         for child in self.children.values():
             child.get_hier(root[self.category_name])
 
-    @staticmethod
-    def read_aiken(file_path: str) -> "Quiz":
+    @classmethod
+    def read_aiken(cls, file_path: str, category: str="$course$") -> "Quiz":
         """[summary]
 
         Args:
             file_path (str): [description]
         """
         log = logging.getLogger(__name__)
-        quiz = Quiz()
+        quiz = cls(category)
         with open(file_path) as infile:
             lines = infile.readlines()
         lines.reverse()
@@ -136,14 +169,43 @@ class Quiz:
         except IndexError:
             log.exception(f"Failed to import Aiken File. {len(quiz._questions)} questions"
                             " imported. Following question does not have options.")
-        else:
-            log.info(f"Imported Aiken file successfully. {len(quiz._questions)} questions"
-                    " imported.")
         return quiz
 
-    @staticmethod
-    def read_gift(file_path: str):
-        pass
+    @classmethod
+    def read_gift(cls, file_path: str) -> "Quiz":
+        top_quiz = cls()
+        quiz = top_quiz
+        with open(file_path, "r") as ifile:
+            data = "\n" + ifile.read()
+        data = re.sub(r"\n//.*?(?=\n)", "", data)           # Remove comments
+        data = re.sub("(?<!\})\n(?!::)", "", data) + "\n"   # Remove \n inside a question
+        tmp = re.findall(r"(?:\$CATEGORY:\s*(.+))|(?:\:\:(.+?)\:\:(\[.+?\])?(.+?)(?:\{(.*?)(?<!\\)\}(.*?))?)\n", 
+                        data)
+        for i in tmp:
+            # if i[0]:
+            #     quiz = Quiz.__gen_hier(top_quiz, i[0])
+            if not i[0]:
+                question = None
+                ans = re.findall(r"((?<!\\)(?:=|~|TRUE|FALSE|T|F|####|#))(%[\d\.]+%)?((?:(?<=\\)[=~#]|[^~=#])*)", i[4])           
+                if not i[4]:
+                    question = questions.QDescription.from_gift(i, ans)
+                elif not ans:
+                    question = questions.QEssay.from_gift(i, ans)
+                elif ans[0][0] == "#":
+                    question = questions.QNumerical.from_gift(i, ans)
+                elif i[5]:  
+                    question = questions.QMissingWord.from_gift(i, ans)  
+                elif ans[0][0] in ["TRUE", "FALSE", "T", "F"]:               
+                    question = questions.QTrueFalse.from_gift(i, ans)
+                elif all([a[0] in ["=", "#", "####"] for a in ans]):
+                    if re.match(r"(.*?)(?<!\\)->(.*)", ans[0][2]):
+                        question = questions.QMatching.from_gift(i, ans)
+                    else:
+                        question = questions.QShortAnswer.from_gift(i, ans)
+                else:
+                    question = questions.QMultichoice.from_gift(i, ans)
+                quiz.add_question(question)
+        return top_quiz
 
     @staticmethod
     def read_json():
@@ -154,6 +216,7 @@ class Quiz:
 
     @staticmethod
     def read_latex():
+        # TODO
         pass
 
     @staticmethod
@@ -213,11 +276,17 @@ class Quiz:
                 elif match[4]:
                     raise ValueError("Answer found out of a question block.")
 
-    @staticmethod
-    def read_xml(file_path: str) -> "Quiz":
+    @classmethod
+    def read_xml(cls, file_path: str) -> "Quiz":
         """[summary]
+
+        Raises:
+            TypeError: [description]
+
+        Returns:
+            [type]: [description]
         """
-        top_quiz = Quiz()
+        top_quiz = cls()
         quiz = top_quiz
         data_root = et.parse(file_path)
         for question in data_root.getroot():
@@ -225,31 +294,46 @@ class Quiz:
                 getattr(questions, m)._type: getattr(questions, m) for m in QTYPES
             }
             if question.get("type") == "category":
-                cat_list = question[0][0].text.split("/")
-                cat_list.reverse()
-                cat_path = cat_list.pop()
-                quiz = top_quiz
-                while cat_list:
-                    cat_cur = cat_list.pop()
-                    cat_path += "/" + cat_cur
-                    if cat_cur not in quiz.children:
-                        quiz.children[cat_cur] = Quiz(category_name=cat_path)
-                    quiz = quiz.children[cat_cur]           
+                quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)         
             elif question.get("type") not in qdict:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:
                 quiz._questions.append(qdict[question.get("type")].from_xml(question))
         return top_quiz
 
-    def write_xml(self, file_path: str, pretty_print: bool=False):
+    def write_aiken(self, file_path: str) -> None:
+        data = ""
+        for question in self._questions:
+            if isinstance(question, questions.QMultichoice):
+                data += f"{question.question_text}\n"
+                correct = "ANSWER: None"
+                for num, ans in enumerate(question.answers):
+                    data += f"{chr(num+65)}) {ans.text}\n"
+                    if ans.fraction == 100:
+                        correct = f"ANSWER: {chr(num+65)}\n"
+                data += correct
+        with open(file_path, "w") as ofile:
+            ofile.write(data)
+
+    def write_json(self, file_path: str, pretty_print: bool=False) -> None:
+        """[summary]
+
+        Args:
+            file_path (str): [description]
+            pretty_print (bool, optional): [description]. Defaults to False.
         """
-        Generates XML compatible with Moodle and saves to a file.
+        with open(file_path, "w") as ofile:
+            if pretty_print:
+                json.dump(self._to_json(self.__dict__.copy()), ofile, indent=4)
+            else:
+                json.dump(self._to_json(self.__dict__.copy()), ofile)
 
-        :type file: str
-        :param file: filename where the XML will be saved
+    def write_xml(self, file_path: str, pretty_print: bool=False):
+        """Generates XML compatible with Moodle and saves to a file.
 
-        :type pretty: bool
-        :param pretty: (not implemented) saves XML pretty printed
+        Args:
+            file_path (str): filename where the XML will be saved
+            pretty_print (bool, optional): (not implemented) saves XML pretty printed. Defaults to False.
         """
         quiz: et.ElementTree = et.ElementTree(et.Element("quiz"))
         root = quiz.getroot()
@@ -257,13 +341,6 @@ class Quiz:
         if pretty_print:
             self._indent(root)
         quiz.write(file_path, encoding="utf-8", xml_declaration=True, short_empty_elements=False)
-
-    def write_json(self, file_path: str, pretty_print: bool=False) -> None:
-        with open(file_path, "w") as ofile:
-            if pretty_print:
-                json.dump(self._to_json(self.__dict__.copy()), ofile, indent=4)
-            else:
-                json.dump(self._to_json(self.__dict__.copy()), ofile)
 
     def write_pdf(self):
         # TODO

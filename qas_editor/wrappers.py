@@ -134,6 +134,8 @@ class FText():
 
     def __init__(self, text: str, formatting: Format) -> None:
         self.text = text
+        if formatting is None:
+            raise ValueError("Formatting should not be none")
         self.formatting = formatting
         self.bfile: List[B64File] = []
 

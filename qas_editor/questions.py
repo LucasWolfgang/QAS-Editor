@@ -3,7 +3,7 @@ from xml.etree import ElementTree as et
 from .wrappers import B64File, CombinedFeedback, Dataset, FText, SelectOption, Subquestion, \
                     Unit, Hint, Tags, UnitHandling, DropZone, DragItem
 from .utils import get_txt
-from .enums import Status, Distribution, Numbering
+from .enums import Format, Status, Distribution, Numbering
 from .answer import Answer, NumericalAnswer, CalculatedAnswer, Choice
 import re
 # import markdown
@@ -24,7 +24,7 @@ class Question():
 
         Args:
             name (str): name of the question
-            question_text (str): text of the question
+            question_text (FText): text of the question
             default_grade (float): the default mark
             general_feedback (str, optional): general feedback. Defaults to None.
             id_number (int, optional): id number. Defaults to None.
@@ -73,7 +73,8 @@ class Question():
         name = et.SubElement(question, "name")
         et.SubElement(name, "text").text = str(self.name)
         self.question_text.to_xml(question, "questiontext")
-        self.general_feedback.to_xml(question, "generalfeedback")
+        if self.general_feedback:
+            self.general_feedback.to_xml(question, "generalfeedback")
         et.SubElement(question, "defaultgrade").text = str(self.default_grade)
         et.SubElement(question, "penalty").text = str(self.penalty)
         et.SubElement(question, "hidden").text = "0"
@@ -94,6 +95,13 @@ class QDescription(Question):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_gift(cls, header: list, answer: list) -> "QDescription":
+        formatting = Format.get(header[2][1:-1])
+        if formatting is None:
+            formatting = Format.MD
+        return cls(name=header[1], question_text=FText(header[3], formatting))
 
 # ----------------------------------------------------------------------------------------
 
@@ -439,6 +447,13 @@ class QEssay(Question):
         self.response_template = response_template
 
     @classmethod
+    def from_gift(cls, header: list, answer: list) -> "QEssay":
+        formatting = Format.get(header[2][1:-1])
+        if formatting is None:
+            formatting = Format.MD
+        return cls(name=header[1], question_text=FText(header[3], formatting))
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "QEssay":
         data = {x.tag: x for x in root}
         format = data["responseformat"].text
@@ -495,6 +510,20 @@ class QMatching(Question):
             self.subquestions.append((text, answer))
 
     @classmethod
+    def from_gift(cls, header: list, answer: list) -> "QMatching":
+        formatting = Format.get(header[2][1:-1])
+        if formatting is None:
+            formatting = Format.MD
+        qst = cls(name=header[1], question_text=FText(header[3], formatting))
+        for a in answer:
+            if a[0] == "=":
+                g = re.match(r"(.*?)(?<!\\)->(.*)", a[2])
+                qst.subquestions.append(Subquestion(formatting, g[1].strip(), g[2].strip()))
+            elif a[0] == "####":
+                qst.general_feedback = FText(a[2], formatting)
+        return qst
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "QMatching":
         combined_feedback = CombinedFeedback.from_xml(root)
         question: "QMatching" = super().from_xml(root, combined_feedback)
@@ -504,7 +533,8 @@ class QMatching(Question):
 
     def to_xml(self) -> et.Element:
         question = super().to_xml()
-        self.combined_feedback.to_xml(question)
+        if self.combined_feedback:
+            self.combined_feedback.to_xml(question)
         for sub in self.subquestions:
             question.append(sub.to_xml())
         return question
@@ -543,9 +573,24 @@ class QMissingWord(Question):
     _type = "gapselect"
 
     def __init__(self, combined_feedback: CombinedFeedback=None,*args, **kwargs):
-        super(self, ).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.combined_feedback = combined_feedback
         self.options: List[SelectOption] = []
+
+    @classmethod
+    def from_gift(cls, header: list, answer: list) -> "QMissingWord":
+        formatting = Format.get(header[2][1:-1])
+        if formatting is None:
+            formatting = Format.MD
+        qst = cls(name=header[1], question_text=FText(header[3], formatting))
+        correct = None
+        for i in answer:
+            if i[0] == "=":
+                correct = SelectOption(i[2], 1)
+            else:
+                qst.options.append(SelectOption(i[2], 1))
+        qst.options.insert(0, correct)
+        return qst
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "QMissingWord":
@@ -557,7 +602,8 @@ class QMissingWord(Question):
 
     def to_xml(self) -> et.Element:
         question = super().to_xml()
-        self.combined_feedback.to_xml(question)
+        if self.combined_feedback:
+            self.combined_feedback.to_xml(question)
         for opt in self.options:
             question.append(opt.to_xml())
         return question
@@ -585,6 +631,24 @@ class QMultichoice(Question):
         self.answers: List[Answer] = []
 
     @classmethod
+    def from_gift(cls, header: list, answer: list) -> "QMultichoice":
+        formatting = Format.get(header[2][1:-1])
+        if formatting is None:
+            formatting = Format.MD
+        qst = cls(name=header[1], question_text=FText(header[3], formatting))
+        prev_answer = None
+        for a in answer:
+            txt = a[2]
+            if a[0] == "~": # Wrong or partially correct answer
+                fraction = 0 if not a[1] else float(a[1][1:-1])
+                prev_answer = Answer(fraction, txt, formatting=formatting)
+            elif a[0] == "=": # Correct answer
+                prev_answer = Answer(100, txt, formatting=formatting)
+            elif a[0] == "#": # Answer feedback
+                prev_answer.feedback = FText(a[2], formatting)
+        return qst
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "QMultichoice":
         data = {x.tag: x for x in root}
         num = Numbering.get(data["answernumbering"].text)
@@ -602,7 +666,8 @@ class QMultichoice(Question):
             [type]: [description]
         """
         question = super().to_xml()
-        self.combined_feedback.to_xml(question)
+        if self.combined_feedback:
+            self.combined_feedback.to_xml(question)
         et.SubElement(question, "answernumbering").text = self.answer_numbering.value
         et.SubElement(question, "single").text = str(self.single).lower()
         for answer in self.answers:
@@ -687,11 +752,44 @@ class QNumerical(Question):
             question.answers.append(NumericalAnswer.from_xml(answer))
         return question
 
+    @classmethod
+    def from_gift(cls, header:list, answer:list) -> "QNumerical":
+        def _extract(data: str) -> tuple:
+            g = re.match(r"(.+?)(:|(?:\.\.))(.+)", data)
+            if g[2] == "..":
+                txt = (float(g[1]) + float(g[3]))/2
+                tol = txt - float(g[1])
+                txt = str(txt)
+            else:
+                txt = g[1]
+                tol = float(g[3])
+            return txt, tol
+        formatting = Format.get(header[2][1:-1])
+        if formatting is None:
+            formatting = Format.MD
+        qst = cls(name=header[1], question_text=FText(header[3], formatting))
+        if len(answer) == 1:
+            txt, tol = _extract(answer[0][2])
+            qst.answers.append(NumericalAnswer(tol, 100, txt))
+        elif len(answer) > 1:
+            for ans in answer[1:]:
+                if ans[0] == "=":
+                    txt, tol = _extract(ans[2])
+                    fraction = float(ans[1][1:-1]) if ans[0] == "=" else 0
+                    a = NumericalAnswer(tol, fraction, txt)
+                    qst.answers.append(a)
+                elif ans[0] == "~":
+                    a = NumericalAnswer(0, 0, "")
+                elif ans[0] == "#":
+                    a.feedback = FText(ans[2], formatting)
+        return qst
+
     def to_xml(self):
         question = super().to_xml()
         for answer in self.answers:
             question.append(answer.to_xml())
-        self.unit_handling.to_xml(question)
+        if self.unit_handling:
+            self.unit_handling.to_xml(question)
         if len(self.units) > 0:
             units = et.SubElement(question, "units")
             for unit in self.units:
@@ -707,6 +805,11 @@ class QShortAnswer(Question):
     _type = "shortanswer"
 
     def __init__(self, use_case: bool, *args, **kwargs) -> None:
+        """[summary]
+
+        Args:
+            use_case (bool): [description]
+        """
         super().__init__(*args, **kwargs)
         self.use_case = use_case
         self.answers: List[Answer] = []
@@ -720,6 +823,17 @@ class QShortAnswer(Question):
             feedback (str, optional): feedback shown when this answer is submitted. Defaults to None.
         """
         self.answers.append(Answer(fraction, text, feedback))
+
+    @classmethod
+    def from_gift(cls, header: list, answer: list) -> "QShortAnswer":
+        formatting = Format.get(header[2][1:-1])
+        if formatting is None:
+            formatting = Format.MD
+        qst = cls(False, name=header[1], question_text=FText(header[3], formatting))
+        for a in answer:
+            fraction = 100 if not a[1] else float(a[1][1:-1])
+            qst.answers.append(Answer(fraction, a[2], formatting=formatting))
+        return qst
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":
@@ -765,6 +879,25 @@ class QTrueFalse(Question):
         self.__answer_true.fraction = 100 if value else 0
         self.__answer_false.fraction = 100 if not value else 0
         self.__correct_answer = value
+
+    @classmethod
+    def from_gift(cls, header: list, answer: list) -> "QTrueFalse":
+        correct = answer.pop(0)[0].lower() in ["true", "t"]
+        true_ans = Answer(0, "true")
+        false_ans = Answer(0, "false")
+        formatting = Format.get(header[2][1:-1])
+        if formatting is None:
+            formatting = Format.MD
+        qst = cls(correct, true_ans, false_ans, name=header[1], 
+                question_text=FText(header[3], formatting))
+        for ans in answer:
+            if ans[0] == "####":
+                qst.general_feedback = FText(ans[2], Format.get(header[2][1:-1]))
+            elif false_ans.feedback is None:
+                false_ans.feedback = FText(ans[2], Format.get(header[2][1:-1]))
+            else:
+                true_ans = FText(ans[2], Format.get(header[2][1:-1]))
+        return qst
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":

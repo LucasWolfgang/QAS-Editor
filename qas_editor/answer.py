@@ -8,7 +8,7 @@ class Answer:
     This is the basic class used to hold possible answers
     """
 
-    def __init__(self, fraction: float, text: str, feedback: FText, 
+    def __init__(self, fraction: float, text: str, feedback: FText=None, 
                 formatting: Format=None) -> None:
         self.fraction = fraction
         self.formatting = formatting
@@ -30,7 +30,8 @@ class Answer:
             answer.set("format", self.formatting.value)
         answer.set("fraction", str(self.fraction))
         et.SubElement(answer, "text").text = cdata_str(self.text)
-        self.feedback.to_xml(answer, "feedback")
+        if self.feedback:
+            self.feedback.to_xml(answer, "feedback")
         return answer
 
 # ----------------------------------------------------------------------------------------

@@ -1,0 +1,438 @@
+<?xml version='1.0' encoding='utf-8'?>
+<quiz>
+  <question type="category">
+    <category>
+      <text>$course$</text>
+    </category>
+  </question>
+  <question type="description">
+    <name>
+      <text>Intro</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of a description question type - which is not so much a question as a description.</p><p>It serves as a space to give an explanation of a point or to provide some resources such as image, video which might be used over several other questions.</p><p>This quiz is about the history of Moodle. You will find it very useful to refer to <a href\="http\://docs.moodle.org/history" target\="_blank">http\://docs.moodle.org/en/History</a></p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+  </question>
+  <question type="matching">
+    <name>
+      <text>h1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Match the cool Moodle features with the version in which they first appeared\:</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <subquestion format="html">
+      <text><![CDATA[<p>Drag and drop files</p>]]></text>
+      <answer>
+        <text>Moodle 2.3</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p>Groupings</p>]]></text>
+      <answer>
+        <text>Moodle 1.9</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p>Repositories</p>]]></text>
+      <answer>
+        <text>Moodle 2.0</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text></text>
+      <answer>
+        <text>Moodle 2.5</text>
+      </answer>
+    </subquestion>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>h1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Why is the 20th August an important date? (You may choose more than one answer.)</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <answernumbering>abc</answernumbering>
+    <single>true</single>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>h6</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>During the month of September 2013, Moodle ran a successful MOOC for teachers new to Moodle. What was the name of the course?</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <answernumbering>abc</answernumbering>
+    <single>true</single>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>h7</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Moodle is Modular. That means it has plugins (or add-ons) which can be included along with its standard modules to make it much more powerful. Over the years many contributors have made extra modules - some of which have become part of a standard Moodle installation. Which was the first ever contributed module or "add-on"?</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <answernumbering>abc</answernumbering>
+    <single>true</single>
+  </question>
+  <question type="shortanswer">
+    <name>
+      <text>h3</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Type in the name of the ISLAND where the first ever Moodle Research conference was held.</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <usecase></usecase>
+    <answer format="html" fraction="100.0">
+      <text><![CDATA[Crete]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p>Correct. Well done! More information on Moodle Research conferences on the<a href\="http\://research.moodle.net/" title\="Moodle Research site"> Moodle Research site.</a></p>	]]></text>
+    </answer>
+    <answer format="html" fraction="0.0">
+      <text><![CDATA[Greece]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p>That is the correct country, but we want the island.</p>]]></text>
+    </answer>
+  </question>
+  <question type="shortanswer">
+    <name>
+      <text>h5</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>In which year was the first Moodle Moot held? Write your answer as a number - for example, 1999 or 2002. (Those are not the correct answers by the way!)</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <usecase></usecase>
+    <answer format="html" fraction="100.0">
+      <text><![CDATA[2004]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p>Correct. It was in Oxford, England.</p>]]></text>
+    </answer>
+  </question>
+  <question type="description">
+    <name>
+      <text>Quiz Questions essay</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of an essay question. It has to be manually graded and so you won't get the final grade for this quiz.</p><p>In 50 words, explain which question type you think you will use the most &nbsp;-and why - and then which question type you will use the least - and why?</p><p> Upload a screenshot (in an appropriate image format) of a question you have designed. </p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+  </question>
+  <question type="matching">
+    <name>
+      <text>matching</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of a matching question type.</p><p><span style\="font-size\: 14px;">Match the Moodle features to the versions they appeared in\:</span><br></p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p><span style\="font-size\: 14px;">You can use the&nbsp;http\://docs.moodle.org/dev/Releases to help you locate the features and versions.</span><br></p>]]></text>
+    </generalfeedback>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <subquestion format="html">
+      <text><![CDATA[<p><span style\="font-size\: 14px;">H5P was first added as standard (with limited functionality) in&nbsp;</span></p>]]></text>
+      <answer>
+        <text>Moodle 3.8</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p><span style\="font-size\: 14px;">Adding sound and video in the Atto editor was first added in</span></p>]]></text>
+      <answer>
+        <text>Moodle 3.5</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p><span style\="font-size\: 14px;">A new Activity chooser was added in</span></p>]]></text>
+      <answer>
+        <text>Moodle 3.9</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p>Forum grading was implemented in</p>]]></text>
+      <answer>
+        <text>Moodle 3.8</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p><span style\="font-size\: 14px;">A Download course content button first appeared in&nbsp;</span></p>]]></text>
+      <answer>
+        <text>Moodle 3.10</text>
+      </answer>
+    </subquestion>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>mc1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p style\="font-size\: 14px;">This is an example of a multiple choice question with only one answer.</p><p style\="font-size\: 14px;">When was Moodle 3.0 released?</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <answernumbering>abc</answernumbering>
+    <single>true</single>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>mc2</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of a multiple choice question where there is more than one correct answer.</p><p>Several of these statements are correct. Select the ones which are correct.</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <answernumbering>abc</answernumbering>
+    <single>true</single>
+  </question>
+  <question type="shortanswer">
+    <name>
+      <text>Short answer</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p style\="font-size\: 14px;">This is an example of a short answer question.</p><p style\="font-size\: 14px;">In which month of the year 2020 was Moodle 3.10 released? Write your answer as a single word, for example August. (August is not the correct answer by the way!)</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <usecase></usecase>
+    <answer format="html" fraction="100.0">
+      <text><![CDATA[November]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p><span style\="font-size\: 14px;">Well remembered or well researched.</span><br></p>	]]></text>
+    </answer>
+    <answer format="html" fraction="0.0">
+      <text><![CDATA[*]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p><span style\="font-size\: 14px;">Please look at&nbsp;</span><a href\="http\://docs.moodle.org/dev/Releases" style\="font-size\: 14px;">http\://docs.moodle.org/dev/Releases</a><span style\="font-size\: 14px;">&nbsp;to help you with this question.</span><br></p>]]></text>
+    </answer>
+  </question>
+  <question type="shortanswer">
+    <name>
+      <text>UK</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Name Â the Scottish city venue for the 2014 UK Moodle Moot.Â </p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <usecase></usecase>
+    <answer format="html" fraction="100.0">
+      <text><![CDATA[Edinburgh]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p>Correct, and easy enough to google. However, Perth is a Scottish city too!</p>]]></text>
+    </answer>
+  </question>
+  <question type="multichoice">
+    <name>
+      <text>(tour stage 18) Q14 MC Music</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>You may include a variety of media in your questions.</p><p>Which of the following sound recordings matches the musical score shown below?</p><p><img src\="@@PLUGINFILE@@/Score3.jpg" alt\="Music score" width\="600" height\="102" /></p><p>Apologies if you are deaf, this question will not work for you. And if you are an author be aware that you may have deaf students.</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <answernumbering>abc</answernumbering>
+    <single>true</single>
+  </question>
+  <question type="numerical">
+    <name>
+      <text>Q01 Numeric\: solve a quadratic with two hints</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p><span style\="text-decoration\: underline;">This is a <em>Numerical</em> question.</span></p><p>Solve $$x^2 + 3x - 28 \= 0$$<br /><br />Enter either of the possible answers.</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <answer fraction="100.0">
+      <text><![CDATA[7]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>Your answer is correct.Â </p>	]]></text>
+      </feedback>
+      <tolerance>0.0</tolerance>
+    </answer>
+    <answer fraction="100.0">
+      <text><![CDATA[4.0]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>Your answer is correct.</p>	]]></text>
+      </feedback>
+      <tolerance>0.10000000000000009</tolerance>
+    </answer>
+  </question>
+  <question type="numerical">
+    <name>
+      <text>Q02 Numeric</text>
+    </name>
+    <questiontext format="markdown">
+      <text><![CDATA[What is the value of pi (to 3 decimal places)? ]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <answer fraction="100">
+      <text><![CDATA[3.14159]]></text>
+      <tolerance>0.0005</tolerance>
+    </answer>
+  </question>
+  <question type="shortanswer">
+    <name>
+      <text>(tour stage 08) Q5 SA</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>And the final behaviour is usually reserved for essay questions but could, if you so wished (but why would you?) be used for all questions. In this behaviour questions areÂ  _______ graded. What is the missing word?</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <usecase></usecase>
+    <answer format="html" fraction="100.0">
+      <text><![CDATA[*manually*]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p>Your answer is correct.</p>	]]></text>
+    </answer>
+    <answer format="html" fraction="0.0">
+      <text><![CDATA[*manual*]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p>You are on the right lines but don't have quite the correct terminology.</p>	]]></text>
+    </answer>
+    <answer format="html" fraction="0.0">
+      <text><![CDATA[*]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p>Your answer is incorrect.</p>	]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[<p><em>Essays</em> have to be marked by hand. They are <em>manually graded.</em></p><p>The full list of question behaviours is therefore</p><ul><li>deferred feedback with and without Certainty Based Marking</li><li>interactive with multiple tries</li><li>immediate feedback with and without Certainty Based Marking</li><li>manually graded</li></ul><p>All within one quiz system.</p>]]></text>
+    </answer>
+  </question>
+  <question type="gapselect">
+    <name>
+      <text>Q06 Missing word</text>
+    </name>
+    <questiontext format="markdown">
+      <text><![CDATA[Mahatma Gandhi's birthday is an Indian holiday on  ]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <selectoption>
+      <text>2nd</text>
+      <group>1</group>
+    </selectoption>
+    <selectoption>
+      <text>15th</text>
+      <group>1</group>
+    </selectoption>
+    <selectoption>
+      <text>3rd</text>
+      <group>1</group>
+    </selectoption>
+  </question>
+  <question type="truefalse">
+    <name>
+      <text>(tour stage 04) Q1 TF</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This <em>True/False</em> question has a 'Check' button that allows you to obtain feedback on your response straightaway therefore this question is not operating in <em>deferred feedback</em> mode.</p><p>Is this statement true or false? Select your choice and press Check.</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p>This question is operating with <em>Interactive with multiple tries</em> behaviour â€“ but, of course, thereâ€™s little sense in offering multiple tries at a True/False question and as weâ€™re sensible we donâ€™t.</p><p>But you do get instant feedback and I suggest that you have read this text before looking at your mark. <em>Interactive</em> questions have been designed so that the student's focus is on the feedback.</p><p>Please take a moment to look around the components of this question now that you have completed it. In the grey status panel you will see</p><ul><li>The question number, '1'.</li><li>The question status, correct or incorrect depending on your answer.</li><li>And your mark.</li></ul><p>And in the question area you will see</p><ul><li>The Question â€“ on blue</li><li>Your response â€“ now on a green background if your answer was correct; red if it was incorrect</li><li>The Specific feedback to your response â€“ at the beginning of the yellow area</li><li>The General feedback that is shown to all students when the question completes â€“ this text, also on yellow</li></ul><p>These seven features are common to all questions.</p>]]></text>
+    </generalfeedback>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <answer fraction="100">
+      <text><![CDATA[true]]></text>
+    </answer>
+    <answer fraction="0">
+      <text><![CDATA[false]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>Your answer is incorrect. By pressing check you receive immediate feedback and learn that this question is not exhibiting <em>deferred feedback</em> behaviour.</p>]]></text>
+      </feedback>
+    </answer>
+  </question>
+  <question type="shortanswer">
+    <name>
+      <text>Capital1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>What is the capital of England?</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <usecase></usecase>
+    <answer format="html" fraction="100.0">
+      <text><![CDATA[London]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[	]]></text>
+    </answer>
+    <answer format="html" fraction="0.0">
+      <text><![CDATA[*]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text></text>
+    </answer>
+  </question>
+  <question type="shortanswer">
+    <name>
+      <text>Capitals 5</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>What is the capital of the Isle of Wight?</p>]]></text>
+    </questiontext>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.5</penalty>
+    <hidden>0</hidden>
+    <usecase></usecase>
+    <answer format="html" fraction="100.0">
+      <text><![CDATA[Newport]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text><![CDATA[	]]></text>
+    </answer>
+    <answer format="html" fraction="0.0">
+      <text><![CDATA[Dublin]]></text>
+    </answer>
+    <answer format="html" fraction="100">
+      <text></text>
+    </answer>
+  </question>
+</quiz>
