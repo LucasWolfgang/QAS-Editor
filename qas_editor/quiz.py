@@ -6,7 +6,6 @@ from xml.etree import ElementTree as et
 from typing import List, Dict, Iterator
 from .enums import Format, Numbering
 from . import questions
-from pprint import pprint
 
 def _escape_cdata(text):
     try:
@@ -45,9 +44,14 @@ class Quiz:
         return  self.children.__iter__()
 
     @staticmethod
-    def __gen_hier(top: "Quiz", category: str) -> "Quiz":
-        cat_list = category.split("/")
+    def __gen_hier(top: "Quiz", category: str) -> tuple:
+        cat_list = category.strip().split("/")
         cat_list.reverse()
+        if top is None:
+            top = Quiz(category_name=cat_list[-1])
+        elif top.category_name != cat_list[-1]:
+            raise ValueError(f"Top classification '{cat_list[-1]}' is different from the "+
+                            f"previously defined '{top.category_name}'")
         cat_path = cat_list.pop()
         quiz = top
         while cat_list:
@@ -56,7 +60,7 @@ class Quiz:
             if cat_cur not in quiz.children:
                 quiz.children[cat_cur] = Quiz(category_name=cat_path)
             quiz = quiz.children[cat_cur]  
-        return quiz
+        return top, quiz
 
     def _indent(self, elem: et.Element, level: int=0):
         """[summary]
@@ -78,6 +82,21 @@ class Quiz:
         else:
             if level and (not elem.tail or not elem.tail.strip()):
                 elem.tail = i
+
+    def _to_aiken(self) -> str:
+        data = ""
+        for question in self._questions:
+            if isinstance(question, questions.QMultichoice):
+                data += f"{question.question_text.text}\n"
+                correct = "ANSWER: None\n\n"
+                for num, ans in enumerate(question.answers):
+                    data += f"{chr(num+65)}) {ans.text}\n"
+                    if ans.fraction == 100:
+                        correct = f"ANSWER: {chr(num+65)}\n\n"
+                data += correct
+        for child in self.children:
+            data += self.children[child]._to_aiken()
+        return data
 
     def _to_xml_element(self, root: et.Element) -> None:
         """[summary]
@@ -157,7 +176,7 @@ class Quiz:
             while lines:
                 line = lines.pop().strip()
                 question = questions.QMultichoice(name=f"{name}_{question_cnt}", 
-                                                            question_text=line)
+                                                question_text=FText(line, Format.PLAIN))
                 while lines and "ANSWER:" not in line[:7]:
                     line = lines.pop()
                     ans = re.match(r"[A-Z]+\) (.+)", line)
@@ -173,17 +192,17 @@ class Quiz:
 
     @classmethod
     def read_gift(cls, file_path: str) -> "Quiz":
-        top_quiz = cls()
+        top_quiz: Quiz = None
         quiz = top_quiz
         with open(file_path, "r") as ifile:
             data = "\n" + ifile.read()
         data = re.sub(r"\n//.*?(?=\n)", "", data)           # Remove comments
         data = re.sub("(?<!\})\n(?!::)", "", data) + "\n"   # Remove \n inside a question
-        tmp = re.findall(r"(?:\$CATEGORY:\s*(.+))|(?:\:\:(.+?)\:\:(\[.+?\])?(.+?)(?:\{(.*?)(?<!\\)\}(.*?))?)\n", 
+        tmp = re.findall(r"(?:\$CATEGORY:\s*(.+))|(?:\:\:(.+?)\:\:(\[.+?\])?(.+?)(?:(\{.*?)(?<!\\)\}(.*?))?)\n", 
                         data)
         for i in tmp:
-            # if i[0]:
-            #     quiz = Quiz.__gen_hier(top_quiz, i[0])
+            if i[0]:
+                top_quiz, quiz = Quiz.__gen_hier(top_quiz, i[0])
             if not i[0]:
                 question = None
                 ans = re.findall(r"((?<!\\)(?:=|~|TRUE|FALSE|T|F|####|#))(%[\d\.]+%)?((?:(?<=\\)[=~#]|[^~=#])*)", i[4])           
@@ -204,6 +223,7 @@ class Quiz:
                         question = questions.QShortAnswer.from_gift(i, ans)
                 else:
                     question = questions.QMultichoice.from_gift(i, ans)
+                print(type(question))
                 quiz.add_question(question)
         return top_quiz
 
@@ -221,7 +241,7 @@ class Quiz:
 
     @staticmethod
     def read_markdown(file_path: str, question_mkr :str="\s*\*\s+(.*)", 
-                        answer_mkr: str="\s*-\s+(!)(.*)", category_mkr: str="\s*#\s+(.*)", 
+                        answer_mkr: str="\s*-\s+(!)?(.*)", category_mkr: str="\s*#\s+(.*)", 
                         answer_numbering: Numbering=Numbering.ALF_LR, 
                         shuffle_answers: bool=True, single_answer_penalty_weight: int=0):
         """[summary]
@@ -240,41 +260,32 @@ class Quiz:
             ValueError: [description]
             ValueError: [description]
         """
-        regex_exp = f"({question_mkr})|({category_mkr})|({answer_mkr})"
+        regex_exp = f"({category_mkr})|({question_mkr})|({answer_mkr})"
         with open(file_path) as infile:
             lines = infile.readlines()
+        lines.append("\n") # Make sure that the document has 2 newlines in the end
+        lines.append("\n")
         lines.reverse()
         cnt = 0
-        category = ""
         top_quiz: Quiz = None
         quiz = top_quiz
         while lines:
             match = re.match(regex_exp, lines[-1])
             if match:
-                if match[0]:
-                    if not category or quiz is None:
+                if match[1]:
+                    top_quiz, quiz = Quiz.__gen_hier(top_quiz, match[2])
+                    lines.pop()
+                elif match[3]:
+                    if quiz is None:
                         raise ValueError("No classification defined for this question")
-                    quiz.add_question(questions.QMultichoice.from_markdown(
-                                        category, lines, regex_exp, 
-                                        answer_numbering, shuffle_answers,
-                                        single_answer_penalty_weight, name=f"mkquestion_{cnt}"))
-                elif match[2]:
-                    category = lines.pop()
-                    tmp = category.split("/")
-                    tmp.reverse()
-                    if top_quiz is None:
-                        top_quiz = Quiz(category_name=tmp[-1])
-                    elif top_quiz.category_name != tmp[-1]:
-                        raise ValueError("Top classification redefined")
-                    quiz = top_quiz
-                    while tmp:
-                        cur_cat = tmp.pop()
-                        tmp_quiz = quiz.children.get(cur_cat, None)
-                        if tmp_quiz is None:
-                            tmp_quiz = Quiz(category_name=cur_cat, parent=quiz)
-                        quiz = tmp_quiz
-                elif match[4]:
-                    raise ValueError("Answer found out of a question block.")
+                    quiz.add_question(questions.QMultichoice.from_markdown( lines, 
+                                    answer_mkr, question_mkr, answer_numbering, shuffle_answers,
+                                    single_answer_penalty_weight, name=f"mkquestion_{cnt}"))
+                elif match[5]:
+                    raise ValueError(f"Answer found out of a question block: {match[5]}.")
+            else:
+                lines.pop()
+        return top_quiz
 
     @classmethod
     def read_xml(cls, file_path: str) -> "Quiz":
@@ -286,7 +297,7 @@ class Quiz:
         Returns:
             [type]: [description]
         """
-        top_quiz = cls()
+        top_quiz: Quiz = None
         quiz = top_quiz
         data_root = et.parse(file_path)
         for question in data_root.getroot():
@@ -294,7 +305,7 @@ class Quiz:
                 getattr(questions, m)._type: getattr(questions, m) for m in QTYPES
             }
             if question.get("type") == "category":
-                quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)         
+                top_quiz, quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)         
             elif question.get("type") not in qdict:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:
@@ -302,16 +313,7 @@ class Quiz:
         return top_quiz
 
     def write_aiken(self, file_path: str) -> None:
-        data = ""
-        for question in self._questions:
-            if isinstance(question, questions.QMultichoice):
-                data += f"{question.question_text}\n"
-                correct = "ANSWER: None"
-                for num, ans in enumerate(question.answers):
-                    data += f"{chr(num+65)}) {ans.text}\n"
-                    if ans.fraction == 100:
-                        correct = f"ANSWER: {chr(num+65)}\n"
-                data += correct
+        data = self._to_aiken()
         with open(file_path, "w") as ofile:
             ofile.write(data)
 

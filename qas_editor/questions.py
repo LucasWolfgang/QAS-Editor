@@ -642,8 +642,10 @@ class QMultichoice(Question):
             if a[0] == "~": # Wrong or partially correct answer
                 fraction = 0 if not a[1] else float(a[1][1:-1])
                 prev_answer = Answer(fraction, txt, formatting=formatting)
+                qst.answers.append(prev_answer)
             elif a[0] == "=": # Correct answer
                 prev_answer = Answer(100, txt, formatting=formatting)
+                qst.answers.append(prev_answer)
             elif a[0] == "#": # Answer feedback
                 prev_answer.feedback = FText(a[2], formatting)
         return qst
@@ -686,39 +688,29 @@ class QMultichoice(Question):
         self.answers.append(Answer(fraction, text, feedback))
 
     @staticmethod
-    def from_markdown(category: str, lines: list, regex: str, answer_numbering: Numbering,
-                        shuffle_answers: bool, penalty: int, 
+    def from_markdown(lines: list, answer_mkr: str, question_mkr: str, 
+                        answer_numbering: Numbering, shuffle_answers: bool, penalty: float, 
                         name: str="mkquestion") -> "QMultichoice":
         """[summary]
 
         Returns:
             [type]: [description]
         """
-        data = lines.pop()
-        question: Question = None
+        data = ""
+        match = re.match(answer_mkr, lines[-1])
+        while lines and match is None:        
+            data += lines.pop().strip()
+            match = re.match(answer_mkr, lines[-1])
+        question: Question = QMultichoice(answer_numbering, name=name, 
+                                        question_text=FText(data, Format.MD), 
+                                        shuffle=shuffle_answers, penalty=penalty)
+        regex_exp = f"({question_mkr})|({answer_mkr})"
         while lines:
-            match = re.match(regex, lines[-1])
-            if match:
-                if match[0]:
-                    raise ValueError("Category found inside a question")
-                elif match[2]:
-                    raise ValueError("No answer defined for the question")
-                elif match[4]:
-                    if question is None:
-                        question = QMultichoice(answer_numbering, name=name,
-                                                question_text=data, category=category,
-                                                shuffle=shuffle_answers)
-                    data = lines.pop()                       
-                    while lines and (match[4] or not match):
-                        match = re.match(regex, lines[-1])
-                        if not match:
-                            data += lines.pop()
-                        elif match[4] or match[2]:
-                            question.add_answer(100.0 if match[5] else 0.0, data, "")
-                            data = lines.pop()
-                    return question
+            match = re.match(regex_exp, lines.pop())
+            if match and match[3]: 
+                question.add_answer(100.0 if match[4] is not None else 0.0, match[5], "")
             else:
-                data += lines.pop()  
+                break
         return question
 
 # ----------------------------------------------------------------------------------------

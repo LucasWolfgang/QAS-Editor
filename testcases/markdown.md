@@ -31,11 +31,8 @@ $$fib(n)=\left\{\begin{matrix} 1 & n = 0\\  1 & n = 1\\ fib(n-1) + fib(n-2) & n 
 Mark the correct statements about `fib(n)`:
 
     - !It's a recursive function
-
     - It's defined for all integers
-
     - It has $O(n)$ time complexity
-
     - !It has $O(2^n)$ time complexity
 
 # DummyCategory/Programming/ADT
