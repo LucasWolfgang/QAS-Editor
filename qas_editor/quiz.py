@@ -154,7 +154,7 @@ class Quiz:
         Args:
             root (dict): [description]
         """
-        root[self.category_name] = {"__questions__" : len(self._questions)}
+        root[self.category_name] = {"__questions__" : self._questions}
         for child in self.children.values():
             child.get_hier(root[self.category_name])
 
