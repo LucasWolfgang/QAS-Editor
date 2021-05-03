@@ -5,7 +5,7 @@
 
  So why is necessary one more Moodle import/export tool? Well, I think that is just because the current implementation are just not generic enought and I need something that was basicalle [moodle-questions](https://github.com/gethvi/moodle-questions) but could do all the other flows. 
 
-The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/) (great editor by the way) and [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget).
+The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/) (great editor by the way), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) (very organized) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/) (great idea). All these coded were modified a lot, but even so, thank a lot for those who coded them.
 
 
 ## Requirements

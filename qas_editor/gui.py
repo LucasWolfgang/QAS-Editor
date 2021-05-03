@@ -4,12 +4,11 @@ from os.path import splitext
 from uuid import uuid4
 from .quiz import Quiz, QTYPES
 from . import questions
-from typing import List
 from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal, QVariant
 from PyQt5.QtGui import QStandardItemModel, QFont, QImage, QTextDocument, QKeySequence,\
                         QIcon, QColor, QPainter, QStandardItem
 from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout,\
-                            QFrame, QSplitter, QTreeView, QTextEdit,\
+                            QFrame, QSplitter, QTreeView, QTextEdit, QGroupBox,\
                             QMainWindow, QStatusBar, QFileDialog, QToolBar,\
                             QFontComboBox, QComboBox, QActionGroup, QMessageBox,\
                             QAction, QCheckBox, QLineEdit, QPushButton, QLabel
@@ -25,7 +24,12 @@ class GUI(QMainWindow):
         # Data handling variables
         self.path = None
         self.top_quiz = None
-        self.current_category=None
+        self.current_category = None
+        self.general_block = None
+        self.feedback_block = None
+        self.multiple_tries_block = None
+        self.answer_block = None
+        self.solution_block = None
 
         # Create menu bar
         file_menu = self.menuBar().addMenu("&File")
@@ -44,72 +48,153 @@ class GUI(QMainWindow):
         self.editor_toobar = TextToolbar()
         self.addToolBar(Qt.TopToolBarArea, self.editor_toobar)
 
-        # Create main window divider for the splitter
-        splitter = QSplitter(Qt.Horizontal)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([125, 150])
-        self.setCentralWidget(splitter)
-
-        # Create main window data view using a QTreeVire
+        # Left side
         self.dataView = QTreeView()
+        self.dataView.setStyleSheet("margin: 5px 5px 0px 5px")
         self.dataView.setHeaderHidden(True)
         self.dataView.doubleClicked.connect(self.update_item)
         self.data_root = QStandardItemModel(0, 1)
         self.data_root.setHeaderData(0, Qt.Horizontal, "Classification")
         self.dataView.setModel(self.data_root)
-        splitter.addWidget(self.dataView)
+        question_type = QComboBox()
+        question_type.addItems(QTYPES)
+        question_type.currentTextChanged.connect(self.update_question_type)
+        question_create = QPushButton("Create")
+        question_create.clicked.connect(self.create_question)
+        question_delete = QPushButton("Delete")
+        question_delete.clicked.connect(self.delete_question)
+        vbox = QVBoxLayout()
+        vbox.addWidget(question_type)
+        vbox.addWidget(question_create)
+        vbox.addWidget(question_delete)
+        box = QGroupBox("Questions")
+        box.setLayout(vbox)
+        category_name = QLineEdit()
+        category_create = QPushButton()
+        category_create.clicked.connect(self.create_category)
+        xframe_vbox = QVBoxLayout()
+        xframe_vbox.addWidget(self.dataView)
+        xframe_vbox.addSpacing(10)
+        xframe_vbox.addWidget(box)
+        xframe_vbox.addSpacing(20)
+        xframe_vbox.addWidget(category_name)
+        xframe_vbox.addWidget(category_create)
+        left = QWidget()
+        left.setLayout(xframe_vbox)
 
-        # Create right part of the splitter (type, text, options)
-        self.general_data = None
-        self.combined_feedback = None
-        self.multiple_tries = None
-
-        right = QFrame()
-        splitter.addWidget(right)
+        # Right side   
         self.cframe_vbox = QVBoxLayout()
-        right.setLayout(self.cframe_vbox)
-        self.add_general_data()
+        self.add_general_data_block()
+        self.add_answer_block()
+        self.add_multiple_tries_block()
+        self.add_feedback_block()
+        self.add_solution_block()
         self.cframe_vbox.addStretch()
-        
+        right = QFrame()
+        right.setLineWidth(2)
+        right.setLayout(self.cframe_vbox)
+
+        # Create main window divider for the splitter
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(left)
+        splitter.addWidget(right)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([150, 80])
+        self.setCentralWidget(splitter)
+
         # Create lower status bar. probably will be removed.
         self.status = QStatusBar()
         self.setStatusBar(self.status)
+        #self.status.addWidget(QLabel(self.current_category))
 
         self.setGeometry(300, 300, 1000, 600)
         self.show()
 
-    def add_general_data(self) -> None:
-        if self.general_data is not None:
+    def add_answer_block(self) -> None:
+        if self.answer_block is not None:
             return
-        self.general_data = FrameLayout(title="General Data")
-        self.cframe_vbox.addWidget(self.general_data)
+        self.answer_block = FrameLayout(title="Answers")
+        self.cframe_vbox.addWidget(self.answer_block)
 
-        self.question_type = QComboBox()
-        self.question_type.addItems(QTYPES)
-        self.question_type.currentTextChanged.connect(self.update_question_type)
+    def add_feedback_block(self) -> None:
+        if self.feedback_block is not None:
+            return
+        self.feedback_block = FrameLayout(title="Feedbacks")
+        self.cframe_vbox.addWidget(self.feedback_block)
+
+        self.feedback_block.addWidget(QLabel("General feedback"))
+        self.general_feedback = TextEdit(self.editor_toobar)
+        self.feedback_block.addWidget(self.general_feedback)
+        self.feedback_block.addSpacing(10)
+
+    def add_general_data_block(self) -> None:
+        if self.general_block is not None:
+            return
+        self.general_block = FrameLayout(title="General Data")
+        self.cframe_vbox.addWidget(self.general_block)
+
         check1 = QCheckBox("Use auto name")
-        check1.setStyleSheet("margin: 0px 0px 0px 20px")
         self.question_name = QLineEdit()
-        self.question_name.setText("Question name")
         self.question_name.setToolTip("Name used to storage the question in the database.")
-        self.question_name.setStyleSheet("margin: 0px 40px 0px 0px")
-        new_button = QPushButton("Create")
+        self.default_mark = QLineEdit()
+        self.default_mark.setToolTip("Default mark for the question.")
+        self.id_number = QLineEdit()
+        self.id_number.setToolTip("Provides a second way of finding a question.")
         hbox = QHBoxLayout()
-        hbox.addWidget(self.question_type)
-        hbox.addWidget(check1)
+        hbox.addWidget(QLabel("Question name"))
         hbox.addWidget(self.question_name)
-        hbox.addWidget(new_button)
-        self.general_data.addLayout(hbox)
-
+        hbox.addWidget(check1)
+        hbox.addSpacing(30)
+        hbox.addWidget(QLabel("Default mark"))
+        hbox.addWidget(self.default_mark)
+        hbox.addSpacing(20)
+        hbox.addWidget(QLabel("ID number"))
+        hbox.addWidget(self.id_number)
+        self.general_block.addLayout(hbox)
+        self.general_block.addSpacing(10)
+        self.general_block.addWidget(QLabel("Question text"))
         self.editor = TextEdit(self.editor_toobar)
-        self.general_data.addWidget(self.editor)
+        self.general_block.addWidget(self.editor)
+        self.general_block.addSpacing(10)
 
+        # self.default_grade = default_grade
+        # self.shuffle = shuffle
+        # self.penalty = penalty
+        # self.tags = tags
+        # self.use_latex = use_latex
+        # self.hints: List[Hint] = []
+
+    def add_multiple_tries_block(self) -> None:
+        if self.multiple_tries_block is not None:
+            return
+        self.multiple_tries_block = FrameLayout(title="Multiple Tries")
+        self.cframe_vbox.addWidget(self.multiple_tries_block)
+
+    def add_solution_block(self) -> None:
+        if self.solution_block is not None:
+            return
+        self.solution_block = FrameLayout(title="Solutions")
+        self.cframe_vbox.addWidget(self.solution_block)
+
+        self.solution_block.addWidget(QLabel("Solution"))
+        self.solution = TextEdit(self.editor_toobar)
+        self.solution_block.addWidget(self.solution)
+        self.solution_block.addWidget(TagBar())
+
+    def create_question(self) -> None:
+        pass
+
+    def create_category(self) -> None:
+        pass
 
     def dialog_critical(self, s):
         dlg = QMessageBox(self)
         dlg.setTedxt(s)
         dlg.setIcon(QMessageBox.Critical)
         dlg.show()
+
+    def delete_question(self) -> None:
+        pass
 
     def file_open(self):
         """
@@ -254,7 +339,7 @@ class TextToolbar(QToolBar):
 
         self.editor: TextEdit = None
         self.setIconSize(QSize(16, 16))
-        
+
         self.fonts = QFontComboBox()
         self.addWidget(self.fonts)
 
@@ -336,7 +421,7 @@ class TextToolbar(QToolBar):
                 self.bold_action.toggled.disconnect()
                 self.underline_action.toggled.disconnect()
                 self.italic_action.toggled.disconnect()
-                self.alignl_action.triggered.diconnect()
+                self.alignl_action.triggered.disconnect()
                 self.alignc_action.triggered.disconnect()
                 self.alignr_action.triggered.disconnect()
                 self.alignj_action.triggered.disconnect()
@@ -400,6 +485,7 @@ class TitleFrame(QFrame):
 
         self.setFixedHeight(26)
         self.move(QPoint(24, 0))
+        self.setFrameShadow(QFrame.Sunken)
         self.setStyleSheet("border:1px solid rgb(41, 41, 41); ")
 
         self._hlayout = QHBoxLayout(self)
@@ -441,6 +527,9 @@ class FrameLayout(QWidget):
     def addWidget(self, widget: QWidget):
         self._content_layout.addWidget(widget)
 
+    def addSpacing(self, size: int) -> None:
+        self._content_layout.addSpacing(size)
+
     def addLayout(self, layout):
         self._content_layout.addLayout(layout)
 
@@ -451,11 +540,69 @@ class FrameLayout(QWidget):
 
 # ----------------------------------------------------------------------------------------
 
-class QGlobals(QHBoxLayout):
 
-    def __init__(self, editor: TextEdit, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-    pass
+class TagBar(QWidget):
+    def __init__(self):
+        super(TagBar, self).__init__()
+        self.setWindowTitle('Tag Bar')
+        self.tags = []
+        self.h_layout = QHBoxLayout()
+        self.h_layout.setSpacing(4)
+        self.setLayout(self.h_layout)
+        self.line_edit = QLineEdit()
+        # self.line_edit.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Maximum)
+        # self.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
+        self.setContentsMargins(2,2,2,2)
+        self.h_layout.setContentsMargins(2,2,2,2)
+        self.refresh()
+        self.setup_ui()
+        self.show()
+
+    def setup_ui(self):
+        self.line_edit.returnPressed.connect(self.create_tags)
+
+    def create_tags(self):
+        new_tags = self.line_edit.text().split(', ')
+        print(new_tags)
+        self.line_edit.setText('')
+        self.tags.extend(new_tags)
+        self.tags = list(set(self.tags))
+        self.tags.sort(key=lambda x: x.lower())
+        self.refresh()
+
+    def refresh(self):
+        for i in reversed(range(self.h_layout.count())):
+            self.h_layout.itemAt(i).widget().setParent(None)
+        for tag in self.tags:
+            self.add_tag_to_bar(tag)
+        self.h_layout.addWidget(self.line_edit)
+        self.line_edit.setFocus()
+
+    def add_tag_to_bar(self, text):
+        tag = QFrame()
+        tag.setStyleSheet('border:1px solid rgb(192, 192, 192); border-radius: 4px;')
+        tag.setContentsMargins(2, 2, 2, 2)
+        tag.setFixedHeight(28)
+        hbox = QHBoxLayout()
+        hbox.setContentsMargins(4, 4, 4, 4)
+        hbox.setSpacing(10)
+        tag.setLayout(hbox)
+        label = QLabel(text)
+        label.setStyleSheet('border:0px')
+        label.setFixedHeight(16)
+        hbox.addWidget(label)
+        x_button = QPushButton('x')
+        x_button.setFixedSize(20, 20)
+        x_button.setStyleSheet('border:0px; font-weight:bold')
+        # x_button.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Maximum)
+        x_button.clicked.connect(lambda: self.delete_tag(text))
+        hbox.addWidget(x_button)
+        # tag.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Preferred)
+        self.h_layout.addWidget(tag)
+
+    def delete_tag(self, tag_name):
+        self.tags.remove(tag_name)
+        self.refresh()
 
 def main():
     app = QApplication(sys.argv)
