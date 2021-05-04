@@ -4,14 +4,17 @@ from os.path import splitext
 from uuid import uuid4
 from .quiz import Quiz, QTYPES
 from . import questions
+from typing import Dict, List
 from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal, QVariant
 from PyQt5.QtGui import QStandardItemModel, QFont, QImage, QTextDocument, QKeySequence,\
                         QIcon, QColor, QPainter, QStandardItem
 from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout,\
                             QFrame, QSplitter, QTreeView, QTextEdit, QGroupBox,\
-                            QMainWindow, QStatusBar, QFileDialog, QToolBar,\
+                            QMainWindow, QStatusBar, QFileDialog, QToolBar, QMenu,\
                             QFontComboBox, QComboBox, QActionGroup, QMessageBox,\
-                            QAction, QCheckBox, QLineEdit, QPushButton, QLabel
+                            QAction, QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout
+
+from qas_editor import quiz
 
 img_path = f"{os.path.dirname(os.path.realpath(__file__))}/images"
 
@@ -30,6 +33,7 @@ class GUI(QMainWindow):
         self.multiple_tries_block = None
         self.answer_block = None
         self.solution_block = None
+        self.blocks = []
 
         # Create menu bar
         file_menu = self.menuBar().addMenu("&File")
@@ -53,6 +57,8 @@ class GUI(QMainWindow):
         self.dataView.setStyleSheet("margin: 5px 5px 0px 5px")
         self.dataView.setHeaderHidden(True)
         self.dataView.doubleClicked.connect(self.update_item)
+        self.dataView.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.dataView.customContextMenuRequested.connect(self._data_view_context_menu)
         self.data_root = QStandardItemModel(0, 1)
         self.data_root.setHeaderData(0, Qt.Horizontal, "Classification")
         self.dataView.setModel(self.data_root)
@@ -61,24 +67,25 @@ class GUI(QMainWindow):
         question_type.currentTextChanged.connect(self.update_question_type)
         question_create = QPushButton("Create")
         question_create.clicked.connect(self.create_question)
-        question_delete = QPushButton("Delete")
-        question_delete.clicked.connect(self.delete_question)
         vbox = QVBoxLayout()
         vbox.addWidget(question_type)
         vbox.addWidget(question_create)
-        vbox.addWidget(question_delete)
         box = QGroupBox("Questions")
         box.setLayout(vbox)
         category_name = QLineEdit()
-        category_create = QPushButton()
+        category_create = QPushButton("Create")
         category_create.clicked.connect(self.create_category)
         xframe_vbox = QVBoxLayout()
         xframe_vbox.addWidget(self.dataView)
         xframe_vbox.addSpacing(10)
         xframe_vbox.addWidget(box)
+        vbox = QVBoxLayout()
+        vbox.addWidget(category_name)
+        vbox.addWidget(category_create)
+        box = QGroupBox("Categories")
+        box.setLayout(vbox)
         xframe_vbox.addSpacing(20)
-        xframe_vbox.addWidget(category_name)
-        xframe_vbox.addWidget(category_create)
+        xframe_vbox.addWidget(box)
         left = QWidget()
         left.setLayout(xframe_vbox)
 
@@ -110,11 +117,26 @@ class GUI(QMainWindow):
         self.setGeometry(300, 300, 1000, 600)
         self.show()
 
+    def _data_view_context_menu(self, event):
+        self.menu = QMenu(self)
+        item = self.dataView.indexAt(event).data(257)
+        renameAction = QAction('Delete', self)
+        renameAction.triggered.connect(lambda: self._delete_item(item))
+        self.menu.addAction(renameAction)
+        self.menu.popup(self.dataView.mapToGlobal(event))
+
+    def _delete_item(self, item) -> None:
+        if isinstance(item, questions.Question):
+            print("Question!")
+        elif isinstance(item, Quiz):
+            print("Category!")
+
     def add_answer_block(self) -> None:
         if self.answer_block is not None:
             return
         self.answer_block = FrameLayout(title="Answers")
         self.cframe_vbox.addWidget(self.answer_block)
+        check1 = QCheckBox("Shuffle the questions")
 
     def add_feedback_block(self) -> None:
         if self.feedback_block is not None:
@@ -125,7 +147,6 @@ class GUI(QMainWindow):
         self.feedback_block.addWidget(QLabel("General feedback"))
         self.general_feedback = TextEdit(self.editor_toobar)
         self.feedback_block.addWidget(self.general_feedback)
-        self.feedback_block.addSpacing(10)
 
     def add_general_data_block(self) -> None:
         if self.general_block is not None:
@@ -133,42 +154,41 @@ class GUI(QMainWindow):
         self.general_block = FrameLayout(title="General Data")
         self.cframe_vbox.addWidget(self.general_block)
 
-        check1 = QCheckBox("Use auto name")
         self.question_name = QLineEdit()
         self.question_name.setToolTip("Name used to storage the question in the database.")
         self.default_mark = QLineEdit()
         self.default_mark.setToolTip("Default mark for the question.")
         self.id_number = QLineEdit()
         self.id_number.setToolTip("Provides a second way of finding a question.")
-        hbox = QHBoxLayout()
-        hbox.addWidget(QLabel("Question name"))
-        hbox.addWidget(self.question_name)
-        hbox.addWidget(check1)
-        hbox.addSpacing(30)
-        hbox.addWidget(QLabel("Default mark"))
-        hbox.addWidget(self.default_mark)
-        hbox.addSpacing(20)
-        hbox.addWidget(QLabel("ID number"))
-        hbox.addWidget(self.id_number)
-        self.general_block.addLayout(hbox)
+        self.default_grade = QLineEdit()
+        self.default_grade.setToolTip("Default grade of the question.")
+        grid = QGridLayout()
+        grid.addWidget(QLabel("Question name"), 0, 0)
+        grid.addWidget(self.question_name, 0,1)
+        grid.setColumnStretch(1, 4)
+        grid.addWidget(QLabel("Default mark"), 0, 2)
+        grid.addWidget(self.default_mark, 0, 3)
+        grid.addWidget(QLabel("ID number"), 0, 4)
+        grid.addWidget(self.id_number, 0, 5)
+        grid.addWidget(QLabel("Tags"), 1, 0)
+        grid.addWidget(TagBar(), 1, 1)
+        grid.addWidget(QLabel("Default grade"), 1, 2)
+        grid.addWidget(self.default_grade, 1, 3)
+        self.general_block.addLayout(grid)
         self.general_block.addSpacing(10)
         self.general_block.addWidget(QLabel("Question text"))
         self.editor = TextEdit(self.editor_toobar)
         self.general_block.addWidget(self.editor)
-        self.general_block.addSpacing(10)
 
-        # self.default_grade = default_grade
-        # self.shuffle = shuffle
-        # self.penalty = penalty
-        # self.tags = tags
-        # self.use_latex = use_latex
-        # self.hints: List[Hint] = []
+        #Check      use_latex
+        #SmallText  default_grade
 
     def add_multiple_tries_block(self) -> None:
         if self.multiple_tries_block is not None:
             return
         self.multiple_tries_block = FrameLayout(title="Multiple Tries")
         self.cframe_vbox.addWidget(self.multiple_tries_block)
+        # self.hints: List[Hint] = []
 
     def add_solution_block(self) -> None:
         if self.solution_block is not None:
@@ -179,7 +199,6 @@ class GUI(QMainWindow):
         self.solution_block.addWidget(QLabel("Solution"))
         self.solution = TextEdit(self.editor_toobar)
         self.solution_block.addWidget(self.solution)
-        self.solution_block.addWidget(TagBar())
 
     def create_question(self) -> None:
         pass
@@ -347,6 +366,10 @@ class TextToolbar(QToolBar):
         self.text_type.addItems(["MarkDown", "PlainText", "HTML"])
         self.addWidget(self.text_type)
 
+        self.math_type = QComboBox()
+        self.math_type.addItems(["LaTex", "MathML", "Ignore"])
+        self.addWidget(self.math_type)
+
         self.fontsize = QComboBox()
         self.fontsize.addItems(["7", "8", "9", "10", "11", "12", "13", "14", "18", "24", "36", "48", "64"])
         self.addWidget(self.fontsize)
@@ -486,7 +509,7 @@ class TitleFrame(QFrame):
         self.setFixedHeight(26)
         self.move(QPoint(24, 0))
         self.setFrameShadow(QFrame.Sunken)
-        self.setStyleSheet("border:1px solid rgb(41, 41, 41); ")
+        self.setStyleSheet("border:1px solid rgb(41, 41, 41); background-color: #acc5f2;")
 
         self._hlayout = QHBoxLayout(self)
         self._hlayout.setContentsMargins(0, 0, 0, 0)
@@ -513,6 +536,7 @@ class FrameLayout(QWidget):
         QFrame.__init__(self, parent=parent)
 
         self._is_collasped: bool = True
+        self._items: Dict[str, QWidget] = {}
         self._title_frame: TitleFrame = TitleFrame(title=title, collapsed=True)
         self._content = QWidget()
         self._content_layout = QVBoxLayout()
@@ -524,14 +548,18 @@ class FrameLayout(QWidget):
         self._main_v_layout.addWidget(self._content)
         self._title_frame.clicked.connect(self.toggleCollapsed)
 
-    def addWidget(self, widget: QWidget):
+    def addWidget(self, widget: QWidget, name:str="widget"):
         self._content_layout.addWidget(widget)
+        self._items[name] = widget
 
     def addSpacing(self, size: int) -> None:
         self._content_layout.addSpacing(size)
 
     def addLayout(self, layout):
         self._content_layout.addLayout(layout)
+
+    def remove_if_not_in(items: List[str]) -> None:
+        pass
 
     def toggleCollapsed(self):
         self._content.setVisible(self._is_collasped)
@@ -540,30 +568,20 @@ class FrameLayout(QWidget):
 
 # ----------------------------------------------------------------------------------------
 
-
 class TagBar(QWidget):
     def __init__(self):
         super(TagBar, self).__init__()
-        self.setWindowTitle('Tag Bar')
         self.tags = []
         self.h_layout = QHBoxLayout()
         self.h_layout.setSpacing(4)
         self.setLayout(self.h_layout)
         self.line_edit = QLineEdit()
-        # self.line_edit.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Maximum)
-        # self.setSizePolicy(QtGui.QSizePolicy.Minimum, QtGui.QSizePolicy.Minimum)
-        self.setContentsMargins(2,2,2,2)
         self.h_layout.setContentsMargins(2,2,2,2)
         self.refresh()
-        self.setup_ui()
-        self.show()
-
-    def setup_ui(self):
         self.line_edit.returnPressed.connect(self.create_tags)
 
     def create_tags(self):
         new_tags = self.line_edit.text().split(', ')
-        print(new_tags)
         self.line_edit.setText('')
         self.tags.extend(new_tags)
         self.tags = list(set(self.tags))
@@ -582,9 +600,9 @@ class TagBar(QWidget):
         tag = QFrame()
         tag.setStyleSheet('border:1px solid rgb(192, 192, 192); border-radius: 4px;')
         tag.setContentsMargins(2, 2, 2, 2)
-        tag.setFixedHeight(28)
+        tag.setFixedHeight(20)
         hbox = QHBoxLayout()
-        hbox.setContentsMargins(4, 4, 4, 4)
+        hbox.setContentsMargins(4, 0, 4, 4)
         hbox.setSpacing(10)
         tag.setLayout(hbox)
         label = QLabel(text)
@@ -592,12 +610,10 @@ class TagBar(QWidget):
         label.setFixedHeight(16)
         hbox.addWidget(label)
         x_button = QPushButton('x')
-        x_button.setFixedSize(20, 20)
+        x_button.setFixedSize(16, 16)
         x_button.setStyleSheet('border:0px; font-weight:bold')
-        # x_button.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Maximum)
         x_button.clicked.connect(lambda: self.delete_tag(text))
         hbox.addWidget(x_button)
-        # tag.setSizePolicy(QtGui.QSizePolicy.Maximum, QtGui.QSizePolicy.Preferred)
         self.h_layout.addWidget(tag)
 
     def delete_tag(self, tag_name):
