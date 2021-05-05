@@ -25,11 +25,11 @@ class GUI(QMainWindow):
         self.setWindowTitle('PyQt5 Treeview Example - pythonspot.com')
 
         # Data handling variables
+        self._blocks: List[FrameLayout] = []
         self.path = None
         self.top_quiz = None
         self.current_category = None
         self.general_block = None
-        self.feedback_block = None
         self.multiple_tries_block = None
         self.answer_block = None
         self.solution_block = None
@@ -139,14 +139,28 @@ class GUI(QMainWindow):
         check1 = QCheckBox("Shuffle the questions")
 
     def add_feedback_block(self) -> None:
-        if self.feedback_block is not None:
-            return
-        self.feedback_block = FrameLayout(title="Feedbacks")
-        self.cframe_vbox.addWidget(self.feedback_block)
+        frame = FrameLayout(title="Feedbacks")
+        self._blocks.append(frame)
+        self.cframe_vbox.addWidget(frame)
 
-        self.feedback_block.addWidget(QLabel("General feedback"))
+        frame.addWidget(QLabel("General feedback"))
         self.general_feedback = TextEdit(self.editor_toobar)
-        self.feedback_block.addWidget(self.general_feedback)
+        frame.addWidget(self.general_feedback)
+
+        self.correct_feedback = TextEdit(self.editor_toobar)
+        self.incomplete_feedback = TextEdit(self.editor_toobar)
+        self.incorrect_feedback = TextEdit(self.editor_toobar)
+        self.shuffle = QCheckBox("Show the number of correct responses once the question has finished")
+        wdt = QWidget()
+        cfeedback = QVBoxLayout(wdt)
+        cfeedback.addWidget(QLabel("Feedback for correct answer"))
+        cfeedback.addWidget(self.correct_feedback)
+        cfeedback.addWidget(QLabel("Feedback for incomplete answer"))
+        cfeedback.addWidget(self.incomplete_feedback)
+        cfeedback.addWidget(QLabel("Feedback for incorrect answer"))
+        cfeedback.addWidget(self.incorrect_feedback)
+        cfeedback.addWidget(self.shuffle)
+        frame.addWidget(wdt, "combined_feedback")
 
     def add_general_data_block(self) -> None:
         if self.general_block is not None:
@@ -293,8 +307,8 @@ class GUI(QMainWindow):
         """
         cls = getattr(questions, value)
         init_fields = cls.__init__.__code__.co_varnames[1:-2]
-        actions = list(filter(lambda x: '_' not in x[0], dir(cls)))[1:]
-        print(f"Changed: {init_fields}\n\t{actions}")
+        for block in self._blocks:
+            block.update_visible_items(init_fields)
 
 # ----------------------------------------------------------------------------------------
 
@@ -548,18 +562,22 @@ class FrameLayout(QWidget):
         self._main_v_layout.addWidget(self._content)
         self._title_frame.clicked.connect(self.toggleCollapsed)
 
-    def addWidget(self, widget: QWidget, name:str="widget"):
-        self._content_layout.addWidget(widget)
-        self._items[name] = widget
-
     def addSpacing(self, size: int) -> None:
         self._content_layout.addSpacing(size)
 
-    def addLayout(self, layout):
+    def addLayout(self, layout, name:str=None):
         self._content_layout.addLayout(layout)
+        if name is not None:
+            self._items[name] = layout
 
-    def remove_if_not_in(items: List[str]) -> None:
-        pass
+    def addWidget(self, widget: QWidget, name:str=None):
+        self._content_layout.addWidget(widget)
+        if name is not None:
+            self._items[name] = widget
+
+    def update_visible_items(self, items: List[str]) -> None:
+        for item in self._items:
+            self._items[item].setVisible(item in items)
 
     def toggleCollapsed(self):
         self._content.setVisible(self._is_collasped)

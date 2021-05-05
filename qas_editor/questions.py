@@ -2,7 +2,7 @@ from typing import List
 from xml.etree import ElementTree as et
 from .wrappers import B64File, CombinedFeedback, Dataset, FText, SelectOption, Subquestion, \
                     Unit, Hint, Tags, UnitHandling, DropZone, DragItem
-from .utils import get_txt
+from .utils import get_txt, extract
 from .enums import Format, Status, Distribution, Numbering
 from .answer import Answer, NumericalAnswer, CalculatedAnswer, Choice
 import re
@@ -18,7 +18,7 @@ class Question():
     def __init__(self, name: str, question_text: FText, default_grade: float=1.0, 
                 feedback: FText=None, id_number: int=None, shuffle: bool=False,
                 penalty: float=0.5, tags: Tags=None, solution: str=None,
-                use_latex: bool=True) -> None:
+                use_latex: bool=True, hints: List[Hint]=None) -> None:
         """
         [summary]
 
@@ -40,7 +40,7 @@ class Question():
         self.solution = solution
         self.tags = tags
         self.use_latex = use_latex
-        self.hints: List[Hint] = []
+        self.hints: List[Hint] = hints if hints is not None else []
 
     def __repr__(self):
         """ 
@@ -49,17 +49,18 @@ class Question():
         return f"Type: {self.__class__.__name__}, name: \'{self.name}\'."
 
     @classmethod
-    def from_xml(cls, root: et.Element, *args) -> "Question":
+    def from_xml(cls, root: et.Element, **kwargs) -> "Question":
         data = {x.tag: x for x in root}
-        name = data['name'][0].text
-        question = FText.from_xml(data['questiontext'])
-        feedback = FText.from_xml(data.get('generalfeedback'))
-        grade = get_txt(data, "defaultgrade", 1.0)
-        id_number = get_txt(data, "idnumber", None)
-        shuffle = bool(get_txt(data, "shuffleanswers", 0))
-        penalty = float(get_txt(data, "penalty", 0))
-        tags = Tags.from_xml(data.get("tags"))
-        question = cls(*args, name, question, grade, feedback, id_number, shuffle, penalty, tags)
+        res = {}
+        res["name"] = data['name'][0].text
+        res["question_text"] = FText.from_xml(data['questiontext'])
+        res["general_feedback"] = FText.from_xml(data.get('generalfeedback'))
+        extract(data, "defaultgrade"  , res, "default_grade", float)
+        extract(data, "idnumber"      , res, "id_number"    , int)
+        extract(data, "shuffleanswers", res, "shuffle"      , bool)
+        extract(data, "penalty"       , res, "penaly"       , float)
+        res["tags"] = Tags.from_xml(data.get("tags"))
+        question = cls(**kwargs, **res)
         for h in root.findall("hint"):
             question.hints.append(Hint.from_xml(h))
         return question
@@ -108,15 +109,16 @@ class QDescription(Question):
 class QCalculated(Question):
     _type = "calculated"
 
-    def __init__(self, synchronize: int, single: bool=False, 
-                unit_handling: UnitHandling=None, *args, **kwargs):
+    def __init__(self, synchronize: int, single: bool=False, unit_handling: UnitHandling=None, 
+                units: List[Unit]=None, datasets: List[Dataset]=None, 
+                answers: List[CalculatedAnswer]=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.synchronize = synchronize
         self.single = single
         self.unit_handling = unit_handling
-        self.units: List[Unit] = []
-        self.datasets: List[Dataset] = []
-        self.answers: List[CalculatedAnswer] = []
+        self.units: List[Unit] = units if units is not None else []
+        self.datasets: List[Dataset] = datasets if datasets is not None else []
+        self.answers: List[CalculatedAnswer] = answers if answers is not None else []
 
     def add_answer(self, fraction: float, text: str, **kwargs) -> None:
         self.answers.append(CalculatedAnswer(fraction=fraction, text=text, **kwargs))
@@ -131,11 +133,11 @@ class QCalculated(Question):
     @classmethod
     def from_xml(cls, root: et.Element) -> "QCalculated":
         data = {x.tag: x for x in root}
-        synchronize = get_txt(data, "synchronize")
-        single = get_txt(data, "single")
-        unit_handling = UnitHandling.from_xml(data)
-        question: "QCalculated" = super().from_xml(root, synchronize, single, 
-                                                        unit_handling)
+        res = {}
+        extract(data, "synchronize", res, "synchronize", int)
+        extract(data, "single"     , res, "single"     , bool)
+        res["unit_handling"] = UnitHandling.from_xml(data)
+        question: "QCalculated" = super().from_xml(root, **res)
         for u in root.findall("units"):
             question.units.append(Unit.from_xml(u))
         for ds in data["dataset_definitions"]:
@@ -176,14 +178,16 @@ class QCalculatedMultichoice(Question):
 
     def __init__(self, synchronize: int, single: bool=False, 
                 answer_numbering: Numbering=Numbering.ALF_LR, 
-                combined_feedback: CombinedFeedback=None, *args, **kwargs):
+                combined_feedback: CombinedFeedback=None, 
+                datasets: List[Dataset]=None, answers: List[CalculatedAnswer]=None,
+                *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.synchronize = synchronize
         self.single = single
         self.answer_numbering = answer_numbering
         self.combined_feedback = combined_feedback
-        self.datasets: List[Dataset] = []
-        self.answers: List[CalculatedAnswer] = []
+        self.datasets: List[Dataset] = datasets if datasets is not None else []
+        self.answers: List[CalculatedAnswer] = answers if answers is not None else []
 
     def add_answer(self, fraction: float, text: str, **kwargs) -> None:
         self.answers.append(CalculatedAnswer(fraction=fraction, text=text, **kwargs))
@@ -198,6 +202,7 @@ class QCalculatedMultichoice(Question):
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":
         data = {x.tag: x for x in root}
+        res = {}
         synchronize = data["synchronize"].text
         single = data["single"].text
         answer_numbering = data["answernumbering"].text
