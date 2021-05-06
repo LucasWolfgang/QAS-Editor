@@ -1,7 +1,8 @@
 from .wrappers import FText
 from .utils import cdata_str
-from .enums import Format
+from .enums import Format, ClozeFormat
 from xml.etree import ElementTree as et
+from typing import List
 
 class Answer:
     """
@@ -94,6 +95,8 @@ class NumericalAnswer(Answer):
 # ----------------------------------------------------------------------------------------
 
 class CalculatedAnswer(NumericalAnswer):
+    """[summary]
+    """
     
     def __init__(self, tolerance_type: int=1, correct_answer_format: int=1, 
                 correct_answer_length: int=1, *args, **kwargs) -> None:
@@ -120,3 +123,18 @@ class CalculatedAnswer(NumericalAnswer):
         et.SubElement(answer, "correctanswerlength").text = str(self.correct_answer_length)
         return answer
 
+# ----------------------------------------------------------------------------------------
+
+class ClozeAnswer():
+    """This class represents a cloze answer.
+    This is not a standard type in the moodle format, once data in a cloze questions is
+    held within the question text in this format.
+    """
+
+    def __init__(self, start: int, end: int, grade: int, cformat: ClozeFormat) -> None:
+        self.start: int = start
+        self.end: int = end
+        self.cformat: ClozeFormat = cformat
+        self.grade = grade
+        self.wrong_options: List[tuple] = []
+        self.correct_options: List[tuple] = []

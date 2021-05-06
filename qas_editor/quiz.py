@@ -191,13 +191,23 @@ class Quiz:
         return quiz
 
     @classmethod
+    def read_cloze(cls, file_path: str, category: str="$course$") -> "Quiz":
+        top_quiz: Quiz = Quiz(category_name=category)
+        with open(file_path, "r") as ifile:
+            data = "\n" + ifile.read()
+        data = re.sub("\n(?!::)", "", data) + "\n" # Remove \n's inside a question
+        for q in re.findall(r"(?:\:\:(.+?)\:\:)(.+?)\n", data): # Get the questions
+            top_quiz.add_question(questions.QCloze.from_cloze(*q))
+        return top_quiz
+
+    @classmethod
     def read_gift(cls, file_path: str) -> "Quiz":
         top_quiz: Quiz = None
         quiz = top_quiz
         with open(file_path, "r") as ifile:
             data = "\n" + ifile.read()
         data = re.sub(r"\n//.*?(?=\n)", "", data)           # Remove comments
-        data = re.sub("(?<!\})\n(?!::)", "", data) + "\n"   # Remove \n inside a question
+        data = re.sub("(?<!\})\n(?!::)", "", data) + "\n"   # Remove \n's inside a question
         tmp = re.findall(r"(?:\$CATEGORY:\s*(.+))|(?:\:\:(.+?)\:\:(\[.+?\])?(.+?)(?:(\{.*?)(?<!\\)\}(.*?))?)\n", 
                         data)
         for i in tmp:
@@ -223,7 +233,6 @@ class Quiz:
                         question = questions.QShortAnswer.from_gift(i, ans)
                 else:
                     question = questions.QMultichoice.from_gift(i, ans)
-                print(type(question))
                 quiz.add_question(question)
         return top_quiz
 

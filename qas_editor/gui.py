@@ -14,8 +14,6 @@ from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout,\
                             QFontComboBox, QComboBox, QActionGroup, QMessageBox,\
                             QAction, QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout
 
-from qas_editor import quiz
-
 img_path = f"{os.path.dirname(os.path.realpath(__file__))}/images"
 
 class GUI(QMainWindow):
@@ -120,9 +118,11 @@ class GUI(QMainWindow):
     def _data_view_context_menu(self, event):
         self.menu = QMenu(self)
         item = self.dataView.indexAt(event).data(257)
-        renameAction = QAction('Delete', self)
-        renameAction.triggered.connect(lambda: self._delete_item(item))
-        self.menu.addAction(renameAction)
+        delete_action = QAction("Delete", self)
+        delete_action.triggered.connect(lambda: self._delete_item(item))
+        duplicate_action = QAction("Delete", self)
+        duplicate_action.triggered.connect(lambda: self._delete_item(item))
+        self.menu.addAction(delete_action)
         self.menu.popup(self.dataView.mapToGlobal(event))
 
     def _delete_item(self, item) -> None:
@@ -137,6 +137,8 @@ class GUI(QMainWindow):
         self.answer_block = FrameLayout(title="Answers")
         self.cframe_vbox.addWidget(self.answer_block)
         check1 = QCheckBox("Shuffle the questions")
+
+        # Select Option, used in 
 
     def add_feedback_block(self) -> None:
         frame = FrameLayout(title="Feedbacks")
@@ -436,7 +438,7 @@ class TextToolbar(QToolBar):
         format_group.addAction(self.alignj_action)
 
         self.wrap_action = QAction(QIcon(f"{img_path}/arrow-continue.png"), "Wrap text to window", self)
-        self.wrap_action.setStatusTip("Toggle wrap text to window")
+        self.wrap_action.setStatuWsTip("Toggle wrap text to window")
         self.wrap_action.setCheckable(True)
         self.wrap_action.setChecked(True)
         self.addAction(self.wrap_action)
@@ -450,7 +452,8 @@ class TextToolbar(QToolBar):
     def update_editor(self, text_editor: TextEdit) -> None:
         """Update the font format toolbar/actions when a new text selection is made. 
         This is neccessary to keep toolbars/etc. in sync with the current edit state.
-        """     
+        """
+        print(text_editor.textCursor().position())     
         if text_editor != self.editor:
             if self.editor is not None:
                 self.fonts.currentFontChanged.disconnect()

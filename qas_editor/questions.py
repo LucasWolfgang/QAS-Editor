@@ -3,8 +3,8 @@ from xml.etree import ElementTree as et
 from .wrappers import B64File, CombinedFeedback, Dataset, FText, SelectOption, Subquestion, \
                     Unit, Hint, Tags, UnitHandling, DropZone, DragItem
 from .utils import get_txt, extract
-from .enums import Format, Status, Distribution, Numbering
-from .answer import Answer, NumericalAnswer, CalculatedAnswer, Choice
+from .enums import ClozeFormat, Format, Status, Distribution, Numbering
+from .answer import Answer, ClozeAnswer, NumericalAnswer, CalculatedAnswer, Choice
 import re
 # import markdown
 # import latex2mathml
@@ -88,21 +88,6 @@ class Question():
         if self.tags:
             question.append(self.tags.to_xml())
         return question
-
-# ----------------------------------------------------------------------------------------
-
-class QDescription(Question):
-    _type = "description"
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-    @classmethod
-    def from_gift(cls, header: list, answer: list) -> "QDescription":
-        formatting = Format.get(header[2][1:-1])
-        if formatting is None:
-            formatting = Format.MD
-        return cls(name=header[1], question_text=FText(header[3], formatting))
 
 # ----------------------------------------------------------------------------------------
 
@@ -236,8 +221,9 @@ class QCloze(Question):
     """
     _type = "cloze"
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, answers: List[ClozeAnswer]=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.answers: List[ClozeAnswer] = answers if answers is not None else []
         
     @classmethod
     def from_xml(cls, root: et.Element) -> "QCloze":
@@ -246,11 +232,33 @@ class QCloze(Question):
     def to_xml(self) -> et.Element:
         return super().to_xml()
 
-    @staticmethod
-    def from_cloze() -> "QCloze":
-        super().from_xml()
-        # TODO
-        pass
+    @classmethod
+    def from_cloze(cls, name: str, text: str) -> "QCloze":
+        question = cls(name=name, question_text=text)
+        for a in re.finditer(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})", text):
+            answer = ClozeAnswer(*a.span(), int(a[1]), ClozeFormat.get(a[2]))
+            for opt in re.findall(r"[^~]+[~}]", a[3]):
+                tmp = opt.strip("}~")
+                if tmp[0] == "=":
+                    answer.correct_options.append(tmp[1:])
+                else:
+                    answer.wrong_options.append(tmp)
+        return question
+
+# ----------------------------------------------------------------------------------------
+
+class QDescription(Question):
+    _type = "description"
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_gift(cls, header: list, answer: list) -> "QDescription":
+        formatting = Format.get(header[2][1:-1])
+        if formatting is None:
+            formatting = Format.MD
+        return cls(name=header[1], question_text=FText(header[3], formatting))
 
 # ----------------------------------------------------------------------------------------
 
@@ -754,7 +762,7 @@ class QNumerical(Question):
         def _extract(data: str) -> tuple:
             g = re.match(r"(.+?)(:|(?:\.\.))(.+)", data)
             if g[2] == "..":
-                txt = (float(g[1]) + float(g[3]))/2
+                txt = (float(g[1]) + float(g[3]))/2     # Converts min/max to value +- tol
                 tol = txt - float(g[1])
                 txt = str(txt)
             else:
