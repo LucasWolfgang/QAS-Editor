@@ -31,10 +31,11 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
  <sup><sup>1</sup> Original table from [moodle-questions](https://github.com/gethvi/moodle-questions)</sup>
   - GUI to create and update questions manually
   - Import
-    - Moodle XML file
     - Aiken file
+    - Cloze file
     - GIFT file
     - Markdown files 
+    - Moodle XML file
   - Export
     - Aiken file
     - Moodle XML file
@@ -42,7 +43,6 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
 
 ## Next features
   - Import
-    - Cloze file
     - LaTex (as MCQ)
     - JSON
   - Export 
