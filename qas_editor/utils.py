@@ -7,13 +7,18 @@ def extract(data: dict, key: str, res: dict, name: str, cast_type) -> None:
     if key in data:
         try:
             if cast_type == bool:
-                res[name] = data[key].text.lower() in ["true", "1", "t"]
+                if data[key].text:
+                    res[name] = data[key].text.lower() in ["true", "1", "t"]
+                else:
+                    res[name] = True
             elif cast_type != str:
                 res[name] = cast_type(data[key].text)
             else:
                 res[name] = data[key].text
         except:
-             res[name] = data[key].text
+            res[name] = data[key].text
+    elif cast_type == bool:
+        res[name] = False
 
 
 def cdata_str(text: str):

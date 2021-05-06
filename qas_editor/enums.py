@@ -130,6 +130,22 @@ class Status(Enum):
 
 # ----------------------------------------------------------------------------------------
 
+class ResponseFormat(Enum):
+    HTML = "editor"
+    WFILE = "editorfilepicker"
+    PLAIN = "plain"
+    MONO = "monospaced"
+    ATCH = "noinline"
+
+    @classmethod
+    def get(cls, value: str) -> "Status":
+        for i in cls:
+            if i.value == value:
+                return i
+        return None
+
+# ----------------------------------------------------------------------------------------
+
 class ToleranceFormat(Enum):
     DEC = "1"           # Decimals
     SIG = "2"           # Significant Figures

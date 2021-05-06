@@ -3,7 +3,7 @@ from xml.etree import ElementTree as et
 from .wrappers import B64File, CombinedFeedback, Dataset, FText, SelectOption, Subquestion, \
                     Unit, Hint, Tags, UnitHandling, DropZone, DragItem
 from .utils import get_txt, extract
-from .enums import ClozeFormat, Format, Status, Distribution, Numbering
+from .enums import ClozeFormat, Format, ResponseFormat, Status, Distribution, Numbering
 from .answer import Answer, ClozeAnswer, NumericalAnswer, CalculatedAnswer, Choice
 import re
 # import markdown
@@ -162,14 +162,14 @@ class QCalculatedMultichoice(Question):
     _type = "calculatedmulti"
 
     def __init__(self, synchronize: int, single: bool=False, 
-                answer_numbering: Numbering=Numbering.ALF_LR, 
+                numbering: Numbering=Numbering.ALF_LR, 
                 combined_feedback: CombinedFeedback=None, 
                 datasets: List[Dataset]=None, answers: List[CalculatedAnswer]=None,
                 *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.synchronize = synchronize
         self.single = single
-        self.answer_numbering = answer_numbering
+        self.numbering = numbering
         self.combined_feedback = combined_feedback
         self.datasets: List[Dataset] = datasets if datasets is not None else []
         self.answers: List[CalculatedAnswer] = answers if answers is not None else []
@@ -188,12 +188,11 @@ class QCalculatedMultichoice(Question):
     def from_xml(cls, root: et.Element) -> "Question":
         data = {x.tag: x for x in root}
         res = {}
-        synchronize = data["synchronize"].text
-        single = data["single"].text
-        answer_numbering = data["answernumbering"].text
-        combined_feedback = CombinedFeedback.from_xml(root)
-        question: "QCalculatedMultichoice" = super().from_xml(root, synchronize, single, 
-                                                        answer_numbering, combined_feedback)
+        extract(data, "synchronize"    , res, "synchronize", int)
+        extract(data, "single"         , res, "single"     , bool)
+        res["numbering"] = Numbering.get(data["answernumbering"].text)
+        res["combined_feedback"] = CombinedFeedback.from_xml(root)
+        question: "QCalculatedMultichoice" = super().from_xml(root, **res)
         for dataset in data["dataset_definitions"]:
             question.datasets.append(Dataset.from_xml(dataset))
         for answer in root.findall("answer"):
@@ -204,7 +203,7 @@ class QCalculatedMultichoice(Question):
         question = super().to_xml()
         et.SubElement(question, "synchronize").text = self.synchronize
         et.SubElement(question, "single").text = self.single
-        et.SubElement(question, "answernumbering").text = self.answer_numbering
+        et.SubElement(question, "answernumbering").text = self.numbering.value
         self.combined_feedback.to_xml(question)
         for answer in self.answers:
             question.append(answer.to_xml()) 
@@ -269,13 +268,14 @@ class QDragAndDropText(Question):
     """
     _type = "ddwtos"
 
-    def __init__(self, combined_feedback: CombinedFeedback, *args, **kwargs):
+    def __init__(self, combined_feedback: CombinedFeedback, choices: List[Choice]=None,
+                *args, **kwargs):
         """
         Currently not implemented.
         """
         super().__init__(*args, **kwargs)
         self.combined_feedback = combined_feedback
-        self._choices: List[Choice] = []
+        self._choices: List[Choice] = choices if choices is not None else []
 
     def add_choice(self, text: str, group: int=1, unlimited: bool=False) -> None:
         """
@@ -313,6 +313,7 @@ class QDragAndDropImage(Question):
     _type = "ddimageortext"
 
     def __init__(self, background: B64File, combined_feedback: CombinedFeedback=None, 
+                dragitems: List[DragItem]=None, dropzones: List[DropZone]=None,
                 *args, **kwargs) -> None:
         """Creates an drag and drop onto image type of question.
 
@@ -322,8 +323,8 @@ class QDragAndDropImage(Question):
         super().__init__(*args, **kwargs)
         self.background = background
         self.combined_feedback = combined_feedback
-        self._dragitems: List[DragItem] = []
-        self._dropzones: List[DropZone] = []
+        self._dragitems: List[DragItem] = dragitems if dragitems is not None else []
+        self._dropzones: List[DropZone] = dropzones if dropzones is not None else []
 
     def add_dragimage(self, text: str, group: int, file: str, unlimited: bool=False) -> None:
         """Adds new DragItem with assigned DropZones.
@@ -362,9 +363,10 @@ class QDragAndDropImage(Question):
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":
         data = {x.tag: x for x in root}
-        combined_feedback = CombinedFeedback.from_xml(root)
-        background = B64File.from_xml(data.get("file"))
-        question: "QDragAndDropImage" = super().from_xml(root, background, combined_feedback)
+        res = {}
+        res["combined_feedback"] = CombinedFeedback.from_xml(root)
+        res["background"] = B64File.from_xml(data.get("file"))
+        question: "QDragAndDropImage" = super().from_xml(root, **res)
         for dragitem in root.findall("drag"):
             question._dragitems.append(DragItem.from_xml(dragitem))
         for dropzone in root.findall("drop"):
@@ -387,7 +389,8 @@ class QDragAndDropImage(Question):
 class QDragAndDropMarker(Question):
     _type = "ddmarker"
 
-    def __init__(self, background: B64File, combined_feedback: CombinedFeedback=None, 
+    def __init__(self, background: B64File, combined_feedback: CombinedFeedback=None,
+                dragitems: List[DragItem]=None, dropzones: List[DropZone]=None, 
                 highlight_empty: bool=False, *args, **kwargs):
         """Creates an drag and drop onto image type of question.
 
@@ -398,8 +401,8 @@ class QDragAndDropMarker(Question):
         self.background = background
         self.combined_feedback = combined_feedback
         self.highlight_empty = highlight_empty
-        self._dragitems: List[DragItem] = []
-        self._dropzones: List[DropZone] = []
+        self._dragitems: List[DragItem] = dragitems if dragitems is not None else []
+        self._dropzones: List[DropZone] = dropzones if dropzones is not None else []
 
     def add_dragmarker(self, text: str, no_of_drags: str, unlimited: bool=False):
         """[summary]
@@ -415,10 +418,11 @@ class QDragAndDropMarker(Question):
     @classmethod
     def from_xml(cls, root: et.Element) -> "QDragAndDropMarker":
         data = {x.tag: x for x in root}
-        background = B64File.from_xml(data.get("file"))
-        highlight = "showmisplaced" in data
-        combined_feedback = CombinedFeedback.from_xml(root)
-        question: "QDragAndDropMarker" = super().from_xml(root, background, combined_feedback, highlight)
+        res = {}
+        res["background"] = B64File.from_xml(data.get("file"))
+        extract(data, "highlight", res, "showmisplaced", bool)
+        res["combined_feedback"] = CombinedFeedback.from_xml(root)
+        question: "QDragAndDropMarker" = super().from_xml(root, **res)
         for dragitem in root.findall("drag"):
             question._dragitems.append(DragItem.from_xml(dragitem))
         for dropzone in root.findall("drop"):
@@ -443,15 +447,15 @@ class QDragAndDropMarker(Question):
 class QEssay(Question):
     _type = "essay"
 
-    def __init__(self, response_format: str="editor", response_required: bool=True, 
-                responsefield_lines: int=10, attachments: int=1, 
+    def __init__(self, reponse_format: ResponseFormat=ResponseFormat.HTML,         
+                response_required: bool=True, lines: int=10, attachments: int=1, 
                 attachments_required: bool=False, maxbytes: int=None, 
                 filetypes_list: str=None, grader_info: FText=None, 
                 response_template: FText=None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.response_format = response_format
+        self.response_format = reponse_format
         self.response_required = response_required
-        self.responsefield_lines = responsefield_lines
+        self.responsefield_lines = lines
         self.attachments = attachments
         self.attachments_required = attachments_required
         self.maxbytes = maxbytes
@@ -469,23 +473,22 @@ class QEssay(Question):
     @classmethod
     def from_xml(cls, root: et.Element) -> "QEssay":
         data = {x.tag: x for x in root}
-        format = data["responseformat"].text
-        required = data["responserequired"].text
-        lines = data["responsefieldlines"].text
-        attachments = data["attachments"].text
-        attachments_required = data["attachmentsrequired"].text
-        maxbytes = get_txt(data, "maxbytes", None)
-        filetypes_list = get_txt(data, "filetypeslist", None)
-        grader_info = FText.from_xml(data.get("graderinfo"))
-        response_template = FText.from_xml(data.get("responsetemplate"))
-        question = super().from_xml(root, format, required, lines, attachments, 
-                                attachments_required, maxbytes, filetypes_list, 
-                                grader_info, response_template)
+        res = {}
+        res["format"] = ResponseFormat.get(data["responseformat"].text)
+        extract(data, "responserequired"   , res, "response_required" , bool)
+        extract(data, "responsefieldlines" , res, "lines"      , int)
+        extract(data, "attachments"        , res, "attachments", int)
+        extract(data, "attachmentsrequired", res, "attachments_required", bool)
+        extract(data, "maxbytes"           , res, "maxbytes", int)
+        extract(data, "filetypeslist"      , res, "filetypes_list", str)
+        res["grader_info"] = FText.from_xml(data.get("graderinfo"))
+        res["response_template"] = FText.from_xml(data.get("responsetemplate"))
+        question = super().from_xml(root, **res)
         return question
 
     def to_xml(self) -> et.Element:
         question = super().to_xml()
-        et.SubElement(question, "responseformat").text = self.response_format
+        et.SubElement(question, "responseformat").text = self.response_format.value
         et.SubElement(question, "responserequired").text = self.response_required
         et.SubElement(question, "responsefieldlines").text = self.responsefield_lines
         et.SubElement(question, "attachments").text = self.attachments
