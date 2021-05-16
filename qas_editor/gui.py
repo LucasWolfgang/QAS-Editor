@@ -8,7 +8,7 @@ from typing import Dict, List
 from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal, QVariant
 from PyQt5.QtGui import QStandardItemModel, QFont, QImage, QTextDocument, QKeySequence,\
                         QIcon, QColor, QPainter, QStandardItem
-from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout,\
+from PyQt5.QtWidgets import QApplication, QSizePolicy, QWidget, QHBoxLayout, QVBoxLayout,\
                             QFrame, QSplitter, QTreeView, QTextEdit, QGroupBox,\
                             QMainWindow, QStatusBar, QFileDialog, QToolBar, QMenu,\
                             QFontComboBox, QComboBox, QActionGroup, QMessageBox,\
@@ -20,18 +20,15 @@ class GUI(QMainWindow):
     
     def __init__(self, *args, **kwargs):
         super(GUI, self).__init__(*args, **kwargs)
-        self.setWindowTitle('PyQt5 Treeview Example - pythonspot.com')
+        self.setWindowTitle("QAS Editor GUI")
 
         # Data handling variables
-        self._blocks: List[FrameLayout] = []
-        self.path = None
-        self.top_quiz = None
-        self.current_category = None
-        self.general_block = None
-        self.multiple_tries_block = None
-        self.answer_block = None
-        self.solution_block = None
-        self.blocks = []
+        self._blocks: Dict[str, FrameLayout] = {}
+        self._items: Dict[str, QWidget] = {}
+        self.path: str = None
+        self.top_quiz: Quiz = None
+        self.current_category: Quiz = None
+        self.current_question = None
 
         # Create menu bar
         file_menu = self.menuBar().addMenu("&File")
@@ -60,13 +57,13 @@ class GUI(QMainWindow):
         self.data_root = QStandardItemModel(0, 1)
         self.data_root.setHeaderData(0, Qt.Horizontal, "Classification")
         self.dataView.setModel(self.data_root)
-        question_type = QComboBox()
-        question_type.addItems(QTYPES)
-        question_type.currentTextChanged.connect(self.update_question_type)
+        self.question_type = QComboBox()
+        self.question_type.addItems(QTYPES)
+        self.question_type.currentTextChanged.connect(self.update_question_type)
         question_create = QPushButton("Create")
         question_create.clicked.connect(self.create_question)
         vbox = QVBoxLayout()
-        vbox.addWidget(question_type)
+        vbox.addWidget(self.question_type)
         vbox.addWidget(question_create)
         box = QGroupBox("Questions")
         box.setLayout(vbox)
@@ -94,6 +91,7 @@ class GUI(QMainWindow):
         self.add_multiple_tries_block()
         self.add_feedback_block()
         self.add_solution_block()
+        self.add_database_block()
         self.cframe_vbox.addStretch()
         right = QFrame()
         right.setLineWidth(2)
@@ -132,92 +130,116 @@ class GUI(QMainWindow):
             print("Category!")
 
     def add_answer_block(self) -> None:
-        if self.answer_block is not None:
-            return
-        self.answer_block = FrameLayout(title="Answers")
-        self.cframe_vbox.addWidget(self.answer_block)
-        check1 = QCheckBox("Shuffle the questions")
+        frame = FrameLayout(title="Answers")
+        self._blocks["answer"] = frame
+        self.cframe_vbox.addWidget(frame)
 
+        self._items["shuffle"] = QCheckBox("Shuffle the questions")
+        self._items["show_instruction"] =  QCheckBox("Show standard instructions")
+        self._items["single"] =  QCheckBox("Single answer")
+        self._items["numbering"] = QComboBox()
+        self._items["numbering"].addItems(["a, b, c", "A, B, C",  "i, ii, iii", "I, II, III", "1,2,3"])
+
+        # UnitHandling
+        self._items["grading"] = QComboBox()   
+        self._items["grading"].addItems(["Ignore", "Fraction of reponse", "Fraction of question"])
+
+        # Answers
+        aabutton = QPushButton("Add Answer")
+        aabutton.clicked.connect(lambda x: abox.addWidget(GUIAnswer()))
+        abox = QHBoxLayout()
+        #abutton = QPushButton("Add Answer")
+
+        grid = QGridLayout()
+        grid.addWidget(QLabel("Grading"), 0, 0)
+        grid.addWidget(self._items["grading"], 0, 1)
+        grid.addWidget(QLabel("Numbering"), 1, 0)
+        grid.addWidget(self._items["numbering"], 1, 1)
+        grid.addWidget(self._items["single"], 0, 2)
+        grid.addWidget(self._items["shuffle"], 1, 2)
+        grid.addWidget(self._items["show_instruction"], 2, 2)
+
+        frame.addLayout(grid)
+        frame.addLayout(abox)
+        frame.addWidget(aabutton)
         # Select Option, used in 
+
+    def add_database_block(self) -> None:
+        frame = FrameLayout(title="Database")
+        self._blocks["database"] = frame
+        self.cframe_vbox.addWidget(frame)
 
     def add_feedback_block(self) -> None:
         frame = FrameLayout(title="Feedbacks")
-        self._blocks.append(frame)
+        self._blocks["feedback"] = frame
         self.cframe_vbox.addWidget(frame)
 
+        self._items["shuffle"] = QCheckBox("Show the number of correct responses once the question has finished")
+        self._items["general_feedback"] = TextEdit(self.editor_toobar)
+        self._items["correct_feedback"] = TextEdit(self.editor_toobar)
+        self._items["incomplete_feedback"] = TextEdit(self.editor_toobar)
+        self._items["incorrect_feedback"] = TextEdit(self.editor_toobar)
+        frame.addWidget(self._items["shuffle"])
         frame.addWidget(QLabel("General feedback"))
-        self.general_feedback = TextEdit(self.editor_toobar)
-        frame.addWidget(self.general_feedback)
-
-        self.correct_feedback = TextEdit(self.editor_toobar)
-        self.incomplete_feedback = TextEdit(self.editor_toobar)
-        self.incorrect_feedback = TextEdit(self.editor_toobar)
-        self.shuffle = QCheckBox("Show the number of correct responses once the question has finished")
-        wdt = QWidget()
-        cfeedback = QVBoxLayout(wdt)
-        cfeedback.addWidget(QLabel("Feedback for correct answer"))
-        cfeedback.addWidget(self.correct_feedback)
-        cfeedback.addWidget(QLabel("Feedback for incomplete answer"))
-        cfeedback.addWidget(self.incomplete_feedback)
-        cfeedback.addWidget(QLabel("Feedback for incorrect answer"))
-        cfeedback.addWidget(self.incorrect_feedback)
-        cfeedback.addWidget(self.shuffle)
-        frame.addWidget(wdt, "combined_feedback")
+        frame.addWidget(self._items["general_feedback"])
+        frame.addWidget(QLabel("Feedback for correct answer"))
+        frame.addWidget(self._items["correct_feedback"])
+        frame.addWidget(QLabel("Feedback for incomplete answer"))
+        frame.addWidget(self._items["incomplete_feedback"])
+        frame.addWidget(QLabel("Feedback for incorrect answer"))
+        frame.addWidget(self._items["incorrect_feedback"])
 
     def add_general_data_block(self) -> None:
-        if self.general_block is not None:
-            return
-        self.general_block = FrameLayout(title="General Data")
-        self.cframe_vbox.addWidget(self.general_block)
+        frame = FrameLayout(title="General Data")
+        self._blocks["database"] = frame
+        self.cframe_vbox.addWidget(frame)
 
-        self.question_name = QLineEdit()
-        self.question_name.setToolTip("Name used to storage the question in the database.")
-        self.default_mark = QLineEdit()
-        self.default_mark.setToolTip("Default mark for the question.")
-        self.id_number = QLineEdit()
-        self.id_number.setToolTip("Provides a second way of finding a question.")
-        self.default_grade = QLineEdit()
-        self.default_grade.setToolTip("Default grade of the question.")
+        self._items["name"] = QLineEdit()
+        self._items["name"].setToolTip("Name used to storage the question in the database.")
+        self._items["default_grade"] = QLineEdit()
+        self._items["default_grade"].setToolTip("Default grade for the question.")
+        self._items["id_number"] = QLineEdit()
+        self._items["id_number"].setToolTip("Provides a second way of finding a question.")
         grid = QGridLayout()
         grid.addWidget(QLabel("Question name"), 0, 0)
-        grid.addWidget(self.question_name, 0,1)
+        grid.addWidget(self._items["name"], 0,1)
         grid.setColumnStretch(1, 4)
-        grid.addWidget(QLabel("Default mark"), 0, 2)
-        grid.addWidget(self.default_mark, 0, 3)
+        grid.addWidget(QLabel("Default grade"), 0, 2)
+        grid.addWidget(self._items["default_grade"], 0, 3)
         grid.addWidget(QLabel("ID number"), 0, 4)
-        grid.addWidget(self.id_number, 0, 5)
+        grid.addWidget(self._items["id_number"], 0, 5)
         grid.addWidget(QLabel("Tags"), 1, 0)
         grid.addWidget(TagBar(), 1, 1)
-        grid.addWidget(QLabel("Default grade"), 1, 2)
-        grid.addWidget(self.default_grade, 1, 3)
-        self.general_block.addLayout(grid)
-        self.general_block.addSpacing(10)
-        self.general_block.addWidget(QLabel("Question text"))
+        frame.addLayout(grid)
+        frame.addSpacing(10)
+        frame.addWidget(QLabel("Question text"))
         self.editor = TextEdit(self.editor_toobar)
-        self.general_block.addWidget(self.editor)
+        frame.addWidget(self.editor)
 
         #Check      use_latex
         #SmallText  default_grade
 
     def add_multiple_tries_block(self) -> None:
-        if self.multiple_tries_block is not None:
-            return
-        self.multiple_tries_block = FrameLayout(title="Multiple Tries")
-        self.cframe_vbox.addWidget(self.multiple_tries_block)
+        frame = FrameLayout(title="Multiple Tries")
+        self._blocks["database"] = frame
+        self.cframe_vbox.addWidget(frame)
         # self.hints: List[Hint] = []
 
     def add_solution_block(self) -> None:
-        if self.solution_block is not None:
-            return
-        self.solution_block = FrameLayout(title="Solutions")
-        self.cframe_vbox.addWidget(self.solution_block)
+        frame = FrameLayout(title="Solutions")
+        self._blocks["database"] = frame
+        self.cframe_vbox.addWidget(frame)
 
-        self.solution_block.addWidget(QLabel("Solution"))
-        self.solution = TextEdit(self.editor_toobar)
-        self.solution_block.addWidget(self.solution)
+        frame.addWidget(QLabel("Solution"))
+        self._items["solution"] = TextEdit(self.editor_toobar)
+        frame.addWidget(self._items["solution"])
 
     def create_question(self) -> None:
-        pass
+        if self.current_question is None:
+            cls = getattr(questions, self.question_type.currentText())
+            self.current_question = cls.from_gui(self._items)
+        else:
+            pass
 
     def create_category(self) -> None:
         pass
@@ -309,8 +331,8 @@ class GUI(QMainWindow):
         """
         cls = getattr(questions, value)
         init_fields = cls.__init__.__code__.co_varnames[1:-2]
-        for block in self._blocks:
-            block.update_visible_items(init_fields)
+        for item in self._items:
+            self._items[item].setVisible(item in init_fields)
 
 # ----------------------------------------------------------------------------------------
 
@@ -438,7 +460,7 @@ class TextToolbar(QToolBar):
         format_group.addAction(self.alignj_action)
 
         self.wrap_action = QAction(QIcon(f"{img_path}/arrow-continue.png"), "Wrap text to window", self)
-        self.wrap_action.setStatuWsTip("Toggle wrap text to window")
+        self.wrap_action.setStatusTip("Toggle wrap text to window")
         self.wrap_action.setCheckable(True)
         self.wrap_action.setChecked(True)
         self.addAction(self.wrap_action)
@@ -553,8 +575,8 @@ class FrameLayout(QWidget):
         QFrame.__init__(self, parent=parent)
 
         self._is_collasped: bool = True
-        self._items: Dict[str, QWidget] = {}
         self._title_frame: TitleFrame = TitleFrame(title=title, collapsed=True)
+        self.setStyleSheet(".QWidget{border:1px solid rgb(41, 41, 41); background-color: #f0f6ff}")
         self._content = QWidget()
         self._content_layout = QVBoxLayout()
         self._content.setLayout(self._content_layout)
@@ -568,19 +590,25 @@ class FrameLayout(QWidget):
     def addSpacing(self, size: int) -> None:
         self._content_layout.addSpacing(size)
 
-    def addLayout(self, layout, name:str=None):
+    def addLayout(self, layout):
+        """[summary]
+
+        Args:
+            layout ([type]): [description]
+            name (str, optional): [description]. Defaults to None.
+        """
         self._content_layout.addLayout(layout)
-        if name is not None:
-            self._items[name] = layout
 
-    def addWidget(self, widget: QWidget, name:str=None):
+    def addWidget(self, widget: QWidget):
+        """[summary]
+
+        Args:
+            widget (QWidget): [description]
+            name (str, optional): A name if used to tag the widget. If none, the widget
+                will not be tagged to be updated. If string, should be a string. If dict,
+                should have tags as keys and QWidgets as values. Defaults to None.
+        """
         self._content_layout.addWidget(widget)
-        if name is not None:
-            self._items[name] = widget
-
-    def update_visible_items(self, items: List[str]) -> None:
-        for item in self._items:
-            self._items[item].setVisible(item in items)
 
     def toggleCollapsed(self):
         self._content.setVisible(self._is_collasped)
@@ -590,6 +618,7 @@ class FrameLayout(QWidget):
 # ----------------------------------------------------------------------------------------
 
 class TagBar(QWidget):
+
     def __init__(self):
         super(TagBar, self).__init__()
         self.tags = []
@@ -640,6 +669,26 @@ class TagBar(QWidget):
     def delete_tag(self, tag_name):
         self.tags.remove(tag_name)
         self.refresh()
+
+# ----------------------------------------------------------------------------------------
+
+class GUIAnswer(QFrame):
+
+    def __init__(self, **kwargs) -> None:
+        super(GUIAnswer, self).__init__(**kwargs)
+        self.setStyleSheet(".GUIAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
+        _content = QGridLayout(self)
+        _content.addWidget(QLabel("Text"), 0, 0)
+        _content.addWidget(QTextEdit(), 0, 1)
+        _content.addWidget(QLabel("Grade"), 1, 0)
+        _content.addWidget(QLineEdit(), 1, 1)
+        _content.addWidget(QLabel("Feedback"), 2, 0)
+        _content.addWidget(QTextEdit(), 2, 1)
+        _content.setRowStretch(0, 4)
+        self.setFixedHeight(140)
+        self.setFixedWidth(220)
+
+# ----------------------------------------------------------------------------------------
 
 def main():
     app = QApplication(sys.argv)
