@@ -1,5 +1,9 @@
+from qas_editor.answer import Answer
+from qas_editor.enums import Format
+from qas_editor.wrappers import CombinedFeedback, FText
 import sys
 import os
+import traceback
 from os.path import splitext
 from uuid import uuid4
 from .quiz import Quiz, QTYPES
@@ -23,7 +27,7 @@ class GUI(QMainWindow):
         self.setWindowTitle("QAS Editor GUI")
 
         # Data handling variables
-        self._blocks: Dict[str, FrameLayout] = {}
+        self._blocks: Dict[str, GFrameLayout] = {}
         self._items: Dict[str, QWidget] = {}
         self.path: str = None
         self.top_quiz: Quiz = None
@@ -44,7 +48,7 @@ class GUI(QMainWindow):
         saveas_file_action.setStatusTip("Save current page to specified file")
         saveas_file_action.triggered.connect(self.file_saveas)
         file_menu.addAction(saveas_file_action)
-        self.editor_toobar = TextToolbar()
+        self.editor_toobar = GTextToolbar()
         self.addToolBar(Qt.TopToolBarArea, self.editor_toobar)
 
         # Left side
@@ -130,7 +134,7 @@ class GUI(QMainWindow):
             print("Category!")
 
     def add_answer_block(self) -> None:
-        frame = FrameLayout(title="Answers")
+        frame = GFrameLayout(title="Answers")
         self._blocks["answer"] = frame
         self.cframe_vbox.addWidget(frame)
 
@@ -146,7 +150,7 @@ class GUI(QMainWindow):
 
         # Answers
         aabutton = QPushButton("Add Answer")
-        aabutton.clicked.connect(lambda x: abox.addWidget(GUIAnswer()))
+        aabutton.clicked.connect(lambda x: abox.addWidget(GAnswer(self.editor_toobar)))
         abox = QHBoxLayout()
         #abutton = QPushButton("Add Answer")
 
@@ -160,37 +164,27 @@ class GUI(QMainWindow):
         grid.addWidget(self._items["show_instruction"], 2, 2)
 
         frame.addLayout(grid)
-        frame.addLayout(abox)
         frame.addWidget(aabutton)
+        frame.addLayout(abox)
         # Select Option, used in 
 
     def add_database_block(self) -> None:
-        frame = FrameLayout(title="Database")
+        frame = GFrameLayout(title="Database")
         self._blocks["database"] = frame
         self.cframe_vbox.addWidget(frame)
 
     def add_feedback_block(self) -> None:
-        frame = FrameLayout(title="Feedbacks")
+        frame = GFrameLayout(title="Feedbacks")
         self._blocks["feedback"] = frame
         self.cframe_vbox.addWidget(frame)
-
-        self._items["shuffle"] = QCheckBox("Show the number of correct responses once the question has finished")
-        self._items["general_feedback"] = TextEdit(self.editor_toobar)
-        self._items["correct_feedback"] = TextEdit(self.editor_toobar)
-        self._items["incomplete_feedback"] = TextEdit(self.editor_toobar)
-        self._items["incorrect_feedback"] = TextEdit(self.editor_toobar)
-        frame.addWidget(self._items["shuffle"])
+        self._items["general_feedback"] = GTextEditor(self.editor_toobar)
+        self._items["combined_feedback"] = GCFeedback(self.editor_toobar)
         frame.addWidget(QLabel("General feedback"))
         frame.addWidget(self._items["general_feedback"])
-        frame.addWidget(QLabel("Feedback for correct answer"))
-        frame.addWidget(self._items["correct_feedback"])
-        frame.addWidget(QLabel("Feedback for incomplete answer"))
-        frame.addWidget(self._items["incomplete_feedback"])
-        frame.addWidget(QLabel("Feedback for incorrect answer"))
-        frame.addWidget(self._items["incorrect_feedback"])
-
+        frame.addWidget(self._items["combined_feedback"])
+    
     def add_general_data_block(self) -> None:
-        frame = FrameLayout(title="General Data")
+        frame = GFrameLayout(title="General Data")
         self._blocks["database"] = frame
         self.cframe_vbox.addWidget(frame)
 
@@ -209,29 +203,29 @@ class GUI(QMainWindow):
         grid.addWidget(QLabel("ID number"), 0, 4)
         grid.addWidget(self._items["id_number"], 0, 5)
         grid.addWidget(QLabel("Tags"), 1, 0)
-        grid.addWidget(TagBar(), 1, 1)
+        grid.addWidget(GTagBar(), 1, 1)
         frame.addLayout(grid)
         frame.addSpacing(10)
         frame.addWidget(QLabel("Question text"))
-        self.editor = TextEdit(self.editor_toobar)
+        self.editor = GTextEditor(self.editor_toobar)
         frame.addWidget(self.editor)
 
         #Check      use_latex
         #SmallText  default_grade
 
     def add_multiple_tries_block(self) -> None:
-        frame = FrameLayout(title="Multiple Tries")
+        frame = GFrameLayout(title="Multiple Tries")
         self._blocks["database"] = frame
         self.cframe_vbox.addWidget(frame)
         # self.hints: List[Hint] = []
 
     def add_solution_block(self) -> None:
-        frame = FrameLayout(title="Solutions")
+        frame = GFrameLayout(title="Solutions")
         self._blocks["database"] = frame
         self.cframe_vbox.addWidget(frame)
 
         frame.addWidget(QLabel("Solution"))
-        self._items["solution"] = TextEdit(self.editor_toobar)
+        self._items["solution"] = GTextEditor(self.editor_toobar)
         frame.addWidget(self._items["solution"])
 
     def create_question(self) -> None:
@@ -246,7 +240,7 @@ class GUI(QMainWindow):
 
     def dialog_critical(self, s):
         dlg = QMessageBox(self)
-        dlg.setTedxt(s)
+        dlg.setText(traceback.format_exc())
         dlg.setIcon(QMessageBox.Critical)
         dlg.show()
 
@@ -336,12 +330,13 @@ class GUI(QMainWindow):
 
 # ----------------------------------------------------------------------------------------
 
-class TextEdit(QTextEdit):
+class GTextEditor(QTextEdit):
 
-    def __init__(self, toolBar: "TextToolbar") -> None:
+    def __init__(self, toolbar: "GTextToolbar") -> None:
         super().__init__()
+        self.toolbar = toolbar
         self.setAutoFormatting(QTextEdit.AutoAll)
-        self.selectionChanged.connect(lambda: toolBar.update_editor(self))
+        self.selectionChanged.connect(lambda: toolbar.update_editor(self))
         self.setFont(QFont('Times', 12))
         self.setFontPointSize(12)   
 
@@ -357,7 +352,7 @@ class TextEdit(QTextEdit):
         if source.hasImage():
             return True
         else:
-            return super(TextEdit, self).canInsertFromMimeData(source)
+            return super(GTextEditor, self).canInsertFromMimeData(source)
 
     def insertFromMimeData(self, source):
         """[summary]
@@ -385,23 +380,40 @@ class TextEdit(QTextEdit):
             document.addResource(QTextDocument.ImageResource, uuid, image)
             cursor.insertImage(uuid)
             return
-        super(TextEdit, self).insertFromMimeData(source)
+        super(GTextEditor, self).insertFromMimeData(source)
+
+    def getFText(self) -> FText:
+        """[summary]
+
+        Returns:
+            FText: [description]
+        """
+        tp = self.toolbar.text_type.currentIndex()
+        if tp == 0:
+            txt = self.toMarkdown()
+            return FText(txt, Format.MD)
+        elif tp == 1:
+            txt = self.toHtml()
+            return FText(txt, Format.HTML)
+        else:
+            txt = self.toPlainText()
+            return FText(txt, Format.PLAIN)
 
 # ----------------------------------------------------------------------------------------
 
-class TextToolbar(QToolBar):
+class GTextToolbar(QToolBar):
 
     def __init__(self, *args, **kwargs):
-        super(TextToolbar, self).__init__(*args, **kwargs)
+        super(GTextToolbar, self).__init__(*args, **kwargs)
 
-        self.editor: TextEdit = None
+        self.editor: GTextEditor = None
         self.setIconSize(QSize(16, 16))
 
         self.fonts = QFontComboBox()
         self.addWidget(self.fonts)
 
         self.text_type = QComboBox()
-        self.text_type.addItems(["MarkDown", "PlainText", "HTML"])
+        self.text_type.addItems(["MarkDown", "HTML", "PlainText"])
         self.addWidget(self.text_type)
 
         self.math_type = QComboBox()
@@ -471,7 +483,7 @@ class TextToolbar(QToolBar):
         # We don't need to disable signals for alignment, as they are paragraph-wide.
         
 
-    def update_editor(self, text_editor: TextEdit) -> None:
+    def update_editor(self, text_editor: GTextEditor) -> None:
         """Update the font format toolbar/actions when a new text selection is made. 
         This is neccessary to keep toolbars/etc. in sync with the current edit state.
         """
@@ -516,7 +528,7 @@ class TextToolbar(QToolBar):
 
 # ----------------------------------------------------------------------------------------
 
-class Arrow(QFrame):
+class GArrow(QFrame):
     def __init__(self, parent=None, collapsed=False):
         QFrame.__init__(self, parent=parent)
         self.setMaximumSize(24, 24)
@@ -538,7 +550,7 @@ class Arrow(QFrame):
 
 # ----------------------------------------------------------------------------------------
 
-class TitleFrame(QFrame):
+class GTitleFrame(QFrame):
 
     clicked = pyqtSignal()
 
@@ -554,7 +566,7 @@ class TitleFrame(QFrame):
         self._hlayout.setContentsMargins(0, 0, 0, 0)
         self._hlayout.setSpacing(0)
 
-        self._arrow = Arrow(collapsed=collapsed)
+        self._arrow = GArrow(collapsed=collapsed)
         self._arrow.setStyleSheet("border:0px")
         self._title = QLabel(title)
         self._title.setFixedHeight(24)
@@ -566,16 +578,16 @@ class TitleFrame(QFrame):
 
     def mousePressEvent(self, event):
         self.clicked.emit()
-        return super(TitleFrame, self).mousePressEvent(event)
+        return super(GTitleFrame, self).mousePressEvent(event)
 
 # ----------------------------------------------------------------------------------------
 
-class FrameLayout(QWidget):
+class GFrameLayout(QWidget):
     def __init__(self, parent=None, title: str=None):
         QFrame.__init__(self, parent=parent)
 
-        self._is_collasped: bool = True
-        self._title_frame: TitleFrame = TitleFrame(title=title, collapsed=True)
+        self._is_collasped = True
+        self._title_frame = GTitleFrame(title=title, collapsed=True)
         self.setStyleSheet(".QWidget{border:1px solid rgb(41, 41, 41); background-color: #f0f6ff}")
         self._content = QWidget()
         self._content_layout = QVBoxLayout()
@@ -617,10 +629,10 @@ class FrameLayout(QWidget):
 
 # ----------------------------------------------------------------------------------------
 
-class TagBar(QWidget):
+class GTagBar(QWidget):
 
     def __init__(self):
-        super(TagBar, self).__init__()
+        super(GTagBar, self).__init__()
         self.tags = []
         self.h_layout = QHBoxLayout()
         self.h_layout.setSpacing(4)
@@ -672,23 +684,75 @@ class TagBar(QWidget):
 
 # ----------------------------------------------------------------------------------------
 
-class GUIAnswer(QFrame):
+class GAnswer(QFrame):
 
-    def __init__(self, **kwargs) -> None:
-        super(GUIAnswer, self).__init__(**kwargs)
-        self.setStyleSheet(".GUIAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
+    def __init__(self, controls: GTextToolbar, **kwargs) -> None:
+        super(GAnswer, self).__init__(**kwargs)
+        self.setStyleSheet(".GAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
         _content = QGridLayout(self)
         _content.addWidget(QLabel("Text"), 0, 0)
-        _content.addWidget(QTextEdit(), 0, 1)
+        self._text = GTextEditor(controls)
+        _content.addWidget(self._text, 0, 1)
         _content.addWidget(QLabel("Grade"), 1, 0)
-        _content.addWidget(QLineEdit(), 1, 1)
+        self._grade = QLineEdit()
+        _content.addWidget(self._grade, 1, 1)
         _content.addWidget(QLabel("Feedback"), 2, 0)
-        _content.addWidget(QTextEdit(), 2, 1)
+        self._feedback = GTextEditor(controls)
+        _content.addWidget(self._feedback, 2, 1)
         _content.setRowStretch(0, 4)
         self.setFixedHeight(140)
         self.setFixedWidth(220)
 
+    def to_gui(self, items: dict) -> None:
+        """[summary]
+
+        Args:
+            items (dict): [description]
+        """
+        fraction = float(self._grade.text())
+        tp = self._text.toolbar.text_type.currentIndex()
+        if tp == 0:
+            text = self._text.toMarkdown()
+            formatting = Format.MD
+        elif tp == 1:
+            text = self._text.toHtml()
+            formatting = Format.HTML
+        else:
+            text = self._text.toPlainText()
+            formatting = Format.PLAIN
+        feedback = self._feedback.getFText()
+        if "answer" not in items:
+            items["answer"] = []
+        items["answer"].append(Answer(fraction, text, feedback, formatting))
+
 # ----------------------------------------------------------------------------------------
+
+class GCFeedback(QFrame):
+
+    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.setStyleSheet(".GCFeedback{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
+        self._correct = GTextEditor(toolbar)
+        self._incomplete = GTextEditor(toolbar)
+        self._incorrect  = GTextEditor(toolbar)
+        self._show = QCheckBox("Show the number of correct responses once the question has finished")
+        _content = QGridLayout(self)
+        _content.addWidget(QLabel("Feedback for correct answer"), 0, 0)
+        _content.addWidget(self._correct, 1, 0)
+        _content.addWidget(QLabel("Feedback for incomplete answer"), 0, 1)
+        _content.addWidget(self._incomplete, 1, 1)
+        _content.addWidget(QLabel("Feedback for incorrect answer"), 0, 2)
+        _content.addWidget(self._incorrect, 1, 2)
+        _content.addWidget(self._show, 2, 0, 1, 3)
+        
+    def to_gui(self, items: dict) -> None:
+        correct = self._correct.getFText()
+        incomplete = self._incomplete.getFText()
+        incorrect = self._incorrect.getFText()
+        items["combined_feedback"] = CombinedFeedback(correct, incomplete, incorrect, self._show.isChecked())
+
+# ----------------------------------------------------------------------------------------
+
 
 def main():
     app = QApplication(sys.argv)

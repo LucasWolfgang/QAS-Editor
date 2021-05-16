@@ -16,7 +16,7 @@ class Question():
     _type=None
 
     def __init__(self, name: str, question_text: FText, default_grade: float=1.0, 
-                feedback: FText=None, id_number: int=None, shuffle: bool=False,
+                general_feedback: FText=None, id_number: int=None, shuffle: bool=False,
                 penalty: float=0.5, tags: Tags=None, solution: str=None,
                 use_latex: bool=True, hints: List[Hint]=None) -> None:
         """
@@ -33,7 +33,7 @@ class Question():
         self.name = name
         self.question_text = question_text
         self.default_grade = default_grade
-        self.general_feedback = feedback
+        self.general_feedback = general_feedback
         self.id_number = id_number
         self.shuffle = shuffle
         self.penalty = penalty
@@ -63,7 +63,7 @@ class Question():
         extract(data, "defaultgrade"  , res, "default_grade", float)
         extract(data, "idnumber"      , res, "id_number"    , int)
         extract(data, "shuffleanswers", res, "shuffle"      , bool)
-        extract(data, "penalty"       , res, "penaly"       , float)
+        extract(data, "penalty"       , res, "penalty"      , float)
         res["tags"] = Tags.from_xml(data.get("tags"))
         question = cls(**kwargs, **res)
         for h in root.findall("hint"):
@@ -443,7 +443,7 @@ class QDragAndDropMarker(Question):
         data = {x.tag: x for x in root}
         res = {}
         res["background"] = B64File.from_xml(data.get("file"))
-        extract(data, "highlight", res, "showmisplaced", bool)
+        extract(data, "showmisplaced", res, "highlight_empty", bool)
         res["combined_feedback"] = CombinedFeedback.from_xml(root)
         question: "QDragAndDropMarker" = super().from_xml(root, **res)
         for dragitem in root.findall("drag"):
@@ -497,7 +497,7 @@ class QEssay(Question):
     def from_xml(cls, root: et.Element) -> "QEssay":
         data = {x.tag: x for x in root}
         res = {}
-        res["format"] = ResponseFormat.get(data["responseformat"].text)
+        res["reponse_format"] = ResponseFormat.get(data["responseformat"].text)
         extract(data, "responserequired"   , res, "response_required" , bool)
         extract(data, "responsefieldlines" , res, "lines"      , int)
         extract(data, "attachments"        , res, "attachments", int)
@@ -879,8 +879,9 @@ class QShortAnswer(Question):
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":
         data = {x.tag: x for x in root}
-        use_case = data["usecase"].text
-        question: "QShortAnswer" = super().from_xml(root, use_case)
+        res = {}
+        res["use_case"] = data["usecase"].text
+        question: "QShortAnswer" = super().from_xml(root, **res)
         for answer in root.findall("answer"):
             question.answers.append(Answer.from_xml(answer))
         return question
