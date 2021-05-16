@@ -9,10 +9,11 @@ from uuid import uuid4
 from .quiz import Quiz, QTYPES
 from . import questions
 from typing import Dict, List
+from pprint import pprint
 from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal, QVariant
 from PyQt5.QtGui import QStandardItemModel, QFont, QImage, QTextDocument, QKeySequence,\
                         QIcon, QColor, QPainter, QStandardItem
-from PyQt5.QtWidgets import QApplication, QSizePolicy, QWidget, QHBoxLayout, QVBoxLayout,\
+from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout,\
                             QFrame, QSplitter, QTreeView, QTextEdit, QGroupBox,\
                             QMainWindow, QStatusBar, QFileDialog, QToolBar, QMenu,\
                             QFontComboBox, QComboBox, QActionGroup, QMessageBox,\
@@ -138,15 +139,12 @@ class GUI(QMainWindow):
         self._blocks["answer"] = frame
         self.cframe_vbox.addWidget(frame)
 
-        self._items["shuffle"] = QCheckBox("Shuffle the questions")
+        self._items["shuffle"] = QCheckBox("Shuffle the answers")
         self._items["show_instruction"] =  QCheckBox("Show standard instructions")
         self._items["single"] =  QCheckBox("Single answer")
-        self._items["numbering"] = QComboBox()
-        self._items["numbering"].addItems(["a, b, c", "A, B, C",  "i, ii, iii", "I, II, III", "1,2,3"])
-
-        # UnitHandling
-        self._items["grading"] = QComboBox()   
-        self._items["grading"].addItems(["Ignore", "Fraction of reponse", "Fraction of question"])
+        self._items["answer_numbering"] = QComboBox()
+        self._items["answer_numbering"].addItems(["a, b, c", "A, B, C",  "i, ii, iii", "I, II, III", "1,2,3"])
+        self._items["unit_handling"] = GUnitHadling()
 
         # Answers
         aabutton = QPushButton("Add Answer")
@@ -154,16 +152,16 @@ class GUI(QMainWindow):
         abox = QHBoxLayout()
         #abutton = QPushButton("Add Answer")
 
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Grading"), 0, 0)
-        grid.addWidget(self._items["grading"], 0, 1)
-        grid.addWidget(QLabel("Numbering"), 1, 0)
-        grid.addWidget(self._items["numbering"], 1, 1)
-        grid.addWidget(self._items["single"], 0, 2)
-        grid.addWidget(self._items["shuffle"], 1, 2)
-        grid.addWidget(self._items["show_instruction"], 0, 3)
+        grid = QHBoxLayout()
+        grid.addWidget(QLabel("Numbering"))
+        grid.addWidget(self._items["answer_numbering"])
+        grid.addStretch()
+        grid.addWidget(self._items["single"])
+        grid.addWidget(self._items["shuffle"])
+        grid.addWidget(self._items["show_instruction"])
 
         frame.addLayout(grid)
+        frame.addWidget(self._items["unit_handling"])
         frame.addWidget(aabutton)
         frame.addLayout(abox)
         # Select Option, used in 
@@ -194,21 +192,23 @@ class GUI(QMainWindow):
         self._items["default_grade"].setToolTip("Default grade for the question.")
         self._items["id_number"] = QLineEdit()
         self._items["id_number"].setToolTip("Provides a second way of finding a question.")
+        self._items["tags"] = GTagBar()
+        self._items["question_text"] = GTextEditor(self.editor_toobar)
         grid = QGridLayout()
         grid.addWidget(QLabel("Question name"), 0, 0)
         grid.addWidget(self._items["name"], 0,1)
-        grid.setColumnStretch(1, 4)
         grid.addWidget(QLabel("Default grade"), 0, 2)
         grid.addWidget(self._items["default_grade"], 0, 3)
-        grid.addWidget(QLabel("ID number"), 0, 4)
-        grid.addWidget(self._items["id_number"], 0, 5)
+        grid.addWidget(QLabel("ID number"), 1, 2)
+        grid.addWidget(self._items["id_number"], 1, 3)
         grid.addWidget(QLabel("Tags"), 1, 0)
-        grid.addWidget(GTagBar(), 1, 1)
+        grid.addWidget(self._items["tags"], 1, 1)
+        grid.setColumnStretch(1, 4)
+        grid.setColumnStretch(3, 1)
         frame.addLayout(grid)
         frame.addSpacing(10)
         frame.addWidget(QLabel("Question text"))
-        self.editor = GTextEditor(self.editor_toobar)
-        frame.addWidget(self.editor)
+        frame.addWidget(self._items["question_text"])
 
         #Check      use_latex
         #SmallText  default_grade
@@ -324,7 +324,8 @@ class GUI(QMainWindow):
         [summary]
         """
         cls = getattr(questions, value)
-        init_fields = cls.__init__.__code__.co_varnames[1:-2]
+        init_fields: List = list(cls.__init__.__code__.co_names)
+        init_fields.extend(questions.Question.__init__.__code__.co_names)
         for item in self._items:
             self._items[item].setVisible(item in init_fields)
 
@@ -753,13 +754,23 @@ class GCFeedback(QFrame):
 
 # ----------------------------------------------------------------------------------------
 
-class GHint(QWidget):
+class GHint(QFrame):
 
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.setStyleSheet(".GCFeedback{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
+        self.setStyleSheet(".GHint{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
         self._text = GTextEditor(toolbar)
-        _content = QGridLayout(self)
+        self._show = QCheckBox("Show the number of correct responses")
+        self._state = QCheckBox("State which markers are incorrectly placed")
+        self._clear = QCheckBox("Move incorrectly placed markers back to default start position")
+        _content = QVBoxLayout(self)
+        _content.addWidget(self._text)
+        _content.addWidget(self._show)
+        _content.addWidget(self._state)
+        _content.addWidget(self._clear)
+
+    def to_obj(self):
+        pass
 
 # ----------------------------------------------------------------------------------------
 
@@ -767,15 +778,39 @@ class GMultipleTries(QWidget):
 
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
-        _content = QHBoxLayout(self)
         self._penalty = QLineEdit()
         add = QPushButton("Add Hint")
+        add.clicked.connect(lambda x: _content.addWidget(GHint(toolbar)))
         rem = QPushButton("Remove Last")
-        _content.addWidget(QLabel("Penalty for each try"))
+        _header = QHBoxLayout()
+        _header.addWidget(QLabel("Penalty for each try"))
+        _header.addWidget(self._penalty)
+        _header.addWidget(add)
+        _header.addWidget(rem)
+        _content = QVBoxLayout(self)
+        _content.addLayout(_header)
+
+    def to_obj(self, items: dict) -> None:
+        pass
+
+# ----------------------------------------------------------------------------------------
+
+class GUnitHadling(QWidget):
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._grading = QComboBox()   
+        self._grading.addItems(["Ignore", "Fraction of reponse", "Fraction of question"])
+        self._penalty = QLineEdit()
+        self._show = QComboBox()
+        self._show.addItems(["Text input", "Multiple choice", "Drop-down", "Not visible"])
+        _content = QHBoxLayout(self)
+        _content.addWidget(QLabel("Grading"))
+        _content.addWidget(self._grading)
+        _content.addWidget(QLabel("Penalty"))
         _content.addWidget(self._penalty)
-        _content.addWidget(add)
-        _content.addWidget(rem)
-        _hints = QVBoxLayout()
+        _content.addWidget(QLabel("Show units"))
+        _content.addWidget(self._show)
 
     def to_obj(self, items: dict) -> None:
         pass

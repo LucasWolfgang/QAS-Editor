@@ -6,6 +6,7 @@ from .utils import get_txt, extract
 from .enums import ClozeFormat, Format, ResponseFormat, Status, Distribution, Numbering
 from .answer import Answer, ClozeAnswer, NumericalAnswer, CalculatedAnswer, Choice
 import re
+from pprint import pprint
 # import markdown
 # import latex2mathml
 
@@ -47,7 +48,7 @@ class Question():
 
     @classmethod
     def from_gui(cls, items: dict) -> "Question":
-        print(items)
+        pprint(items)
         return None
 
     @classmethod
