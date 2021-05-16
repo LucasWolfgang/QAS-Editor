@@ -161,7 +161,7 @@ class GUI(QMainWindow):
         grid.addWidget(self._items["numbering"], 1, 1)
         grid.addWidget(self._items["single"], 0, 2)
         grid.addWidget(self._items["shuffle"], 1, 2)
-        grid.addWidget(self._items["show_instruction"], 2, 2)
+        grid.addWidget(self._items["show_instruction"], 0, 3)
 
         frame.addLayout(grid)
         frame.addWidget(aabutton)
@@ -215,9 +215,9 @@ class GUI(QMainWindow):
 
     def add_multiple_tries_block(self) -> None:
         frame = GFrameLayout(title="Multiple Tries")
-        self._blocks["database"] = frame
         self.cframe_vbox.addWidget(frame)
-        # self.hints: List[Hint] = []
+        self._items["multiple_tries"] = GMultipleTries(self.editor_toobar)
+        frame.addWidget(self._items["multiple_tries"])
 
     def add_solution_block(self) -> None:
         frame = GFrameLayout(title="Solutions")
@@ -703,7 +703,7 @@ class GAnswer(QFrame):
         self.setFixedHeight(140)
         self.setFixedWidth(220)
 
-    def to_gui(self, items: dict) -> None:
+    def to_obj(self, items: dict) -> None:
         """[summary]
 
         Args:
@@ -745,7 +745,7 @@ class GCFeedback(QFrame):
         _content.addWidget(self._incorrect, 1, 2)
         _content.addWidget(self._show, 2, 0, 1, 3)
         
-    def to_gui(self, items: dict) -> None:
+    def to_obj(self, items: dict) -> None:
         correct = self._correct.getFText()
         incomplete = self._incomplete.getFText()
         incorrect = self._incorrect.getFText()
@@ -753,6 +753,34 @@ class GCFeedback(QFrame):
 
 # ----------------------------------------------------------------------------------------
 
+class GHint(QWidget):
+
+    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.setStyleSheet(".GCFeedback{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
+        self._text = GTextEditor(toolbar)
+        _content = QGridLayout(self)
+
+# ----------------------------------------------------------------------------------------
+
+class GMultipleTries(QWidget):
+
+    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
+        super().__init__(**kwargs)
+        _content = QHBoxLayout(self)
+        self._penalty = QLineEdit()
+        add = QPushButton("Add Hint")
+        rem = QPushButton("Remove Last")
+        _content.addWidget(QLabel("Penalty for each try"))
+        _content.addWidget(self._penalty)
+        _content.addWidget(add)
+        _content.addWidget(rem)
+        _hints = QVBoxLayout()
+
+    def to_obj(self, items: dict) -> None:
+        pass
+
+# ----------------------------------------------------------------------------------------
 
 def main():
     app = QApplication(sys.argv)

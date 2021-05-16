@@ -299,6 +299,25 @@ class CombinedFeedback():
 
 # ----------------------------------------------------------------------------------------
 
+class MultipleTries():
+
+    def __init__(self, penalty: float=0.5, hints: List[Hint]=None) -> None:
+        self.penalty = penalty
+        self.hints = hints if hints is not None else []
+
+    def from_xml(cls, data: dict, root: et.Element) -> "MultipleTries":
+        hints = []
+        for h in root.findall("hint"):
+            hints.append(Hint.from_xml(h))
+        return cls(float(data["penalty"]), hints)
+
+    def to_xml(self, question: et.Element) -> None:
+        for h in self.hints:
+            question.append(h.to_xml())
+        et.SubElement(question, "penalty").text = str(self.penalty)
+
+# ----------------------------------------------------------------------------------------
+
 class DragItem():
     """
     Abstract class representing any drag item.

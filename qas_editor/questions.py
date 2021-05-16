@@ -1,6 +1,6 @@
 from typing import List
 from xml.etree import ElementTree as et
-from .wrappers import B64File, CombinedFeedback, Dataset, FText, SelectOption, Subquestion, \
+from .wrappers import B64File, CombinedFeedback, Dataset, FText, MultipleTries, SelectOption, Subquestion, \
                     Unit, Hint, Tags, UnitHandling, DropZone, DragItem
 from .utils import get_txt, extract
 from .enums import ClozeFormat, Format, ResponseFormat, Status, Distribution, Numbering
@@ -17,8 +17,7 @@ class Question():
 
     def __init__(self, name: str, question_text: FText, default_grade: float=1.0, 
                 general_feedback: FText=None, id_number: int=None, shuffle: bool=False,
-                penalty: float=0.5, tags: Tags=None, solution: str=None,
-                use_latex: bool=True, hints: List[Hint]=None) -> None:
+                tags: Tags=None, solution: str=None, use_latex: bool=True) -> None:
         """
         [summary]
 
@@ -36,11 +35,9 @@ class Question():
         self.general_feedback = general_feedback
         self.id_number = id_number
         self.shuffle = shuffle
-        self.penalty = penalty
         self.solution = solution
         self.tags = tags
         self.use_latex = use_latex
-        self.hints: List[Hint] = hints if hints is not None else []
 
     def __repr__(self):
         """ 
@@ -63,11 +60,8 @@ class Question():
         extract(data, "defaultgrade"  , res, "default_grade", float)
         extract(data, "idnumber"      , res, "id_number"    , int)
         extract(data, "shuffleanswers", res, "shuffle"      , bool)
-        extract(data, "penalty"       , res, "penalty"      , float)
         res["tags"] = Tags.from_xml(data.get("tags"))
         question = cls(**kwargs, **res)
-        for h in root.findall("hint"):
-            question.hints.append(Hint.from_xml(h))
         return question
 
     def to_xml(self) -> et.Element:
@@ -82,14 +76,11 @@ class Question():
         if self.general_feedback:
             self.general_feedback.to_xml(question, "generalfeedback")
         et.SubElement(question, "defaultgrade").text = str(self.default_grade)
-        et.SubElement(question, "penalty").text = str(self.penalty)
         et.SubElement(question, "hidden").text = "0"
         if self.id_number is not None:
             et.SubElement(question, "idnumber").text = str(self.id_number)
         if self.shuffle:
             et.SubElement(question, "shuffleanswers").text = "true"
-        for h in self.hints:
-            question.append(h.to_xml())
         if self.tags:
             question.append(self.tags.to_xml())
         return question
@@ -101,7 +92,8 @@ class QCalculated(Question):
 
     def __init__(self, synchronize: int, single: bool=False, unit_handling: UnitHandling=None, 
                 units: List[Unit]=None, datasets: List[Dataset]=None, 
-                answers: List[CalculatedAnswer]=None, *args, **kwargs):
+                answers: List[CalculatedAnswer]=None, multiple_tries: MultipleTries=None, 
+                *args, **kwargs):
         """[summary]
 
         Args:
@@ -116,6 +108,7 @@ class QCalculated(Question):
         self.synchronize = synchronize
         self.single = single
         self.unit_handling = unit_handling
+        self.multiple_tries = multiple_tries
         self.units: List[Unit] = units if units is not None else []
         self.datasets: List[Dataset] = datasets if datasets is not None else []
         self.answers: List[CalculatedAnswer] = answers if answers is not None else []
@@ -178,7 +171,7 @@ class QCalculatedMultichoice(Question):
 
     def __init__(self, synchronize: int, single: bool=False, 
                 numbering: Numbering=Numbering.ALF_LR, 
-                combined_feedback: CombinedFeedback=None, 
+                combined_feedback: CombinedFeedback=None, multiple_tries: MultipleTries=None,
                 datasets: List[Dataset]=None, answers: List[CalculatedAnswer]=None,
                 *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -186,6 +179,7 @@ class QCalculatedMultichoice(Question):
         self.single = single
         self.numbering = numbering
         self.combined_feedback = combined_feedback
+        self.multiple_tries = multiple_tries
         self.datasets: List[Dataset] = datasets if datasets is not None else []
         self.answers: List[CalculatedAnswer] = answers if answers is not None else []
 
@@ -661,6 +655,7 @@ class QMultichoice(Question):
 
     def __init__(self, single: bool=True, show_instruction: bool=False,
                 answer_numbering: Numbering=Numbering.ALF_LR, 
+                multiple_tries: MultipleTries=None,
                 combined_feedback: CombinedFeedback=None, *args, **kwargs):
         """
         [summary]
@@ -671,6 +666,7 @@ class QMultichoice(Question):
         super().__init__(*args, **kwargs)
         self.single = single
         self.combined_feedback = combined_feedback
+        self.multiple_tries = multiple_tries
         self.answer_numbering = answer_numbering
         self.show_instruction = show_instruction
         self.answers: List[Answer] = []
