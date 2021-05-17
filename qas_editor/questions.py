@@ -18,7 +18,7 @@ class Question():
 
     def __init__(self, name: str, question_text: FText, default_grade: float=1.0, 
                 general_feedback: FText=None, id_number: int=None, shuffle: bool=False,
-                tags: Tags=None, solution: str=None, use_latex: bool=True) -> None:
+                tags: Tags=None, solution: str=None, use_latex: bool=True, *args, **kwargs) -> None:
         """
         [summary]
 
@@ -45,11 +45,6 @@ class Question():
         Change string representation.
         """
         return f"Type: {self.__class__.__name__}, name: \'{self.name}\'."
-
-    @classmethod
-    def from_gui(cls, items: dict) -> "Question":
-        pprint(items)
-        return None
 
     @classmethod
     def from_xml(cls, root: et.Element, **kwargs) -> "Question":

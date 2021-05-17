@@ -1,19 +1,18 @@
-from qas_editor.answer import Answer
-from qas_editor.enums import Format
-from qas_editor.wrappers import CombinedFeedback, FText
 import sys
 import os
 import traceback
 from os.path import splitext
 from uuid import uuid4
-from .quiz import Quiz, QTYPES
-from . import questions
 from typing import Dict, List
-from pprint import pprint
+from qas_editor.quiz import Quiz, QTYPES
+from qas_editor import questions
+from qas_editor.answer import Answer
+from qas_editor.enums import Format, Grading, ShowUnits
+from qas_editor.wrappers import CombinedFeedback, FText, Hint, MultipleTries, Tags, UnitHandling
 from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal, QVariant
 from PyQt5.QtGui import QStandardItemModel, QFont, QImage, QTextDocument, QKeySequence,\
                         QIcon, QColor, QPainter, QStandardItem
-from PyQt5.QtWidgets import QApplication, QWidget, QHBoxLayout, QVBoxLayout,\
+from PyQt5.QtWidgets import QApplication, QLayout, QWidget, QHBoxLayout, QVBoxLayout,\
                             QFrame, QSplitter, QTreeView, QTextEdit, QGroupBox,\
                             QMainWindow, QStatusBar, QFileDialog, QToolBar, QMenu,\
                             QFontComboBox, QComboBox, QActionGroup, QMessageBox,\
@@ -31,8 +30,8 @@ class GUI(QMainWindow):
         self._blocks: Dict[str, GFrameLayout] = {}
         self._items: Dict[str, QWidget] = {}
         self.path: str = None
-        self.top_quiz: Quiz = None
-        self.current_category: Quiz = None
+        self.top_quiz = Quiz()
+        self.current_category = self.top_quiz
         self.current_question = None
 
         # Create menu bar
@@ -114,7 +113,8 @@ class GUI(QMainWindow):
         self.status = QStatusBar()
         self.setStatusBar(self.status)
         #self.status.addWidget(QLabel(self.current_category))
-
+        
+        self.update_tree()
         self.setGeometry(300, 300, 1000, 600)
         self.show()
 
@@ -148,8 +148,8 @@ class GUI(QMainWindow):
 
         # Answers
         aabutton = QPushButton("Add Answer")
-        aabutton.clicked.connect(lambda x: abox.addWidget(GAnswer(self.editor_toobar)))
-        abox = QHBoxLayout()
+        aabutton.clicked.connect(lambda: self._items["answers"].addWidget(GAnswer(self.editor_toobar)))
+        self._items["answers"] = QHBoxLayout()
         #abutton = QPushButton("Add Answer")
 
         grid = QHBoxLayout()
@@ -163,7 +163,7 @@ class GUI(QMainWindow):
         frame.addLayout(grid)
         frame.addWidget(self._items["unit_handling"])
         frame.addWidget(aabutton)
-        frame.addLayout(abox)
+        frame.addLayout(self._items["answers"])
         # Select Option, used in 
 
     def add_database_block(self) -> None:
@@ -210,9 +210,6 @@ class GUI(QMainWindow):
         frame.addWidget(QLabel("Question text"))
         frame.addWidget(self._items["question_text"])
 
-        #Check      use_latex
-        #SmallText  default_grade
-
     def add_multiple_tries_block(self) -> None:
         frame = GFrameLayout(title="Multiple Tries")
         self.cframe_vbox.addWidget(frame)
@@ -229,16 +226,36 @@ class GUI(QMainWindow):
         frame.addWidget(self._items["solution"])
 
     def create_question(self) -> None:
-        if self.current_question is None:
+        output = {}
+        try:
             cls = getattr(questions, self.question_type.currentText())
-            self.current_question = cls.from_gui(self._items)
+            for key in self._items:
+                if isinstance(self._items[key], QComboBox):
+                    output[key] = self._items[key].currentText()
+                elif isinstance(self._items[key], QLineEdit):
+                    output[key] = self._items[key].text()
+                elif isinstance(self._items[key], GTextEditor):
+                    output[key] = self._items[key].getFText()
+                elif isinstance(self._items[key], QCheckBox):
+                    output[key] = self._items[key].isChecked()
+                elif isinstance(self._items[key], QLayout):
+                    output[key] = []
+                    for num in range(self._items[key].count()):
+                        output[key].append(output[key].itemAt(num).to_obj())
+                elif "to_obj" in dir(self._items[key].__class__):
+                    output[key] = self._items[key].to_obj()
+                else:
+                    print("Oooops: ", self._items[key])
+            self.current_category.add_question(cls(**output))
+        except Exception:
+            self.dialog_critical()
         else:
-            pass
+            self.update_tree()
 
     def create_category(self) -> None:
         pass
 
-    def dialog_critical(self, s):
+    def dialog_critical(self):
         dlg = QMessageBox(self)
         dlg.setText(traceback.format_exc())
         dlg.setIcon(QMessageBox.Critical)
@@ -266,13 +283,10 @@ class GUI(QMainWindow):
             else:
                 raise ValueError(f"Extension {path.rplist('.', 1)[-1]} can not be read")
         except Exception as e:
-            self.dialog_critical(str(e))
+            self.dialog_critical()
         else:
             self.path = path
-            data = {}
-            self.top_quiz.get_hier(data)
-            self.update_data_view(data, self.data_root)
-            self.dataView.expandAll()
+            self.update_tree()
         
     def file_save(self) -> None:
         """
@@ -283,7 +297,7 @@ class GUI(QMainWindow):
         try:
             pass
         except Exception as e:
-            self.dialog_critical(str(e))
+            self.dialog_critical()
 
     def file_saveas(self) -> None:
         """
@@ -297,7 +311,7 @@ class GUI(QMainWindow):
         try:
             pass
         except Exception as e:
-            self.dialog_critical(str(e))
+            self.dialog_critical()
         else:
             self.path = path
 
@@ -327,7 +341,18 @@ class GUI(QMainWindow):
         init_fields: List = list(cls.__init__.__code__.co_names)
         init_fields.extend(questions.Question.__init__.__code__.co_names)
         for item in self._items:
-            self._items[item].setVisible(item in init_fields)
+            if isinstance(self._items[item], QLayout):
+                for num in range(self._items[item].count()):
+                    self._items[item].itemAt(num).setVisible(item in init_fields)
+            if isinstance(self._items[item], QWidget):
+                self._items[item].setVisible(item in init_fields)
+
+    def update_tree(self) -> None:
+        data = {}
+        self.data_root.clear()
+        self.top_quiz.get_hier(data)
+        self.update_data_view(data, self.data_root)
+        self.dataView.expandAll()
 
 # ----------------------------------------------------------------------------------------
 
@@ -487,8 +512,7 @@ class GTextToolbar(QToolBar):
     def update_editor(self, text_editor: GTextEditor) -> None:
         """Update the font format toolbar/actions when a new text selection is made. 
         This is neccessary to keep toolbars/etc. in sync with the current edit state.
-        """
-        print(text_editor.textCursor().position())     
+        """ 
         if text_editor != self.editor:
             if self.editor is not None:
                 self.fonts.currentFontChanged.disconnect()
@@ -643,22 +667,6 @@ class GTagBar(QWidget):
         self.refresh()
         self.line_edit.returnPressed.connect(self.create_tags)
 
-    def create_tags(self):
-        new_tags = self.line_edit.text().split(', ')
-        self.line_edit.setText('')
-        self.tags.extend(new_tags)
-        self.tags = list(set(self.tags))
-        self.tags.sort(key=lambda x: x.lower())
-        self.refresh()
-
-    def refresh(self):
-        for i in reversed(range(self.h_layout.count())):
-            self.h_layout.itemAt(i).widget().setParent(None)
-        for tag in self.tags:
-            self.add_tag_to_bar(tag)
-        self.h_layout.addWidget(self.line_edit)
-        self.line_edit.setFocus()
-
     def add_tag_to_bar(self, text):
         tag = QFrame()
         tag.setStyleSheet('border:1px solid rgb(192, 192, 192); border-radius: 4px;')
@@ -683,6 +691,25 @@ class GTagBar(QWidget):
         self.tags.remove(tag_name)
         self.refresh()
 
+    def create_tags(self):
+        new_tags = self.line_edit.text().split(', ')
+        self.line_edit.setText('')
+        self.tags.extend(new_tags)
+        self.tags = list(set(self.tags))
+        self.tags.sort(key=lambda x: x.lower())
+        self.refresh()
+
+    def refresh(self):
+        for i in reversed(range(self.h_layout.count())):
+            self.h_layout.itemAt(i).widget().setParent(None)
+        for tag in self.tags:
+            self.add_tag_to_bar(tag)
+        self.h_layout.addWidget(self.line_edit)
+        self.line_edit.setFocus()
+
+    def to_obj(self):
+        return Tags(self.tags)
+
 # ----------------------------------------------------------------------------------------
 
 class GAnswer(QFrame):
@@ -704,7 +731,7 @@ class GAnswer(QFrame):
         self.setFixedHeight(140)
         self.setFixedWidth(220)
 
-    def to_obj(self, items: dict) -> None:
+    def to_obj(self) -> None:
         """[summary]
 
         Args:
@@ -722,9 +749,7 @@ class GAnswer(QFrame):
             text = self._text.toPlainText()
             formatting = Format.PLAIN
         feedback = self._feedback.getFText()
-        if "answer" not in items:
-            items["answer"] = []
-        items["answer"].append(Answer(fraction, text, feedback, formatting))
+        return Answer(fraction, text, feedback, formatting)
 
 # ----------------------------------------------------------------------------------------
 
@@ -746,11 +771,11 @@ class GCFeedback(QFrame):
         _content.addWidget(self._incorrect, 1, 2)
         _content.addWidget(self._show, 2, 0, 1, 3)
         
-    def to_obj(self, items: dict) -> None:
+    def to_obj(self) -> None:
         correct = self._correct.getFText()
         incomplete = self._incomplete.getFText()
         incorrect = self._incorrect.getFText()
-        items["combined_feedback"] = CombinedFeedback(correct, incomplete, incorrect, self._show.isChecked())
+        return CombinedFeedback(correct, incomplete, incorrect, self._show.isChecked())
 
 # ----------------------------------------------------------------------------------------
 
@@ -770,7 +795,18 @@ class GHint(QFrame):
         _content.addWidget(self._clear)
 
     def to_obj(self):
-        pass
+        tp = self._text.toolbar.text_type.currentIndex()
+        if tp == 0:
+            text = self._text.toMarkdown()
+            formatting = Format.MD
+        elif tp == 1:
+            text = self._text.toHtml()
+            formatting = Format.HTML
+        else:
+            text = self._text.toPlainText()
+            formatting = Format.PLAIN
+        return Hint(formatting, text, self._show.isChecked(), 
+                    self._clear.isChecked(), self._state.isChecked())
 
 # ----------------------------------------------------------------------------------------
 
@@ -779,19 +815,24 @@ class GMultipleTries(QWidget):
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self._penalty = QLineEdit()
+        self._penalty.setText("0")
         add = QPushButton("Add Hint")
-        add.clicked.connect(lambda x: _content.addWidget(GHint(toolbar)))
+        add.clicked.connect(lambda x: self._content.addWidget(GHint(toolbar)))
         rem = QPushButton("Remove Last")
         _header = QHBoxLayout()
         _header.addWidget(QLabel("Penalty for each try"))
         _header.addWidget(self._penalty)
         _header.addWidget(add)
         _header.addWidget(rem)
-        _content = QVBoxLayout(self)
-        _content.addLayout(_header)
+        self._content = QVBoxLayout(self)
+        self._content.addLayout(_header)
 
-    def to_obj(self, items: dict) -> None:
-        pass
+    def to_obj(self) -> None:
+        penalty = float(self._penalty.text())
+        hints = []
+        for num in range(self._content.count()-1):
+            hints.append(self._content.itemAt(num+1).to_obj())
+        return MultipleTries(penalty, hints)
 
 # ----------------------------------------------------------------------------------------
 
@@ -799,11 +840,14 @@ class GUnitHadling(QWidget):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
+        self.setStyleSheet(".GWidget{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
         self._grading = QComboBox()   
         self._grading.addItems(["Ignore", "Fraction of reponse", "Fraction of question"])
         self._penalty = QLineEdit()
+        self._penalty.setText("0")
         self._show = QComboBox()
         self._show.addItems(["Text input", "Multiple choice", "Drop-down", "Not visible"])
+        self._left = QCheckBox("Put units on the left")
         _content = QHBoxLayout(self)
         _content.addWidget(QLabel("Grading"))
         _content.addWidget(self._grading)
@@ -811,9 +855,17 @@ class GUnitHadling(QWidget):
         _content.addWidget(self._penalty)
         _content.addWidget(QLabel("Show units"))
         _content.addWidget(self._show)
+        _content.addWidget(self._left)
 
-    def to_obj(self, items: dict) -> None:
-        pass
+    def to_obj(self) -> None:
+        _map = {"Ignore": "IGNORE", "Fraction of reponse": "RESPONSE", 
+                "Fraction of question": "QUESTION"}
+        grade = Grading.get(_map[self._grading.currentText()])
+        penalty = float(self._penalty.text())
+        _map = {"Text input": "TEXT", "Multiple choice": "MC", 
+                "Drop-down": "DROP_DOWN", "Not visible": "NONE"}
+        show = ShowUnits.get(_map[self._show.currentText()])
+        return UnitHandling(grade, penalty, show, self._left.isChecked())
 
 # ----------------------------------------------------------------------------------------
 
