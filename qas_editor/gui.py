@@ -73,6 +73,7 @@ class GUI(QMainWindow):
         self.data_root = QStandardItemModel(0, 1)
         self.data_root.setHeaderData(0, Qt.Horizontal, "Classification")
         self.dataView.setModel(self.data_root)
+        self.dataView.selectionModel().selectionChanged.connect(self._update_category)
         self.question_type = QComboBox()
         self.question_type.addItems(QTYPES)
         self.question_type.currentTextChanged.connect(self.update_question_type)
@@ -124,7 +125,8 @@ class GUI(QMainWindow):
         # Create lower status bar. probably will be removed.
         self.status = QStatusBar()
         self.setStatusBar(self.status)
-        #self.status.addWidget(QLabel(self.current_category))
+        self.cat_name = QLabel(self.current_category.category_name)
+        self.status.addWidget(self.cat_name)
         
         self.update_tree()
         self.setGeometry(300, 300, 1000, 600)
@@ -146,6 +148,11 @@ class GUI(QMainWindow):
         elif isinstance(item, Quiz):
             print("Category!")
 
+    def _update_category(self, selected, deselected) -> None:
+        item = selected.indexes()[0].data(257)
+        if isinstance(item, Quiz):
+            self.cat_name.setText(item.category_name)
+
     def add_answer_block(self) -> None:
         frame = GFrameLayout(title="Answers")
         self._blocks["answer"] = frame
@@ -162,7 +169,6 @@ class GUI(QMainWindow):
         aabutton = QPushButton("Add Answer")
         aabutton.clicked.connect(lambda: self._items["answers"].addWidget(GAnswer(self.editor_toobar)))
         self._items["answers"] = QHBoxLayout()
-        #abutton = QPushButton("Add Answer")
 
         grid = QHBoxLayout()
         grid.addWidget(QLabel("Numbering"))
@@ -329,20 +335,18 @@ class GUI(QMainWindow):
         else:
             self.path = path
 
-    def update_data_view(self,data: dict, parent: QStandardItem) -> None:
-        for k in data:
-            if isinstance(data[k], dict):
-                node = QStandardItem(QIcon(f"{img_path}/category.png"), k)
-                node.setEditable(False)
-                node.setData(QVariant(data[k]))
-                parent.appendRow(node)
-                self.update_data_view(data[k], node)
-            elif isinstance(data[k], list):
-                for i in data[k]:
-                    node = QStandardItem(QIcon(f"{img_path}/question.png"), i.name)
-                    node.setEditable(False)
-                    node.setData(QVariant(i))
-                    parent.appendRow(node)
+    def update_data_view(self,data: Quiz, parent: QStandardItem) -> None:
+        for k in data.questions:
+            node = QStandardItem(QIcon(f"{img_path}/question.png"), k.name)
+            node.setEditable(False)
+            node.setData(QVariant(k))
+            parent.appendRow(node)
+        for k in data.children:
+            node = QStandardItem(QIcon(f"{img_path}/category.png"), k)
+            node.setEditable(False)
+            node.setData(QVariant(data.children[k]))
+            parent.appendRow(node)
+            self.update_data_view(data.children[k], node)
 
     @action_handler
     def update_item(self, value) -> None:
@@ -383,10 +387,10 @@ class GUI(QMainWindow):
                 self._items[item].setVisible(item in init_fields)
 
     def update_tree(self) -> None:
-        data = {}
         self.data_root.clear()
-        self.top_quiz.get_hier(data)
-        self.update_data_view(data, self.data_root)
+        parent = QStandardItem(QIcon(f"{img_path}/category.png"), self.top_quiz.category_name)
+        self.data_root.appendRow(parent)
+        self.update_data_view(self.top_quiz, parent)
         self.dataView.expandAll()
 
 # ----------------------------------------------------------------------------------------

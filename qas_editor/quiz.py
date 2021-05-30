@@ -33,7 +33,7 @@ class Quiz:
 
     def __init__(self, category_name: str="$course$", category_info: str=None,
                 idnumber: int=None, parent: "Quiz"=None):
-        self._questions: List[questions.Question] = []
+        self.questions: List[questions.Question] = []
         self.category_name = category_name
         self.category_info = category_info
         self.idnumber = idnumber
@@ -85,7 +85,7 @@ class Quiz:
 
     def _to_aiken(self) -> str:
         data = ""
-        for question in self._questions:
+        for question in self.questions:
             if isinstance(question, questions.QMultichoice):
                 data += f"{question.question_text.text}\n"
                 correct = "ANSWER: None\n\n"
@@ -105,13 +105,13 @@ class Quiz:
             root (et.Element): [description]
         """
         question = et.Element("question")                   # Add category on the top
-        if len(self._questions) > 0:
+        if len(self.questions) > 0:
             question.set("type", "category")
             category = et.SubElement(question, "category")
             text = et.SubElement(category, "text")
             text.text = str(self.category_name)
             root.append(question)        
-            for question in self._questions:                # Add own questions first
+            for question in self.questions:                # Add own questions first
                 root.append(question.to_xml())
         for child in self.children.values():                # Then add children data
             child._to_xml_element(root)
@@ -146,7 +146,7 @@ class Quiz:
         """
         if not isinstance(question, questions.Question):
             TypeError(f"Object must be subclass of Question, not {question.__class__.__name__}")
-        self._questions.append(question)
+        self.questions.append(question)
 
     def get_hier(self, root:dict) -> None:
         """[summary]
@@ -154,7 +154,7 @@ class Quiz:
         Args:
             root (dict): [description]
         """
-        root[self.category_name] = {"__questions__" : self._questions}
+        root[self.category_name] = {"__questions__" : self.questions}
         for child in self.children.values():
             child.get_hier(root[self.category_name])
 
@@ -186,7 +186,7 @@ class Quiz:
                 quiz.add_question(question)
                 question_cnt+=1    
         except IndexError:
-            log.exception(f"Failed to import Aiken File. {len(quiz._questions)} questions"
+            log.exception(f"Failed to import Aiken File. {len(quiz.questions)} questions"
                             " imported. Following question does not have options.")
         return quiz
 
@@ -318,7 +318,7 @@ class Quiz:
             elif question.get("type") not in qdict:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:
-                quiz._questions.append(qdict[question.get("type")].from_xml(question))
+                quiz.questions.append(qdict[question.get("type")].from_xml(question))
         return top_quiz
 
     def write_aiken(self, file_path: str) -> None:
