@@ -84,7 +84,7 @@ class GUI(QMainWindow):
         vbox.addWidget(question_create)
         box = QGroupBox("Questions")
         box.setLayout(vbox)
-        category_name = QLineEdit()
+        self.category_name = QLineEdit()
         category_create = QPushButton("Create")
         category_create.clicked.connect(self.create_category)
         xframe_vbox = QVBoxLayout()
@@ -92,7 +92,7 @@ class GUI(QMainWindow):
         xframe_vbox.addSpacing(10)
         xframe_vbox.addWidget(box)
         vbox = QVBoxLayout()
-        vbox.addWidget(category_name)
+        vbox.addWidget(self.category_name)
         vbox.addWidget(category_create)
         box = QGroupBox("Categories")
         box.setLayout(vbox)
@@ -152,6 +152,20 @@ class GUI(QMainWindow):
         item = selected.indexes()[0].data(257)
         if isinstance(item, Quiz):
             self.cat_name.setText(item.category_name)
+            self.current_category = item
+
+    def _update_data_view(self,data: Quiz, parent: QStandardItem) -> None:
+        for k in data.questions:
+            node = QStandardItem(QIcon(f"{img_path}/question.png"), k.name)
+            node.setEditable(False)
+            node.setData(QVariant(k))
+            parent.appendRow(node)
+        for k in data.children:
+            node = QStandardItem(QIcon(f"{img_path}/category.png"), k)
+            node.setEditable(False)
+            node.setData(QVariant(data.children[k]))
+            parent.appendRow(node)
+            self._update_data_view(data.children[k], node)
 
     def add_answer_block(self) -> None:
         frame = GFrameLayout(title="Answers")
@@ -247,6 +261,7 @@ class GUI(QMainWindow):
         output = {}
         try:
             cls = getattr(questions, self.question_type.currentText())
+            cls.__init__.__code__.co_names
             for key in self._items:
                 if isinstance(self._items[key], QComboBox):
                     output[key] = self._items[key].currentText()
@@ -271,9 +286,10 @@ class GUI(QMainWindow):
             self.update_tree()
 
     def create_category(self, event) -> None:
-        item = self.dataView.selectedIndexes()[0]
-        print(item)
-        pass
+        name = f"{self.current_category.category_name}/{self.category_name.text()}"
+        quiz = Quiz(name, parent=self.current_category)
+        self.current_category.children[self.category_name.text()] = quiz
+        self.update_tree()
 
     def dialog_critical(self):
         dlg = QMessageBox(self)
@@ -335,19 +351,6 @@ class GUI(QMainWindow):
         else:
             self.path = path
 
-    def update_data_view(self,data: Quiz, parent: QStandardItem) -> None:
-        for k in data.questions:
-            node = QStandardItem(QIcon(f"{img_path}/question.png"), k.name)
-            node.setEditable(False)
-            node.setData(QVariant(k))
-            parent.appendRow(node)
-        for k in data.children:
-            node = QStandardItem(QIcon(f"{img_path}/category.png"), k)
-            node.setEditable(False)
-            node.setData(QVariant(data.children[k]))
-            parent.appendRow(node)
-            self.update_data_view(data.children[k], node)
-
     @action_handler
     def update_item(self, value) -> None:
         item = value.data(257)
@@ -389,8 +392,10 @@ class GUI(QMainWindow):
     def update_tree(self) -> None:
         self.data_root.clear()
         parent = QStandardItem(QIcon(f"{img_path}/category.png"), self.top_quiz.category_name)
-        self.data_root.appendRow(parent)
-        self.update_data_view(self.top_quiz, parent)
+        parent.setData(QVariant(self.top_quiz)) # This first loop is "external" to allow
+        parent.setEditable(False)               # using the dict key without passing it as  
+        self.data_root.appendRow(parent)        # argument during recursion
+        self._update_data_view(self.top_quiz, parent)
         self.dataView.expandAll()
 
 # ----------------------------------------------------------------------------------------
@@ -967,9 +972,9 @@ class GUnitHadling(QWidget):
         self._penalty.setText(str(obj.penalty))
 
     def to_obj(self) -> None:
-        grade = Grading(self.GRADE[self._grading.currentText()])
+        grade = Grading[self.GRADE[self._grading.currentText()]]
         penalty = float(self._penalty.text())
-        show = ShowUnits(self.SHOW_UNITS[self._show.currentText()])
+        show = ShowUnits[self.SHOW_UNITS[self._show.currentText()]]
         return UnitHandling(grade, penalty, show, self._left.isChecked())
 
 # ----------------------------------------------------------------------------------------
