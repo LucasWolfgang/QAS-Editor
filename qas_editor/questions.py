@@ -18,7 +18,7 @@ class Question():
 
     def __init__(self, name: str, question_text: FText, default_grade: float=1.0, 
                 general_feedback: FText=None, id_number: int=None, shuffle: bool=False,
-                tags: Tags=None, solution: str=None, use_latex: bool=True, *args, **kwargs) -> None:
+                tags: Tags=None, solution: str=None, *args, **kwargs) -> None:
         """
         [summary]
 
@@ -38,7 +38,6 @@ class Question():
         self.shuffle = shuffle
         self.solution = solution
         self.tags = tags
-        self.use_latex = use_latex
 
     def __repr__(self):
         """ 

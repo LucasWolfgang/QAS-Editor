@@ -88,6 +88,13 @@ class Numbering(Enum):
 
 # ----------------------------------------------------------------------------------------
 
+class MathType(Enum):
+    IGNORE="Ignore"
+    MATHML="MathML"
+    LATEX = "LaTex"
+
+# ----------------------------------------------------------------------------------------
+
 class ShapeType(Enum):
     CIRCLE = "circle"
     RECT = "rectangle"

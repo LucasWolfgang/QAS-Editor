@@ -3,7 +3,7 @@ import os
 import traceback
 from os.path import splitext
 from uuid import uuid4
-from typing import Dict, List
+from typing import Callable, Dict, List
 from qas_editor.quiz import Quiz, QTYPES
 from qas_editor import questions
 from qas_editor.answer import Answer
@@ -19,6 +19,18 @@ from PyQt5.QtWidgets import QApplication, QLayout, QWidget, QHBoxLayout, QVBoxLa
                             QAction, QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout
 
 img_path = f"{os.path.dirname(os.path.realpath(__file__))}/images"
+
+def action_handler(funtion: Callable) -> Callable:
+    def wrapper(*args, **kwargs):
+        try:
+            funtion(*args, **kwargs)
+        except Exception:
+            self = args[0]
+            dlg = QMessageBox(self)
+            dlg.setText(traceback.format_exc())
+            dlg.setIcon(QMessageBox.Critical)
+            dlg.show()
+    return wrapper
 
 class GUI(QMainWindow):
     
@@ -252,7 +264,9 @@ class GUI(QMainWindow):
         else:
             self.update_tree()
 
-    def create_category(self) -> None:
+    def create_category(self, event) -> None:
+        item = self.dataView.selectedIndexes()[0]
+        print(item)
         pass
 
     def dialog_critical(self):
@@ -330,10 +344,31 @@ class GUI(QMainWindow):
                     node.setData(QVariant(i))
                     parent.appendRow(node)
 
+    @action_handler
     def update_item(self, value) -> None:
-        print(value.data(257).name)
+        item = value.data(257)
+        if isinstance(item, questions.Question):
+            for key in self._items:
+                if key in item.__dict__ and item.__dict__[key] is not None:
+                    if isinstance(self._items[key], QComboBox):
+                        self._items[key].setCurrentText(str(item.__dict__[key]))
+                    elif isinstance(self._items[key], QLineEdit):
+                        self._items[key].setText(str(item.__dict__[key]))
+                    elif isinstance(self._items[key], GTextEditor):
+                        self._items[key].setFText(item.__dict__[key])
+                    elif isinstance(self._items[key], QCheckBox):
+                        self._items[key].setChecked(item.__dict__[key])
+                    elif isinstance(self._items[key], QLayout):
+                        print(item.__dict__[key])
+                    elif "from_obj" in dir(self._items[key].__class__):
+                        self._items[key].from_obj(item.__dict__[key])
+                    else:
+                        print("Oooops: ", self._items[key])
+            self.question_type.setCurrentText(type(item).__name__)
+        else: # This is a classification
+            pass
 
-    def update_question_type(self, value):
+    def update_question_type(self, value: str) -> None:
         """
         [summary]
         """
@@ -361,6 +396,8 @@ class GTextEditor(QTextEdit):
     def __init__(self, toolbar: "GTextToolbar") -> None:
         super().__init__()
         self.toolbar = toolbar
+        self.text_format: Format = 2
+        self.math_type = 0
         self.setAutoFormatting(QTextEdit.AutoAll)
         self.selectionChanged.connect(lambda: toolbar.update_editor(self))
         self.setFont(QFont('Times', 12))
@@ -425,9 +462,19 @@ class GTextEditor(QTextEdit):
             txt = self.toPlainText()
             return FText(txt, Format.PLAIN)
 
+    def setFText(self, text: FText) -> None:
+        if text.formatting == Format.MD:
+            self.setMarkdown(text.text)
+        elif text.formatting == Format.HTML:
+            self.setHtml(text.text)
+        else:
+            self.setPlainText(text.text)
+
 # ----------------------------------------------------------------------------------------
 
 class GTextToolbar(QToolBar):
+
+    FORMATS = {"MarkDown": Format.MD, "HTML": Format.HTML, "PlainText": Format.PLAIN}
 
     def __init__(self, *args, **kwargs):
         super(GTextToolbar, self).__init__(*args, **kwargs)
@@ -439,7 +486,7 @@ class GTextToolbar(QToolBar):
         self.addWidget(self.fonts)
 
         self.text_type = QComboBox()
-        self.text_type.addItems(["MarkDown", "HTML", "PlainText"])
+        self.text_type.addItems(list(self.FORMATS.keys()))
         self.addWidget(self.text_type)
 
         self.math_type = QComboBox()
@@ -515,6 +562,7 @@ class GTextToolbar(QToolBar):
         """ 
         if text_editor != self.editor:
             if self.editor is not None:
+                self.editor.text_format = self.text_type.currentIndex
                 self.fonts.currentFontChanged.disconnect()
                 self.fontsize.currentIndexChanged[str].disconnect()
                 self.bold_action.toggled.disconnect()
@@ -526,6 +574,7 @@ class GTextToolbar(QToolBar):
                 self.alignj_action.triggered.disconnect()
                 self.wrap_action.triggered.disconnect()
             self.editor = text_editor
+            
             self.fonts.currentFontChanged.connect(self.editor.setCurrentFont)
             self.fontsize.currentIndexChanged[str].connect(lambda s: self.editor.setFontPointSize(float(s)))
             self.bold_action.toggled.connect(lambda x: self.editor.setFontWeight(QFont.Bold if x else QFont.Normal))
@@ -699,6 +748,9 @@ class GTagBar(QWidget):
         self.tags.sort(key=lambda x: x.lower())
         self.refresh()
 
+    def from_obj(self, obj: Tags) -> None:
+        self.tags = list(obj)
+
     def refresh(self):
         for i in reversed(range(self.h_layout.count())):
             self.h_layout.itemAt(i).widget().setParent(None)
@@ -730,6 +782,16 @@ class GAnswer(QFrame):
         _content.setRowStretch(0, 4)
         self.setFixedHeight(140)
         self.setFixedWidth(220)
+
+    def from_obj(self, obj: Answer) -> None:
+        self._grade.setText(str(obj.fraction))
+        self._text.text_format = obj.formatting
+        if obj.formatting == Format.MD:
+            self._text.setMarkdown(obj.text)
+        elif obj.formatting == Format.HTML:
+            self._text.setHtml(obj.text)
+        elif obj.formatting == Format.PLAIN:
+            self._text.setPlainText(obj.text)
 
     def to_obj(self) -> None:
         """[summary]
@@ -771,6 +833,11 @@ class GCFeedback(QFrame):
         _content.addWidget(self._incorrect, 1, 2)
         _content.addWidget(self._show, 2, 0, 1, 3)
         
+    def from_obj(self, obj: CombinedFeedback) -> None:
+        self._correct.setFText(obj.correct)
+        self._incomplete.setFText(obj.incomplete)
+        self._incorrect.setFText(obj.incorrect)
+
     def to_obj(self) -> None:
         correct = self._correct.getFText()
         incomplete = self._incomplete.getFText()
@@ -793,6 +860,18 @@ class GHint(QFrame):
         _content.addWidget(self._show)
         _content.addWidget(self._state)
         _content.addWidget(self._clear)
+
+    def from_obj(self, obj: Hint) -> None:
+        self._show.setChecked(obj.show_correct)
+        self._clear.setChecked(obj.clear_wrong)
+        self._state.setChecked(obj.state_incorrect)
+        self._text.text_format = obj.formatting
+        if obj.formatting == Format.MD:
+            self._text.setMarkdown(obj.text)
+        elif obj.formatting == Format.HTML:
+            self._text.setHtml(obj.text)
+        elif obj.formatting == Format.PLAIN:
+            self._text.setPlainText(obj.text)
 
     def to_obj(self):
         tp = self._text.toolbar.text_type.currentIndex()
@@ -826,6 +905,18 @@ class GMultipleTries(QWidget):
         _header.addWidget(rem)
         self._content = QVBoxLayout(self)
         self._content.addLayout(_header)
+        self._toolbar = toolbar
+
+    def from_obj(self, obj: MultipleTries) -> None:
+        self._penalty.setText(str(obj.penalty))
+        if len(obj.hints) > self._content.count()-1:
+            for _ in range(len(obj.hints)-self._content.count()):
+                self._content.addWidget(GHint(self._toolbar))
+        elif len(obj.hints)+1 < self._content.count():
+            for num in range(self._content.count()-len(obj.hints)):
+                self._content.removeWidget(self._content.itemAt(self._content.count()-1))
+        for num in range(len(obj.hints)):
+            self._content.itemAt(num+2).from_obj(obj.hints[num])
 
     def to_obj(self) -> None:
         penalty = float(self._penalty.text())
@@ -837,6 +928,11 @@ class GMultipleTries(QWidget):
 # ----------------------------------------------------------------------------------------
 
 class GUnitHadling(QWidget):
+
+    GRADE = {"Ignore": "IGNORE", "Fraction of reponse": "RESPONSE", 
+                "Fraction of question": "QUESTION"}
+    SHOW_UNITS = {"Text input": "TEXT", "Multiple choice": "MC", 
+                "Drop-down": "DROP_DOWN", "Not visible": "NONE"}
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -857,14 +953,19 @@ class GUnitHadling(QWidget):
         _content.addWidget(self._show)
         _content.addWidget(self._left)
 
+    def from_obj(self, obj: UnitHandling) -> None:
+        for k, v in self.GRADE:
+            if obj.grading_type.value == v:
+                self._grading.setCurrentText(k)
+        for k, v in self.SHOW_UNITS:
+            if obj.show.value == v:
+                self._show.setCurrentIndex(k)
+        self._penalty.setText(str(obj.penalty))
+
     def to_obj(self) -> None:
-        _map = {"Ignore": "IGNORE", "Fraction of reponse": "RESPONSE", 
-                "Fraction of question": "QUESTION"}
-        grade = Grading.get(_map[self._grading.currentText()])
+        grade = Grading(self.GRADE[self._grading.currentText()])
         penalty = float(self._penalty.text())
-        _map = {"Text input": "TEXT", "Multiple choice": "MC", 
-                "Drop-down": "DROP_DOWN", "Not visible": "NONE"}
-        show = ShowUnits.get(_map[self._show.currentText()])
+        show = ShowUnits(self.SHOW_UNITS[self._show.currentText()])
         return UnitHandling(grade, penalty, show, self._left.isChecked())
 
 # ----------------------------------------------------------------------------------------
