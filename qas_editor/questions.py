@@ -195,7 +195,7 @@ class QCalculatedMultichoice(Question):
         res = {}
         extract(data, "synchronize"    , res, "synchronize", int)
         extract(data, "single"         , res, "single"     , bool)
-        res["numbering"] = Numbering.get(data["answernumbering"].text)
+        res["numbering"] = Numbering(data["answernumbering"].text)
         res["combined_feedback"] = CombinedFeedback.from_xml(root)
         question: "QCalculatedMultichoice" = super().from_xml(root, **res)
         for dataset in data["dataset_definitions"]:
@@ -655,7 +655,8 @@ class QMultichoice(Question):
     def __init__(self, single: bool=True, show_instruction: bool=False,
                 answer_numbering: Numbering=Numbering.ALF_LR, 
                 multiple_tries: MultipleTries=None,
-                combined_feedback: CombinedFeedback=None, *args, **kwargs):
+                combined_feedback: CombinedFeedback=None, answers: List[Answer]=None,
+                *args, **kwargs):
         """
         [summary]
 
@@ -664,11 +665,16 @@ class QMultichoice(Question):
         """
         super().__init__(*args, **kwargs)
         self.single = single
+        self.show_instruction = show_instruction
         self.combined_feedback = combined_feedback
         self.multiple_tries = multiple_tries
-        self.answer_numbering = answer_numbering
-        self.show_instruction = show_instruction
-        self.answers: List[Answer] = []
+        if isinstance(answer_numbering, Numbering):
+           self.answer_numbering = answer_numbering
+        elif isinstance(answer_numbering, str):
+            self.answer_numbering = Numbering(answer_numbering)
+        else:
+            raise TypeError(f"answer_numbering should be of type Numbering or str, not {type(answer_numbering)}")
+        self.answers = answers if answers is not None else []
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QMultichoice":
@@ -696,7 +702,7 @@ class QMultichoice(Question):
         res = {}
         extract(data, "single"                 , res, "single"          , bool)
         extract(data, "showstandardinstruction", res, "show_instruction", bool)
-        extract(data, "answernumbering"        , res, "answer_numbering", bool)
+        res["answer_numbering"] = Numbering(data["answernumbering"].text)
         res["combined_feedback"] = CombinedFeedback.from_xml(root)
         question: "QMultichoice" = super().from_xml(root, **res)
         for answer in root.findall("answer"):

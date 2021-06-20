@@ -79,13 +79,6 @@ class Numbering(Enum):
     ROM_LR = "iii"
     ROM_UR = "IIII"
 
-    @classmethod
-    def get(cls, value: str) -> "Numbering":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
-
 # ----------------------------------------------------------------------------------------
 
 class MathType(Enum):

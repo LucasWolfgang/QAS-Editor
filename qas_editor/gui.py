@@ -7,7 +7,7 @@ from typing import Callable, Dict, List
 from qas_editor.quiz import Quiz, QTYPES
 from qas_editor import questions
 from qas_editor.answer import Answer
-from qas_editor.enums import Format, Grading, ShowUnits
+from qas_editor.enums import Format, Grading, Numbering, ShowUnits
 from qas_editor.wrappers import CombinedFeedback, FText, Hint, MultipleTries, Tags, UnitHandling
 from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal, QVariant
 from PyQt5.QtGui import QStandardItemModel, QFont, QImage, QTextDocument, QKeySequence,\
@@ -20,10 +20,10 @@ from PyQt5.QtWidgets import QApplication, QLayout, QWidget, QHBoxLayout, QVBoxLa
 
 img_path = f"{os.path.dirname(os.path.realpath(__file__))}/images"
 
-def action_handler(funtion: Callable) -> Callable:
+def action_handler(function: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         try:
-            funtion(*args, **kwargs)
+            function(*args, **kwargs)
         except Exception:
             self = args[0]
             dlg = QMessageBox(self)
@@ -54,11 +54,11 @@ class GUI(QMainWindow):
         file_menu.addAction(open_file_action)
         save_file_action = QAction("Save", self)
         save_file_action.setStatusTip("Save current page")
-        save_file_action.triggered.connect(self.file_save)
+        save_file_action.triggered.connect(lambda: self.file_save(False))
         file_menu.addAction(save_file_action)
         saveas_file_action = QAction("Save As...", self)
         saveas_file_action.setStatusTip("Save current page to specified file")
-        saveas_file_action.triggered.connect(self.file_saveas)
+        saveas_file_action.triggered.connect(lambda: self.file_save(True))
         file_menu.addAction(saveas_file_action)
         self.editor_toobar = GTextToolbar()
         self.addToolBar(Qt.TopToolBarArea, self.editor_toobar)
@@ -185,7 +185,7 @@ class GUI(QMainWindow):
         self._items["show_instruction"] =  QCheckBox("Show standard instructions")
         self._items["single"] =  QCheckBox("Single answer")
         self._items["answer_numbering"] = QComboBox()
-        self._items["answer_numbering"].addItems(["a, b, c", "A, B, C",  "i, ii, iii", "I, II, III", "1,2,3"])
+        self._items["answer_numbering"].addItems([c.value for c in Numbering])
         self._items["unit_handling"] = GUnitHadling()
 
         # Answers
@@ -266,34 +266,30 @@ class GUI(QMainWindow):
         self._items["solution"] = GTextEditor(self.editor_toobar)
         frame.addWidget(self._items["solution"])
 
-    def create_question(self) -> None:
+    @action_handler
+    def create_question(self, stat: bool) -> None:
         output = {}
-        try:
-            cls = getattr(questions, self.question_type.currentText())
-            cls.__init__.__code__.co_names
-            for key in self._items:
-                if isinstance(self._items[key], QComboBox):
-                    output[key] = self._items[key].currentText()
-                elif isinstance(self._items[key], QLineEdit):
-                    output[key] = self._items[key].text()
-                elif isinstance(self._items[key], GTextEditor):
-                    output[key] = self._items[key].getFText()
-                elif isinstance(self._items[key], QCheckBox):
-                    output[key] = self._items[key].isChecked()
-                elif isinstance(self._items[key], QLayout):
-                    output[key] = []
-                    print(self._items[key])
-                    for num in range(self._items[key].count()):
-                        output[key].append(self._items[key].itemAt(num).to_obj())
-                elif "to_obj" in dir(self._items[key].__class__):
-                    output[key] = self._items[key].to_obj()
-                else:
-                    print("Oooops: ", self._items[key])
-            self.current_category.add_question(cls(**output))
-        except Exception:
-            self.dialog_critical()
-        else:
-            self.update_tree()
+        cls = getattr(questions, self.question_type.currentText())
+        cls.__init__.__code__.co_names
+        for key in self._items:
+            if isinstance(self._items[key], QComboBox):
+                output[key] = self._items[key].currentText()
+            elif isinstance(self._items[key], QLineEdit):
+                output[key] = self._items[key].text()
+            elif isinstance(self._items[key], GTextEditor):
+                output[key] = self._items[key].getFText()
+            elif isinstance(self._items[key], QCheckBox):
+                output[key] = self._items[key].isChecked()
+            elif isinstance(self._items[key], QLayout):
+                output[key] = []
+                for num in range(self._items[key].count()):
+                    output[key].append(self._items[key].itemAt(num).to_obj())
+            elif "to_obj" in dir(self._items[key].__class__):
+                output[key] = self._items[key].to_obj()
+            else:
+                print("Oooops: ", self._items[key])
+        self.current_category.add_question(cls(**output))
+        self.update_tree()
 
     def create_category(self, event) -> None:
         name = f"{self.current_category.category_name}/{self.category_name.text()}"
@@ -307,59 +303,51 @@ class GUI(QMainWindow):
         dlg.setIcon(QMessageBox.Critical)
         dlg.show()
 
-    def file_open(self):
+    @action_handler
+    def file_open(self, stat:bool):
         """
         [summary]
         """
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", 
                     "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
                     "LaTex (*.tex);XML (*.xml);All files (*.*)")
-        try:
-            if path[-4:] == ".xml":
-                self.top_quiz = Quiz.read_xml(path)
-            elif path[-4:] == ".txt":
-                self.top_quiz = Quiz.read_aiken(path)
-            elif path[-5:] == ".gift":
-                self.top_quiz = Quiz.read_gift(path)
-            elif path[-3:] == ".md":
-                self.top_quiz = Quiz.read_markdown(path)
-            else:
-                raise ValueError(f"Extension {path.rplist('.', 1)[-1]} can not be read")
-        except Exception as e:
-            self.dialog_critical()
+        if path[-4:] == ".xml":
+            self.top_quiz = Quiz.read_xml(path)
+        elif path[-4:] == ".txt":
+            self.top_quiz = Quiz.read_aiken(path)
+        elif path[-5:] == ".gift":
+            self.top_quiz = Quiz.read_gift(path)
+        elif path[-3:] == ".md":
+            self.top_quiz = Quiz.read_markdown(path)
         else:
-            data = {}
-            self.top_quiz.get_hier(data)
-            print(data)
-            self.path = path
-            self.update_tree()
-        
-    def file_save(self) -> None:
-        """
-        [summary]
-        """
-        if self.path is None:
-            return self.file_saveas()
-        try:
-            pass
-        except Exception as e:
-            self.dialog_critical()
+            raise ValueError(f"Extension {path.rplist('.', 1)[-1]} can not be read")
+        data = {}
+        self.top_quiz.get_hier(data)
+        self.path = path
+        self.update_tree()
 
-    def file_saveas(self) -> None:
+    @action_handler
+    def file_save(self, saveas: bool) -> None:
         """
         [summary]
         """
-        path, _ = QFileDialog.getSaveFileName(self, "Save file", "", 
-                        "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
-                        "LaTex (*.tex);XML (*.xml);All files (*.*)")
-        if not path:
-            return
-        try:
-            pass
-        except Exception as e:
-            self.dialog_critical()
+        if saveas:
+            path, _ = QFileDialog.getSaveFileName(self, "Save file", "", 
+                    "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
+                    "LaTex (*.tex);XML (*.xml);All files (*.*)")
         else:
-            self.path = path
+            path = self.path
+        if path[-4:] == ".xml":
+            self.top_quiz.write_xml(path, True)
+        elif path[-4:] == ".txt":
+            self.top_quiz.write_aiken(path)
+        elif path[-5:] == ".gift":
+            raise NotImplemented("Gift not implemented")
+        elif path[-3:] == ".md":
+            raise NotImplemented("Markdown implemented")
+        else:
+            raise ValueError(f"Extension {path.rplist('.', 1)[-1]} can not be read")
+        self.path = path
 
     @action_handler
     def update_item(self, value) -> None:
