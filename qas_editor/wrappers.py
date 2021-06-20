@@ -71,7 +71,7 @@ class Subquestion:
     @classmethod
     def from_xml(cls, root: et.Element) -> "Subquestion":
         data = {x.tag: x for x in root}
-        formatting = Format.get(root.get("format"))
+        formatting = Format(root.get("format"))
         text = data["text"].text
         answer = data["answer"][0].text
         return cls(formatting, text, answer)
@@ -95,9 +95,9 @@ class UnitHandling():
 
     @classmethod
     def from_xml(cls, data: Dict[str, et.Element]) -> "UnitHandling":
-        grading_type = Grading.get(get_txt(data, "unitgradingtype"))
+        grading_type = Grading(get_txt(data, "unitgradingtype"))
         penalty = get_txt(data, "unitpenalty")
-        show = ShowUnits.get(get_txt(data, "showunits"))
+        show = ShowUnits(get_txt(data, "showunits"))
         left = bool(data.get("unitsleft",False))
         return cls(grading_type, penalty, show, left)
 
@@ -143,7 +143,7 @@ class FText():
     def from_xml(cls, root: et.Element) -> "FText":
         if root is None:
             return None
-        formatting = Format.get(root.get("format", "html"))
+        formatting = Format(root.get("format", "html"))
         text = root[0].text
         obj = cls(text, formatting)
         for fls in root.findall("file"):
@@ -174,10 +174,10 @@ class Dataset():
     @classmethod
     def from_xml(cls, root: et.Element) -> "Dataset":
         data = {x.tag: x for x in root}
-        status = Status.get(data["status"][0].text)
+        status = Status(data["status"][0].text)
         name = data["name"][0].text
         ctype = data["type"].text
-        distribution = Distribution.get(data["distribution"][0].text)
+        distribution = Distribution(data["distribution"][0].text)
         minimum = data["minimum"][0].text
         maximum = data["maximum"][0].text
         decimals = data["decimals"][0].text
@@ -250,7 +250,7 @@ class Hint():
     @classmethod
     def from_xml(cls, root: et.Element) -> "Hint":
         data = {x.tag: x for x in root}
-        formatting = Format.get(root.get("format"))
+        formatting = Format(root.get("format"))
         text = data["text"].text
         state_incorrect = "options" in data
         show_correct = "shownumcorrect" in data
@@ -389,7 +389,7 @@ class DropZone():
     def from_xml(cls, root: et.Element) -> "DropZone":
         data = {x.tag: x for x in root}
         if "coords" in data and "shape" in data:
-            shape = ShapeType.get(data["shape"].text)
+            shape = ShapeType(data["shape"].text)
             coords = data["coords"].text.split(";", 1)
             x, y = coords[0].split(",")
             points = coords[1]

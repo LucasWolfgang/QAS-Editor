@@ -240,7 +240,7 @@ class QCloze(Question):
     def from_cloze(cls, name: str, text: str) -> "QCloze":
         question = cls(name=name, question_text=text)
         for a in re.finditer(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})", text):
-            answer = ClozeAnswer(*a.span(), int(a[1]), ClozeFormat.get(a[2]))
+            answer = ClozeAnswer(*a.span(), int(a[1]), ClozeFormat(a[2]))
             for opt in re.findall(r"[^~]+[~}]", a[3]):
                 tmp = opt.strip("}~")
                 if tmp[0] == "=":
@@ -259,7 +259,7 @@ class QDescription(Question):
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QDescription":
-        formatting = Format.get(header[2][1:-1])
+        formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
         return cls(name=header[1], question_text=FText(header[3], formatting))
@@ -481,7 +481,7 @@ class QEssay(Question):
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QEssay":
-        formatting = Format.get(header[2][1:-1])
+        formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
         return cls(name=header[1], question_text=FText(header[3], formatting))
@@ -490,7 +490,7 @@ class QEssay(Question):
     def from_xml(cls, root: et.Element) -> "QEssay":
         data = {x.tag: x for x in root}
         res = {}
-        res["reponse_format"] = ResponseFormat.get(data["responseformat"].text)
+        res["reponse_format"] = ResponseFormat(data["responseformat"].text)
         extract(data, "responserequired"   , res, "response_required" , bool)
         extract(data, "responsefieldlines" , res, "lines"      , int)
         extract(data, "attachments"        , res, "attachments", int)
@@ -543,7 +543,7 @@ class QMatching(Question):
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QMatching":
-        formatting = Format.get(header[2][1:-1])
+        formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
         qst = cls(name=header[1], question_text=FText(header[3], formatting))
@@ -614,7 +614,7 @@ class QMissingWord(Question):
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QMissingWord":
-        formatting = Format.get(header[2][1:-1])
+        formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
         qst = cls(name=header[1], question_text=FText(header[3], formatting))
@@ -678,7 +678,7 @@ class QMultichoice(Question):
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QMultichoice":
-        formatting = Format.get(header[2][1:-1])
+        formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
         qst = cls(name=header[1], question_text=FText(header[3], formatting))
@@ -806,7 +806,7 @@ class QNumerical(Question):
                 txt = g[1]
                 tol = float(g[3])
             return txt, tol
-        formatting = Format.get(header[2][1:-1])
+        formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
         qst = cls(name=header[1], question_text=FText(header[3], formatting))
@@ -868,7 +868,7 @@ class QShortAnswer(Question):
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QShortAnswer":
-        formatting = Format.get(header[2][1:-1])
+        formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
         qst = cls(False, name=header[1], question_text=FText(header[3], formatting))
@@ -928,18 +928,18 @@ class QTrueFalse(Question):
         correct = answer.pop(0)[0].lower() in ["true", "t"]
         true_ans = Answer(0, "true")
         false_ans = Answer(0, "false")
-        formatting = Format.get(header[2][1:-1])
+        formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
         qst = cls(correct, true_ans, false_ans, name=header[1], 
                 question_text=FText(header[3], formatting))
         for ans in answer:
             if ans[0] == "####":
-                qst.general_feedback = FText(ans[2], Format.get(header[2][1:-1]))
+                qst.general_feedback = FText(ans[2], Format(header[2][1:-1]))
             elif false_ans.feedback is None:
-                false_ans.feedback = FText(ans[2], Format.get(header[2][1:-1]))
+                false_ans.feedback = FText(ans[2], Format(header[2][1:-1]))
             else:
-                true_ans = FText(ans[2], Format.get(header[2][1:-1]))
+                true_ans = FText(ans[2], Format(header[2][1:-1]))
         return qst
 
     @classmethod

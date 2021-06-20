@@ -20,25 +20,11 @@ class ClozeFormat(Enum):
     MULTIRESPONSE_H = "MRH"
     MRH = "MRH"
 
-    @classmethod
-    def get(cls, value: str) -> "Distribution":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
-
 # ----------------------------------------------------------------------------------------
 
 class Distribution(Enum):
     UNI = "uniform"
     LOG = "loguniform"
-
-    @classmethod
-    def get(cls, value: str) -> "Distribution":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
 
 # ----------------------------------------------------------------------------------------
 
@@ -48,26 +34,12 @@ class Format(Enum):
     PLAIN = "plain_text"
     MD = "markdown"
 
-    @classmethod
-    def get(cls, value: str) -> "Format":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
-
 # ----------------------------------------------------------------------------------------
 
 class Grading(Enum):
     IGNORE = "0"        # Ignore
     RESPONSE = "1"      # Fraction of reponse grade
     QUESTION = "2"      # Fraction of question grade
-
-    @classmethod
-    def get(cls, value: str) -> "Grading":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
 
 # ----------------------------------------------------------------------------------------
 
@@ -93,13 +65,6 @@ class ShapeType(Enum):
     RECT = "rectangle"
     POLY = "polygon"
 
-    @classmethod
-    def get(cls, value: str) -> "Status":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
-
 # ----------------------------------------------------------------------------------------
 
 class ShowUnits(Enum):
@@ -108,25 +73,11 @@ class ShowUnits(Enum):
     DROP_DOWN = "2"     # Drop-down
     NONE = "3"          # Not visible
 
-    @classmethod
-    def get(cls, value: str) -> "ShowUnits":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
-
 # ----------------------------------------------------------------------------------------
 
 class Status(Enum):
     PRV = "private"
     SHR = "shared"
-
-    @classmethod
-    def get(cls, value: str) -> "Status":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
 
 # ----------------------------------------------------------------------------------------
 
@@ -137,25 +88,11 @@ class ResponseFormat(Enum):
     MONO = "monospaced"
     ATCH = "noinline"
 
-    @classmethod
-    def get(cls, value: str) -> "Status":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
-
 # ----------------------------------------------------------------------------------------
 
 class ToleranceFormat(Enum):
     DEC = "1"           # Decimals
     SIG = "2"           # Significant Figures
-
-    @classmethod
-    def get(cls, value: str) -> "ToleranceFormat":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
         
 # ----------------------------------------------------------------------------------------
 
@@ -164,9 +101,4 @@ class ToleranceType(Enum):
     NOM = "2"           # Nominal
     GEO = "3"           # Geometric
 
-    @classmethod
-    def get(cls, value: str) -> "ToleranceType":
-        for i in cls:
-            if i.value == value:
-                return i
-        return None
+# ----------------------------------------------------------------------------------------
