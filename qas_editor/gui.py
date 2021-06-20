@@ -137,12 +137,21 @@ class GUI(QMainWindow):
         item = self.dataView.indexAt(event).data(257)
         delete_action = QAction("Delete", self)
         delete_action.triggered.connect(lambda: self._delete_item(item))
-        duplicate_action = QAction("Delete", self)
+        duplicate_action = QAction("Duplicate", self)
         duplicate_action.triggered.connect(lambda: self._delete_item(item))
         self.menu.addAction(delete_action)
+        self.menu.addAction(duplicate_action)
         self.menu.popup(self.dataView.mapToGlobal(event))
 
     def _delete_item(self, item) -> None:
+        if isinstance(item, questions.Question):
+            parent: Quiz = item.parent
+            parent.questions.remove(item)
+            self.update_tree()
+        elif isinstance(item, Quiz):
+            print("Category!")
+
+    def _duplicate_item(self, item) -> None:
         if isinstance(item, questions.Question):
             print("Question!")
         elif isinstance(item, Quiz):
@@ -273,8 +282,9 @@ class GUI(QMainWindow):
                     output[key] = self._items[key].isChecked()
                 elif isinstance(self._items[key], QLayout):
                     output[key] = []
+                    print(self._items[key])
                     for num in range(self._items[key].count()):
-                        output[key].append(output[key].itemAt(num).to_obj())
+                        output[key].append(self._items[key].itemAt(num).to_obj())
                 elif "to_obj" in dir(self._items[key].__class__):
                     output[key] = self._items[key].to_obj()
                 else:
@@ -297,9 +307,6 @@ class GUI(QMainWindow):
         dlg.setIcon(QMessageBox.Critical)
         dlg.show()
 
-    def delete_question(self) -> None:
-        pass
-
     def file_open(self):
         """
         [summary]
@@ -321,6 +328,9 @@ class GUI(QMainWindow):
         except Exception as e:
             self.dialog_critical()
         else:
+            data = {}
+            self.top_quiz.get_hier(data)
+            print(data)
             self.path = path
             self.update_tree()
         
@@ -821,6 +831,16 @@ class GAnswer(QFrame):
             formatting = Format.PLAIN
         feedback = self._feedback.getFText()
         return Answer(fraction, text, feedback, formatting)
+
+# ----------------------------------------------------------------------------------------
+
+class GChoices(QFrame):
+
+     def __init__(self, controls: GTextToolbar, **kwargs) -> None:
+        super(GAnswer, self).__init__(**kwargs)
+        self.setStyleSheet(".GAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
+
+        
 
 # ----------------------------------------------------------------------------------------
 

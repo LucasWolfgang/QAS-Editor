@@ -38,6 +38,7 @@ class Question():
         self.shuffle = shuffle
         self.solution = solution
         self.tags = tags
+        self.parent = None
 
     def __repr__(self):
         """ 
@@ -279,13 +280,14 @@ class QDragAndDropText(Question):
     """
     _type = "ddwtos"
 
-    def __init__(self, combined_feedback: CombinedFeedback, choices: List[Choice]=None,
-                *args, **kwargs):
+    def __init__(self, combined_feedback: CombinedFeedback, multiple_tries: MultipleTries=None,
+                choices: List[Choice]=None, *args, **kwargs):
         """
         Currently not implemented.
         """
         super().__init__(*args, **kwargs)
         self.combined_feedback = combined_feedback
+        self.multiple_tries = multiple_tries
         self._choices: List[Choice] = choices if choices is not None else []
 
     def add_choice(self, text: str, group: int=1, unlimited: bool=False) -> None:
@@ -302,7 +304,9 @@ class QDragAndDropText(Question):
     @classmethod
     def from_xml(cls, root: et.Element) -> "QDragAndDropText":    
         res = {} 
+        data = {x.tag: x for x in root}
         res["combined_feedback"] = CombinedFeedback.from_xml(root)
+        res["multiple_tries"] = MultipleTries.from_xml(data, root)
         question: "QDragAndDropText" = super().from_xml(root, **res)
         for c in root.findall("dragbox"):
             question._choices.append(Choice.from_xml(c))
@@ -953,3 +957,6 @@ class QTrueFalse(Question):
         question.append(self.__answer_true.to_xml())
         question.append(self.__answer_false.to_xml())
         return question
+
+# ----------------------------------------------------------------------------------------
+

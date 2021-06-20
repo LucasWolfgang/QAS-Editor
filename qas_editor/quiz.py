@@ -147,6 +147,7 @@ class Quiz:
         if not isinstance(question, questions.Question):
             TypeError(f"Object must be subclass of Question, not {question.__class__.__name__}")
         self.questions.append(question)
+        question.parent = self
 
     def get_hier(self, root:dict) -> None:
         """[summary]
@@ -306,9 +307,10 @@ class Quiz:
         Returns:
             [type]: [description]
         """
+        data_root = et.parse(file_path)
+        mcat = data_root.getroot()[0]
         top_quiz: Quiz = None
         quiz = top_quiz
-        data_root = et.parse(file_path)
         for question in data_root.getroot():
             qdict: Dict[str, questions.Question] = {
                 getattr(questions, m)._type: getattr(questions, m) for m in QTYPES
@@ -318,6 +320,9 @@ class Quiz:
             elif question.get("type") not in qdict:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:
+                if top_quiz is None and quiz is None:
+                    top_quiz: Quiz = Quiz(category_name="$course$")
+                    quiz = top_quiz
                 quiz.questions.append(qdict[question.get("type")].from_xml(question))
         return top_quiz
 
