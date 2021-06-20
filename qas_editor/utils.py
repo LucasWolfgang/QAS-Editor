@@ -1,20 +1,15 @@
-def get_txt(data: dict, key: str, default=None) -> str:
-    if key not in data:
-        return default
-    return data[key].text
-
 def extract(data: dict, key: str, res: dict, name: str, cast_type) -> None:
     if key in data:
         try:
-            if cast_type == bool:
+            if cast_type == str:
+                res[name] = data[key].text
+            elif cast_type == bool:
                 if data[key].text:
                     res[name] = data[key].text.lower() in ["true", "1", "t"]
                 else:
                     res[name] = True
-            elif cast_type != str:
-                res[name] = cast_type(data[key].text)
             else:
-                res[name] = data[key].text
+                res[name] = cast_type(data[key].text)
         except:
             res[name] = data[key].text
     elif cast_type == bool:

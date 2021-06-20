@@ -3,7 +3,7 @@ from typing import List, Dict
 from xml.etree import ElementTree as et
 from urllib.request import urlopen
 from .enums import Format, Status, Distribution, Grading, ShowUnits, ShapeType
-from .utils import cdata_str, get_txt
+from .utils import cdata_str, extract, get_txt
 
 # ----------------------------------------------------------------------------------------
 
@@ -95,11 +95,12 @@ class UnitHandling():
 
     @classmethod
     def from_xml(cls, data: Dict[str, et.Element]) -> "UnitHandling":
-        grading_type = Grading(get_txt(data, "unitgradingtype"))
-        penalty = get_txt(data, "unitpenalty")
-        show = ShowUnits(get_txt(data, "showunits"))
-        left = bool(data.get("unitsleft",False))
-        return cls(grading_type, penalty, show, left)
+        res = {}
+        res["grading_type"] = Grading(data["unitgradingtype"].text)
+        res["penalty"] = data["unitpenalty"].text
+        res["show"] = ShowUnits(data["showunits"].text)        
+        extract(data, "unitsleft", res, "left", bool)
+        return cls(**res)
 
     def to_xml(self, root: et.Element) -> None:
         et.SubElement(root, "unitgradingtype").text = self.grading_type.value
