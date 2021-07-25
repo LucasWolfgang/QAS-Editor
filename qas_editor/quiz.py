@@ -1,10 +1,11 @@
-from qas_editor.wrappers import FText
 import re
 import logging
 import json
 from xml.etree import ElementTree as et
+from PyPDF2 import PdfFileWriter, PdfFileReader 
 from typing import List, Dict, Iterator
 from .enums import Format, Numbering
+from .wrappers import FText
 from . import questions
 
 def _escape_cdata(text):
@@ -26,17 +27,16 @@ et._escape_cdata = _escape_cdata
 QTYPES = [m for m in dir(questions) if type(getattr(questions, m)) == type and 
         issubclass(getattr(questions, m), questions.Question)]
 
+logger = logging.getLogger(__name__)
+
 class Quiz:
     """
     This class represents Quiz as a set of Questions.
     """
 
-    def __init__(self, category_name: str="$course$", category_info: str=None,
-                idnumber: int=None, parent: "Quiz"=None):
+    def __init__(self, category_name: str="$course$", parent: "Quiz"=None):
         self.questions: List[questions.Question] = []
         self.category_name = category_name
-        self.category_info = category_info
-        self.idnumber = idnumber
         self.children: Dict[str, Quiz] = {}
         self.parent = parent
 
@@ -58,7 +58,7 @@ class Quiz:
             cat_cur = cat_list.pop()
             cat_path += "/" + cat_cur
             if cat_cur not in quiz.children:
-                quiz.children[cat_cur] = Quiz(category_name=cat_path)
+                quiz.children[cat_cur] = Quiz(category_name=cat_path, parent=quiz)
             quiz = quiz.children[cat_cur]  
         return top, quiz
 
@@ -108,8 +108,7 @@ class Quiz:
         if len(self.questions) > 0:
             question.set("type", "category")
             category = et.SubElement(question, "category")
-            text = et.SubElement(category, "text")
-            text.text = str(self.category_name)
+            et.SubElement(category, "text").text = str(self.category_name)
             root.append(question)        
             for question in self.questions:                # Add own questions first
                 root.append(question.to_xml())
@@ -238,17 +237,27 @@ class Quiz:
         return top_quiz
 
     @staticmethod
-    def read_json():
+    def read_json(file_path: str):
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
-        pass
+        with open(file_path, "rb") as infile:
+            data = json.load(infile)
+        for key in data:
+            pass
 
     @staticmethod
     def read_latex():
         # TODO
         pass
 
+    @classmethod
+    def read_pdf(cls, file_path: str, ptitle="Question \d+", include_image=True):
+        with open(file_path, "rb") as infile:
+            data = PdfFileReader(infile)
+        for page_num in range(data.getNumPages):
+            page = data.getPage(page_num)
+        
     @staticmethod
     def read_markdown(file_path: str, question_mkr :str="\s*\*\s+(.*)", 
                         answer_mkr: str="\s*-\s+(!)?(.*)", category_mkr: str="\s*#\s+(.*)", 
@@ -308,13 +317,14 @@ class Quiz:
             [type]: [description]
         """
         data_root = et.parse(file_path)
-        mcat = data_root.getroot()[0]
         top_quiz: Quiz = None
         quiz = top_quiz
         for question in data_root.getroot():
             qdict: Dict[str, questions.Question] = {
                 getattr(questions, m)._type: getattr(questions, m) for m in QTYPES
             }
+            if question.tag != "question":
+                continue
             if question.get("type") == "category":
                 top_quiz, quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)         
             elif question.get("type") not in qdict:
@@ -330,7 +340,7 @@ class Quiz:
         data = self._to_aiken()
         with open(file_path, "w") as ofile:
             ofile.write(data)
-
+        
     def write_json(self, file_path: str, pretty_print: bool=False) -> None:
         """[summary]
 
