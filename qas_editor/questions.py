@@ -1,10 +1,11 @@
 from typing import List
 from xml.etree import ElementTree as et
-from .wrappers import B64File, CombinedFeedback, Dataset, FText, MultipleTries, SelectOption, Subquestion, \
-                    Unit, Hint, Tags, UnitHandling, DropZone, DragItem
-from .utils import get_txt, extract
+from .wrappers import B64File, CombinedFeedback, Dataset, FText, MultipleTries, SelectOption, \
+                    Subquestion, Unit, Tags, UnitHandling
+from .utils import extract
 from .enums import ClozeFormat, Format, ResponseFormat, Status, Distribution, Numbering
-from .answer import Answer, ClozeAnswer, NumericalAnswer, CalculatedAnswer, Choice
+from .answer import Answer, ClozeAnswer, NumericalAnswer, CalculatedAnswer, Choice, \
+                    CrossWord, DropZone, DragItem
 import re
 from pprint import pprint
 # import markdown
@@ -788,7 +789,8 @@ class QNumerical(Question):
     def from_xml(cls, root: et.Element) -> "QNumerical":
         data = {x.tag: x for x in root}
         res = {}
-        res["unit_handling"] = UnitHandling.from_xml(data)
+        if "unit_handling" in data:
+            res["unit_handling"] = UnitHandling.from_xml(data)
         question: "QNumerical" = super().from_xml(root, **res)
         for answer in root.findall("answer"):
             question.answers.append(NumericalAnswer.from_xml(answer))
@@ -966,3 +968,24 @@ class QTrueFalse(Question):
 
 # ----------------------------------------------------------------------------------------
 
+class QDrawing(Question):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+# ----------------------------------------------------------------------------------------
+
+class QCrossWord(Question):
+
+    def __init__(self, x_grid: int, y_grid: int, words: List[CrossWord], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.x_grid = x_grid
+        self.y_grid = y_grid
+        self.words = words
+
+    @classmethod
+    def from_xml(cls, root: et.Element) -> "Question":
+        raise NotImplementedError("This Class is not avaiable in a Moodle XML")
+
+# ----------------------------------------------------------------------------------------
