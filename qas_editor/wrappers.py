@@ -3,7 +3,7 @@ from typing import List, Dict
 from xml.etree import ElementTree as et
 from urllib.request import urlopen
 from .enums import Format, Status, Distribution, Grading, ShowUnits, ShapeType
-from .utils import cdata_str, extract, get_txt
+from .utils import cdata_str, extract
 
 # ----------------------------------------------------------------------------------------
 
@@ -316,108 +316,5 @@ class MultipleTries():
         for h in self.hints:
             question.append(h.to_xml())
         et.SubElement(question, "penalty").text = str(self.penalty)
-
-# ----------------------------------------------------------------------------------------
-
-class DragItem():
-    """
-    Abstract class representing any drag item.
-    """
-
-    def __init__(self, number: int, text: str, unlimited: bool=False, group: int=None, 
-                 no_of_drags: str=None, image: B64File=None) -> None:
-        if group and no_of_drags:
-            return ValueError("Both group and number of drags can\'t be provided to a single obj.")
-        self.number = number
-        self.text = text
-        self.unlimited = unlimited
-        self.group = group
-        self.no_of_drags = no_of_drags
-        self.image = image
-
-    @classmethod
-    def from_xml(cls, root: et.Element) -> "DragItem":
-        data = {x.tag: x for x in root}
-        number = data["no"].text
-        text = data["text"].text
-        unlimited = "infinite" in data
-        group = data.get("draggroup").text if "draggroup" in data else None
-        no_of_drags = data.get("noofdrags").text if "noofdrags" in data else None
-        image = B64File.from_xml(data.get("file"))
-        return cls(number, text, unlimited, group, no_of_drags, image)
-
-    def to_xml(self) -> et.Element:
-        dragitem = et.Element("drag")
-        et.SubElement(dragitem, "no").text = str(self.number)
-        et.SubElement(dragitem, "text").text = self.text
-        if self.group:
-            et.SubElement(dragitem, "draggroup").text = str(self.group)
-        if self.unlimited:
-            et.SubElement(dragitem, "infinite")
-        if self.no_of_drags:
-            et.SubElement(dragitem, "noofdrags").text = str(self.no_of_drags)
-        if self.image:
-            dragitem.append(self.image.to_xml())
-        return dragitem
-
-# ----------------------------------------------------------------------------------------
-
-class DropZone():
-    """
-    This class represents DropZone for Questions like QDragAndDropImage.
-    """
-
-    def __init__(self, shape: ShapeType, x: int, y: int, points: str, text: str, 
-                choice: int, number: int) -> None:
-        """[summary]
-
-        Args:
-            x (int): Coordinate X from top left corner.
-            y (int): Coordinate Y from top left corner.
-            text (str, optional): text contained in the drop zone. Defaults to None.
-            choice ([type], optional): [description]. Defaults to None.
-            number ([type], optional): [description]. Defaults to None.
-        """
-        self.shape = shape
-        self.x = x
-        self.y = y
-        self.points = points
-        self.text = text
-        self.choice = choice
-        self.number = number
-
-    @classmethod
-    def from_xml(cls, root: et.Element) -> "DropZone":
-        data = {x.tag: x for x in root}
-        if "coords" in data and "shape" in data:
-            shape = ShapeType(data["shape"].text)
-            coords = data["coords"].text.split(";", 1)
-            x, y = coords[0].split(",")
-            points = coords[1]
-        elif "xleft" in data and "ytop" in data:
-            x = data["xleft"].text
-            y = data["ytop"].text
-            points = shape = None
-        else:
-            raise AttributeError("One or more coordenates are missing for the DropZone")
-        choice = data["choice"].text
-        number = data["no"].text
-        text = get_txt(data, "text")
-        return cls(shape, x, y, points, text, choice, number)
-
-    def to_xml(self) -> et.Element:
-        dropzone = et.Element("drop")
-        if self.text:
-            et.SubElement(dropzone, "text").text = self.text
-        et.SubElement(dropzone, "no").text = str(self.number)
-        et.SubElement(dropzone, "choice").text = str(self.choice)
-        if self.shape:
-            et.SubElement(dropzone, "shape").text = self.shape.value
-        if not self.points:
-            et.SubElement(dropzone, "xleft").text = str(self.x)
-            et.SubElement(dropzone, "ytop").text = str(self.y)
-        else:
-            et.SubElement(dropzone, "coords").text = f"{self.x},{self.y};{self.points}"
-        return dropzone
 
 # ----------------------------------------------------------------------------------------
