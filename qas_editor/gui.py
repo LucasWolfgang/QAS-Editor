@@ -4,11 +4,11 @@ import traceback
 from os.path import splitext
 from uuid import uuid4
 from typing import Callable, Dict, List
-from qas_editor.quiz import Quiz, QTYPES
-from qas_editor import questions
-from qas_editor.answer import Answer
-from qas_editor.enums import Format, Grading, Numbering, ShowUnits
-from qas_editor.wrappers import CombinedFeedback, FText, Hint, MultipleTries, Tags, UnitHandling
+from .quiz import Quiz, QTYPES
+from . import questions
+from .answer import Answer
+from .enums import Format, Grading, Numbering, ShowUnits
+from .wrappers import CombinedFeedback, FText, Hint, MultipleTries, Tags, UnitHandling
 from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal, QVariant
 from PyQt5.QtGui import QStandardItemModel, QFont, QImage, QTextDocument, QKeySequence,\
                         QIcon, QColor, QPainter, QStandardItem
@@ -48,10 +48,18 @@ class GUI(QMainWindow):
 
         # Create menu bar
         file_menu = self.menuBar().addMenu("&File")
-        open_file_action = QAction("Open file...", self)
+        new_file_action = QAction("New file", self)
+        new_file_action.setStatusTip("New file")
+        new_file_action.triggered.connect(self.new_file)
+        file_menu.addAction(new_file_action)
+        open_file_action = QAction("Open file", self)
         open_file_action.setStatusTip("Open file")
         open_file_action.triggered.connect(self.file_open)
         file_menu.addAction(open_file_action)
+        merge_file_action = QAction("Merge file", self)
+        merge_file_action.setStatusTip("Merge file")
+        merge_file_action.triggered.connect(self.merge_file)
+        file_menu.addAction(merge_file_action)
         save_file_action = QAction("Save", self)
         save_file_action.setStatusTip("Save current page")
         save_file_action.triggered.connect(lambda: self.file_save(False))
@@ -304,6 +312,38 @@ class GUI(QMainWindow):
         dlg.show()
 
     @action_handler
+    def new_file(self, stat: bool):
+        """[summary]
+
+        Args:
+            stat (bool): [description]
+        """
+        self.top_quiz = Quiz()
+        self.path = None
+        self.update_tree()
+
+    @action_handler
+    def merge_file(self, stat: bool):
+        parent = self.current_category.parent
+        path, _ = QFileDialog.getOpenFileName(self, "Open file", "", 
+                    "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
+                    "LaTex (*.tex);XML (*.xml);All files (*.*)")
+        if path[-4:] == ".xml":
+            quiz = Quiz.read_xml(path)
+        elif path[-4:] == ".txt":
+            quiz = Quiz.read_aiken(path)
+        elif path[-5:] == ".gift":
+            quiz = Quiz.read_gift(path)
+        elif path[-3:] == ".md":
+            quiz = Quiz.read_markdown(path)
+        else:
+            raise ValueError(f"Extension {path.rplist('.', 1)[-1]} can not be read")
+        quiz.parent = self.current_category
+        quiz.category_name = self.current_category.category_name + "/" + quiz.category_name 
+        self.current_category.children[quiz.category_name.rsplit("/", 1)[-1]] = quiz
+        self.update_tree()
+
+    @action_handler
     def file_open(self, stat:bool):
         """
         [summary]
@@ -321,8 +361,6 @@ class GUI(QMainWindow):
             self.top_quiz = Quiz.read_markdown(path)
         else:
             raise ValueError(f"Extension {path.rplist('.', 1)[-1]} can not be read")
-        data = {}
-        self.top_quiz.get_hier(data)
         self.path = path
         self.update_tree()
 
@@ -826,9 +864,7 @@ class GChoices(QFrame):
 
      def __init__(self, controls: GTextToolbar, **kwargs) -> None:
         super(GAnswer, self).__init__(**kwargs)
-        self.setStyleSheet(".GAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
-
-        
+        self.setStyleSheet(".GAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")  
 
 # ----------------------------------------------------------------------------------------
 
@@ -979,11 +1015,24 @@ class GUnitHadling(QWidget):
                 self._show.setCurrentIndex(k)
         self._penalty.setText(str(obj.penalty))
 
-    def to_obj(self) -> None:
+    def to_obj(self) -> UnitHandling:
         grade = Grading[self.GRADE[self._grading.currentText()]]
         penalty = float(self._penalty.text())
         show = ShowUnits[self.SHOW_UNITS[self._show.currentText()]]
         return UnitHandling(grade, penalty, show, self._left.isChecked())
+
+# ----------------------------------------------------------------------------------------
+
+class GCrossWord(QWidget):
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+
+    def from_obj(self, obj: UnitHandling) -> None:
+        pass
+
+    def to_obj(self) -> None:
+        pass
 
 # ----------------------------------------------------------------------------------------
 
