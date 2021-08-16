@@ -2,7 +2,10 @@ import re
 import logging
 import json
 from xml.etree import ElementTree as et
-from PyPDF2 import PdfFileWriter, PdfFileReader 
+from PIL import Image, ImagePalette
+from PyPDF2.generic import IndirectObject
+from PyPDF2.pdf import PageObject
+from PyPDF2 import PdfFileReader 
 from typing import List, Dict, Iterator
 from .enums import Format, Numbering
 from .wrappers import FText
@@ -253,11 +256,65 @@ class Quiz:
 
     @classmethod
     def read_pdf(cls, file_path: str, ptitle="Question \d+", include_image=True):
+        _serial_img = {'/DCTDecode': "jpg", '/JPXDecode': "jp2", '/CCITTFaxDecode': "tiff"}
         with open(file_path, "rb") as infile:
-            data = PdfFileReader(infile)
-        for page_num in range(data.getNumPages):
-            page = data.getPage(page_num)
+            pdf_file = PdfFileReader(infile)
+            for page_num in range(pdf_file.getNumPages()):
+                page: PageObject = pdf_file.getPage(page_num)
+                if '/XObject' not in page['/Resources']:
+                    continue
+                xObject = page['/Resources']['/XObject'].getObject()
+                for obj in xObject:
+                    if xObject[obj]['/Subtype'] != '/Image':
+                        continue
+                    size = (xObject[obj]['/Width'], xObject[obj]['/Height'])
+                    data = xObject[obj].getData()
+                    if xObject[obj]['/ColorSpace'][0] == '/DeviceRGB':
+                        mode = "RGB"
+                    elif xObject[obj]['/ColorSpace'][0] in ["/DeviceN", "/Indexed"]:
+                        mode = "P"
+                        if xObject[obj]['/ColorSpace'][0] == "/Indexed":
+                            psize = int(xObject[obj]['/ColorSpace'][2])
+                            palette = [255-int(n*psize/255) for n in range(256) for _ in range(3)]
+                        else: 
+                            palette = None
+                    else:
+                        raise ValueError(f"Mode not tested yet: {xObject[obj]['/ColorSpace']}") 
+                    # print(obj, f"Mode: {mode}")
+                    # Quiz.quick_print(xObject[obj], "  ")
+                    if '/Filter' in xObject[obj]:
+                        filter = xObject[obj]['/Filter']
+                        if filter == '/FlateDecode':
+                            img = Image.frombytes(mode, size, data)
+                            if palette: 
+                                img.putpalette(palette)
+                                # print(img.getpalette())
+                                # print("\n")
+                            img.save(f"page{page_num}_{obj[1:]}.png")
+                        elif filter in _serial_img:
+                            img = open(f"page{page_num}_{obj[1:]}.{_serial_img[filter]}", "wb")
+                            img.write(data)
+                            img.close()
+                        else:
+                            raise ValueError(f"Filter not tested yet: {filter}") 
+                    else:
+                        img = Image.frombytes(mode, size, data)
+                        img.save(obj[1:] + ".png")
         
+    @staticmethod
+    def quick_print(data, pp):
+        if isinstance(data, dict):
+            for i in data:
+                print(f"{pp}{i}:")
+                Quiz.quick_print(data[i], pp+"  ")
+        elif isinstance(data, list):
+            for i in data:
+                Quiz.quick_print(i, pp+"  ")
+        elif isinstance(data, IndirectObject):
+            Quiz.quick_print(data.getObject(), pp+"  ")
+        else:
+            print(pp, data)
+
     @staticmethod
     def read_markdown(file_path: str, question_mkr :str="\s*\*\s+(.*)", 
                         answer_mkr: str="\s*-\s+(!)?(.*)", category_mkr: str="\s*#\s+(.*)", 

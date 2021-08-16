@@ -2,7 +2,7 @@ import base64
 from typing import List, Dict
 from xml.etree import ElementTree as et
 from urllib.request import urlopen
-from .enums import Format, Status, Distribution, Grading, ShowUnits, ShapeType
+from .enums import Format, Status, Distribution, Grading, ShowUnits
 from .utils import cdata_str, extract
 
 # ----------------------------------------------------------------------------------------
