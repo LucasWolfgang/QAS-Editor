@@ -1,13 +1,12 @@
 from qas_editor.answer import CrossWord
-import sys
 import traceback
 from typing import Callable, Dict, List
 from PyQt5.QtCore import Qt, QVariant, QBasicTimer
 from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
-from PyQt5.QtWidgets import QApplication, QLayout, QWidget, QHBoxLayout, QVBoxLayout,\
-                            QFrame, QSplitter, QTreeView, QGroupBox,QMainWindow, \
-                            QStatusBar, QFileDialog, QMenu, QComboBox, QMessageBox,\
-                            QAction, QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout
+from PyQt5.QtWidgets import QLayout, QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
+                            QSplitter, QTreeView, QGroupBox,QMainWindow, QStatusBar,\
+                            QFileDialog, QMenu, QComboBox, QMessageBox,QAction,\
+                            QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout
 from ..quiz import Quiz, QTYPES
 from .. import questions
 from ..enums import Numbering
@@ -433,7 +432,7 @@ class Editor(QMainWindow):
         self._update_data_view(self.top_quiz, parent)
         self.dataView.expandAll()
 
-# 
+# ----------------------------------------------------------------------------------------
 class QTest(QWidget):
 
         def __init__(self, **kwargs) -> None:
@@ -441,9 +440,3 @@ class QTest(QWidget):
             self._timer = QBasicTimer()
 
 # ----------------------------------------------------------------------------------------
-
-def main():
-    app = QApplication(sys.argv)
-    app.setStyle('Breeze')
-    w = Editor()
-    sys.exit(app.exec_())
