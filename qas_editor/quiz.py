@@ -280,16 +280,12 @@ class Quiz:
                             palette = None
                     else:
                         raise ValueError(f"Mode not tested yet: {xObject[obj]['/ColorSpace']}") 
-                    # print(obj, f"Mode: {mode}")
-                    # Quiz.quick_print(xObject[obj], "  ")
                     if '/Filter' in xObject[obj]:
                         filter = xObject[obj]['/Filter']
                         if filter == '/FlateDecode':
                             img = Image.frombytes(mode, size, data)
                             if palette: 
                                 img.putpalette(palette)
-                                # print(img.getpalette())
-                                # print("\n")
                             img.save(f"page{page_num}_{obj[1:]}.png")
                         elif filter in _serial_img:
                             img = open(f"page{page_num}_{obj[1:]}.{_serial_img[filter]}", "wb")

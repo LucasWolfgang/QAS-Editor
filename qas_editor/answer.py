@@ -247,7 +247,9 @@ class DropZone():
 
 class CrossWord():
 
-    def __init__(self, word: str, x: int, y: int) -> None:
+    def __init__(self, word: str, x: int, y: int, clue: str) -> None:
         self.word = word
         self.x = x
         self.y = y
+        self.direction = None
+        self.clue = clue

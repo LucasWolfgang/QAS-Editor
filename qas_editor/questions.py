@@ -968,11 +968,17 @@ class QTrueFalse(Question):
 
 # ----------------------------------------------------------------------------------------
 
-class QDrawing(Question):
+class QFreeDrawing(Question):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+# ----------------------------------------------------------------------------------------
+
+class QLineDrawing(Question):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 # ----------------------------------------------------------------------------------------
 
@@ -982,10 +988,22 @@ class QCrossWord(Question):
         super().__init__(*args, **kwargs)
         self.x_grid = x_grid
         self.y_grid = y_grid
-        self.words = words
+        self.words = words      # The class only checks grid
+
+    def add_word(self, word: str, x: int, y: int, clue: str):
+        if x < 0 or x > self.x_grid or y < 0 or y > self.y_grid:
+            raise ValueError("New word does not fit in the current grid")
+        self.words.append(CrossWord(word, x, y, clue))
+
+    def verify(self) -> None:
+        """
+        Iterate over the object list to verify if it is valid.
+        """
+        pass
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":
         raise NotImplementedError("This Class is not avaiable in a Moodle XML")
+
 
 # ----------------------------------------------------------------------------------------
