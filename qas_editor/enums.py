@@ -21,7 +21,13 @@ class ClozeFormat(Enum):
     MRH = "MRH"
 
 # ----------------------------------------------------------------------------------------
+class Direction(Enum):
+    UP = 1
+    DOWN = 2
+    RIGHT = 3
+    LEFT = 4
 
+# ----------------------------------------------------------------------------------------
 class Distribution(Enum):
     UNI = "uniform"
     LOG = "loguniform"
