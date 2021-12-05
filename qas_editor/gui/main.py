@@ -10,8 +10,8 @@ from PyQt5.QtWidgets import QLayout, QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
 from ..quiz import Quiz, QTYPES
 from .. import questions
 from ..enums import Numbering
-from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, img_path
-from .forms import GUnitHadling, GAnswer, GCFeedback, GMultipleTries, GCrosswordPuzzle
+from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, GTitleFrame, img_path
+from .forms import GUnitHadling, GAnswer, GCFeedback, GMultipleTries, GCrossWord
 
 def action_handler(function: Callable) -> Callable:
     def wrapper(*args, **kwargs):
@@ -180,7 +180,7 @@ class Editor(QMainWindow):
     def add_answer_block(self) -> None:
         frame = GFrameLayout(title="Answers")
         self._blocks["answer"] = frame
-        self.cframe_vbox.addWidget(frame)
+        self.cframe_vbox.addLayout(frame)
 
         self._items["shuffle"] = QCheckBox("Shuffle the answers")
         self._items["show_instruction"] =  QCheckBox("Show standard instructions")
@@ -208,20 +208,15 @@ class Editor(QMainWindow):
         frame.addLayout(self._items["answers"])
         # Select Option, used in 
 
-        #test
-        puzzle = CrossWord()
-        self._items["cross_word"] = GCrosswordPuzzle()
-        frame.addWidget(self._items["cross_word"])
-
     def add_database_block(self) -> None:
         frame = GFrameLayout(title="Database")
         self._blocks["database"] = frame
-        self.cframe_vbox.addWidget(frame)
+        self.cframe_vbox.addLayout(frame)
 
     def add_feedback_block(self) -> None:
         frame = GFrameLayout(title="Feedbacks")
         self._blocks["feedback"] = frame
-        self.cframe_vbox.addWidget(frame)
+        self.cframe_vbox.addLayout(frame)
         self._items["general_feedback"] = GTextEditor(self.editor_toobar)
         self._items["combined_feedback"] = GCFeedback(self.editor_toobar)
         frame.addWidget(QLabel("General feedback"))
@@ -229,9 +224,9 @@ class Editor(QMainWindow):
         frame.addWidget(self._items["combined_feedback"])
     
     def add_general_data_block(self) -> None:
-        frame = GFrameLayout(title="General Data")
+        frame = GFrameLayout(self, title="General Data")
         self._blocks["database"] = frame
-        self.cframe_vbox.addWidget(frame)
+        self.cframe_vbox.addLayout(frame)
 
         self._items["name"] = QLineEdit()
         self._items["name"].setToolTip("Name used to storage the question in the database.")
@@ -256,17 +251,18 @@ class Editor(QMainWindow):
         frame.addSpacing(10)
         frame.addWidget(QLabel("Question text"))
         frame.addWidget(self._items["question_text"])
+        frame.toggleCollapsed()
 
     def add_multiple_tries_block(self) -> None:
         frame = GFrameLayout(title="Multiple Tries")
-        self.cframe_vbox.addWidget(frame)
+        self.cframe_vbox.addLayout(frame)
         self._items["multiple_tries"] = GMultipleTries(self.editor_toobar)
         frame.addWidget(self._items["multiple_tries"])
 
     def add_solution_block(self) -> None:
         frame = GFrameLayout(title="Solutions")
         self._blocks["database"] = frame
-        self.cframe_vbox.addWidget(frame)
+        self.cframe_vbox.addLayout(frame)
 
         frame.addWidget(QLabel("Solution"))
         self._items["solution"] = GTextEditor(self.editor_toobar)
@@ -326,6 +322,7 @@ class Editor(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", 
                     "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
                     "LaTex (*.tex);XML (*.xml);All files (*.*)")
+        if path is None: return
         if path[-4:] == ".xml":
             quiz = Quiz.read_xml(path)
         elif path[-4:] == ".txt":
@@ -349,6 +346,7 @@ class Editor(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", 
                     "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
                     "LaTex (*.tex);XML (*.xml);All files (*.*)")
+        if path is None: return
         if path[-4:] == ".xml":
             self.top_quiz = Quiz.read_xml(path)
         elif path[-4:] == ".txt":

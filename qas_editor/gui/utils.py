@@ -1,4 +1,4 @@
-from os.path import splitext, dirname, realpath
+from os.path import splitext, dirname
 from uuid import uuid4
 from ..enums import Format
 from ..wrappers import FText, Tags
@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QTextEdit
                             QFontComboBox, QComboBox, QActionGroup, QAction, QLineEdit, \
                             QPushButton, QLabel
 
-img_path = f"{dirname(realpath(__file__))}/images"
+img_path = __file__.replace('\\', '/').rsplit('/', 2)[0] + "/images"
 
 class GTextEditor(QTextEdit):
 
@@ -90,7 +90,6 @@ class GTextEditor(QTextEdit):
             self.setPlainText(text.text)
 
 # ----------------------------------------------------------------------------------------
-
 class GTextToolbar(QToolBar):
 
     FORMATS = {"MarkDown": Format.MD, "HTML": Format.HTML, "PlainText": Format.PLAIN}
@@ -220,7 +219,6 @@ class GTextToolbar(QToolBar):
             o.blockSignals(False)
 
 # ----------------------------------------------------------------------------------------
-
 class GArrow(QFrame):
     def __init__(self, parent=None, collapsed=False):
         QFrame.__init__(self, parent=parent)
@@ -242,16 +240,12 @@ class GArrow(QFrame):
         painter.end()
 
 # ----------------------------------------------------------------------------------------
-
 class GTitleFrame(QFrame):
 
     clicked = pyqtSignal()
 
     def __init__(self, parent=None, title="", collapsed=False):
         QFrame.__init__(self, parent=parent)
-
-        self.setFixedHeight(26)
-        self.move(QPoint(24, 0))
         self.setFrameShadow(QFrame.Sunken)
         self.setStyleSheet("border:1px solid rgb(41, 41, 41); background-color: #acc5f2;")
 
@@ -274,23 +268,21 @@ class GTitleFrame(QFrame):
         return super(GTitleFrame, self).mousePressEvent(event)
 
 # ----------------------------------------------------------------------------------------
-
-class GFrameLayout(QWidget):
+class GFrameLayout(QVBoxLayout):
     def __init__(self, parent=None, title: str=None):
-        QFrame.__init__(self, parent=parent)
+        QVBoxLayout.__init__(self)
 
         self._is_collasped = True
-        self._title_frame = GTitleFrame(title=title, collapsed=True)
-        self.setStyleSheet(".QWidget{border:1px solid rgb(41, 41, 41); background-color: #f0f6ff}")
-        self._content = QWidget()
+        self._title_frame = GTitleFrame(parent, title, True)
+        self._title_frame.clicked.connect(self.toggleCollapsed)
+        super().addWidget(self._title_frame)
         self._content_layout = QVBoxLayout()
+        self._content = QWidget()
+        self._content.setStyleSheet(".QWidget{border:1px solid rgb(41, 41, 41); \
+                                    background-color: #f0f6ff}")
         self._content.setLayout(self._content_layout)
         self._content.setVisible(not self._is_collasped)
-
-        self._main_v_layout = QVBoxLayout(self)
-        self._main_v_layout.addWidget(self._title_frame)
-        self._main_v_layout.addWidget(self._content)
-        self._title_frame.clicked.connect(self.toggleCollapsed)
+        super().addWidget(self._content)
 
     def addSpacing(self, size: int) -> None:
         self._content_layout.addSpacing(size)
@@ -321,7 +313,6 @@ class GFrameLayout(QWidget):
         self._title_frame._arrow.setArrow(int(self._is_collasped))
 
 # ----------------------------------------------------------------------------------------
-
 class GTagBar(QWidget):
 
     def __init__(self):
