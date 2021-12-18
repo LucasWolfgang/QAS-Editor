@@ -1,4 +1,4 @@
-from .answer import Answer, CalculatedAnswer, Choice, NumericalAnswer
+from .answer import Answer, CalculatedAnswer, DragText, NumericalAnswer
 from .enums import *
 from .questions import (QCalculated, QCalculatedMultichoice, QCalculatedSimple,
                         QCloze, QDescription, QDragAndDropImage,
@@ -8,7 +8,7 @@ from .questions import (QCalculated, QCalculatedMultichoice, QCalculatedSimple,
 
 __author__ = "Lucas Wolfgang"
 __version__ = "0.0.1"
-__all__ = ["GUI", "main", "Answer", "Choice", "NumericalAnswer", "CalculatedAnswer",
+__all__ = ["GUI", "main", "Answer", "DragText", "NumericalAnswer", "CalculatedAnswer",
         "QDescription", "QCalculated", "QCalculatedSimple",
         "QCalculatedMultichoice", "QCloze", "QDragAndDropText",
         "QDragAndDropImage", "QDragAndDropMarker", "QEssay",

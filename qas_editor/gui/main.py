@@ -1,5 +1,5 @@
-from qas_editor.answer import CrossWord
 import traceback
+import logging
 from typing import Callable, Dict, List
 from PyQt5.QtCore import Qt, QVariant, QBasicTimer
 from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
@@ -10,20 +10,25 @@ from PyQt5.QtWidgets import QLayout, QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
 from ..quiz import Quiz, QTYPES
 from .. import questions
 from ..enums import Numbering
-from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, GTitleFrame, img_path
-from .forms import GUnitHadling, GAnswer, GCFeedback, GMultipleTries, GCrossWord
+from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, img_path
+from .forms import GOptions, GUnitHadling, GAnswer, GCFeedback, GMultipleTries
+
+log = logging.getLogger(__name__)
 
 def action_handler(function: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         try:
             function(*args, **kwargs)
         except Exception:
+            log.exception(f"Error calling function {function.__name__}")
             self = args[0]
             dlg = QMessageBox(self)
             dlg.setText(traceback.format_exc())
             dlg.setIcon(QMessageBox.Critical)
             dlg.show()
     return wrapper
+
+# ----------------------------------------------------------------------------------------
 
 class Editor(QMainWindow):
     
@@ -32,7 +37,6 @@ class Editor(QMainWindow):
         self.setWindowTitle("QAS Editor GUI")
 
         # Data handling variables
-        self._blocks: Dict[str, GFrameLayout] = {}
         self._items: Dict[str, QWidget] = {}
         self.path: str = None
         self.top_quiz = Quiz()
@@ -127,8 +131,7 @@ class Editor(QMainWindow):
         self.status = QStatusBar()
         self.setStatusBar(self.status)
         self.cat_name = QLabel(self.current_category.category_name)
-        self.status.addWidget(self.cat_name)
-        
+        self.status.addWidget(self.cat_name)      
         self.update_tree()
         self.setGeometry(300, 300, 1000, 600)
         self.show()
@@ -179,20 +182,13 @@ class Editor(QMainWindow):
 
     def add_answer_block(self) -> None:
         frame = GFrameLayout(title="Answers")
-        self._blocks["answer"] = frame
         self.cframe_vbox.addLayout(frame)
-
         self._items["shuffle"] = QCheckBox("Shuffle the answers")
         self._items["show_instruction"] =  QCheckBox("Show standard instructions")
         self._items["single"] =  QCheckBox("Single answer")
         self._items["answer_numbering"] = QComboBox()
         self._items["answer_numbering"].addItems([c.value for c in Numbering])
         self._items["unit_handling"] = GUnitHadling()
-
-        # Answers
-        aabutton = QPushButton("Add Answer")
-        aabutton.clicked.connect(lambda: self._items["answers"].addWidget(GAnswer(self.editor_toobar)))
-        self._items["answers"] = QHBoxLayout()
 
         grid = QHBoxLayout()
         grid.addWidget(QLabel("Numbering"))
@@ -204,18 +200,18 @@ class Editor(QMainWindow):
 
         frame.addLayout(grid)
         frame.addWidget(self._items["unit_handling"])
+        aabutton = QPushButton("Add Answer")
+        aabutton.clicked.connect(lambda: self._items["answers"].addWidget(GAnswer(self.editor_toobar)))
+        self._items["answers"] = GOptions()
         frame.addWidget(aabutton)
         frame.addLayout(self._items["answers"])
-        # Select Option, used in 
 
     def add_database_block(self) -> None:
         frame = GFrameLayout(title="Database")
-        self._blocks["database"] = frame
         self.cframe_vbox.addLayout(frame)
 
     def add_feedback_block(self) -> None:
         frame = GFrameLayout(title="Feedbacks")
-        self._blocks["feedback"] = frame
         self.cframe_vbox.addLayout(frame)
         self._items["general_feedback"] = GTextEditor(self.editor_toobar)
         self._items["combined_feedback"] = GCFeedback(self.editor_toobar)
@@ -225,7 +221,6 @@ class Editor(QMainWindow):
     
     def add_general_data_block(self) -> None:
         frame = GFrameLayout(self, title="General Data")
-        self._blocks["database"] = frame
         self.cframe_vbox.addLayout(frame)
 
         self._items["name"] = QLineEdit()
@@ -261,7 +256,6 @@ class Editor(QMainWindow):
 
     def add_solution_block(self) -> None:
         frame = GFrameLayout(title="Solutions")
-        self._blocks["database"] = frame
         self.cframe_vbox.addLayout(frame)
 
         frame.addWidget(QLabel("Solution"))
@@ -289,7 +283,7 @@ class Editor(QMainWindow):
             elif "to_obj" in dir(self._items[key].__class__):
                 output[key] = self._items[key].to_obj()
             else:
-                print("Oooops: ", self._items[key])
+                log.warning(f"Can\'t write data from {key} form to a new object")
         self.current_category.add_question(cls(**output))
         self.update_tree()
 
@@ -318,11 +312,10 @@ class Editor(QMainWindow):
 
     @action_handler
     def merge_file(self, stat: bool):
-        parent = self.current_category.parent
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", 
                     "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
                     "LaTex (*.tex);XML (*.xml);All files (*.*)")
-        if path is None: return
+        if not path: return
         if path[-4:] == ".xml":
             quiz = Quiz.read_xml(path)
         elif path[-4:] == ".txt":
@@ -346,7 +339,7 @@ class Editor(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", 
                     "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
                     "LaTex (*.tex);XML (*.xml);All files (*.*)")
-        if path is None: return
+        if not path: return
         if path[-4:] == ".xml":
             self.top_quiz = Quiz.read_xml(path)
         elif path[-4:] == ".txt":
@@ -356,7 +349,7 @@ class Editor(QMainWindow):
         elif path[-3:] == ".md":
             self.top_quiz = Quiz.read_markdown(path)
         else:
-            raise ValueError(f"Extension {path.rplist('.', 1)[-1]} can not be read")
+            raise ValueError(f"Extension {path.rsplist('.', 1)[-1]} can not be read")
         self.path = path
         self.update_tree()
 
@@ -388,7 +381,11 @@ class Editor(QMainWindow):
         item = value.data(257)
         if isinstance(item, questions.Question):
             for key in self._items:
-                if key in item.__dict__ and item.__dict__[key] is not None:
+                if key not in item.__dict__:
+                    log.debug(f"Key \'{key}\' is not present in question {item}")
+                elif item.__dict__[key] is None:
+                    log.debug(f"Key \'{key}\' has value None in question {item}")
+                else:
                     if isinstance(self._items[key], QComboBox):
                         self._items[key].setCurrentText(str(item.__dict__[key]))
                     elif isinstance(self._items[key], QLineEdit):
@@ -397,12 +394,10 @@ class Editor(QMainWindow):
                         self._items[key].setFText(item.__dict__[key])
                     elif isinstance(self._items[key], QCheckBox):
                         self._items[key].setChecked(item.__dict__[key])
-                    elif isinstance(self._items[key], QLayout):
-                        print(item.__dict__[key])
                     elif "from_obj" in dir(self._items[key].__class__):
                         self._items[key].from_obj(item.__dict__[key])
                     else:
-                        print("Oooops: ", self._items[key])
+                        log.warning(f"No form defined for {key}")
             self.question_type.setCurrentText(type(item).__name__)
         else: # This is a classification
             pass
@@ -433,8 +428,8 @@ class Editor(QMainWindow):
 # ----------------------------------------------------------------------------------------
 class QTest(QWidget):
 
-        def __init__(self, **kwargs) -> None:
-            super().__init__(**kwargs)
-            self._timer = QBasicTimer()
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._timer = QBasicTimer()
 
 # ----------------------------------------------------------------------------------------
