@@ -1,13 +1,19 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .utils import GTextToolbar
+
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QComboBox, \
                             QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout
-from ..answer import Answer
+from ..answer import Answer, DragItem, DragText
 from ..enums import Format, Grading, ShowUnits
 from ..wrappers import CombinedFeedback, Hint, MultipleTries, UnitHandling
 from .utils import GTextEditor
+from ..questions import QCrossWord
 
 class GAnswer(QFrame):
 
-    def __init__(self, controls, **kwargs) -> None:
+    def __init__(self, controls: GTextToolbar, **kwargs) -> None:
         super(GAnswer, self).__init__(**kwargs)
         self.setStyleSheet(".GAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
         _content = QGridLayout(self)
@@ -56,17 +62,126 @@ class GAnswer(QFrame):
 
 # ----------------------------------------------------------------------------------------
 
-class GChoices(QFrame):
+class GDrag(QGridLayout):
+    """This class works from both DragText and DragItem.
+    I hope someday people from moodle unify these 2.
 
-     def __init__(self, controls, **kwargs) -> None:
+    Args:
+        QGridLayout ([type]): [description]
+    """
+
+    TYPES = ["Image", "Text"]
+
+    def __init__(self, only_text: bool, **kwargs) -> None:
+        super(QGridLayout, self).__init__(**kwargs)
+        self.addWidget(QLabel("Text"), 0, 0)
+        self.text = QLineEdit()
+        self.addWidget(self.text, 0, 1)
+        self.addWidget(QLabel("Group"), 0, 2)
+        self.group = QLineEdit()
+        self.group.setFixedWidth(20)
+        self.addWidget(self.group, 0, 3)
+        self.addWidget(QLabel("Type"), 0, 4)
+        self.itype = QComboBox()
+        self.itype.addItems(self.TYPES)
+        self.itype.setFixedWidth(55)
+        self.addWidget(self.itype, 0, 5)
+        self.unlimited = QCheckBox("Unlimited")
+        self.addWidget(self.unlimited, 0, 6)
+        if only_text: 
+            self.itype.setCurrentIndex(1)
+            self.itype.setEnabled(False)
+        else:
+            self.imagem = QPushButton("Imagem")
+            self.addWidget(self.imagem, 1, 2)
+        self.only_text = only_text
+        self.img = None
+        self.obj = None
+
+    def from_obj(self, obj):
+        self.text.setText(obj.text)
+        self.group.setText(str(obj.group))
+        self.unlimited = self.unlimited.isChecked()
+        self.obj = obj
+
+    def setVisible(self, visible: bool) -> None:
+        for child in self.children():
+            child.setVisible(visible)
+
+    def to_obj(self) -> DragItem:
+        if self.only_text:
+            return DragText(self.text.text(), self.group.text(), self.unlimited.isChecked())
+        else:
+            return DragItem(0, self.text.text(), self.unlimited.isChecked(),
+                                self.group.text(), self.img)
+
+# ----------------------------------------------------------------------------------------
+
+class GDropZone(QGridLayout):
+
+    TYPES = ["Image", "Text"]
+
+    def __init__(self, **kwargs) -> None:
         super(GAnswer, self).__init__(**kwargs)
-        self.setStyleSheet(".GAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")  
+        self.addWidget(QLabel("Type"), 0, 0)
+        self.itype = QComboBox()
+        self.itype.addItem(self.TYPES)
+        self.addWidget(self.itype, 0, 1)
+        self.group = QLineEdit()
+        self.addWidget(QLabel("Group"), 0, 2)
+        self.addWidget(self.group, 0, 3)
+        self.text = QLineEdit()
+        self.addWidget(QLabel("Text"), 0, 4)
+        self.addWidget(self.text, 0, 5)
+
+    def from_obj(self, obj: DragItem):
+        pass
+
+    def setVisible(self, visible: bool) -> None:
+        for child in self.children():
+            child.setVisible(visible)
+
+    def to_obj(self) -> DragItem:
+        pass
+
+# ----------------------------------------------------------------------------------------
+
+class GOptions(QVBoxLayout):
+
+    def __init__(self, **kwargs) -> None:
+        super(QVBoxLayout, self).__init__(**kwargs)
+        self.visible = True
+
+    def add(self, obj):
+        if isinstance(obj, Answer): item = GAnswer()
+        elif isinstance(obj, DragText): item = GDrag(True)
+        elif isinstance(obj, DragItem): item = GDrag(False)
+        item.from_obj(obj)
+        self.addLayout(item)
+
+    def from_obj(self, objs:list) -> None:
+        children = self.children()
+        if len(children) > len(objs):
+            self.replaceWidget(children[0], children[len(objs)])
+        for obj, child in zip(objs, children):
+            if isinstance(obj, Answer):     child.from_obj(obj)
+            elif isinstance(obj, DragText): child.from_obj(obj)
+            elif isinstance(obj, DragItem): child.from_obj(obj)
+        for obj in objs[len(children):]: self.add(obj)
+
+    def setVisible(self, visible: bool) -> None:
+        if self.visible == visible: return
+        for child in self.children():
+            child.setVisible(visible)
+
+    def to_obj(self):
+        return [child.to_obj() for child in self.children]
 
 # ----------------------------------------------------------------------------------------
 
 class GCFeedback(QFrame):
 
-    def __init__(self, toolbar, **kwargs) -> None:
+    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self.setStyleSheet(".GCFeedback{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
         self._correct = GTextEditor(toolbar)
@@ -97,7 +212,7 @@ class GCFeedback(QFrame):
 
 class GHint(QFrame):
 
-    def __init__(self, toolbar, **kwargs) -> None:
+    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self.setStyleSheet(".GHint{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
         self._text = GTextEditor(toolbar)
@@ -138,9 +253,9 @@ class GHint(QFrame):
 
 # ----------------------------------------------------------------------------------------
 
-class GMultipleTries(QWidget):
+class GMultipleTries(QWidget): 
 
-    def __init__(self, toolbar, **kwargs) -> None:
+    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self._penalty = QLineEdit()
         self._penalty.setText("0")
@@ -224,8 +339,15 @@ class GCrossWord(QWidget):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         
+    def setAnswerString(self, x, y, direction, value):
+        """
+        Set answered string.
+        """
+        if not self.active():
+            raise ValueError("puzzle is inactive")
+        self._puzzle.setAnswerString(x, y, direction, value)
 
-    def from_obj(self, obj: UnitHandling) -> None:
+    def from_obj(self, obj: QCrossWord) -> None:
         pass
 
     def to_obj(self) -> None:

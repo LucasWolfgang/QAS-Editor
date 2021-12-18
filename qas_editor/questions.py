@@ -1,13 +1,16 @@
-from typing import List
+from __future__ import annotations
+from typing import TYPE_CHECKING, Dict
+if TYPE_CHECKING:
+    from typing import List
+    from .enums import Direction
 from xml.etree import ElementTree as et
 from .wrappers import B64File, CombinedFeedback, Dataset, FText, MultipleTries, SelectOption, \
                     Subquestion, Unit, Tags, UnitHandling
 from .utils import extract
 from .enums import ClozeFormat, Format, ResponseFormat, Status, Distribution, Numbering
-from .answer import Answer, ClozeAnswer, NumericalAnswer, CalculatedAnswer, Choice, \
+from .answer import Answer, ClozeAnswer, NumericalAnswer, CalculatedAnswer, DragText, \
                     CrossWord, DropZone, DragItem
 import re
-from pprint import pprint
 # import markdown
 # import latex2mathml
 
@@ -282,25 +285,14 @@ class QDragAndDropText(Question):
     _type = "ddwtos"
 
     def __init__(self, combined_feedback: CombinedFeedback, multiple_tries: MultipleTries=None,
-                choices: List[Choice]=None, *args, **kwargs):
+                answers: List[DragText]=None, *args, **kwargs):
         """
         Currently not implemented.
         """
         super().__init__(*args, **kwargs)
         self.combined_feedback = combined_feedback
         self.multiple_tries = multiple_tries
-        self._choices: List[Choice] = choices if choices is not None else []
-
-    def add_choice(self, text: str, group: int=1, unlimited: bool=False) -> None:
-        """
-        Adds new Choice with assigned DropZones.
-
-        Args:
-            text (str): text of the drag text
-            group (int, optional): group. Defaults to 1.
-            unlimited (bool, optional): if item is allowed to be used again. Defaults to False.
-        """
-        self._choices.append(Choice(text=text, group=group, unlimited=unlimited))
+        self.answers: List[DragText] = answers if answers is not None else []
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "QDragAndDropText":    
@@ -310,13 +302,13 @@ class QDragAndDropText(Question):
         res["multiple_tries"] = MultipleTries.from_xml(data, root)
         question: "QDragAndDropText" = super().from_xml(root, **res)
         for c in root.findall("dragbox"):
-            question._choices.append(Choice.from_xml(c))
+            question.answers.append(DragText.from_xml(c))
         return question
 
     def to_xml(self) -> et.Element:
         question = super().to_xml()
         self.combined_feedback.to_xml(question)
-        for choice in self._choices:
+        for choice in self.answers:
             question.append(choice.to_xml())
         return question
 
@@ -990,16 +982,20 @@ class QCrossWord(Question):
         self.y_grid = y_grid
         self.words = words      # The class only checks grid
 
-    def add_word(self, word: str, x: int, y: int, clue: str):
-        if x < 0 or x > self.x_grid or y < 0 or y > self.y_grid:
+    def add_word(self, word: str, x: int, y: int, direction: Direction, clue: str):
+        if x < 0 or x > self.x_grid+len(word) or y < 0 or y > self.y_grid+len(word):
             raise ValueError("New word does not fit in the current grid")
-        self.words.append(CrossWord(word, x, y, clue))
+        self.words.append(CrossWord(word, x, y, direction, clue))
 
-    def verify(self) -> None:
+    def get_solution(self) -> bool:
         """
         Iterate over the object list to verify if it is valid.
         """
-        pass
+        solution: Dict[int, Dict[int, str]] = {}
+        for word in self.words:
+            if word.x not in solution: solution[word.x] = {}
+            if word.y not in solution: solution[word.x][word.y] = {}
+            pass
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":

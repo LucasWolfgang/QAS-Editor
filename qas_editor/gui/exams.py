@@ -1,3 +1,9 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from ..questions import QCrossWord
+    from typing import Dict
+
 from .forms import UnitHandling
 from PyQt5.QtWidgets import QWidget, QSizePolicy
 from PyQt5 import QtGui
@@ -16,7 +22,7 @@ class ECrossword(QWidget):
     letterTyped(int, int, const QString&)   A letter has been typed.
     """
 
-    def __init__(self, puzzle, **kwargs):
+    def __init__(self, puzzle: QCrossWord, **kwargs) -> None:
         super().__init__(**kwargs)
         self._editMode = False
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -26,22 +32,10 @@ class ECrossword(QWidget):
         self._fontSmall.setWeight(QtGui.QFont.Bold)
         self._fontBold = QtGui.QFont("monospace")
         self._fontBold.setWeight(QtGui.QFont.Bold)
-        # if kwargs.get("start", True):
-        #     self.start()
+        self.answer: Dict[str, Dict[str]] = {}
+        for word in self._puzzle.words:
+            pass
 
-    def answerString(self, x, y, direction):
-        """
-        Return a string from the answer.
-        """
-        return self._puzzle.getAnswerString(x, y, direction)
-
-    def setAnswerString(self, x, y, direction, value):
-        """
-        Set answered string.
-        """
-        if not self.active():
-            raise ValueError("puzzle is inactive")
-        self._puzzle.setAnswerString(x, y, direction, value)
 
     def char(self, x, y):
         """

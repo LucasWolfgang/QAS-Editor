@@ -1,6 +1,10 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from .enums import Direction, ClozeFormat
 from .wrappers import FText
 from .utils import cdata_str
-from .enums import Format, ClozeFormat, ShapeType
+from .enums import Format, ShapeType
 from xml.etree import ElementTree as et
 from typing import List
 from .wrappers import B64File 
@@ -35,33 +39,6 @@ class Answer:
         if self.feedback:
             self.feedback.to_xml(answer, "feedback")
         return answer
-
-# ----------------------------------------------------------------------------------------
-
-class Choice:
-    """[summary]
-    """
-
-    def __init__(self, text: str, group: int=1, unlimited: bool=False) -> None:
-        self.text = text
-        self.group = group
-        self.unlimited = unlimited
-
-    @classmethod
-    def from_xml(cls, root: et.Element) -> "Choice":
-        data = {x.tag: x for x in root}
-        text = data["text"].text
-        group = int(data["group"].text)
-        unlimited = True if data.get("infinite") else False
-        return cls(text, group, unlimited)
-
-    def to_xml(self) -> et.Element:
-        dragbox = et.Element("dragbox")
-        et.SubElement(dragbox, "text").text = self.text
-        et.SubElement(dragbox, "group").text = str(self.group)
-        if self.unlimited:
-           et.SubElement(dragbox, "infinite")
-        return dragbox
 
 # ----------------------------------------------------------------------------------------
 
@@ -142,7 +119,34 @@ class ClozeAnswer():
 
 # ----------------------------------------------------------------------------------------
 
-class DragItem():
+class DragText:
+    """[summary]
+    """
+
+    def __init__(self, text: str, group: int=1, unlimited: bool=False) -> None:
+        self.text = text
+        self.group = group
+        self.unlimited = unlimited
+
+    @classmethod
+    def from_xml(cls, root: et.Element) -> "DragText":
+        data = {x.tag: x for x in root}
+        text = data["text"].text
+        group = int(data["group"].text)
+        unlimited = True if data.get("infinite") else False
+        return cls(text, group, unlimited)
+
+    def to_xml(self) -> et.Element:
+        dragbox = et.Element("dragbox")
+        et.SubElement(dragbox, "text").text = self.text
+        et.SubElement(dragbox, "group").text = str(self.group)
+        if self.unlimited:
+           et.SubElement(dragbox, "infinite")
+        return dragbox
+
+# ----------------------------------------------------------------------------------------
+
+class DragItem:
     """
     Abstract class representing any drag item.
     """
@@ -151,10 +155,10 @@ class DragItem():
                  no_of_drags: str=None, image: B64File=None) -> None:
         if group and no_of_drags:
             return ValueError("Both group and number of drags can\'t be provided to a single obj.")
-        self.number = number
         self.text = text
-        self.unlimited = unlimited
         self.group = group
+        self.unlimited = unlimited
+        self.number = number
         self.no_of_drags = no_of_drags
         self.image = image
 
@@ -185,7 +189,7 @@ class DragItem():
 
 # ----------------------------------------------------------------------------------------
 
-class DropZone():
+class DropZone:
     """
     This class represents DropZone for Questions like QDragAndDropImage.
     """
@@ -247,9 +251,16 @@ class DropZone():
 
 class CrossWord():
 
-    def __init__(self, word: str, x: int, y: int, clue: str) -> None:
+    def __init__(self, word: str, x: int, y: int, direction: Direction, clue: str) -> None:
         self.word = word
         self.x = x
         self.y = y
-        self.direction = None
+        self.direction = direction
         self.clue = clue
+
+    @classmethod
+    def from_xml(cls, root: et.Element, *args) -> "NumericalAnswer":
+        raise NotImplementedError("This Class is not avaiable in a Moodle XML")
+
+    def to_xml(self) -> et.Element:
+        raise NotImplementedError("This Class is not avaiable in a Moodle XML")
