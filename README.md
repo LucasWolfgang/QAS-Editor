@@ -51,3 +51,12 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
     - LaTex (as MCQ) 
     - Markdown files 
   - Complete GUI
+
+# Open to ideas
+  - Have any format that you want to see the tool able to import or export?
+  - Have any suggestions for the GUI?
+  Just create an issue! One day I will definently work on it (if it is a good idea, of course).
+  
+  Thank you,\
+  Wolfgang\
+  :blush:
