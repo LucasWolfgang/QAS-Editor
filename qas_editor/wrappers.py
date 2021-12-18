@@ -306,11 +306,12 @@ class MultipleTries():
         self.penalty = penalty
         self.hints = hints if hints is not None else []
 
+    @classmethod
     def from_xml(cls, data: dict, root: et.Element) -> "MultipleTries":
         hints = []
         for h in root.findall("hint"):
             hints.append(Hint.from_xml(h))
-        return cls(float(data["penalty"]), hints)
+        return cls(float(data["penalty"].text), hints)
 
     def to_xml(self, question: et.Element) -> None:
         for h in self.hints:
