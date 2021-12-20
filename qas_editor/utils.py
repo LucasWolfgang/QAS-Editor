@@ -1,17 +1,18 @@
+from typing import cast
+
+
 def extract(data: dict, key: str, res: dict, name: str, cast_type) -> None:
     if key in data:
-        try:
-            if cast_type == str:
-                res[name] = data[key].text
-            elif cast_type == bool:
-                if data[key].text:
-                    res[name] = data[key].text.lower() in ["true", "1", "t"]
-                else:
-                    res[name] = True
-            else:
-                res[name] = cast_type(data[key].text)
-        except:
+        if cast_type == str:
             res[name] = data[key].text
+        elif cast_type != bool:
+            res[name] = data[key].text
+            if res[name]: res[name] = cast_type(res[name])
+        else:
+            if data[key].text:
+                res[name] = data[key].text.lower() in ["true", "1", "t"]
+            else:
+                res[name] = True
     elif cast_type == bool:
         res[name] = False
 

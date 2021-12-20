@@ -313,37 +313,30 @@ class GFrameLayout(QVBoxLayout):
         self._title_frame._arrow.setArrow(int(self._is_collasped))
 
 # ----------------------------------------------------------------------------------------
-class GTagBar(QWidget):
+class GTagBar(QFrame):
 
     def __init__(self):
         super(GTagBar, self).__init__()
         self.tags = []
+        self.setStyleSheet("QPushButton { border:0px sunken; font-weight:bold} "+
+            "QLabel { background:#c4edc2; font-size:12px; border-radius:4px; padding-left:2px} "+
+            ".GTagBar { border:1px sunken; background: #d1d1d1; padding:2px}")
         self.h_layout = QHBoxLayout()
-        self.h_layout.setSpacing(4)
+        self.h_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.h_layout)
         self.line_edit = QLineEdit()
-        self.h_layout.setContentsMargins(2,2,2,2)
         self.refresh()
         self.line_edit.returnPressed.connect(self.create_tags)
 
     def add_tag_to_bar(self, text):
-        tag = QFrame()
-        tag.setStyleSheet('border:1px solid rgb(192, 192, 192); border-radius: 4px;')
-        tag.setContentsMargins(2, 2, 2, 2)
-        tag.setFixedHeight(20)
+        tag = QLabel(text+"    ")
         hbox = QHBoxLayout()
-        hbox.setContentsMargins(4, 0, 4, 4)
-        hbox.setSpacing(10)
-        tag.setLayout(hbox)
-        label = QLabel(text)
-        label.setStyleSheet('border:0px')
-        label.setFixedHeight(16)
-        hbox.addWidget(label)
+        hbox.setContentsMargins(0, 0, 0, 5)
         x_button = QPushButton('x')
         x_button.setFixedSize(16, 16)
-        x_button.setStyleSheet('border:0px; font-weight:bold')
         x_button.clicked.connect(lambda: self.delete_tag(text))
-        hbox.addWidget(x_button)
+        hbox.addWidget(x_button, 0, Qt.AlignRight)
+        tag.setLayout(hbox)
         self.h_layout.addWidget(tag)
 
     def delete_tag(self, tag_name):
@@ -351,7 +344,7 @@ class GTagBar(QWidget):
         self.refresh()
 
     def create_tags(self):
-        new_tags = self.line_edit.text().split(', ')
+        new_tags = self.line_edit.text().split(',')
         self.line_edit.setText('')
         self.tags.extend(new_tags)
         self.tags = list(set(self.tags))

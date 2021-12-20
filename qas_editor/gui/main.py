@@ -65,8 +65,8 @@ class Editor(QMainWindow):
         saveas_file_action.setStatusTip("Save current page to specified file")
         saveas_file_action.triggered.connect(lambda: self.file_save(True))
         file_menu.addAction(saveas_file_action)
-        self.editor_toobar = GTextToolbar()
-        self.addToolBar(Qt.TopToolBarArea, self.editor_toobar)
+        self.editor_toolbar = GTextToolbar()
+        self.addToolBar(Qt.TopToolBarArea, self.editor_toolbar)
 
         # Left side
         self.dataView = QTreeView()
@@ -201,8 +201,9 @@ class Editor(QMainWindow):
         frame.addLayout(grid)
         frame.addWidget(self._items["unit_handling"])
         aabutton = QPushButton("Add Answer")
-        aabutton.clicked.connect(lambda: self._items["answers"].addWidget(GAnswer(self.editor_toobar)))
-        self._items["answers"] = GOptions()
+        aabutton.clicked.connect(lambda: self._items["answers"].addWidget(GAnswer(self.editor_toolbar)))
+        self._items["answers"] = GOptions(self.editor_toolbar)
+        self.setStyleSheet(".GAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
         frame.addWidget(aabutton)
         frame.addLayout(self._items["answers"])
 
@@ -213,8 +214,8 @@ class Editor(QMainWindow):
     def add_feedback_block(self) -> None:
         frame = GFrameLayout(title="Feedbacks")
         self.cframe_vbox.addLayout(frame)
-        self._items["general_feedback"] = GTextEditor(self.editor_toobar)
-        self._items["combined_feedback"] = GCFeedback(self.editor_toobar)
+        self._items["general_feedback"] = GTextEditor(self.editor_toolbar)
+        self._items["combined_feedback"] = GCFeedback(self.editor_toolbar)
         frame.addWidget(QLabel("General feedback"))
         frame.addWidget(self._items["general_feedback"])
         frame.addWidget(self._items["combined_feedback"])
@@ -225,25 +226,32 @@ class Editor(QMainWindow):
 
         self._items["name"] = QLineEdit()
         self._items["name"].setToolTip("Name used to storage the question in the database.")
+        self._items["name"] = QLineEdit()
         self._items["default_grade"] = QLineEdit()
+        self._items["default_grade"].setFixedWidth(30)
         self._items["default_grade"].setToolTip("Default grade for the question.")
         self._items["id_number"] = QLineEdit()
+        self._items["id_number"].setFixedWidth(40)
         self._items["id_number"].setToolTip("Provides a second way of finding a question.")
         self._items["tags"] = GTagBar()
-        self._items["question_text"] = GTextEditor(self.editor_toobar)
+        self._items["question_text"] = GTextEditor(self.editor_toolbar)
         grid = QGridLayout()
-        grid.addWidget(QLabel("Question name"), 0, 0)
+        grid.addWidget(QLabel("Name"), 0, 0)
         grid.addWidget(self._items["name"], 0,1)
-        grid.addWidget(QLabel("Default grade"), 0, 2)
-        grid.addWidget(self._items["default_grade"], 0, 3)
-        grid.addWidget(QLabel("ID number"), 1, 2)
-        grid.addWidget(self._items["id_number"], 1, 3)
-        grid.addWidget(QLabel("Tags"), 1, 0)
-        grid.addWidget(self._items["tags"], 1, 1)
-        grid.setColumnStretch(1, 4)
-        grid.setColumnStretch(3, 1)
+        tmp = QLabel("Tags")
+        tmp.setContentsMargins(10,0,0,0)
+        grid.addWidget(tmp, 0, 2)
+        grid.addWidget(self._items["tags"], 0, 3)
+        tmp = QLabel("Default grade")
+        tmp.setContentsMargins(10,0,0,0)
+        grid.addWidget(tmp, 0, 4)
+        grid.addWidget(self._items["default_grade"], 0, 5)
+        tmp = QLabel("ID number")
+        tmp.setContentsMargins(10,0,0,0)
+        grid.addWidget(tmp, 0, 6)
+        grid.addWidget(self._items["id_number"], 0, 7)
         frame.addLayout(grid)
-        frame.addSpacing(10)
+        frame.addSpacing(6)
         frame.addWidget(QLabel("Question text"))
         frame.addWidget(self._items["question_text"])
         frame.toggleCollapsed()
@@ -251,7 +259,7 @@ class Editor(QMainWindow):
     def add_multiple_tries_block(self) -> None:
         frame = GFrameLayout(title="Multiple Tries")
         self.cframe_vbox.addLayout(frame)
-        self._items["multiple_tries"] = GMultipleTries(self.editor_toobar)
+        self._items["multiple_tries"] = GMultipleTries(self.editor_toolbar)
         frame.addWidget(self._items["multiple_tries"])
 
     def add_solution_block(self) -> None:
@@ -259,7 +267,7 @@ class Editor(QMainWindow):
         self.cframe_vbox.addLayout(frame)
 
         frame.addWidget(QLabel("Solution"))
-        self._items["solution"] = GTextEditor(self.editor_toobar)
+        self._items["solution"] = GTextEditor(self.editor_toolbar)
         frame.addWidget(self._items["solution"])
 
     @action_handler
@@ -410,11 +418,12 @@ class Editor(QMainWindow):
         init_fields: List = list(cls.__init__.__code__.co_names)
         init_fields.extend(questions.Question.__init__.__code__.co_names)
         for item in self._items:
-            if isinstance(self._items[item], QLayout):
-                for num in range(self._items[item].count()):
-                    self._items[item].itemAt(num).setVisible(item in init_fields)
-            if isinstance(self._items[item], QWidget):
-                self._items[item].setVisible(item in init_fields)
+            self._items[item].setEnabled(item in init_fields)
+            # if isinstance(self._items[item], QLayout):
+            #     for num in range(self._items[item].count()):
+            #         self._items[item].itemAt(num).setVisible(item in init_fields)
+            # if isinstance(self._items[item], QWidget):
+            #     self._items[item].setVisible(item in init_fields)
 
     def update_tree(self) -> None:
         self.data_root.clear()

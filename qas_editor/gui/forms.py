@@ -11,24 +11,22 @@ from ..wrappers import CombinedFeedback, Hint, MultipleTries, UnitHandling
 from .utils import GTextEditor
 from ..questions import QCrossWord
 
-class GAnswer(QFrame):
+class GAnswer(QGridLayout):
 
-    def __init__(self, controls: GTextToolbar, **kwargs) -> None:
-        super(GAnswer, self).__init__(**kwargs)
-        self.setStyleSheet(".GAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
-        _content = QGridLayout(self)
-        _content.addWidget(QLabel("Text"), 0, 0)
-        self._text = GTextEditor(controls)
-        _content.addWidget(self._text, 0, 1)
-        _content.addWidget(QLabel("Grade"), 1, 0)
+    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
+        super(QGridLayout, self).__init__(**kwargs)
+        self.addWidget(QLabel("Text"), 0, 0)
+        self._text = GTextEditor(toolbar)
+        self._text.setFixedHeight(40)
+        self.addWidget(self._text, 0, 1)
+        self.addWidget(QLabel("Grade"), 0, 2)
         self._grade = QLineEdit()
-        _content.addWidget(self._grade, 1, 1)
-        _content.addWidget(QLabel("Feedback"), 2, 0)
-        self._feedback = GTextEditor(controls)
-        _content.addWidget(self._feedback, 2, 1)
-        _content.setRowStretch(0, 4)
-        self.setFixedHeight(140)
-        self.setFixedWidth(220)
+        self.addWidget(self._grade, 0, 3)
+        self.addWidget(QLabel("Feedback"), 1, 2)
+        self._feedback = GTextEditor(toolbar)
+        self._text.setFixedHeight(25)
+        self.addWidget(self._feedback, 1, 2)
+        self.setRowStretch(0, 4)
 
     def from_obj(self, obj: Answer) -> None:
         self._grade.setText(str(obj.fraction))
@@ -59,6 +57,10 @@ class GAnswer(QFrame):
             formatting = Format.PLAIN
         feedback = self._feedback.getFText()
         return Answer(fraction, text, feedback, formatting)
+
+    def setVisible(self, visible: bool) -> None:
+        for child in self.children():
+            child.setVisible(visible)
 
 # ----------------------------------------------------------------------------------------
 
@@ -148,12 +150,13 @@ class GDropZone(QGridLayout):
 
 class GOptions(QVBoxLayout):
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, toolbar, **kwargs) -> None:
         super(QVBoxLayout, self).__init__(**kwargs)
         self.visible = True
+        self.toolbar = toolbar
 
     def add(self, obj):
-        if isinstance(obj, Answer): item = GAnswer()
+        if isinstance(obj, Answer): item = GAnswer(self.toolbar)
         elif isinstance(obj, DragText): item = GDrag(True)
         elif isinstance(obj, DragItem): item = GDrag(False)
         item.from_obj(obj)
