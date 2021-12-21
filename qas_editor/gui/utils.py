@@ -230,6 +230,7 @@ class GArrow(QFrame):
 
     def setArrow(self, arrow_dir: bool):
         self._arrow = self._arrow_vertical if arrow_dir else self._arrow_horizontal
+        self.update() # Fix bug where arrows do not update if children dont fill top layout
 
     def paintEvent(self, event):
         painter = QPainter()

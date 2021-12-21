@@ -2,11 +2,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .enums import Direction, ClozeFormat
+    from typing import List
 from .wrappers import FText
-from .utils import cdata_str
+from .utils import cdata_str, extract
 from .enums import Format, ShapeType
 from xml.etree import ElementTree as et
-from typing import List
 from .wrappers import B64File 
 
 class Answer:
@@ -27,7 +27,7 @@ class Answer:
         fraction = root.get("fraction")
         text = data["text"].text
         feedback = FText.from_xml(data.get("feedback"))
-        formatting = Format(root.get("format"))
+        formatting = Format(root.get("format", "html"))
         return cls(*args, fraction, text, feedback, formatting)
 
     def to_xml(self) -> et.Element:
@@ -194,8 +194,8 @@ class DropZone:
     This class represents DropZone for Questions like QDragAndDropImage.
     """
 
-    def __init__(self, shape: ShapeType, x: int, y: int, points: str, text: str, 
-                choice: int, number: int) -> None:
+    def __init__(self, x: int, y: int, choice: int, number: int, text: str=None, 
+                 points: str=None, shape: ShapeType=None) -> None:
         """[summary]
 
         Args:
@@ -216,21 +216,21 @@ class DropZone:
     @classmethod
     def from_xml(cls, root: et.Element) -> "DropZone":
         data = {x.tag: x for x in root}
+        res = {}
         if "coords" in data and "shape" in data:
-            shape = ShapeType(data["shape"].text)
+            res["shape"] = ShapeType(data["shape"].text)
             coords = data["coords"].text.split(";", 1)
-            x, y = coords[0].split(",")
-            points = coords[1]
+            res["x"], res["y"] = map(int, coords[0].split(","))
+            res["points"] = coords[1]
         elif "xleft" in data and "ytop" in data:
-            x = data["xleft"].text
-            y = data["ytop"].text
-            points = shape = None
+            extract(data, "xleft", res, "x", int)
+            extract(data, "ytop", res, "y", int)
         else:
             raise AttributeError("One or more coordenates are missing for the DropZone")
-        choice = data["choice"].text
-        number = data["no"].text
-        text = data["text"].text
-        return cls(shape, x, y, points, text, choice, number)
+        extract(data, "choice", res, "choice", int)
+        extract(data, "no", res, "number", int)
+        extract(data, "text", res, "text", str)
+        return cls(**res)
 
     def to_xml(self) -> et.Element:
         dropzone = et.Element("drop")
