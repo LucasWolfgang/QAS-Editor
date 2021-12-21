@@ -11,6 +11,8 @@ from .enums import ClozeFormat, Format, ResponseFormat, Status, Distribution, Nu
 from .answer import Answer, ClozeAnswer, NumericalAnswer, CalculatedAnswer, DragText, \
                     CrossWord, DropZone, DragItem
 import re
+import logging
+log = logging.getLogger(__name__)
 # import markdown
 # import latex2mathml
 
@@ -668,6 +670,19 @@ class QMultichoice(Question):
         else:
             raise TypeError(f"answer_numbering should be of type Numbering or str, not {type(answer_numbering)}")
         self.answers = answers if answers is not None else []
+
+    @classmethod
+    def from_aiken(cls, buffer, name) -> "QMultichoice":
+        header = buffer.rd(True)
+        answers = []
+        while buffer.rd() and "ANSWER:" not in buffer.rd()[:7]:
+            ans = re.match(r"[A-Z]+\) (.+)", buffer.rd(True))
+            if ans: answers.append(Answer(fraction=0.0, text=ans[1], formatting=Format.PLAIN))
+        try:        
+            answers[ord(buffer.rd(True)[8].upper())-65].fraction = 100.0
+        except IndexError: 
+            log.exception(f"Failed to set correct answer in question {name} during Aiken import.")
+        return cls(name=name, question_text=FText(header, Format.PLAIN), answers=answers)
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QMultichoice":

@@ -32,6 +32,23 @@ QTYPES = [m for m in dir(questions) if type(getattr(questions, m)) == type and
 
 logger = logging.getLogger(__name__)
 
+class ParseError(Exception):
+    pass
+
+class LineBuffer:
+
+    def __init__(self, buffer) -> None:
+        self.last = buffer.readline()
+        self.__bfr = buffer
+    
+    def rd(self, inext:bool=False):
+        if not self.last and inext: raise ParseError()
+        tmp = self.last
+        if inext:
+            self.last = self.__bfr.readline()
+            while self.last and self.last == "\n": self.last = self.__bfr.readline()
+        return tmp
+
 class Quiz:
     """
     This class represents Quiz as a set of Questions.
@@ -168,35 +185,20 @@ class Quiz:
         Args:
             file_path (str): [description]
         """
-        log = logging.getLogger(__name__)
         quiz = cls(category)
-        with open(file_path) as infile:
-            lines = infile.readlines()
-        lines.reverse()
         name = file_path.rsplit("/", 1)[-1][:-4]
-        question_cnt = 0
-        try:
-            while lines:
-                line = lines.pop().strip()
-                question = questions.QMultichoice(name=f"{name}_{question_cnt}", 
-                                                question_text=FText(line, Format.PLAIN))
-                while lines and "ANSWER:" not in line[:7]:
-                    line = lines.pop()
-                    ans = re.match(r"[A-Z]+\) (.+)", line)
-                    if ans:
-                        question.add_answer(0.0, ans[1])
-                question.answers[ord(line[8].upper())-65].fraction = 100.0
-                quiz.add_question(question)
-                question_cnt+=1    
-        except IndexError:
-            log.exception(f"Failed to import Aiken File. {len(quiz.questions)} questions"
-                            " imported. Following question does not have options.")
+        cnt = 0
+        with open(file_path, encoding="utf-8") as ifile:
+            buffer = LineBuffer(ifile)
+            while buffer.rd():
+                quiz.add_question(questions.QMultichoice.from_aiken(buffer, f"{name}_{cnt}"))
+                cnt += 1
         return quiz
 
     @classmethod
     def read_cloze(cls, file_path: str, category: str="$course$") -> "Quiz":
         top_quiz: Quiz = Quiz(category_name=category)
-        with open(file_path, "r") as ifile:
+        with open(file_path, "r", encoding="utf-8") as ifile:
             data = "\n" + ifile.read()
         data = re.sub("\n(?!::)", "", data) + "\n" # Remove \n's inside a question
         for q in re.findall(r"(?:\:\:(.+?)\:\:)(.+?)\n", data): # Get the questions
@@ -207,7 +209,7 @@ class Quiz:
     def read_gift(cls, file_path: str) -> "Quiz":
         top_quiz: Quiz = None
         quiz = top_quiz
-        with open(file_path, "r") as ifile:
+        with open(file_path, "r", encoding="utf-8") as ifile:
             data = "\n" + ifile.read()
         data = re.sub(r"\n//.*?(?=\n)", "", data)           # Remove comments
         data = re.sub("(?<!\})\n(?!::)", "", data) + "\n"   # Remove \n's inside a question
@@ -240,7 +242,7 @@ class Quiz:
         return top_quiz
 
     @staticmethod
-    def read_json(file_path: str):
+    def read_json(file_path: str) -> "Quiz":
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
@@ -250,7 +252,7 @@ class Quiz:
             pass
 
     @staticmethod
-    def read_latex():
+    def read_latex() -> "Quiz":
         # TODO
         pass
 
@@ -333,7 +335,7 @@ class Quiz:
             ValueError: [description]
         """
         regex_exp = f"({category_mkr})|({question_mkr})|({answer_mkr})"
-        with open(file_path) as infile:
+        with open(file_path, encoding="utf-8") as infile:
             lines = infile.readlines()
         lines.append("\n") # Make sure that the document has 2 newlines in the end
         lines.append("\n")

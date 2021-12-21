@@ -11,22 +11,23 @@ from ..wrappers import CombinedFeedback, Hint, MultipleTries, UnitHandling
 from .utils import GTextEditor
 from ..questions import QCrossWord
 
+import logging
+log = logging.getLogger(__name__)
+
 class GAnswer(QGridLayout):
 
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super(QGridLayout, self).__init__(**kwargs)
-        self.addWidget(QLabel("Text"), 0, 0)
         self._text = GTextEditor(toolbar)
-        self._text.setFixedHeight(40)
-        self.addWidget(self._text, 0, 1)
-        self.addWidget(QLabel("Grade"), 0, 2)
-        self._grade = QLineEdit()
-        self.addWidget(self._grade, 0, 3)
-        self.addWidget(QLabel("Feedback"), 1, 2)
+        self.addWidget(self._text, 0, 0, 2, 1)
+        self.addWidget(QLabel("Feedback"), 0, 1)
         self._feedback = GTextEditor(toolbar)
-        self._text.setFixedHeight(25)
-        self.addWidget(self._feedback, 1, 2)
-        self.setRowStretch(0, 4)
+        self._feedback.setFixedHeight(30)
+        self.addWidget(self._feedback, 0, 2)
+        self.addWidget(QLabel("Grade"), 1, 1)
+        self._grade = QLineEdit()
+        self._grade.setFixedWidth(50)
+        self.addWidget(self._grade, 1, 2)
 
     def from_obj(self, obj: Answer) -> None:
         self._grade.setText(str(obj.fraction))
@@ -154,28 +155,41 @@ class GOptions(QVBoxLayout):
         super(QVBoxLayout, self).__init__(**kwargs)
         self.visible = True
         self.toolbar = toolbar
+        self.__ctype = None
 
     def add(self, obj):
+        if self.__ctype is not None and not isinstance(obj, self.__ctype):
+            raise ValueError(f"Objects in this Layout can only be of type {self.__ctype}.")
         if isinstance(obj, Answer): item = GAnswer(self.toolbar)
         elif isinstance(obj, DragText): item = GDrag(True)
         elif isinstance(obj, DragItem): item = GDrag(False)
         item.from_obj(obj)
         self.addLayout(item)
 
+    def addLayout(self, layout, stretch: int = ...) -> None:
+        if not isinstance(layout, GAnswer) and not isinstance(layout, GDrag):
+            log.warning(f"Attempted adding non-valid layout {type(layout)} to GOptions.")
+        return super().addLayout(layout, stretch=stretch)
+
     def from_obj(self, objs:list) -> None:
-        children = self.children()
-        if len(children) > len(objs):
-            self.replaceWidget(children[0], children[len(objs)])
-        for obj, child in zip(objs, children):
-            if isinstance(obj, Answer):     child.from_obj(obj)
-            elif isinstance(obj, DragText): child.from_obj(obj)
-            elif isinstance(obj, DragItem): child.from_obj(obj)
-        for obj in objs[len(children):]: self.add(obj)
+        self._soft_clear(len(objs), type(objs[0]))    
+        self.__ctype = type(objs[0])
+        for obj, child in zip(objs, self.children()): 
+            if hasattr(child, "from_obj"): child.from_obj(obj)
+        if self.count() < len(objs):
+            for obj in objs[self.count():]: self.add(obj)
 
     def setVisible(self, visible: bool) -> None:
         if self.visible == visible: return
         for child in self.children():
             child.setVisible(visible)
+
+    def _soft_clear(self, new_size=0, new_type=None):
+        if len(self.children()) == 0: return
+        to_rem = 0
+        if new_type and new_type != self.__ctype: to_rem = self.count()
+        elif self.count() > new_size: to_rem = self.count() - new_size
+        for i in reversed(range(to_rem)): self.itemAt(i).layout().deleteLater()
 
     def to_obj(self):
         return [child.to_obj() for child in self.children]
@@ -280,8 +294,8 @@ class GMultipleTries(QWidget):
             for _ in range(len(obj.hints)-self._content.count()):
                 self._content.addWidget(GHint(self._toolbar))
         elif len(obj.hints)+1 < self._content.count():
-            for num in range(self._content.count()-len(obj.hints)):
-                self._content.removeWidget(self._content.itemAt(self._content.count()-1))
+            for i in reversed(range(self._content.count()-len(obj.hints))):
+                self._content.itemAt(i).layout().deleteLater()
         for num in range(len(obj.hints)):
             self._content.itemAt(num+2).from_obj(obj.hints[num])
 
