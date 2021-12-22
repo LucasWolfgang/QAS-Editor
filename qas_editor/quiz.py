@@ -199,10 +199,9 @@ class Quiz:
     def read_cloze(cls, file_path: str, category: str="$course$") -> "Quiz":
         top_quiz: Quiz = Quiz(category_name=category)
         with open(file_path, "r", encoding="utf-8") as ifile:
-            data = "\n" + ifile.read()
-        data = re.sub("\n(?!::)", "", data) + "\n" # Remove \n's inside a question
-        for q in re.findall(r"(?:\:\:(.+?)\:\:)(.+?)\n", data): # Get the questions
-            top_quiz.add_question(questions.QCloze.from_cloze(*q))
+            top_quiz.add_question(questions.QCloze.from_cloze(ifile))
+        data = {}
+        top_quiz.get_hier(data)
         return top_quiz
 
     @classmethod

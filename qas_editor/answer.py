@@ -109,13 +109,16 @@ class ClozeAnswer():
     held within the question text in this format.
     """
 
-    def __init__(self, start: int, end: int, grade: int, cformat: ClozeFormat) -> None:
+    def __init__(self, start: int, grade: int, cformat: ClozeFormat,
+                wrong_opts: List[tuple]=None, correct_opts: List[tuple]=None) -> None:
         self.start: int = start
-        self.end: int = end
         self.cformat: ClozeFormat = cformat
         self.grade = grade
-        self.wrong_options: List[tuple] = []
-        self.correct_options: List[tuple] = []
+        self.wrong_opts: List[tuple] = wrong_opts if wrong_opts else []
+        self.correct_opts: List[tuple] = correct_opts if correct_opts else []
+
+    def __str__(self) -> str:
+        return f"{self.cformat.value}"
 
 # ----------------------------------------------------------------------------------------
 

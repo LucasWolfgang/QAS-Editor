@@ -1,4 +1,10 @@
-from os.path import splitext, dirname
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import List
+    from PyQt5.QtGui import QKeyEvent
+import re
+from os.path import splitext
 from uuid import uuid4
 from ..enums import Format
 from ..wrappers import FText, Tags
@@ -11,6 +17,10 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QTextEdit
 img_path = __file__.replace('\\', '/').rsplit('/', 2)[0] + "/images"
 
 class GTextEditor(QTextEdit):
+    """
+    #TODO - Take a look on http://doc.qt.io/qt-5/qplaintextedit.html
+            It may be way faster than using QTextEdit
+    """
 
     def __init__(self, toolbar: "GTextToolbar") -> None:
         super().__init__()
@@ -18,9 +28,35 @@ class GTextEditor(QTextEdit):
         self.text_format: Format = 2
         self.math_type = 0
         self.setAutoFormatting(QTextEdit.AutoAll)
-        self.selectionChanged.connect(lambda: toolbar.update_editor(self))
         self.setFont(QFont('Times', 12))
-        self.setFontPointSize(12)   
+        self.setFontPointSize(12)
+        self.textChanged.connect(self.__flag_update)
+        self.__tags: List[tuple] = []
+        self.__need_update = True
+
+    def __flag_update(self): 
+        self.__need_update = True
+
+    def keyPressEvent(self, e: QKeyEvent) -> None:
+        if e.text() or e.key() in [Qt.Key_Backspace, Qt.Key_Enter, Qt.Key_Tab, Qt.Key_Space]:
+            if self.__selected_tag(): return
+        return super().keyPressEvent(e)
+
+    def __selected_tag(self):
+        if not self.__tags: return
+        if self.__need_update: self.__update_tags()
+        tc = self.textCursor()
+        if tc.position() > self.__tags[-1][1]: return
+        for tag in self.__tags:
+            if tc.position() < tag[0]: break
+            if tc.position() < tag[1] + 1:
+                return tag
+
+    def __update_tags(self):
+        self.__tags.clear()
+        for i in re.finditer("\[\[[0-9]+\]\]", self.toPlainText()):
+            self.__tags.append(i.span())
+        self.__need_update = False
 
     def canInsertFromMimeData(self, source) -> bool:
         """[summary]
@@ -35,6 +71,10 @@ class GTextEditor(QTextEdit):
             return True
         else:
             return super(GTextEditor, self).canInsertFromMimeData(source)
+
+    def focusInEvent(self, e) -> None:
+        self.toolbar.update_editor(self)
+        return super().focusOutEvent(e)
 
     def insertFromMimeData(self, source):
         """[summary]
@@ -88,6 +128,7 @@ class GTextEditor(QTextEdit):
             self.setHtml(text.text)
         else:
             self.setPlainText(text.text)
+        self.__update_tags()
 
 # ----------------------------------------------------------------------------------------
 class GTextToolbar(QToolBar):
@@ -100,18 +141,18 @@ class GTextToolbar(QToolBar):
         self.editor: GTextEditor = None
         self.setIconSize(QSize(16, 16))
 
-        self.fonts = QFontComboBox()
+        self.fonts = QFontComboBox(self)
         self.addWidget(self.fonts)
 
-        self.text_type = QComboBox()
+        self.text_type = QComboBox(self)
         self.text_type.addItems(list(self.FORMATS.keys()))
         self.addWidget(self.text_type)
 
-        self.math_type = QComboBox()
+        self.math_type = QComboBox(self)
         self.math_type.addItems(["LaTex", "MathML", "Ignore"])
         self.addWidget(self.math_type)
 
-        self.fontsize = QComboBox()
+        self.fontsize = QComboBox(self)
         self.fontsize.addItems(["7", "8", "9", "10", "11", "12", "13", "14", "18", "24", "36", "48", "64"])
         self.addWidget(self.fontsize)
         self.addSeparator()

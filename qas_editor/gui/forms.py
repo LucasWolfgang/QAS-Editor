@@ -4,9 +4,10 @@ if TYPE_CHECKING:
     from .utils import GTextToolbar
 
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QComboBox, \
-                            QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout
-from ..answer import Answer, DragItem, DragText
-from ..enums import Format, Grading, ShowUnits
+                            QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout, \
+                            QComboBox
+from ..answer import Answer, DragItem, DragText, ClozeAnswer
+from ..enums import ClozeFormat, Format, Grading, ShowUnits
 from ..wrappers import CombinedFeedback, Hint, MultipleTries, UnitHandling
 from .utils import GTextEditor
 from ..questions import QCrossWord
@@ -18,6 +19,7 @@ class GAnswer(QGridLayout):
 
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super(QGridLayout, self).__init__(**kwargs)
+        self.obj = None
         self._text = GTextEditor(toolbar)
         self.addWidget(self._text, 0, 0, 2, 1)
         self.addWidget(QLabel("Feedback"), 0, 1)
@@ -38,13 +40,9 @@ class GAnswer(QGridLayout):
             self._text.setHtml(obj.text)
         elif obj.formatting == Format.PLAIN:
             self._text.setPlainText(obj.text)
+        self.obj = obj
 
-    def to_obj(self) -> None:
-        """[summary]
-
-        Args:
-            items (dict): [description]
-        """
+    def to_obj(self) -> Answer:
         fraction = float(self._grade.text())
         tp = self._text.toolbar.text_type.currentIndex()
         if tp == 0:
@@ -57,7 +55,65 @@ class GAnswer(QGridLayout):
             text = self._text.toPlainText()
             formatting = Format.PLAIN
         feedback = self._feedback.getFText()
-        return Answer(fraction, text, feedback, formatting)
+        if self.obj is not None:
+            self.obj.fraction = fraction
+            self.obj.text = text
+            self.obj.feedback = feedback
+            self.obj.formatting = formatting
+        else:
+            self.obj = Answer(fraction, text, feedback, formatting)
+        return self.obj
+
+    def setVisible(self, visible: bool) -> None:
+        for child in self.children():
+            child.setVisible(visible)
+
+# ----------------------------------------------------------------------------------------
+
+class GCloze(QGridLayout):
+
+    def __init__(self, **kwargs) -> None:
+        super(QGridLayout, self).__init__(**kwargs)
+        self.obj: ClozeAnswer = None
+        self.addWidget(QLabel("Pos"), 0, 0)
+        self._pos = QLineEdit()
+        self._pos.setFixedWidth(50)
+        self.addWidget(self._pos, 0, 1)
+        self.addWidget(QLabel("Grade"), 0, 2)
+        self._grade = QLineEdit()
+        self._grade.setFixedWidth(50)
+        self.addWidget(self._grade, 0, 3)
+        self.addWidget(QLabel("Format"), 1, 0)
+        self._form = QComboBox()
+        self._form.addItems([a.value for a in ClozeFormat])
+        self.addWidget(self._form, 1, 1, 1, 3)
+        self._correct = QComboBox()
+        self.addWidget(self._correct, 0, 4)
+        self._wrong = QComboBox()
+        self.addWidget(self._wrong, 1, 4)
+
+    def from_obj(self, obj: ClozeAnswer) -> None:
+        self._pos.setText(str(obj.start))
+        self._grade.setText(str(obj.grade))
+        self._form.setCurrentText(str(obj.cformat.value))
+        self._correct.addItems(obj.correct_opts)
+        self._wrong.addItems(obj.wrong_opts)
+
+    def to_obj(self) -> None:
+        pos = int(self._pos.text())
+        grade = float(self._grade.text())
+        cform = ClozeFormat(self._form.currentText())
+        correct = [self._correct.itemText(i) for i in range(self._correct.count())]
+        wrong = [self._wrong.itemText(i) for i in range(self._wrong.count())]
+        if self.obj is not None:
+            self.obj.start = pos
+            self.obj.grade = grade
+            self.obj.cformat = cform
+            self.obj.correct_opts = correct
+            self.obj.wrong_opts = wrong
+        else:
+            self.obj = ClozeAnswer(pos, grade, cform, wrong, correct)
+        return self.obj
 
     def setVisible(self, visible: bool) -> None:
         for child in self.children():
@@ -112,11 +168,19 @@ class GDrag(QGridLayout):
             child.setVisible(visible)
 
     def to_obj(self) -> DragItem:
-        if self.only_text:
-            return DragText(self.text.text(), self.group.text(), self.unlimited.isChecked())
+        if self.obj is not None:
+            self.obj.text = self.text.text()
+            self.obj.group = self.group.text()
+            self.obj.unlimited = self.unlimited.isChecked()
+            if not self.only_text: self.obj.image = self.img
         else:
-            return DragItem(0, self.text.text(), self.unlimited.isChecked(),
-                                self.group.text(), self.img)
+            if self.only_text:
+                self.obj = DragText(self.text.text(), self.group.text(), 
+                                    self.unlimited.isChecked())
+            else:
+                self.obj = DragItem(0, self.text.text(), self.unlimited.isChecked(),
+                                    self.group.text(), self.img)
+        return self.obj
 
 # ----------------------------------------------------------------------------------------
 
@@ -163,15 +227,17 @@ class GOptions(QVBoxLayout):
         if isinstance(obj, Answer): item = GAnswer(self.toolbar)
         elif isinstance(obj, DragText): item = GDrag(True)
         elif isinstance(obj, DragItem): item = GDrag(False)
+        elif isinstance(obj, ClozeAnswer): item = GCloze()
         item.from_obj(obj)
         self.addLayout(item)
 
-    def addLayout(self, layout, stretch: int = ...) -> None:
+    def addLayout(self, layout, stretch: int = 0) -> None:
         if not isinstance(layout, GAnswer) and not isinstance(layout, GDrag):
             log.warning(f"Attempted adding non-valid layout {type(layout)} to GOptions.")
         return super().addLayout(layout, stretch=stretch)
 
     def from_obj(self, objs:list) -> None:
+        if not objs: return
         self._soft_clear(len(objs), type(objs[0]))    
         self.__ctype = type(objs[0])
         for obj, child in zip(objs, self.children()): 
