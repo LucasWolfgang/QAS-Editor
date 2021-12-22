@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from .enums import Direction, ClozeFormat
+    from .enums import Direction
     from typing import List
 from .wrappers import FText
 from .utils import cdata_str, extract
-from .enums import Format, ShapeType
+from .enums import Format, ShapeType, ClozeFormat
 from xml.etree import ElementTree as et
 from .wrappers import B64File 
 
@@ -103,22 +103,38 @@ class CalculatedAnswer(NumericalAnswer):
 
 # ----------------------------------------------------------------------------------------
 
-class ClozeAnswer():
+class ClozeItem():
     """This class represents a cloze answer.
     This is not a standard type in the moodle format, once data in a cloze questions is
     held within the question text in this format.
     """
 
-    def __init__(self, start: int, grade: int, cformat: ClozeFormat,
-                wrong_opts: List[tuple]=None, correct_opts: List[tuple]=None) -> None:
+    def __init__(self, start: int, grade: int, cformat: ClozeFormat, 
+                options: List[Answer]=None) -> None:
         self.start: int = start
         self.cformat: ClozeFormat = cformat
         self.grade = grade
-        self.wrong_opts: List[tuple] = wrong_opts if wrong_opts else []
-        self.correct_opts: List[tuple] = correct_opts if correct_opts else []
+        self.opts: List[Answer] = options if options else []
 
     def __str__(self) -> str:
         return f"{self.cformat.value}"
+
+    @classmethod
+    def from_cloze(cls, regex) -> "ClozeItem":
+        options = []
+        for opt in regex[3].split("~"): #re.findall(r"[^~]+[~}]", regex[3]):
+            tmp = opt.strip("}~").split("#")
+            if len(tmp) == 2:
+                fdb, tmp = tmp
+            frac = 0.0
+            if tmp[0] == "=":
+                frac = 100.0
+                tmp = tmp[1:]
+            elif tmp[0] == "%":
+                frac, tmp = tmp[1:].split("%")
+                frac = float(frac)
+            options.append(Answer(frac, tmp, FText(fdb, Format.PLAIN), Format.PLAIN))
+        return cls(regex.start(), int(regex[1]), ClozeFormat(regex[2]), options)
 
 # ----------------------------------------------------------------------------------------
 

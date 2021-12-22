@@ -135,8 +135,8 @@ class FText():
 
     def __init__(self, text: str, formatting: Format) -> None:
         self.text = text
-        if formatting is None:
-            raise ValueError("Formatting should not be none")
+        if not isinstance(formatting, Format):
+            raise TypeError("Formatting type is not valid")
         self.formatting = formatting
         self.bfile: List[B64File] = []
 

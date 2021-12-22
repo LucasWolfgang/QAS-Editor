@@ -7,8 +7,8 @@ from xml.etree import ElementTree as et
 from .wrappers import B64File, CombinedFeedback, Dataset, FText, MultipleTries, SelectOption, \
                     Subquestion, Unit, Tags, UnitHandling
 from .utils import extract
-from .enums import ClozeFormat, Format, ResponseFormat, Status, Distribution, Numbering
-from .answer import Answer, ClozeAnswer, NumericalAnswer, CalculatedAnswer, DragText, \
+from .enums import Format, ResponseFormat, Status, Distribution, Numbering
+from .answer import Answer, ClozeItem, ClozeItem, NumericalAnswer, CalculatedAnswer, DragText, \
                     CrossWord, DropZone, DragItem
 import re
 import logging
@@ -22,7 +22,7 @@ class Question():
     """
     _type=None
 
-    def __init__(self, name: str, question_text: FText, default_grade: float=1.0, 
+    def __init__(self, name: str, question_text: FText=None, default_grade: float=1.0, 
                 general_feedback: FText=None, id_number: int=None, shuffle: bool=False,
                 tags: Tags=None, solution: str=None, *args, **kwargs) -> None:
         """
@@ -92,7 +92,7 @@ class Question():
 class QCalculated(Question):
     _type = "calculated"
 
-    def __init__(self, synchronize: int, single: bool=False, unit_handling: UnitHandling=None, 
+    def __init__(self, synchronize: int=0, single: bool=False, unit_handling: UnitHandling=None, 
                 units: List[Unit]=None, datasets: List[Dataset]=None, 
                 answers: List[CalculatedAnswer]=None, multiple_tries: MultipleTries=None, 
                 *args, **kwargs):
@@ -171,7 +171,7 @@ class QCalculatedSimple(QCalculated):
 class QCalculatedMultichoice(Question):
     _type = "calculatedmulti"
 
-    def __init__(self, synchronize: int, single: bool=False, 
+    def __init__(self, synchronize: int=0, single: bool=False, 
                 numbering: Numbering=Numbering.ALF_LR, 
                 combined_feedback: CombinedFeedback=None, multiple_tries: MultipleTries=None,
                 datasets: List[Dataset]=None, answers: List[CalculatedAnswer]=None,
@@ -231,9 +231,9 @@ class QCloze(Question):
     """
     _type = "cloze"
 
-    def __init__(self, answers: List[ClozeAnswer]=None, *args, **kwargs):
+    def __init__(self, answers: List[ClozeItem]=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.answers: List[ClozeAnswer] = answers if answers is not None else []
+        self.answers: List[ClozeItem] = answers if answers is not None else []
         
     @classmethod
     def from_xml(cls, root: et.Element) -> "QCloze":
@@ -243,17 +243,21 @@ class QCloze(Question):
         return super().to_xml()
 
     @classmethod
-    def from_cloze(cls, name: str, text: str) -> "QCloze":
-        question = cls(name=name, question_text=text)
-        for a in re.finditer(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})", text):
-            answer = ClozeAnswer(*a.span(), int(a[1]), ClozeFormat(a[2]))
-            for opt in re.findall(r"[^~]+[~}]", a[3]):
-                tmp = opt.strip("}~")
-                if tmp[0] == "=":
-                    answer.correct_options.append(tmp[1:])
-                else:
-                    answer.wrong_options.append(tmp)
-        return question
+    def from_cloze(cls, buffer) -> "QCloze":
+        data = buffer.read()
+        name, text = data.split("\n", 1)
+        new_text = []
+        index = 0
+        answers: List[ClozeItem] = []
+        pattern = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
+        for n, a in enumerate(pattern.finditer(text)):
+            item = ClozeItem.from_cloze(a)
+            answers.append(item)
+            new_text.append(text[index:item.start])
+            new_text.append(f"<span style=\"background:red\">[[{n:02}]]</span>")
+            index = a.end()
+        ftext = FText("".join(new_text), Format.HTML)
+        return cls(name=name, question_text=ftext, answers=answers)
 
 # ----------------------------------------------------------------------------------------
 
@@ -264,7 +268,7 @@ class QDescription(Question):
         super().__init__(*args, **kwargs)
 
     @classmethod
-    def from_gift(cls, header: list, answer: list) -> "QDescription":
+    def from_gift(cls, header: list) -> "QDescription":
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
@@ -286,8 +290,9 @@ class QDragAndDropText(Question):
     """
     _type = "ddwtos"
 
-    def __init__(self, combined_feedback: CombinedFeedback, multiple_tries: MultipleTries=None,
-                answers: List[DragText]=None, *args, **kwargs):
+    def __init__(self, combined_feedback: CombinedFeedback=None, 
+                multiple_tries: MultipleTries=None, answers: List[DragText]=None, *args, 
+                **kwargs):
         """
         Currently not implemented.
         """
@@ -323,7 +328,7 @@ class QDragAndDropImage(Question):
     """
     _type = "ddimageortext"
 
-    def __init__(self, background: B64File, combined_feedback: CombinedFeedback=None, 
+    def __init__(self, background: B64File=None, combined_feedback: CombinedFeedback=None, 
                 dragitems: List[DragItem]=None, dropzones: List[DropZone]=None,
                 *args, **kwargs) -> None:
         """Creates an drag and drop onto image type of question.
@@ -400,7 +405,7 @@ class QDragAndDropImage(Question):
 class QDragAndDropMarker(Question):
     _type = "ddmarker"
 
-    def __init__(self, background: B64File, combined_feedback: CombinedFeedback=None,
+    def __init__(self, background: B64File=None, combined_feedback: CombinedFeedback=None,
                 dragitems: List[DragItem]=None, dropzones: List[DropZone]=None, 
                 highlight_empty: bool=False, *args, **kwargs):
         """Creates an drag and drop onto image type of question.
@@ -572,8 +577,8 @@ class QMatching(Question):
 class QRandomMatching(Question):
     _type = "randomsamatch"
 
-    def __init__(self, choose: int, subcats: bool, combined_feedback: CombinedFeedback=None, 
-                *args, **kwargs) -> None:
+    def __init__(self, choose: int=0, subcats: bool=False, 
+                combined_feedback: CombinedFeedback=None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.combined_feedback = combined_feedback
         self.choose = choose
@@ -855,7 +860,7 @@ class QShortAnswer(Question):
     """
     _type = "shortanswer"
 
-    def __init__(self, use_case: bool, answers: List[Answer]=None, *args, **kwargs) -> None:
+    def __init__(self, use_case: bool=False, answers: List[Answer]=None, *args, **kwargs) -> None:
         """[summary]
 
         Args:
@@ -911,8 +916,8 @@ class QTrueFalse(Question):
     """
     _type = "truefalse"
 
-    def __init__(self, correct_answer: bool, true_ans: Answer, false_ans: Answer, 
-                *args, **kwargs) -> None:
+    def __init__(self, correct_answer: bool=False, true_ans: Answer=None, 
+                false_ans: Answer=None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.__answer_true = true_ans
         self.__answer_false = false_ans
@@ -991,7 +996,8 @@ class QLineDrawing(Question):
 
 class QCrossWord(Question):
 
-    def __init__(self, x_grid: int, y_grid: int, words: List[CrossWord], *args, **kwargs):
+    def __init__(self, x_grid: int=0, y_grid: int=0, words: List[CrossWord]=None, 
+                *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.x_grid = x_grid
         self.y_grid = y_grid

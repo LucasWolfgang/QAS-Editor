@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QComboBox, \
                             QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout, \
                             QComboBox
-from ..answer import Answer, DragItem, DragText, ClozeAnswer
+from ..answer import Answer, DragItem, DragText, ClozeItem
 from ..enums import ClozeFormat, Format, Grading, ShowUnits
 from ..wrappers import CombinedFeedback, Hint, MultipleTries, UnitHandling
 from .utils import GTextEditor
@@ -74,45 +74,50 @@ class GCloze(QGridLayout):
 
     def __init__(self, **kwargs) -> None:
         super(QGridLayout, self).__init__(**kwargs)
-        self.obj: ClozeAnswer = None
+        self.obj: ClozeItem = None
+        self.opts = {}
         self.addWidget(QLabel("Pos"), 0, 0)
         self._pos = QLineEdit()
         self._pos.setFixedWidth(50)
         self.addWidget(self._pos, 0, 1)
         self.addWidget(QLabel("Grade"), 0, 2)
         self._grade = QLineEdit()
-        self._grade.setFixedWidth(50)
+        self._grade.setFixedWidth(40)
         self.addWidget(self._grade, 0, 3)
-        self.addWidget(QLabel("Format"), 1, 0)
+        self.addWidget(QLabel("Format"), 0, 4)
         self._form = QComboBox()
         self._form.addItems([a.value for a in ClozeFormat])
-        self.addWidget(self._form, 1, 1, 1, 3)
-        self._correct = QComboBox()
-        self.addWidget(self._correct, 0, 4)
-        self._wrong = QComboBox()
-        self.addWidget(self._wrong, 1, 4)
+        self.addWidget(self._form, 0, 5)
+        self._opts = QComboBox()
+        self._opts.setFixedWidth(80)
+        self.addWidget(self._opts, 0, 6)
+        self._fdbk = QLineEdit()
+        self.addWidget(self._fdbk, 0, 8)
+        self._fdbk = QLineEdit()
+        self.addWidget(self._fdbk, 0, 9)
 
-    def from_obj(self, obj: ClozeAnswer) -> None:
+    def from_obj(self, obj: ClozeItem) -> None:
         self._pos.setText(str(obj.start))
         self._grade.setText(str(obj.grade))
         self._form.setCurrentText(str(obj.cformat.value))
-        self._correct.addItems(obj.correct_opts)
-        self._wrong.addItems(obj.wrong_opts)
+        self.opts.clear()
+        self.opts.update({(a.text,a) for a in obj.opts})
+        self._opts.addItems(self.opts.keys())
 
     def to_obj(self) -> None:
         pos = int(self._pos.text())
         grade = float(self._grade.text())
         cform = ClozeFormat(self._form.currentText())
-        correct = [self._correct.itemText(i) for i in range(self._correct.count())]
-        wrong = [self._wrong.itemText(i) for i in range(self._wrong.count())]
+        feedback = self._fdbk.text()
+        opts = [self._opts.itemText(i) for i in range(self._opts.count())]
         if self.obj is not None:
             self.obj.start = pos
             self.obj.grade = grade
             self.obj.cformat = cform
-            self.obj.correct_opts = correct
-            self.obj.wrong_opts = wrong
+            self.obj.feedback = feedback
+            self.obj.opts = opts
         else:
-            self.obj = ClozeAnswer(pos, grade, cform, wrong, correct)
+            self.obj = ClozeItem(pos, grade, cform, feedback, opts)
         return self.obj
 
     def setVisible(self, visible: bool) -> None:
@@ -221,15 +226,27 @@ class GOptions(QVBoxLayout):
         self.toolbar = toolbar
         self.__ctype = None
 
+    def _soft_clear(self, new_size=0, new_type=None):
+        if len(self.children()) == 0: return
+        to_rem = 0
+        if new_type and new_type != self.__ctype: to_rem = self.count()
+        elif self.count() > new_size: to_rem = self.count() - new_size
+        for i in reversed(range(to_rem)): self.itemAt(i).layout().deleteLater()
+
     def add(self, obj):
-        if self.__ctype is not None and not isinstance(obj, self.__ctype):
+        if not isinstance(obj, self.__ctype):
             raise ValueError(f"Objects in this Layout can only be of type {self.__ctype}.")
-        if isinstance(obj, Answer): item = GAnswer(self.toolbar)
-        elif isinstance(obj, DragText): item = GDrag(True)
-        elif isinstance(obj, DragItem): item = GDrag(False)
-        elif isinstance(obj, ClozeAnswer): item = GCloze()
+        item = self.add_default()
         item.from_obj(obj)
+
+    def add_default(self):
+        print(self.__ctype)
+        if   self.__ctype is Answer: item = GAnswer(self.toolbar)
+        elif self.__ctype is DragText: item = GDrag(True)
+        elif self.__ctype is DragItem: item = GDrag(False)
+        elif self.__ctype is ClozeItem: item = GCloze()
         self.addLayout(item)
+        return item
 
     def addLayout(self, layout, stretch: int = 0) -> None:
         if not isinstance(layout, GAnswer) and not isinstance(layout, GDrag):
@@ -245,20 +262,19 @@ class GOptions(QVBoxLayout):
         if self.count() < len(objs):
             for obj in objs[self.count():]: self.add(obj)
 
+    def pop(self) -> None:
+        if not self.count(): return
+        widget = self.itemAt(self.count()-1).layout()
+        self.removeWidget(widget)
+        widget.deleteLater()
+
     def setVisible(self, visible: bool) -> None:
         if self.visible == visible: return
         for child in self.children():
             child.setVisible(visible)
 
-    def _soft_clear(self, new_size=0, new_type=None):
-        if len(self.children()) == 0: return
-        to_rem = 0
-        if new_type and new_type != self.__ctype: to_rem = self.count()
-        elif self.count() > new_size: to_rem = self.count() - new_size
-        for i in reversed(range(to_rem)): self.itemAt(i).layout().deleteLater()
-
     def to_obj(self):
-        return [child.to_obj() for child in self.children]
+        return [child.to_obj() for child in self.children()]
 
 # ----------------------------------------------------------------------------------------
 
@@ -374,7 +390,7 @@ class GMultipleTries(QWidget):
 
 # ----------------------------------------------------------------------------------------
 
-class GUnitHadling(QWidget):
+class GUnitHadling(QFrame):
 
     GRADE = {"Ignore": "IGNORE", "Fraction of reponse": "RESPONSE", 
                 "Fraction of question": "QUESTION"}
@@ -383,28 +399,30 @@ class GUnitHadling(QWidget):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.setStyleSheet(".GWidget{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
+        self.setStyleSheet(".GUnitHadling{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
         self._grading = QComboBox()   
         self._grading.addItems(["Ignore", "Fraction of reponse", "Fraction of question"])
         self._penalty = QLineEdit()
+        self._penalty.setFixedWidth(70)
         self._penalty.setText("0")
         self._show = QComboBox()
         self._show.addItems(["Text input", "Multiple choice", "Drop-down", "Not visible"])
         self._left = QCheckBox("Put units on the left")
-        _content = QHBoxLayout(self)
-        _content.addWidget(QLabel("Grading"))
-        _content.addWidget(self._grading)
-        _content.addWidget(QLabel("Penalty"))
-        _content.addWidget(self._penalty)
-        _content.addWidget(QLabel("Show units"))
-        _content.addWidget(self._show)
-        _content.addWidget(self._left)
+        _content = QGridLayout(self)
+        _content.addWidget(QLabel("Grading"), 0, 0)
+        _content.addWidget(self._grading, 0, 1)
+        _content.addWidget(QLabel("Penalty"), 0, 2)
+        _content.addWidget(self._penalty, 0, 3)
+        _content.addWidget(QLabel("Show units"), 1, 0)
+        _content.addWidget(self._show, 1, 1)
+        _content.addWidget(self._left, 1, 2, 1, 2)
+        _content.setContentsMargins(1,1,1,1)
 
     def from_obj(self, obj: UnitHandling) -> None:
-        for k, v in self.GRADE:
+        for k, v in self.GRADE.items():
             if obj.grading_type.value == v:
                 self._grading.setCurrentText(k)
-        for k, v in self.SHOW_UNITS:
+        for k, v in self.SHOW_UNITS.items():
             if obj.show.value == v:
                 self._show.setCurrentIndex(k)
         self._penalty.setText(str(obj.penalty))
