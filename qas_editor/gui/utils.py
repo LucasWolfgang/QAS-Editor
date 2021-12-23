@@ -1,9 +1,11 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import List
+    from typing import List, Callable
     from PyQt5.QtGui import QKeyEvent
 import re
+import traceback
+import logging
 from os.path import splitext
 from uuid import uuid4
 from ..enums import Format
@@ -12,9 +14,26 @@ from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal
 from PyQt5.QtGui import QFont, QImage, QTextDocument, QKeySequence, QIcon, QColor, QPainter
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QTextEdit, QToolBar, \
                             QFontComboBox, QComboBox, QActionGroup, QAction, QLineEdit, \
-                            QPushButton, QLabel
+                            QPushButton, QLabel, QMessageBox
 
 img_path = __file__.replace('\\', '/').rsplit('/', 2)[0] + "/images"
+log = logging.getLogger(__name__)
+
+def action_handler(function: Callable) -> Callable:
+    def wrapper(*args, **kwargs):
+        try:
+            function(*args, **kwargs)
+        except Exception:
+            log.exception(f"Error calling function {function.__name__}")
+            self_arg = args[0]
+            while not isinstance(self_arg, QWidget): self_arg = self_arg.parent()
+            dlg = QMessageBox(self_arg)
+            dlg.setText(traceback.format_exc())
+            dlg.setIcon(QMessageBox.Critical)
+            dlg.show()
+    return wrapper
+
+# ----------------------------------------------------------------------------------------
 
 class GTextEditor(QTextEdit):
     """
@@ -131,6 +150,7 @@ class GTextEditor(QTextEdit):
         self.__update_tags()
 
 # ----------------------------------------------------------------------------------------
+
 class GTextToolbar(QToolBar):
 
     FORMATS = {"MarkDown": Format.MD, "HTML": Format.HTML, "PlainText": Format.PLAIN}
@@ -318,36 +338,20 @@ class GFrameLayout(QVBoxLayout):
         self._title_frame = GTitleFrame(parent, title, True)
         self._title_frame.clicked.connect(self.toggleCollapsed)
         super().addWidget(self._title_frame)
-        self._content_layout = QVBoxLayout()
         self._content = QWidget()
         self._content.setStyleSheet(".QWidget{border:1px solid rgb(41, 41, 41); \
                                     background-color: #f0f6ff}")
-        self._content.setLayout(self._content_layout)
         self._content.setVisible(not self._is_collasped)
         super().addWidget(self._content)
 
-    def addSpacing(self, size: int) -> None:
-        self._content_layout.addSpacing(size)
+    def addWidget(self, a0: QWidget, stretch = ..., alignment = ...) -> None:
+        raise AttributeError("Method is not supported") # Invalidates method
 
-    def addLayout(self, layout):
-        """[summary]
+    def addLayout(self, layout, stretch: int = ...) -> None:
+        raise AttributeError("Method is not supported") # Invalidates method
 
-        Args:
-            layout ([type]): [description]
-            name (str, optional): [description]. Defaults to None.
-        """
-        self._content_layout.addLayout(layout)
-
-    def addWidget(self, widget: QWidget):
-        """[summary]
-
-        Args:
-            widget (QWidget): [description]
-            name (str, optional): A name if used to tag the widget. If none, the widget
-                will not be tagged to be updated. If string, should be a string. If dict,
-                should have tags as keys and QWidgets as values. Defaults to None.
-        """
-        self._content_layout.addWidget(widget)
+    def setLayout(self, layout) -> None:
+        self._content.setLayout(layout)
 
     def toggleCollapsed(self):
         self._content.setVisible(self._is_collasped)

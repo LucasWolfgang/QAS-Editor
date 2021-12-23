@@ -1,32 +1,18 @@
-import traceback
 import logging
-from typing import Callable, Dict, List
+from typing import Dict
 from PyQt5.QtCore import Qt, QVariant, QBasicTimer
 from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
-from PyQt5.QtWidgets import QLayout, QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QSplitter, QTreeView, QGroupBox,QMainWindow, QStatusBar,\
-                            QFileDialog, QMenu, QComboBox, QMessageBox,QAction,\
-                            QCheckBox, QLineEdit, QPushButton, QLabel, QGridLayout
+                            QFileDialog, QMenu, QComboBox,QAction,\
+                            QCheckBox, QLineEdit, QPushButton
 from ..quiz import Quiz, QTYPES
 from .. import questions
 from ..enums import Numbering
-from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, img_path
-from .forms import GOptions, GUnitHadling, GAnswer, GCFeedback, GMultipleTries
+from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, img_path, action_handler
+from .forms import GOptions, GUnitHadling, GCFeedback, GMultipleTries
 
 log = logging.getLogger(__name__)
-
-def action_handler(function: Callable) -> Callable:
-    def wrapper(*args, **kwargs):
-        try:
-            function(*args, **kwargs)
-        except Exception:
-            log.exception(f"Error calling function {function.__name__}")
-            self = args[0]
-            dlg = QMessageBox(self)
-            dlg.setText(traceback.format_exc())
-            dlg.setIcon(QMessageBox.Critical)
-            dlg.show()
-    return wrapper
 
 # ----------------------------------------------------------------------------------------
 
@@ -58,11 +44,11 @@ class Editor(QMainWindow):
         merge_file_action.triggered.connect(self.merge_file)
         file_menu.addAction(merge_file_action)
         save_file_action = QAction("Save", self)
-        save_file_action.setStatusTip("Save current page")
+        save_file_action.setStatusTip("Save top category to specified file on disk")
         save_file_action.triggered.connect(lambda: self.file_save(False))
         file_menu.addAction(save_file_action)
         saveas_file_action = QAction("Save As...", self)
-        saveas_file_action.setStatusTip("Save current page to specified file")
+        saveas_file_action.setStatusTip("Save top category to specified file on disk")
         saveas_file_action.triggered.connect(lambda: self.file_save(True))
         file_menu.addAction(saveas_file_action)
         self.editor_toolbar = GTextToolbar()
@@ -78,10 +64,8 @@ class Editor(QMainWindow):
         self.data_root = QStandardItemModel(0, 1)
         self.data_root.setHeaderData(0, Qt.Horizontal, "Classification")
         self.dataView.setModel(self.data_root)
-        self.dataView.selectionModel().selectionChanged.connect(self._update_category)
         self.question_type = QComboBox()
         self.question_type.addItems(QTYPES)
-        self.question_type.currentTextChanged.connect(self.update_question_type)
         question_create = QPushButton("Create")
         question_create.clicked.connect(self.create_question)
         vbox = QVBoxLayout()
@@ -127,7 +111,7 @@ class Editor(QMainWindow):
         splitter.setSizes([150, 80])
         self.setCentralWidget(splitter)
 
-        # Create lower status bar. probably will be removed.
+        # Create lower status bar.
         self.status = QStatusBar()
         self.setStatusBar(self.status)
         self.cat_name = QLabel(self.current_category.category_name)
@@ -141,10 +125,16 @@ class Editor(QMainWindow):
         item = self.dataView.indexAt(event).data(257)
         delete_action = QAction("Delete", self)
         delete_action.triggered.connect(lambda: self._delete_item(item))
-        duplicate_action = QAction("Duplicate", self)
-        duplicate_action.triggered.connect(lambda: self._delete_item(item))
         self.menu.addAction(delete_action)
+        duplicate_action = QAction("Duplicate", self)
+        duplicate_action.triggered.connect(lambda: self._duplicate_item(item))
         self.menu.addAction(duplicate_action)
+        save_as = QAction("Save as", self)
+        #save_as.triggered.connect(lambda: self._delete_item(item))
+        self.menu.addAction(save_as)
+        import_as = QAction("Import", self)
+        #import_as.triggered.connect(lambda: self._delete_item(item))
+        self.menu.addAction(import_as)
         self.menu.popup(self.dataView.mapToGlobal(event))
 
     def _delete_item(self, item) -> None:
@@ -159,13 +149,8 @@ class Editor(QMainWindow):
         if isinstance(item, questions.Question):
             print("Question!")
         elif isinstance(item, Quiz):
-            print("Category!")
-
-    def _update_category(self, selected, deselected) -> None:
-        item = selected.indexes()[0].data(257)
-        if isinstance(item, Quiz):
-            self.cat_name.setText(item.category_name)
-            self.current_category = item
+            pass
+        self.update_tree()
 
     def _update_data_view(self,data: Quiz, parent: QStandardItem) -> None:
         for k in data.questions:
@@ -184,28 +169,30 @@ class Editor(QMainWindow):
         frame = GFrameLayout(title="Answers")
         self.cframe_vbox.addLayout(frame)
         self._items["shuffle"] = QCheckBox("Shuffle the answers")
-        self._items["show_instruction"] =  QCheckBox("Show standard instructions")
+        self._items["show_instruction"] =  QCheckBox("Show instructions")
         self._items["single"] =  QCheckBox("Single answer")
+        self._items["single"].setContentsMargins(10,0,0,0)
         self._items["answer_numbering"] = QComboBox()
         self._items["answer_numbering"].addItems([c.value for c in Numbering])
         self._items["unit_handling"] = GUnitHadling()
-
-        grid = QHBoxLayout()
-        grid.addWidget(QLabel("Numbering"))
-        grid.addWidget(self._items["answer_numbering"])
-        grid.addStretch()
-        grid.addWidget(self._items["single"])
-        grid.addWidget(self._items["shuffle"])
-        grid.addWidget(self._items["show_instruction"])
-
-        frame.addLayout(grid)
-        frame.addWidget(self._items["unit_handling"])
-        aabutton = QPushButton("Add Answer")
-        aabutton.clicked.connect(lambda: self._items["answers"].addWidget(GAnswer(self.editor_toolbar)))
         self._items["answers"] = GOptions(self.editor_toolbar)
-        self.setStyleSheet(".GAnswer{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
-        frame.addWidget(aabutton)
-        frame.addLayout(self._items["answers"])
+        aabutton = QPushButton("Add Answer")
+        aabutton.clicked.connect(lambda: self._items["answers"].add_default())
+        ppbutton = QPushButton("Pop Answer")
+        ppbutton.clicked.connect(lambda: self._items["answers"].pop())
+
+        grid = QGridLayout()
+        grid.addWidget(QLabel("Numbering"), 0, 0)
+        grid.addWidget(self._items["answer_numbering"], 0, 1, Qt.AlignLeft)
+        grid.addWidget(self._items["show_instruction"], 1, 0, 1, 2)
+        grid.addWidget(self._items["single"], 0, 2)
+        grid.addWidget(self._items["shuffle"], 1, 2)
+        grid.addWidget(self._items["unit_handling"], 0, 3, 2, 1 )
+        grid.addWidget(aabutton, 0, 4)
+        grid.addWidget(ppbutton, 1, 4)
+        grid.addLayout(self._items["answers"], 2, 0, 1, 5)
+        grid.setColumnStretch(4, 1)
+        frame.setLayout(grid)
 
     def add_database_block(self) -> None:
         frame = GFrameLayout(title="Database")
@@ -215,10 +202,14 @@ class Editor(QMainWindow):
         frame = GFrameLayout(title="Feedbacks")
         self.cframe_vbox.addLayout(frame)
         self._items["general_feedback"] = GTextEditor(self.editor_toolbar)
+        self._items["general_feedback"].setFixedHeight(50)
         self._items["combined_feedback"] = GCFeedback(self.editor_toolbar)
-        frame.addWidget(QLabel("General feedback"))
-        frame.addWidget(self._items["general_feedback"])
-        frame.addWidget(self._items["combined_feedback"])
+        self._items["combined_feedback"].setFixedHeight(110)
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("General feedback"))
+        layout.addWidget(self._items["general_feedback"])
+        layout.addWidget(self._items["combined_feedback"])
+        frame.setLayout(layout)
     
     def add_general_data_block(self) -> None:
         frame = GFrameLayout(self, title="General Data")
@@ -246,66 +237,45 @@ class Editor(QMainWindow):
         tmp.setContentsMargins(10,0,0,0)
         grid.addWidget(tmp, 0, 4)
         grid.addWidget(self._items["default_grade"], 0, 5)
-        tmp = QLabel("ID number")
+        tmp = QLabel("ID")
         tmp.setContentsMargins(10,0,0,0)
         grid.addWidget(tmp, 0, 6)
         grid.addWidget(self._items["id_number"], 0, 7)
-        frame.addLayout(grid)
-        frame.addSpacing(6)
-        frame.addWidget(QLabel("Question text"))
-        frame.addWidget(self._items["question_text"])
+        grid.addWidget(QLabel("Question text"), 2, 0, 1, 2)
+        grid.addWidget(self._items["question_text"], 3, 0, 1, 8)
+        frame.setLayout(grid)
         frame.toggleCollapsed()
 
     def add_multiple_tries_block(self) -> None:
         frame = GFrameLayout(title="Multiple Tries")
         self.cframe_vbox.addLayout(frame)
         self._items["multiple_tries"] = GMultipleTries(self.editor_toolbar)
-        frame.addWidget(self._items["multiple_tries"])
+        frame.setLayout(self._items["multiple_tries"])
 
     def add_solution_block(self) -> None:
         frame = GFrameLayout(title="Solutions")
         self.cframe_vbox.addLayout(frame)
-
-        frame.addWidget(QLabel("Solution"))
         self._items["solution"] = GTextEditor(self.editor_toolbar)
-        frame.addWidget(self._items["solution"])
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel("Solution"))
+        layout.addWidget(self._items["solution"])
+        frame.setLayout(layout)
 
     @action_handler
     def create_question(self, stat: bool) -> None:
-        output = {}
         cls = getattr(questions, self.question_type.currentText())
-        cls.__init__.__code__.co_names
-        for key in self._items:
-            if isinstance(self._items[key], QComboBox):
-                output[key] = self._items[key].currentText()
-            elif isinstance(self._items[key], QLineEdit):
-                output[key] = self._items[key].text()
-            elif isinstance(self._items[key], GTextEditor):
-                output[key] = self._items[key].getFText()
-            elif isinstance(self._items[key], QCheckBox):
-                output[key] = self._items[key].isChecked()
-            elif isinstance(self._items[key], QLayout):
-                output[key] = []
-                for num in range(self._items[key].count()):
-                    output[key].append(self._items[key].itemAt(num).to_obj())
-            elif "to_obj" in dir(self._items[key].__class__):
-                output[key] = self._items[key].to_obj()
-            else:
-                log.warning(f"Can\'t write data from {key} form to a new object")
-        self.current_category.add_question(cls(**output))
+        self.current_category.add_question(cls(name="New Question"))
         self.update_tree()
+        for key in self._items:
+            if key == "name": continue
+            if hasattr(self._items[key], "clear"): self._items[key].clear()
 
+    @action_handler
     def create_category(self, event) -> None:
         name = f"{self.current_category.category_name}/{self.category_name.text()}"
         quiz = Quiz(name, parent=self.current_category)
         self.current_category.children[self.category_name.text()] = quiz
         self.update_tree()
-
-    def dialog_critical(self):
-        dlg = QMessageBox(self)
-        dlg.setText(traceback.format_exc())
-        dlg.setIcon(QMessageBox.Critical)
-        dlg.show()
 
     @action_handler
     def new_file(self, stat: bool):
@@ -345,8 +315,8 @@ class Editor(QMainWindow):
         [summary]
         """
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", 
-                    "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
-                    "LaTex (*.tex);XML (*.xml);All files (*.*)")
+                    "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift);JSON (*.json);"+
+                    "LaTex (*.tex);Markdown (*.md);PDF (*.pdf);XML (*.xml);All files (*.*)")
         if not path: return
         if path[-4:] == ".xml":
             self.top_quiz = Quiz.read_xml(path)
@@ -356,8 +326,16 @@ class Editor(QMainWindow):
             self.top_quiz = Quiz.read_gift(path)
         elif path[-3:] == ".md":
             self.top_quiz = Quiz.read_markdown(path)
+        elif path[-6:] == ".cloze":
+            self.top_quiz = Quiz.read_cloze(path)
+        elif path[-5:] == ".json":
+            self.top_quiz = Quiz.read_json(path)
+        elif path[-4:] == ".pdf":
+            self.top_quiz = Quiz.read_pdf(path)
+        elif path[-4:] == ".tex":
+            self.top_quiz = Quiz.read_latex(path)
         else:
-            raise ValueError(f"Extension {path.rsplist('.', 1)[-1]} can not be read")
+            raise ValueError(f"Extension {path.rsplit('.', 1)[-1]} can not be read")
         self.path = path
         self.update_tree()
 
@@ -386,44 +364,43 @@ class Editor(QMainWindow):
 
     @action_handler
     def update_item(self, value) -> None:
-        item = value.data(257)
-        if isinstance(item, questions.Question):
-            for key in self._items:
-                if key not in item.__dict__:
-                    log.debug(f"Key \'{key}\' is not present in question {item}")
-                elif item.__dict__[key] is None:
-                    log.debug(f"Key \'{key}\' has value None in question {item}")
-                else:
-                    if isinstance(self._items[key], QComboBox):
-                        self._items[key].setCurrentText(str(item.__dict__[key]))
-                    elif isinstance(self._items[key], QLineEdit):
-                        self._items[key].setText(str(item.__dict__[key]))
-                    elif isinstance(self._items[key], GTextEditor):
-                        self._items[key].setFText(item.__dict__[key])
-                    elif isinstance(self._items[key], QCheckBox):
-                        self._items[key].setChecked(item.__dict__[key])
-                    elif "from_obj" in dir(self._items[key].__class__):
-                        self._items[key].from_obj(item.__dict__[key])
-                    else:
-                        log.warning(f"No form defined for {key}")
-            self.question_type.setCurrentText(type(item).__name__)
-        else: # This is a classification
-            pass
 
-    def update_question_type(self, value: str) -> None:
-        """
-        [summary]
-        """
-        cls = getattr(questions, value)
-        init_fields: List = list(cls.__init__.__code__.co_names)
-        init_fields.extend(questions.Question.__init__.__code__.co_names)
-        for item in self._items:
-            self._items[item].setEnabled(item in init_fields)
-            # if isinstance(self._items[item], QLayout):
-            #     for num in range(self._items[item].count()):
-            #         self._items[item].itemAt(num).setVisible(item in init_fields)
-            # if isinstance(self._items[item], QWidget):
-            #     self._items[item].setVisible(item in init_fields)
+        item = value.data(257)
+        def __get_set(key, gets, sets, stype):
+            if self.current_question and key in self.current_question.__dict__:
+                self.current_question.__setattr__(key, self._items[key].__getattribute__(gets)())
+            if key in item.__dict__ and item.__dict__[key] is not None:
+                value = item.__dict__[key]
+                if stype: value = stype(value)
+                self._items[key].__getattribute__(sets)(value)
+        if isinstance(item, questions.Question):
+            init_fields = list(item.__init__.__code__.co_names)
+            init_fields.extend(questions.Question.__init__.__code__.co_names)
+            for key in self._items:
+                if isinstance(self._items[key], QComboBox):
+                    __get_set(key, "currentText", "setCurrentText", str)
+                elif isinstance(self._items[key], QLineEdit):
+                     __get_set(key, "text", "setText", str)
+                elif isinstance(self._items[key], GTextEditor):
+                    __get_set(key, "getFText", "setFText", None)
+                elif isinstance(self._items[key], QCheckBox):
+                    __get_set(key, "isChecked", "setChecked", bool)
+                elif hasattr(self._items[key], "from_obj"): # Suposse it als has to_obj
+                    __get_set(key, "to_obj", "from_obj", None)
+                else:
+                    log.warning(f"No form defined for {key}")
+                self._items[key].setEnabled(key in init_fields)
+            self.question_type.setCurrentText(type(item).__name__)
+            self.current_question = item
+            self.update_tree()
+        else: # This is a classification
+            path = []
+            self.current_category = item
+            path.append(item.category_name)
+            while item.parent:
+                item = item.parent
+                path.append(item.category_name)
+            self.cat_name.setText(" > ".join(path))  
 
     def update_tree(self) -> None:
         self.data_root.clear()

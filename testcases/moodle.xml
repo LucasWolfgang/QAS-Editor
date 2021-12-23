@@ -32,7 +32,7 @@
   </question>
   <question type="ddwtos">
     <name>
-      <text>U1 p8-9 Reading "Coachella" #6</text>
+      <text>Drag and Drop Text and Image</text>
     </name>
     <questiontext format="html">
       <text><![CDATA[<p><em>Six sentences have been removed from the article. Choose from sentences A - G the one which first each gap. There is one extra sentence which you do not need to use.</em></p>
@@ -2493,45 +2493,45 @@
     </name>
     <questiontext format="markdown">
       <text><![CDATA[
-Go to your editor preferences (via the user menu) and select 'Plain text area',
-then in the question box, select Markdown format.
+    Go to your editor preferences (via the user menu) and select 'Plain text area',
+    then in the question box, select Markdown format.
 
-# Main title
+    # Main title
 
-## Basic text formatting
+    ## Basic text formatting
 
-a *single* word
-***a sequence of words***
-in**distinguish**able
+    a *single* word
+    ***a sequence of words***
+    in**distinguish**able
 
-  - top level bullet one
-    * sub-bullet  
-    * sub-bullet 2 
-  - top level bullet two
+      - top level bullet one
+        * sub-bullet  
+        * sub-bullet 2 
+      - top level bullet two
 
-Now numbered list
-  1. numbered point one
-  2. numbered point two
+    Now numbered list
+      1. numbered point one
+      2. numbered point two
 
-## More advanced features
-test for link [here](https://docs.moodle.org/310/en/Markdown)
+    ## More advanced features
+    test for link [here](https://docs.moodle.org/310/en/Markdown)
 
-Are table supported ?
+    Are table supported ?
 
-Markdown | Less | Pretty
---- | --- | ---
-*Still* | `renders` | **nicely**
-1 | 2 | 3
+    Markdown | Less | Pretty
+    --- | --- | ---
+    *Still* | `renders` | **nicely**
+    1 | 2 | 3
 
-> Blockquotes are very handy in email to emulate reply text.
-> This line is part of the same quote.
+    > Blockquotes are very handy in email to emulate reply text.
+    > This line is part of the same quote.
 
-```python
-import markdown
-markdown.markdown(text, extensions=['extra'])
-```
+    ```python
+    import markdown
+    markdown.markdown(text, extensions=['extra'])
+    ```
 
-]]></text>
+    ]]></text>
     </questiontext>
     <generalfeedback format="moodle_auto_format">
       <text></text>

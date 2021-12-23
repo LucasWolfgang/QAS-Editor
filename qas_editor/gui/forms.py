@@ -8,8 +8,8 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QComboBox
                             QComboBox
 from ..answer import Answer, DragItem, DragText, ClozeItem
 from ..enums import ClozeFormat, Format, Grading, ShowUnits
-from ..wrappers import CombinedFeedback, Hint, MultipleTries, UnitHandling
-from .utils import GTextEditor
+from ..wrappers import CombinedFeedback, FText, Hint, MultipleTries, UnitHandling
+from .utils import GTextEditor, action_handler
 from ..questions import QCrossWord
 
 import logging
@@ -75,49 +75,80 @@ class GCloze(QGridLayout):
     def __init__(self, **kwargs) -> None:
         super(QGridLayout, self).__init__(**kwargs)
         self.obj: ClozeItem = None
-        self.opts = {}
-        self.addWidget(QLabel("Pos"), 0, 0)
+        self.opts = []
         self._pos = QLineEdit()
-        self._pos.setFixedWidth(50)
-        self.addWidget(self._pos, 0, 1)
-        self.addWidget(QLabel("Grade"), 0, 2)
+        self._pos.setFixedWidth(40)
+        self._pos.setToolTip("Position in the plain text")
+        self.addWidget(self._pos, 0, 0)
         self._grade = QLineEdit()
-        self._grade.setFixedWidth(40)
-        self.addWidget(self._grade, 0, 3)
-        self.addWidget(QLabel("Format"), 0, 4)
+        self._grade.setFixedWidth(25)
+        self._grade.setToolTip("Grade for the given answer")
+        self.addWidget(self._grade, 0, 1)
         self._form = QComboBox()
         self._form.addItems([a.value for a in ClozeFormat])
-        self.addWidget(self._form, 0, 5)
+        self._form.setToolTip("Cloze format")
+        self._form.setStyleSheet("margin:0px 15px 0px 0px")
+        self.addWidget(self._form, 0, 2)
         self._opts = QComboBox()
-        self._opts.setFixedWidth(80)
-        self.addWidget(self._opts, 0, 6)
+        self._opts.setFixedWidth(140)
+        self._opts.currentIndexChanged.connect(self.__changed_opt)
+        self.addWidget(self._opts, 0, 3)
+        self._frac = QLineEdit()
+        self._frac.setFixedWidth(35)
+        self._frac.setToolTip("Fraction of the total grade (in percents)")
+        self.addWidget(self._frac, 0, 4)
+        self._text = QLineEdit()
+        self._text.setToolTip("Answer text")
+        self.addWidget(self._text, 0, 5)
         self._fdbk = QLineEdit()
-        self.addWidget(self._fdbk, 0, 8)
-        self._fdbk = QLineEdit()
-        self.addWidget(self._fdbk, 0, 9)
+        self._fdbk.setToolTip("Answer feedback")
+        self.addWidget(self._fdbk, 0, 6)
+        self._add = QPushButton("Add")
+        self._add.setFixedWidth(30)
+        self._add.clicked.connect(self.add_opts)
+        self.addWidget(self._add, 0, 7)
+        self._pop = QPushButton("Pop")
+        self._pop.setFixedWidth(30)
+        self._pop.clicked.connect(self.pop_opts)
+        self.addWidget(self._pop, 0, 8)
+
+    def __changed_opt(self, index):
+        self._frac.setText(str(self.opts[index].fraction))
+        self._text.setText(self.opts[index].text)
+        self._fdbk.setText(self.opts[index].feedback.text)
+
+    @action_handler
+    def add_opts(self, stat: bool):
+        text = self._text.text()
+        frac = float(self._frac.text())
+        fdbk = FText(self._fdbk.text(), Format.PLAIN)
+        self.opts.append(Answer(frac, text, fdbk, Format.PLAIN))
+        self._opts.addItem(text)
+
+    @action_handler
+    def pop_opts(self, stat: bool):
+        self.opts.pop()
+        self._opts.removeItem(self._opts.count()-1)
 
     def from_obj(self, obj: ClozeItem) -> None:
         self._pos.setText(str(obj.start))
-        self._grade.setText(str(obj.grade))
         self._form.setCurrentText(str(obj.cformat.value))
-        self.opts.clear()
-        self.opts.update({(a.text,a) for a in obj.opts})
-        self._opts.addItems(self.opts.keys())
+        self._grade.setText(str(obj.grade))
+        self.opts = obj.opts
+        self._opts.addItems([a.text for a in self.opts])
 
     def to_obj(self) -> None:
         pos = int(self._pos.text())
         grade = float(self._grade.text())
         cform = ClozeFormat(self._form.currentText())
-        feedback = self._fdbk.text()
         opts = [self._opts.itemText(i) for i in range(self._opts.count())]
         if self.obj is not None:
             self.obj.start = pos
             self.obj.grade = grade
             self.obj.cformat = cform
-            self.obj.feedback = feedback
             self.obj.opts = opts
         else:
-            self.obj = ClozeItem(pos, grade, cform, feedback, opts)
+            self.obj = ClozeItem(pos, grade, cform, opts)
         return self.obj
 
     def setVisible(self, visible: bool) -> None:
@@ -240,7 +271,6 @@ class GOptions(QVBoxLayout):
         item.from_obj(obj)
 
     def add_default(self):
-        print(self.__ctype)
         if   self.__ctype is Answer: item = GAnswer(self.toolbar)
         elif self.__ctype is DragText: item = GDrag(True)
         elif self.__ctype is DragItem: item = GDrag(False)
@@ -264,9 +294,7 @@ class GOptions(QVBoxLayout):
 
     def pop(self) -> None:
         if not self.count(): return
-        widget = self.itemAt(self.count()-1).layout()
-        self.removeWidget(widget)
-        widget.deleteLater()
+        self.itemAt(self.count()-1).layout().deleteLater()
 
     def setVisible(self, visible: bool) -> None:
         if self.visible == visible: return
@@ -295,6 +323,7 @@ class GCFeedback(QFrame):
         _content.addWidget(QLabel("Feedback for incorrect answer"), 0, 2)
         _content.addWidget(self._incorrect, 1, 2)
         _content.addWidget(self._show, 2, 0, 1, 3)
+        _content.setColumnStretch(3,1)
         
     def from_obj(self, obj: CombinedFeedback) -> None:
         self._correct.setFText(obj.correct)
@@ -352,40 +381,39 @@ class GHint(QFrame):
 
 # ----------------------------------------------------------------------------------------
 
-class GMultipleTries(QWidget): 
+class GMultipleTries(QVBoxLayout): 
 
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self._penalty = QLineEdit()
         self._penalty.setText("0")
         add = QPushButton("Add Hint")
-        add.clicked.connect(lambda x: self._content.addWidget(GHint(toolbar)))
+        add.clicked.connect(lambda: self.addWidget(GHint(toolbar)))
         rem = QPushButton("Remove Last")
         _header = QHBoxLayout()
         _header.addWidget(QLabel("Penalty for each try"))
         _header.addWidget(self._penalty)
         _header.addWidget(add)
         _header.addWidget(rem)
-        self._content = QVBoxLayout(self)
-        self._content.addLayout(_header)
+        self.addLayout(_header)
         self._toolbar = toolbar
 
     def from_obj(self, obj: MultipleTries) -> None:
         self._penalty.setText(str(obj.penalty))
-        if len(obj.hints) > self._content.count()-1:
-            for _ in range(len(obj.hints)-self._content.count()):
-                self._content.addWidget(GHint(self._toolbar))
-        elif len(obj.hints)+1 < self._content.count():
-            for i in reversed(range(self._content.count()-len(obj.hints))):
-                self._content.itemAt(i).layout().deleteLater()
+        if len(obj.hints) > self.count()-1:
+            for _ in range(len(obj.hints)-self.count()):
+                self.addWidget(GHint(self._toolbar))
+        elif len(obj.hints)+1 < self.count():
+            for i in reversed(range(self.count()-len(obj.hints))):
+                self.itemAt(i).layout().deleteLater()
         for num in range(len(obj.hints)):
-            self._content.itemAt(num+2).from_obj(obj.hints[num])
+            self.itemAt(num+2).from_obj(obj.hints[num])
 
     def to_obj(self) -> None:
         penalty = float(self._penalty.text())
         hints = []
-        for num in range(self._content.count()-1):
-            hints.append(self._content.itemAt(num+1).to_obj())
+        for num in range(self.count()-1):
+            hints.append(self.itemAt(num+1).to_obj())
         return MultipleTries(penalty, hints)
 
 # ----------------------------------------------------------------------------------------
@@ -399,7 +427,7 @@ class GUnitHadling(QFrame):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.setStyleSheet(".GUnitHadling{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
+        self.setStyleSheet(".GUnitHadling{border:1px solid; background-color: #e4ebb7}")
         self._grading = QComboBox()   
         self._grading.addItems(["Ignore", "Fraction of reponse", "Fraction of question"])
         self._penalty = QLineEdit()
@@ -416,7 +444,8 @@ class GUnitHadling(QFrame):
         _content.addWidget(QLabel("Show units"), 1, 0)
         _content.addWidget(self._show, 1, 1)
         _content.addWidget(self._left, 1, 2, 1, 2)
-        _content.setContentsMargins(1,1,1,1)
+        _content.setContentsMargins(5,2,5,1)
+        self.setFixedSize(300, 55)
 
     def from_obj(self, obj: UnitHandling) -> None:
         for k, v in self.GRADE.items():

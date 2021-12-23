@@ -3,11 +3,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .enums import Direction
     from typing import List
-from .wrappers import FText
 from .utils import cdata_str, extract
 from .enums import Format, ShapeType, ClozeFormat
 from xml.etree import ElementTree as et
-from .wrappers import B64File 
+from .wrappers import B64File, FText
 
 class Answer:
     """
@@ -125,7 +124,7 @@ class ClozeItem():
         for opt in regex[3].split("~"): #re.findall(r"[^~]+[~}]", regex[3]):
             tmp = opt.strip("}~").split("#")
             if len(tmp) == 2:
-                fdb, tmp = tmp
+                tmp, fdb = tmp
             frac = 0.0
             if tmp[0] == "=":
                 frac = 100.0
@@ -133,6 +132,7 @@ class ClozeItem():
             elif tmp[0] == "%":
                 frac, tmp = tmp[1:].split("%")
                 frac = float(frac)
+            
             options.append(Answer(frac, tmp, FText(fdb, Format.PLAIN), Format.PLAIN))
         return cls(regex.start(), int(regex[1]), ClozeFormat(regex[2]), options)
 
