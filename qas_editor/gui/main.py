@@ -303,7 +303,7 @@ class Editor(QMainWindow):
         elif path[-3:] == ".md":
             quiz = Quiz.read_markdown(path)
         else:
-            raise ValueError(f"Extension {path.rplist('.', 1)[-1]} can not be read")
+            raise ValueError(f"Extension {path.rsplit('.', 1)[-1]} can not be read")
         quiz.parent = self.current_category
         quiz.category_name = self.current_category.category_name + "/" + quiz.category_name 
         self.current_category.children[quiz.category_name.rsplit("/", 1)[-1]] = quiz
@@ -359,7 +359,7 @@ class Editor(QMainWindow):
         elif path[-3:] == ".md":
             raise NotImplemented("Markdown implemented")
         else:
-            raise ValueError(f"Extension {path.rplist('.', 1)[-1]} can not be read")
+            raise ValueError(f"Extension {path.rsplit('.', 1)[-1]} can not be read")
         self.path = path
 
     @action_handler
