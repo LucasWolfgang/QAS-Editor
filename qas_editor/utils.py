@@ -30,3 +30,19 @@ def conf_logger():
     fhandler.setFormatter(logging.Formatter("%(levelname)s [%(asctime)s]: %(message)s"))
     fhandler.setLevel(logging.DEBUG)
     log.addHandler(fhandler)
+
+from PyPDF2.generic import IndirectObject
+def quick_print(data, pp):
+    """This is a temporary function that I am using to test PDF import/export
+    """
+    if isinstance(data, dict):
+        for i in data:
+            print(f"{pp}{i}:")
+            quick_print(data[i], pp+"  ")
+    elif isinstance(data, list):
+        for i in data:
+            quick_print(i, pp+"  ")
+    elif isinstance(data, IndirectObject):
+        quick_print(data.getObject(), pp+"  ")
+    else:
+        print(pp, data)

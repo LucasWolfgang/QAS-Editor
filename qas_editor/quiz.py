@@ -2,13 +2,11 @@ import re
 import logging
 import json
 from xml.etree import ElementTree as et
-from PIL import Image, ImagePalette
-from PyPDF2.generic import IndirectObject
+from PIL import Image
 from PyPDF2.pdf import PageObject
 from PyPDF2 import PdfFileReader 
 from typing import List, Dict, Iterator
-from .enums import Format, Numbering
-from .wrappers import FText
+from .enums import Numbering
 from . import questions
 
 def _escape_cdata(text):
@@ -54,33 +52,25 @@ class Quiz:
     This class represents Quiz as a set of Questions.
     """
 
-    def __init__(self, category_name: str="$course$", parent: "Quiz"=None):
+    def __init__(self, name = "$course$", parent: "Quiz"=None):
         self.questions: List[questions.Question] = []
-        self.category_name = category_name
-        self.children: Dict[str, Quiz] = {}
+        self._categories: Dict[str, Quiz] = {}
+        self.__name = name
+        self.__parent = None
         self.parent = parent
-
-    def __iter__(self) -> Iterator[str]:
-        return  self.children.__iter__()
 
     @staticmethod
     def __gen_hier(top: "Quiz", category: str) -> tuple:
         cat_list = category.strip().split("/")
-        cat_list.reverse()
-        if top is None:
-            top = Quiz(category_name=cat_list[-1])
-        elif top.category_name != cat_list[-1]:
-            raise ValueError(f"Top classification '{cat_list[-1]}' is different from the "+
-                            f"previously defined '{top.category_name}'")
-        cat_path = cat_list.pop()
+        if top is None: top = Quiz(cat_list[0])
+        elif top.name != cat_list[0]: 
+            raise ValueError(f"Top categroy names differ: {top.name} != {cat_list[0]}")
         quiz = top
-        while cat_list:
-            cat_cur = cat_list.pop()
-            cat_path += "/" + cat_cur
-            if cat_cur not in quiz.children:
-                quiz.children[cat_cur] = Quiz(category_name=cat_path, parent=quiz)
-            quiz = quiz.children[cat_cur]  
-        return top, quiz
+        for i in cat_list[1:]:
+            if i not in quiz._categories: 
+                quiz._categories[i] = Quiz(i, quiz)
+            quiz = quiz._categories[i]
+        return (top, quiz)
 
     def _indent(self, elem: et.Element, level: int=0):
         """[summary]
@@ -114,8 +104,8 @@ class Quiz:
                     if ans.fraction == 100:
                         correct = f"ANSWER: {chr(num+65)}\n\n"
                 data += correct
-        for child in self.children:
-            data += self.children[child]._to_aiken()
+        for child in self._categories:
+            data += self._categories[child]._to_aiken()
         return data
 
     def _to_xml_element(self, root: et.Element) -> None:
@@ -128,11 +118,11 @@ class Quiz:
         if len(self.questions) > 0:
             question.set("type", "category")
             category = et.SubElement(question, "category")
-            et.SubElement(category, "text").text = str(self.category_name)
+            et.SubElement(category, "text").text = str(self.__name)
             root.append(question)        
             for question in self.questions:                # Add own questions first
                 root.append(question.to_xml())
-        for child in self.children.values():                # Then add children data
+        for child in self._categories.values():            # Then add children data
             child._to_xml_element(root)
 
     def _to_json(self, data: dict):
@@ -168,15 +158,62 @@ class Quiz:
         self.questions.append(question)
         question.parent = self
 
-    def get_hier(self, root:dict) -> None:
+    def get_hier(self) -> dict:
         """[summary]
 
         Args:
             root (dict): [description]
         """
-        root[self.category_name] = {"__questions__" : self.questions}
-        for child in self.children.values():
-            child.get_hier(root[self.category_name])
+        data = {}
+        data["__questions__"] = self.questions
+        for cat in self._categories:
+            data[cat] = self._categories[cat].get_hier()
+        return data
+
+    @property
+    def categories(self):
+        return self._categories
+
+    @categories.getter
+    def categories(self) -> List["Quiz"]:
+        return self._categories
+
+    @property
+    def name(self):
+        return self.__name
+
+    @name.setter
+    def name(self, value: str):
+        if self.__parent:
+            if value in self.__parent._categories:
+                raise ValueError(f"Question name \"{value}\" already exists on current category")
+            self.__parent._categories.pop(self.__name)
+            self.__parent._categories[value] = self
+        self.__name = value
+
+    @name.getter
+    def name(self) -> str:
+        return self.__name
+
+    @property
+    def parent(self):
+        return self.__parent
+
+    @parent.setter
+    def parent(self, value: "Quiz") -> None:
+        if value and self.__name in value._categories:
+            raise ValueError(f"Question name \"{self.__name}\" already exists on current category")
+        if self.__parent:
+            self.__parent._categories.pop(self.__name)
+        if isinstance(value, Quiz):
+            value._categories[self.__name] = self
+            self.__parent = value
+        else:
+            self.__parent = None
+
+    @parent.getter
+    def parent(self) -> "Quiz":
+        return self.__parent
 
     @classmethod
     def read_aiken(cls, file_path: str, category: str="$course$") -> "Quiz":
@@ -197,11 +234,9 @@ class Quiz:
 
     @classmethod
     def read_cloze(cls, file_path: str, category: str="$course$") -> "Quiz":
-        top_quiz: Quiz = Quiz(category_name=category)
+        top_quiz: Quiz = Quiz(category)
         with open(file_path, "r", encoding="utf-8") as ifile:
             top_quiz.add_question(questions.QCloze.from_cloze(ifile))
-        data = {}
-        top_quiz.get_hier(data)
         return top_quiz
 
     @classmethod
@@ -255,63 +290,6 @@ class Quiz:
         # TODO
         pass
 
-    @classmethod
-    def read_pdf(cls, file_path: str, ptitle="Question \d+", include_image=True):
-        _serial_img = {'/DCTDecode': "jpg", '/JPXDecode': "jp2", '/CCITTFaxDecode': "tiff"}
-        with open(file_path, "rb") as infile:
-            pdf_file = PdfFileReader(infile)
-            for page_num in range(pdf_file.getNumPages()):
-                page: PageObject = pdf_file.getPage(page_num)
-                if '/XObject' not in page['/Resources']:
-                    continue
-                xObject = page['/Resources']['/XObject'].getObject()
-                for obj in xObject:
-                    if xObject[obj]['/Subtype'] != '/Image':
-                        continue
-                    size = (xObject[obj]['/Width'], xObject[obj]['/Height'])
-                    data = xObject[obj].getData()
-                    if xObject[obj]['/ColorSpace'][0] == '/DeviceRGB':
-                        mode = "RGB"
-                    elif xObject[obj]['/ColorSpace'][0] in ["/DeviceN", "/Indexed"]:
-                        mode = "P"
-                        if xObject[obj]['/ColorSpace'][0] == "/Indexed":
-                            psize = int(xObject[obj]['/ColorSpace'][2])
-                            palette = [255-int(n*psize/255) for n in range(256) for _ in range(3)]
-                        else: 
-                            palette = None
-                    else:
-                        raise ValueError(f"Mode not tested yet: {xObject[obj]['/ColorSpace']}") 
-                    if '/Filter' in xObject[obj]:
-                        filter = xObject[obj]['/Filter']
-                        if filter == '/FlateDecode':
-                            img = Image.frombytes(mode, size, data)
-                            if palette: 
-                                img.putpalette(palette)
-                            img.save(f"page{page_num}_{obj[1:]}.png")
-                        elif filter in _serial_img:
-                            img = open(f"page{page_num}_{obj[1:]}.{_serial_img[filter]}", "wb")
-                            img.write(data)
-                            img.close()
-                        else:
-                            raise ValueError(f"Filter not tested yet: {filter}") 
-                    else:
-                        img = Image.frombytes(mode, size, data)
-                        img.save(obj[1:] + ".png")
-        
-    @staticmethod
-    def quick_print(data, pp):
-        if isinstance(data, dict):
-            for i in data:
-                print(f"{pp}{i}:")
-                Quiz.quick_print(data[i], pp+"  ")
-        elif isinstance(data, list):
-            for i in data:
-                Quiz.quick_print(i, pp+"  ")
-        elif isinstance(data, IndirectObject):
-            Quiz.quick_print(data.getObject(), pp+"  ")
-        else:
-            print(pp, data)
-
     @staticmethod
     def read_markdown(file_path: str, question_mkr :str="\s*\*\s+(.*)", 
                         answer_mkr: str="\s*-\s+(!)?(.*)", category_mkr: str="\s*#\s+(.*)", 
@@ -361,7 +339,50 @@ class Quiz:
         return top_quiz
 
     @classmethod
-    def read_xml(cls, file_path: str) -> "Quiz":
+    def read_pdf(cls, file_path: str, ptitle="Question \d+", include_image=True):
+        _serial_img = {'/DCTDecode': "jpg", '/JPXDecode': "jp2", '/CCITTFaxDecode': "tiff"}
+        with open(file_path, "rb") as infile:
+            pdf_file = PdfFileReader(infile)
+            for page_num in range(pdf_file.getNumPages()):
+                page: PageObject = pdf_file.getPage(page_num)
+                if '/XObject' not in page['/Resources']:
+                    continue
+                xObject = page['/Resources']['/XObject'].getObject()
+                for obj in xObject:
+                    if xObject[obj]['/Subtype'] != '/Image':
+                        continue
+                    size = (xObject[obj]['/Width'], xObject[obj]['/Height'])
+                    data = xObject[obj].getData()
+                    if xObject[obj]['/ColorSpace'][0] == '/DeviceRGB':
+                        mode = "RGB"
+                    elif xObject[obj]['/ColorSpace'][0] in ["/DeviceN", "/Indexed"]:
+                        mode = "P"
+                        if xObject[obj]['/ColorSpace'][0] == "/Indexed":
+                            psize = int(xObject[obj]['/ColorSpace'][2])
+                            palette = [255-int(n*psize/255) for n in range(256) for _ in range(3)]
+                        else: 
+                            palette = None
+                    else:
+                        raise ValueError(f"Mode not tested yet: {xObject[obj]['/ColorSpace']}") 
+                    if '/Filter' in xObject[obj]:
+                        filter = xObject[obj]['/Filter']
+                        if filter == '/FlateDecode':
+                            img = Image.frombytes(mode, size, data)
+                            if palette: 
+                                img.putpalette(palette)
+                            img.save(f"page{page_num}_{obj[1:]}.png")
+                        elif filter in _serial_img:
+                            img = open(f"page{page_num}_{obj[1:]}.{_serial_img[filter]}", "wb")
+                            img.write(data)
+                            img.close()
+                        else:
+                            raise ValueError(f"Filter not tested yet: {filter}") 
+                    else:
+                        img = Image.frombytes(mode, size, data)
+                        img.save(obj[1:] + ".png")
+
+    @classmethod
+    def read_xml(cls, file_path: str, category: str="$course$") -> "Quiz":
         """[summary]
 
         Raises:
@@ -385,16 +406,30 @@ class Quiz:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:
                 if top_quiz is None and quiz is None:
-                    top_quiz: Quiz = Quiz(category_name="$course$")
+                    top_quiz: Quiz = Quiz(category)
                     quiz = top_quiz
                 quiz.questions.append(qdict[question.get("type")].from_xml(question))
         return top_quiz
+
+    def rem_question(self, question: questions.Question) -> bool:
+        if question not in self.questions: return False
+        question.parent = None
+        self.questions.remove(question)
+        return True
 
     def write_aiken(self, file_path: str) -> None:
         data = self._to_aiken()
         with open(file_path, "w") as ofile:
             ofile.write(data)
         
+    def write_cloze(self, file_path: str) -> None:
+        # TODO
+        pass
+
+    def write_gift(self, file_path: str) -> None:
+        # TODO
+        pass
+
     def write_json(self, file_path: str, pretty_print: bool=False) -> None:
         """[summary]
 
@@ -407,6 +442,10 @@ class Quiz:
                 json.dump(self._to_json(self.__dict__.copy()), ofile, indent=4)
             else:
                 json.dump(self._to_json(self.__dict__.copy()), ofile)
+
+    def write_latex(self, file_path: str) -> None:
+        # TODO
+        pass
 
     def write_xml(self, file_path: str, pretty_print: bool=False):
         """Generates XML compatible with Moodle and saves to a file.
