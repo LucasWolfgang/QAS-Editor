@@ -1,3 +1,7 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import List, Dict
 import re
 import logging
 import json
@@ -5,7 +9,6 @@ from xml.etree import ElementTree as et
 from PIL import Image
 from PyPDF2.pdf import PageObject
 from PyPDF2 import PdfFileReader 
-from typing import List, Dict, Iterator
 from .enums import Numbering
 from . import questions
 
@@ -25,8 +28,6 @@ def _escape_cdata(text):
 et._escape_cdata = _escape_cdata
 
 # ----------------------------------------------------------------------------------------
-QTYPES = [m for m in dir(questions) if type(getattr(questions, m)) == type and 
-        issubclass(getattr(questions, m), questions.Question)]
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +54,17 @@ class Quiz:
     """
 
     def __init__(self, name = "$course$", parent: "Quiz"=None):
-        self.questions: List[questions.Question] = []
-        self._categories: Dict[str, Quiz] = {}
+        self._questions: List[questions.Question] = []
+        self.__categories: Dict[str, Quiz] = {}
         self.__name = name
         self.__parent = None
         self.parent = parent
+
+    def __iter__(self):
+        return self.__categories.__iter__()
+
+    def __getitem__(self, key: str):
+        return self.__categories[key]
 
     @staticmethod
     def __gen_hier(top: "Quiz", category: str) -> tuple:
@@ -67,9 +74,9 @@ class Quiz:
             raise ValueError(f"Top categroy names differ: {top.name} != {cat_list[0]}")
         quiz = top
         for i in cat_list[1:]:
-            if i not in quiz._categories: 
-                quiz._categories[i] = Quiz(i, quiz)
-            quiz = quiz._categories[i]
+            if i not in quiz.__categories: 
+                quiz.__categories[i] = Quiz(i, quiz)
+            quiz = quiz.__categories[i]
         return (top, quiz)
 
     def _indent(self, elem: et.Element, level: int=0):
@@ -95,7 +102,7 @@ class Quiz:
 
     def _to_aiken(self) -> str:
         data = ""
-        for question in self.questions:
+        for question in self._questions:
             if isinstance(question, questions.QMultichoice):
                 data += f"{question.question_text.text}\n"
                 correct = "ANSWER: None\n\n"
@@ -104,8 +111,8 @@ class Quiz:
                     if ans.fraction == 100:
                         correct = f"ANSWER: {chr(num+65)}\n\n"
                 data += correct
-        for child in self._categories:
-            data += self._categories[child]._to_aiken()
+        for child in self.__categories:
+            data += self.__categories[child]._to_aiken()
         return data
 
     def _to_xml_element(self, root: et.Element) -> None:
@@ -115,14 +122,14 @@ class Quiz:
             root (et.Element): [description]
         """
         question = et.Element("question")                   # Add category on the top
-        if len(self.questions) > 0:
+        if len(self._questions) > 0:
             question.set("type", "category")
             category = et.SubElement(question, "category")
             et.SubElement(category, "text").text = str(self.__name)
             root.append(question)        
-            for question in self.questions:                # Add own questions first
+            for question in self._questions:                # Add own questions first
                 root.append(question.to_xml())
-        for child in self._categories.values():            # Then add children data
+        for child in self.__categories.values():            # Then add children data
             child._to_xml_element(root)
 
     def _to_json(self, data: dict):
@@ -146,18 +153,6 @@ class Quiz:
                 data[i] = data[i].value
         return data
 
-    def add_question(self, question: questions.Question):
-        """
-        Adds a question to the quiz object.
-
-        :type question: Question
-        :param question: the question to add
-        """
-        if not isinstance(question, questions.Question):
-            TypeError(f"Object must be subclass of Question, not {question.__class__.__name__}")
-        self.questions.append(question)
-        question.parent = self
-
     def get_hier(self) -> dict:
         """[summary]
 
@@ -165,18 +160,10 @@ class Quiz:
             root (dict): [description]
         """
         data = {}
-        data["__questions__"] = self.questions
-        for cat in self._categories:
-            data[cat] = self._categories[cat].get_hier()
+        data["__questions__"] = self._questions
+        for cat in self.__categories:
+            data[cat] = self.__categories[cat].get_hier()
         return data
-
-    @property
-    def categories(self):
-        return self._categories
-
-    @categories.getter
-    def categories(self) -> List["Quiz"]:
-        return self._categories
 
     @property
     def name(self):
@@ -185,10 +172,10 @@ class Quiz:
     @name.setter
     def name(self, value: str):
         if self.__parent:
-            if value in self.__parent._categories:
+            if value in self.__parent.__categories:
                 raise ValueError(f"Question name \"{value}\" already exists on current category")
-            self.__parent._categories.pop(self.__name)
-            self.__parent._categories[value] = self
+            self.__parent.__categories.pop(self.__name)
+            self.__parent.__categories[value] = self
         self.__name = value
 
     @name.getter
@@ -201,12 +188,12 @@ class Quiz:
 
     @parent.setter
     def parent(self, value: "Quiz") -> None:
-        if value and self.__name in value._categories:
-            raise ValueError(f"Question name \"{self.__name}\" already exists on current category")
+        if value and self.__name in value.__categories:
+            raise ValueError(f"Question name \"{self.__name}\" already exists on new category")
         if self.__parent:
-            self.__parent._categories.pop(self.__name)
+            self.__parent.__categories.pop(self.__name)
         if isinstance(value, Quiz):
-            value._categories[self.__name] = self
+            value.__categories[self.__name] = self
             self.__parent = value
         else:
             self.__parent = None
@@ -214,6 +201,10 @@ class Quiz:
     @parent.getter
     def parent(self) -> "Quiz":
         return self.__parent
+
+    @property
+    def questions(self):
+        return self._questions.__iter__()
 
     @classmethod
     def read_aiken(cls, file_path: str, category: str="$course$") -> "Quiz":
@@ -228,7 +219,8 @@ class Quiz:
         with open(file_path, encoding="utf-8") as ifile:
             buffer = LineBuffer(ifile)
             while buffer.rd():
-                quiz.add_question(questions.QMultichoice.from_aiken(buffer, f"{name}_{cnt}"))
+                question = questions.QMultichoice.from_aiken(buffer, f"{name}_{cnt}")
+                question.parent = quiz
                 cnt += 1
         return quiz
 
@@ -236,7 +228,8 @@ class Quiz:
     def read_cloze(cls, file_path: str, category: str="$course$") -> "Quiz":
         top_quiz: Quiz = Quiz(category)
         with open(file_path, "r", encoding="utf-8") as ifile:
-            top_quiz.add_question(questions.QCloze.from_cloze(ifile))
+            question = questions.QCloze.from_cloze(ifile)
+            question.parent = top_quiz
         return top_quiz
 
     @classmethod
@@ -272,11 +265,11 @@ class Quiz:
                         question = questions.QShortAnswer.from_gift(i, ans)
                 else:
                     question = questions.QMultichoice.from_gift(i, ans)
-                quiz.add_question(question)
+                question.parent = quiz
         return top_quiz
 
-    @staticmethod
-    def read_json(file_path: str) -> "Quiz":
+    @classmethod
+    def read_json(cls, file_path: str) -> "Quiz":
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
@@ -284,14 +277,15 @@ class Quiz:
             data = json.load(infile)
         for key in data:
             pass
+        return cls()
 
-    @staticmethod
-    def read_latex() -> "Quiz":
+    @classmethod
+    def read_latex(cls) -> "Quiz":
         # TODO
         pass
 
-    @staticmethod
-    def read_markdown(file_path: str, question_mkr :str="\s*\*\s+(.*)", 
+    @classmethod
+    def read_markdown(cls, file_path: str, question_mkr :str="\s*\*\s+(.*)", 
                         answer_mkr: str="\s*-\s+(!)?(.*)", category_mkr: str="\s*#\s+(.*)", 
                         answer_numbering: Numbering=Numbering.ALF_LR, 
                         shuffle_answers: bool=True, single_answer_penalty_weight: int=0):
@@ -329,9 +323,10 @@ class Quiz:
                 elif match[3]:
                     if quiz is None:
                         raise ValueError("No classification defined for this question")
-                    quiz.add_question(questions.QMultichoice.from_markdown( lines, 
+                    question = questions.QMultichoice.from_markdown( lines, 
                                     answer_mkr, question_mkr, answer_numbering, shuffle_answers,
-                                    single_answer_penalty_weight, name=f"mkquestion_{cnt}"))
+                                    single_answer_penalty_weight, name=f"mkquestion_{cnt}")
+                    question.parent = quiz
                 elif match[5]:
                     raise ValueError(f"Answer found out of a question block: {match[5]}.")
             else:
@@ -396,7 +391,7 @@ class Quiz:
         quiz = top_quiz
         for question in data_root.getroot():
             qdict: Dict[str, questions.Question] = {
-                getattr(questions, m)._type: getattr(questions, m) for m in QTYPES
+                getattr(questions, m)._type: getattr(questions, m) for m in questions.QTYPES
             }
             if question.tag != "question":
                 continue
@@ -408,13 +403,13 @@ class Quiz:
                 if top_quiz is None and quiz is None:
                     top_quiz: Quiz = Quiz(category)
                     quiz = top_quiz
-                quiz.questions.append(qdict[question.get("type")].from_xml(question))
+                quiz._questions.append(qdict[question.get("type")].from_xml(question))
         return top_quiz
 
     def rem_question(self, question: questions.Question) -> bool:
-        if question not in self.questions: return False
+        if question not in self._questions: return False
         question.parent = None
-        self.questions.remove(question)
+        self._questions.remove(question)
         return True
 
     def write_aiken(self, file_path: str) -> None:

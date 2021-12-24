@@ -1,15 +1,16 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import List
+    from typing import List, Dict
     from .enums import Direction
+from .quiz import Quiz
 from xml.etree import ElementTree as et
-from .wrappers import B64File, CombinedFeedback, Dataset, FText, MultipleTries, SelectOption, \
-                    Subquestion, Unit, Tags, UnitHandling
+from .wrappers import B64File, CombinedFeedback, Dataset, FText, MultipleTries, \
+                    SelectOption, Subquestion, Unit, Tags, UnitHandling
 from .utils import extract
 from .enums import Format, ResponseFormat, Status, Distribution, Numbering
-from .answer import Answer, ClozeItem, ClozeItem, NumericalAnswer, CalculatedAnswer, DragText, \
-                    CrossWord, DropZone, DragItem
+from .answer import Answer, ClozeItem, ClozeItem, NumericalAnswer, DragText, \
+                    CrossWord, CalculatedAnswer, DropZone, DragItem
 import re
 import logging
 log = logging.getLogger(__name__)
@@ -44,13 +45,29 @@ class Question():
         self.shuffle = shuffle
         self.solution = solution
         self.tags = tags
-        self.parent = None
+        self.__parent: Quiz = None
 
     def __repr__(self):
         """ 
         Change string representation.
         """
         return f"Type: {self.__class__.__name__}, name: \'{self.name}\'."
+
+    @property
+    def parent(self):
+        return self.__parent
+
+    @parent.getter
+    def parent(self):
+        return self.__parent
+
+    @parent.setter
+    def parent(self, value: Quiz):
+        if self.__parent:
+            self.__parent._questions.remove(self)
+        if isinstance(value, Quiz):
+            self.__parent = value
+            self.__parent._questions.append(self)
 
     @classmethod
     def from_xml(cls, root: et.Element, **kwargs) -> "Question":
@@ -1022,5 +1039,10 @@ class QCrossWord(Question):
     def from_xml(cls, root: et.Element) -> "Question":
         raise NotImplementedError("This Class is not avaiable in a Moodle XML")
 
-
 # ----------------------------------------------------------------------------------------
+
+QTYPES = ['QCalculated', 'QCalculatedMultichoice', 'QCalculatedSimple', 'QCloze', 
+        'QCrossWord', 'QDescription', 'QDragAndDropImage', 'QDragAndDropMarker',
+        'QDragAndDropText', 'QEssay', 'QFreeDrawing', 'QLineDrawing', 'QMatching',
+        'QMissingWord', 'QMultichoice', 'QNumerical', 'QRandomMatching', 
+        'QShortAnswer', 'QTrueFalse']
