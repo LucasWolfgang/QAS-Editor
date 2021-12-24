@@ -31,6 +31,10 @@ class GAnswer(QGridLayout):
         self._grade.setFixedWidth(50)
         self.addWidget(self._grade, 1, 2)
 
+    def __del__(self):
+        for i in range(self.count()):
+            self.itemAt(i).widget().deleteLater()
+
     def from_obj(self, obj: Answer) -> None:
         self._grade.setText(str(obj.fraction))
         self._text.text_format = obj.formatting
@@ -111,6 +115,10 @@ class GCloze(QGridLayout):
         self._pop.setFixedWidth(30)
         self._pop.clicked.connect(self.pop_opts)
         self.addWidget(self._pop, 0, 8)
+
+    def __del__(self):
+        for i in range(self.count()):
+            self.itemAt(i).widget().deleteLater()
 
     def __changed_opt(self, index):
         self._frac.setText(str(self.opts[index].fraction))
@@ -193,10 +201,14 @@ class GDrag(QGridLayout):
         self.img = None
         self.obj = None
 
+    def __del__(self):
+        for i in range(self.count()):
+            self.itemAt(i).widget().deleteLater()
+
     def from_obj(self, obj):
         self.text.setText(obj.text)
         self.group.setText(str(obj.group))
-        self.unlimited = self.unlimited.isChecked()
+        self.unlimited.setChecked(obj.unlimited)
         self.obj = obj
 
     def setVisible(self, visible: bool) -> None:
@@ -237,6 +249,10 @@ class GDropZone(QGridLayout):
         self.addWidget(QLabel("Text"), 0, 4)
         self.addWidget(self.text, 0, 5)
 
+    def __del__(self):
+        for i in range(self.count()):
+            self.itemAt(i).widget().deleteLater()
+
     def from_obj(self, obj: DragItem):
         pass
 
@@ -275,6 +291,7 @@ class GOptions(QVBoxLayout):
         elif self.__ctype is DragText: item = GDrag(True)
         elif self.__ctype is DragItem: item = GDrag(False)
         elif self.__ctype is ClozeItem: item = GCloze()
+        else: raise TypeError(f"Type {self.__ctype} is not implemented")
         self.addLayout(item)
         return item
 
@@ -284,8 +301,9 @@ class GOptions(QVBoxLayout):
         return super().addLayout(layout, stretch=stretch)
 
     def from_obj(self, objs:list) -> None:
-        if not objs: return
-        self._soft_clear(len(objs), type(objs[0]))    
+        print(objs)
+        self._soft_clear(len(objs), None if not objs else type(objs[0])) 
+        if not objs: return   
         self.__ctype = type(objs[0])
         for obj, child in zip(objs, self.children()): 
             if hasattr(child, "from_obj"): child.from_obj(obj)
