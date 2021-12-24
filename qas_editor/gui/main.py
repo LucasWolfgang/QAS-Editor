@@ -1,12 +1,16 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Dict
+    from PyQt5.QtGui import QDropEvent
 import logging
-from typing import Dict
-from PyQt5.QtCore import Qt, QVariant, QBasicTimer
+from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QSplitter, QTreeView, QGroupBox,QMainWindow, QStatusBar,\
-                            QFileDialog, QMenu, QComboBox,QAction,\
+                            QFileDialog, QMenu, QComboBox, QAction, QAbstractItemView,\
                             QCheckBox, QLineEdit, QPushButton
-from ..quiz import Quiz, QTYPES
+from ..quiz import Quiz
 from .. import questions
 from ..enums import Numbering
 from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, img_path, action_handler
@@ -57,11 +61,17 @@ class Editor(QMainWindow):
         self.dataView.doubleClicked.connect(self.update_item)
         self.dataView.setContextMenuPolicy(Qt.CustomContextMenu)
         self.dataView.customContextMenuRequested.connect(self._data_view_context_menu)
+        self.dataView.setDragEnabled(True)
+        self.dataView.setAcceptDrops(True)
+        self.dataView.setDropIndicatorShown(True)
+        self.dataView.setDragDropMode(QAbstractItemView.InternalMove)
+        self.dataView.original_dropEvent = self.dataView.dropEvent
+        self.dataView.dropEvent = self._dataview_dropevent
         self.data_root = QStandardItemModel(0, 1)
         self.data_root.setHeaderData(0, Qt.Horizontal, "Classification")
         self.dataView.setModel(self.data_root)
         self.question_type = QComboBox()
-        self.question_type.addItems(QTYPES)
+        self.question_type.addItems(questions.QTYPES)
         question_create = QPushButton("Create")
         question_create.clicked.connect(self.create_question)
         vbox = QVBoxLayout()
@@ -116,6 +126,16 @@ class Editor(QMainWindow):
         self.setGeometry(300, 300, 1000, 600)
         self.show()
 
+    @action_handler
+    def _dataview_dropevent(self, event: QDropEvent):
+        from_obj = self.dataView.selectedIndexes()[0].data(257)
+        to_obj = self.dataView.indexAt(event.pos()).data(257)
+        if isinstance(to_obj, questions.Question):
+            event.ignore()
+            raise TypeError()
+        from_obj.parent = to_obj    # This already does all the magic (using @properties)
+        self.dataView.original_dropEvent(event)
+
     def _data_view_context_menu(self, event):
         self.menu = QMenu(self)
         item = self.dataView.indexAt(event).data(257)
@@ -153,10 +173,10 @@ class Editor(QMainWindow):
         self.update_tree()
 
     def _read_quiz(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open file", "", 
-                    "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift);JSON (*.json);"+
-                    "LaTex (*.tex);Markdown (*.md);PDF (*.pdf);XML (*.xml);All files (*.*)")
-        if not path: return (None, None)
+        path, _ = QFileDialog.getOpenFileName(self, "Open file", "",
+                    "Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;JSON (*.json);;"+
+                    "LaTex (*.tex);;Markdown (*.md);;PDF (*.pdf);;XML (*.xml)")
+        if not path: return None
         if path[-4:] == ".xml":
             quiz = Quiz.read_xml(path)
         elif path[-4:] == ".txt":
@@ -189,6 +209,8 @@ class Editor(QMainWindow):
         while item.parent:
             path.append(item.name)
             item = item.parent
+        path.append(item.name)
+        path.reverse()
         self.cat_name.setText(" > ".join(path))  
 
     def _write_quiz(self, quiz: Quiz, save_as: bool):
@@ -197,8 +219,9 @@ class Editor(QMainWindow):
         """
         if save_as:
             path, _ = QFileDialog.getSaveFileName(self, "Save file", "", 
-                    "Aiken (*.txt);Cloze (*.cloze);GIFT (*.gift); Markdown (*.md); "+
-                    "LaTex (*.tex);XML (*.xml);All files (*.*)")
+                    "Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;Markdown (*.md); "+
+                    "LaTex (*.tex);;XML (*.xml)")
+            if not path: return None
         else:
             path = self.path
         if path[-4:] == ".xml":
@@ -219,13 +242,13 @@ class Editor(QMainWindow):
             node.setEditable(False)
             node.setData(QVariant(k))
             parent.appendRow(node)
-        for k in data.categories:
+        for k in data:
             node = QStandardItem(QIcon(f"{img_path}/category.png"), k)
             node.setEditable(False)
-            node.setData(QVariant(data.categories[k]))
+            node.setData(QVariant(data[k]))
             parent.appendRow(node)
-            self._update_data_view(data.categories[k], node)
-
+            self._update_data_view(data[k], node)
+            
     def add_answer_block(self) -> None:
         frame = GFrameLayout(title="Answers")
         self.cframe_vbox.addLayout(frame)
@@ -325,7 +348,7 @@ class Editor(QMainWindow):
     @action_handler
     def create_question(self, stat: bool) -> None:
         cls = getattr(questions, self.question_type.currentText())
-        self.current_category.add_question(cls(name="New Question"))
+        cls(name="New Question").parent = self.current_category
         self.update_tree()
         for key in self._items:
             if key == "name": continue
@@ -373,7 +396,7 @@ class Editor(QMainWindow):
         [summary]
         """
         path = self._write_quiz(self.top_quiz, save_as)
-        self.path = path
+        if path: self.path = path
 
     @action_handler
     def update_item(self, value) -> None:
@@ -417,12 +440,5 @@ class Editor(QMainWindow):
         self.data_root.appendRow(parent)        # argument during recursion
         self._update_data_view(self.top_quiz, parent)
         self.dataView.expandAll()
-
-# ----------------------------------------------------------------------------------------
-class QTest(QWidget):
-
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self._timer = QBasicTimer()
 
 # ----------------------------------------------------------------------------------------

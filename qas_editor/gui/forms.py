@@ -301,7 +301,6 @@ class GOptions(QVBoxLayout):
         return super().addLayout(layout, stretch=stretch)
 
     def from_obj(self, objs:list) -> None:
-        print(objs)
         self._soft_clear(len(objs), None if not objs else type(objs[0])) 
         if not objs: return   
         self.__ctype = type(objs[0])
