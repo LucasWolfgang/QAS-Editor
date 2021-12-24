@@ -121,18 +121,18 @@ class ClozeItem():
     @classmethod
     def from_cloze(cls, regex) -> "ClozeItem":
         options = []
-        for opt in regex[3].split("~"): #re.findall(r"[^~]+[~}]", regex[3]):
+        for opt in regex[3].split("~"):
+            if not opt: continue
             tmp = opt.strip("}~").split("#")
-            if len(tmp) == 2:
-                tmp, fdb = tmp
+            if len(tmp) == 2: tmp, fdb = tmp
+            else: tmp, fdb = tmp[0], ""
             frac = 0.0
             if tmp[0] == "=":
                 frac = 100.0
                 tmp = tmp[1:]
             elif tmp[0] == "%":
                 frac, tmp = tmp[1:].split("%")
-                frac = float(frac)
-            
+                frac = float(frac)    
             options.append(Answer(frac, tmp, FText(fdb, Format.PLAIN), Format.PLAIN))
         return cls(regex.start(), int(regex[1]), ClozeFormat(regex[2]), options)
 
