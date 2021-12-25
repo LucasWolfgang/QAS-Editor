@@ -146,14 +146,13 @@ class GCloze(QGridLayout):
         pos = int(self._pos.text())
         grade = float(self._grade.text())
         cform = ClozeFormat(self._form.currentText())
-        opts = [self._opts.itemText(i) for i in range(self._opts.count())]
         if self.obj is not None:
             self.obj.start = pos
             self.obj.grade = grade
             self.obj.cformat = cform
-            self.obj.opts = opts
+            # Self opts and obj opts are already the same list
         else:
-            self.obj = ClozeItem(pos, grade, cform, opts)
+            self.obj = ClozeItem(pos, grade, cform, self.opts)
         return self.obj
 
     def setVisible(self, visible: bool) -> None:
