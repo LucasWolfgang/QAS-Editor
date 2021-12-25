@@ -125,7 +125,13 @@ class Quiz:
         if len(self._questions) > 0:
             question.set("type", "category")
             category = et.SubElement(question, "category")
-            et.SubElement(category, "text").text = str(self.__name)
+            catname = [self.__name]
+            tmp = self.parent
+            while tmp:
+                catname.append(tmp.name)
+                tmp = tmp.parent
+            catname.reverse()
+            et.SubElement(category, "text").text = "/".join(catname)
             root.append(question)        
             for question in self._questions:                # Add own questions first
                 root.append(question.to_xml())
@@ -454,7 +460,7 @@ class Quiz:
         self._to_xml_element(root)
         if pretty_print:
             self._indent(root)
-        quiz.write(file_path, encoding="utf-8", xml_declaration=True, short_empty_elements=False)
+        quiz.write(file_path, encoding="utf-8", xml_declaration=True, short_empty_elements=True)
 
     def write_pdf(self):
         # TODO
