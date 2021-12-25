@@ -116,7 +116,15 @@ class ClozeItem():
         self.opts: List[Answer] = options if options else []
 
     def __str__(self) -> str:
-        return f"{self.cformat.value}"
+        text = ["{", f"{self.grade}:{self.cformat.value}:"]
+        o = self.opts[0]
+        text.append(f"{'=' if o.fraction == 100 else ''}{o.text}# \
+                    {o.feedback.text if o.feedback else ''}" )
+        for o in self.opts[1:]:
+            text.append(f"~{'=' if o.fraction == 100 else ''}{o.text}# \
+                        {o.feedback.text if o.feedback else ''}" )
+        text.append("}")
+        return "".join(text)
 
     @classmethod
     def from_cloze(cls, regex) -> "ClozeItem":

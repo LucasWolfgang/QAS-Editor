@@ -261,7 +261,17 @@ class QCloze(Question):
         return super().from_xml(root)
 
     def to_xml(self) -> et.Element:
-        return super().to_xml()
+        text = [] 
+        last = 0
+        for answer in self.answers:
+            text.append(self.question_text.text[last:answer.start])
+            text.append(str(answer))
+            last = answer.start + 42
+        tmp = self.question_text.text
+        self.question_text.text = "".join(text)
+        result = super().to_xml()
+        self.question_text.text = tmp
+        return result
 
     @classmethod
     def from_cloze(cls, buffer) -> "QCloze":
