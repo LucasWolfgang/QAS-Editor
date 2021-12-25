@@ -376,7 +376,11 @@ class Editor(QMainWindow):
         tmp = self._read_quiz()
         if tmp is None: return
         quiz, self.path = tmp
-        quiz.parent = parent
+        for catname in quiz:
+            quiz[catname].parent = parent
+        for question in quiz.questions:
+            question.parent = parent
+        del quiz
         self.update_tree()
 
     @action_handler
