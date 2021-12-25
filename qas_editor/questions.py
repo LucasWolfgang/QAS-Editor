@@ -149,6 +149,7 @@ class QCalculated(Question):
         extract(data, "synchronize", res, "synchronize", int)
         extract(data, "single"     , res, "single"     , bool)
         res["unit_handling"] = UnitHandling.from_xml(data)
+        res["multiple_tries"] = MultipleTries.from_xml(data, root)
         question: "QCalculated" = super().from_xml(root, **res)
         for u in root.findall("units"):
             question.units.append(Unit.from_xml(u))
@@ -165,6 +166,7 @@ class QCalculated(Question):
         for answer in self.answers:
             question.append(answer.to_xml())
         self.unit_handling.to_xml(question)
+        self.multiple_tries.to_xml(question)
         if self.units:
             units = et.SubElement(question, "units")
             for unit in self.units:
@@ -220,6 +222,7 @@ class QCalculatedMultichoice(Question):
         extract(data, "single"         , res, "single"     , bool)
         res["numbering"] = Numbering(data["answernumbering"].text)
         res["combined_feedback"] = CombinedFeedback.from_xml(root)
+        res["multiple_tries"] = MultipleTries.from_xml(data, root)
         question: "QCalculatedMultichoice" = super().from_xml(root, **res)
         for dataset in data["dataset_definitions"]:
             question.datasets.append(Dataset.from_xml(dataset))
@@ -229,10 +232,11 @@ class QCalculatedMultichoice(Question):
 
     def to_xml(self) -> et.Element:
         question = super().to_xml()
-        et.SubElement(question, "synchronize").text = self.synchronize
-        et.SubElement(question, "single").text = self.single
+        et.SubElement(question, "synchronize").text = str(self.synchronize)
+        et.SubElement(question, "single").text = str(self.single).lower()
         et.SubElement(question, "answernumbering").text = self.numbering.value
         self.combined_feedback.to_xml(question)
+        self.multiple_tries.to_xml(question)
         for answer in self.answers:
             question.append(answer.to_xml()) 
         dataset_definitions = et.SubElement(question, "dataset_definitions")
@@ -331,6 +335,7 @@ class QDragAndDropText(Question):
 
     def to_xml(self) -> et.Element:
         question = super().to_xml()
+        self.multiple_tries.to_xml(question)
         self.combined_feedback.to_xml(question)
         for choice in self.answers:
             question.append(choice.to_xml())
@@ -423,8 +428,8 @@ class QDragAndDropMarker(Question):
     _type = "ddmarker"
 
     def __init__(self, background: B64File=None, combined_feedback: CombinedFeedback=None,
-                dragitems: List[DragItem]=None, dropzones: List[DropZone]=None, 
-                highlight_empty: bool=False, *args, **kwargs):
+                multiple_tries: MultipleTries=None, dragitems: List[DragItem]=None, 
+                dropzones: List[DropZone]=None, highlight_empty: bool=False, *args, **kwargs):
         """Creates an drag and drop onto image type of question.
 
         Args:
@@ -433,6 +438,7 @@ class QDragAndDropMarker(Question):
         super().__init__(*args, **kwargs)
         self.background = background
         self.combined_feedback = combined_feedback
+        self.multiple_tries = multiple_tries
         self.highlight_empty = highlight_empty
         self._dragitems: List[DragItem] = dragitems if dragitems is not None else []
         self._dropzones: List[DropZone] = dropzones if dropzones is not None else []
@@ -455,6 +461,7 @@ class QDragAndDropMarker(Question):
         res["background"] = B64File.from_xml(data.get("file"))
         extract(data, "showmisplaced", res, "highlight_empty", bool)
         res["combined_feedback"] = CombinedFeedback.from_xml(root)
+        res["multiple_tries"] = MultipleTries.from_xml(data, root)
         question: "QDragAndDropMarker" = super().from_xml(root, **res)
         for dragitem in root.findall("drag"):
             question._dragitems.append(DragItem.from_xml(dragitem))
@@ -466,6 +473,7 @@ class QDragAndDropMarker(Question):
         question = super().to_xml()
         if self.highlight_empty:
             et.SubElement(question, "showmisplaced")
+        self.multiple_tries.to_xml(question)
         self.combined_feedback.to_xml(question)
         for dragitem in self._dragitems:
             question.append(dragitem.to_xml())
@@ -522,12 +530,12 @@ class QEssay(Question):
     def to_xml(self) -> et.Element:
         question = super().to_xml()
         et.SubElement(question, "responseformat").text = self.response_format.value
-        et.SubElement(question, "responserequired").text = self.response_required
-        et.SubElement(question, "responsefieldlines").text = self.responsefield_lines
-        et.SubElement(question, "attachments").text = self.attachments
-        et.SubElement(question, "attachmentsrequired").text = self.attachments_required
+        if self.response_required: et.SubElement(question, "responserequired")
+        et.SubElement(question, "responsefieldlines").text = str(self.responsefield_lines)
+        et.SubElement(question, "attachments").text = str(self.attachments)
+        if self.attachments_required: et.SubElement(question, "attachmentsrequired")
         if self.maxbytes:
-            et.SubElement(question, "maxbytes").text = self.maxbytes
+            et.SubElement(question, "maxbytes").text = str(self.maxbytes)
         if self.filetypes_list:
             et.SubElement(question, "filetypeslist").text = self.filetypes_list
         if self.grader_info:
@@ -734,6 +742,7 @@ class QMultichoice(Question):
         extract(data, "showstandardinstruction", res, "show_instruction", bool)
         res["answer_numbering"] = Numbering(data["answernumbering"].text)
         res["combined_feedback"] = CombinedFeedback.from_xml(root)
+        res["multiple_tries"] = MultipleTries.from_xml(data, root)
         question: "QMultichoice" = super().from_xml(root, **res)
         for answer in root.findall("answer"):
             question.answers.append(Answer.from_xml(answer))
@@ -746,6 +755,7 @@ class QMultichoice(Question):
             [type]: [description]
         """
         question = super().to_xml()
+        self.multiple_tries.to_xml(question)
         if self.combined_feedback:
             self.combined_feedback.to_xml(question)
         et.SubElement(question, "answernumbering").text = self.answer_numbering.value

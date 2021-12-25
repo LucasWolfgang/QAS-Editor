@@ -219,7 +219,7 @@ class Editor(QMainWindow):
         """
         if save_as:
             path, _ = QFileDialog.getSaveFileName(self, "Save file", "", 
-                    "Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;Markdown (*.md); "+
+                    "Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;Markdown (*.md);;"+
                     "LaTex (*.tex);;XML (*.xml)")
             if not path: return None
         else:
