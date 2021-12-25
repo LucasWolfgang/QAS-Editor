@@ -14,7 +14,7 @@ from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal
 from PyQt5.QtGui import QFont, QImage, QTextDocument, QKeySequence, QIcon, QColor, QPainter
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QTextEdit, QToolBar, \
                             QFontComboBox, QComboBox, QActionGroup, QAction, QLineEdit, \
-                            QPushButton, QLabel, QMessageBox
+                            QPushButton, QLabel, QMessageBox, QApplication
 
 img_path = __file__.replace('\\', '/').rsplit('/', 2)[0] + "/images"
 log = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class GTextEditor(QTextEdit):
     def __init__(self, toolbar: "GTextToolbar") -> None:
         super().__init__()
         self.toolbar = toolbar
-        self.text_format: Format = 2
+        self.text_format: Format = Format.HTML
         self.math_type = 0
         self.setAutoFormatting(QTextEdit.AutoAll)
         self.setFont(QFont('Times', 12))
@@ -55,11 +55,6 @@ class GTextEditor(QTextEdit):
 
     def __flag_update(self): 
         self.__need_update = True
-
-    def keyPressEvent(self, e: QKeyEvent) -> None:
-        if e.text() or e.key() in [Qt.Key_Backspace, Qt.Key_Enter, Qt.Key_Tab, Qt.Key_Space]:
-            if self.__selected_tag(): return
-        return super().keyPressEvent(e)
 
     def __selected_tag(self):
         if not self.__tags: return
@@ -77,6 +72,9 @@ class GTextEditor(QTextEdit):
             self.__tags.append(i.span())
         self.__need_update = False
 
+    def _update_format(self, index):
+        self.text_format = list(GTextToolbar.FORMATS.values())[index]
+
     def canInsertFromMimeData(self, source) -> bool:
         """[summary]
 
@@ -86,14 +84,30 @@ class GTextEditor(QTextEdit):
         Returns:
             bool: [description]
         """
-        if source.hasImage():
-            return True
-        else:
-            return super(GTextEditor, self).canInsertFromMimeData(source)
+        return source.hasImage() or super().canInsertFromMimeData(source)
 
     def focusInEvent(self, e) -> None:
         self.toolbar.update_editor(self)
         return super().focusOutEvent(e)
+
+    def focusOutEvent(self, e) -> None:
+        if not self.toolbar.hasFocus():
+            self.toolbar.setDisabled(True)
+        return super().focusOutEvent(e)
+
+    def getFText(self) -> FText:
+        """[summary]
+
+        Returns:
+            FText: [description]
+        """
+        if self.text_format == Format.MD:
+            txt = self.toMarkdown()
+        elif self.text_format == Format.HTML:
+            txt = self.toHtml()
+        else:
+            txt = self.toPlainText()
+        return FText(txt, self.text_format)
 
     def insertFromMimeData(self, source):
         """[summary]
@@ -123,22 +137,10 @@ class GTextEditor(QTextEdit):
             return
         super(GTextEditor, self).insertFromMimeData(source)
 
-    def getFText(self) -> FText:
-        """[summary]
-
-        Returns:
-            FText: [description]
-        """
-        tp = self.toolbar.text_type.currentIndex()
-        if tp == 0:
-            txt = self.toMarkdown()
-            return FText(txt, Format.MD)
-        elif tp == 1:
-            txt = self.toHtml()
-            return FText(txt, Format.HTML)
-        else:
-            txt = self.toPlainText()
-            return FText(txt, Format.PLAIN)
+    def keyPressEvent(self, e: QKeyEvent) -> None:
+        if e.text() or e.key() in [Qt.Key_Backspace, Qt.Key_Enter, Qt.Key_Tab, Qt.Key_Space]:
+            if self.__selected_tag(): return
+        return super().keyPressEvent(e)
 
     def setFText(self, text: FText) -> None:
         if text.formatting == Format.MD:
@@ -147,6 +149,7 @@ class GTextEditor(QTextEdit):
             self.setHtml(text.text)
         else:
             self.setPlainText(text.text)
+        self.text_format = text.formatting
         self.__update_tags()
 
 # ----------------------------------------------------------------------------------------
@@ -233,51 +236,65 @@ class GTextToolbar(QToolBar):
         self._format_actions = [ self.fonts, self.fontsize, self.bold_action, 
                                  self.underline_action, self.italic_action ]
         # We don't need to disable signals for alignment, as they are paragraph-wide.
-        
+        self.setFocusPolicy(Qt.ClickFocus)
+        self.setDisabled(True)
+
+    def hasFocus(self) -> bool:
+        return super().hasFocus() or self.fonts.hasFocus() or self.fontsize.hasFocus() \
+                or self.math_type.hasFocus() or self.text_type.hasFocus()
 
     def update_editor(self, text_editor: GTextEditor) -> None:
         """Update the font format toolbar/actions when a new text selection is made. 
         This is neccessary to keep toolbars/etc. in sync with the current edit state.
         """ 
-        if text_editor != self.editor:
-            if self.editor is not None:
-                self.editor.text_format = self.text_type.currentIndex
-                self.fonts.currentFontChanged.disconnect()
-                self.fontsize.currentIndexChanged[str].disconnect()
-                self.bold_action.toggled.disconnect()
-                self.underline_action.toggled.disconnect()
-                self.italic_action.toggled.disconnect()
-                self.alignl_action.triggered.disconnect()
-                self.alignc_action.triggered.disconnect()
-                self.alignr_action.triggered.disconnect()
-                self.alignj_action.triggered.disconnect()
-                self.wrap_action.triggered.disconnect()
-            self.editor = text_editor
-            
+        self.setDisabled(text_editor is None)
+        if text_editor == self.editor: return # Nothing to do here
+        if self.editor is not None:
+            self.text_type.currentIndexChanged.disconnect()
+            self.fonts.currentFontChanged.disconnect()
+            self.fontsize.currentIndexChanged[str].disconnect()
+            self.bold_action.toggled.disconnect()
+            self.underline_action.toggled.disconnect()
+            self.italic_action.toggled.disconnect()
+            self.alignl_action.triggered.disconnect()
+            self.alignc_action.triggered.disconnect()
+            self.alignr_action.triggered.disconnect()
+            self.alignj_action.triggered.disconnect()
+            self.wrap_action.triggered.disconnect()
+        self.editor = text_editor  
+        if self.editor is not None:
+            for o in self._format_actions:  # Disable signals for all format widgets
+                o.blockSignals(True)
+            self.fonts.setCurrentFont(self.editor.currentFont())
+            self.fontsize.setCurrentText(str(int(self.editor.fontPointSize())))
+            self.italic_action.setChecked(self.editor.fontItalic())
+            self.underline_action.setChecked(self.editor.fontUnderline())
+            self.bold_action.setChecked(self.editor.fontWeight() == QFont.Bold)
+            self.alignl_action.setChecked(self.editor.alignment() == Qt.AlignLeft)
+            self.alignc_action.setChecked(self.editor.alignment() == Qt.AlignCenter)
+            self.alignr_action.setChecked(self.editor.alignment() == Qt.AlignRight)
+            self.alignj_action.setChecked(self.editor.alignment() == Qt.AlignJustify)
+            self.text_type.setCurrentText(self.editor.text_format.name)
+            for o in self._format_actions:
+                o.blockSignals(False)
+            self.text_type.currentIndexChanged.connect(self.editor._update_format)
             self.fonts.currentFontChanged.connect(self.editor.setCurrentFont)
-            self.fontsize.currentIndexChanged[str].connect(lambda s: self.editor.setFontPointSize(float(s)))
-            self.bold_action.toggled.connect(lambda x: self.editor.setFontWeight(QFont.Bold if x else QFont.Normal))
             self.underline_action.toggled.connect(self.editor.setFontUnderline)
             self.italic_action.toggled.connect(self.editor.setFontItalic)
-            self.alignl_action.triggered.connect(lambda: self.editor.setAlignment(Qt.AlignLeft))
-            self.alignc_action.triggered.connect(lambda: self.editor.setAlignment(Qt.AlignCenter))
-            self.alignr_action.triggered.connect(lambda: self.editor.setAlignment(Qt.AlignRight))
-            self.alignj_action.triggered.connect(lambda: self.editor.setAlignment(Qt.AlignJustify))
-            self.wrap_action.triggered.connect(lambda: self.editor.setLineWrapMode(int(self.editor.lineWrapMode() == 0)))
-
-        for o in self._format_actions:  # Disable signals for all format widgets
-            o.blockSignals(True)
-        self.fonts.setCurrentFont(self.editor.currentFont())
-        self.fontsize.setCurrentText(str(int(self.editor.fontPointSize())))
-        self.italic_action.setChecked(self.editor.fontItalic())
-        self.underline_action.setChecked(self.editor.fontUnderline())
-        self.bold_action.setChecked(self.editor.fontWeight() == QFont.Bold)
-        self.alignl_action.setChecked(self.editor.alignment() == Qt.AlignLeft)
-        self.alignc_action.setChecked(self.editor.alignment() == Qt.AlignCenter)
-        self.alignr_action.setChecked(self.editor.alignment() == Qt.AlignRight)
-        self.alignj_action.setChecked(self.editor.alignment() == Qt.AlignJustify)
-        for o in self._format_actions:
-            o.blockSignals(False)
+            self.fontsize.currentIndexChanged[str].connect(lambda s: 
+                    self.editor.setFontPointSize(float(s)))
+            self.bold_action.toggled.connect(lambda x: 
+                    self.editor.setFontWeight(QFont.Bold if x else QFont.Normal))
+            self.alignl_action.triggered.connect(lambda: 
+                    self.editor.setAlignment(Qt.AlignLeft))
+            self.alignc_action.triggered.connect(lambda: 
+                    self.editor.setAlignment(Qt.AlignCenter))
+            self.alignr_action.triggered.connect(lambda: 
+                    self.editor.setAlignment(Qt.AlignRight))
+            self.alignj_action.triggered.connect(lambda: 
+                    self.editor.setAlignment(Qt.AlignJustify))
+            self.wrap_action.triggered.connect(lambda: 
+                    self.editor.setLineWrapMode(int(self.editor.lineWrapMode() == 0)))
 
 # ----------------------------------------------------------------------------------------
 class GArrow(QFrame):

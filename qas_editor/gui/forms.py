@@ -48,16 +48,13 @@ class GAnswer(QGridLayout):
 
     def to_obj(self) -> Answer:
         fraction = float(self._grade.text())
-        tp = self._text.toolbar.text_type.currentIndex()
-        if tp == 0:
+        formatting = self._text.text_format
+        if formatting == Format.MD:
             text = self._text.toMarkdown()
-            formatting = Format.MD
-        elif tp == 1:
+        elif formatting == Format.HTML:
             text = self._text.toHtml()
-            formatting = Format.HTML
         else:
             text = self._text.toPlainText()
-            formatting = Format.PLAIN
         feedback = self._feedback.getFText()
         if self.obj is not None:
             self.obj.fraction = fraction
@@ -383,16 +380,13 @@ class GHint(QFrame):
             self._text.setPlainText(obj.text)
 
     def to_obj(self):
-        tp = self._text.toolbar.text_type.currentIndex()
-        if tp == 0:
+        formatting = self._text.text_format
+        if formatting == Format.MD:
             text = self._text.toMarkdown()
-            formatting = Format.MD
-        elif tp == 1:
+        elif formatting == Format.HTML:
             text = self._text.toHtml()
-            formatting = Format.HTML
         else:
             text = self._text.toPlainText()
-            formatting = Format.PLAIN
         return Hint(formatting, text, self._show.isChecked(), 
                     self._clear.isChecked(), self._state.isChecked())
 
