@@ -219,19 +219,27 @@ class Editor(QMainWindow):
         """
         if save_as:
             path, _ = QFileDialog.getSaveFileName(self, "Save file", "", 
-                    "Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;Markdown (*.md);;"+
-                    "LaTex (*.tex);;XML (*.xml)")
+                    "Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;JSON (*.json);;"+
+                    "LaTex (*.tex);;Markdown (*.md);;PDF (*.pdf);;XML (*.xml)")
             if not path: return None
         else:
             path = self.path
-        if path[-4:] == ".xml":
-            quiz.write_xml(path, True)
+        if path[-6:] == ".cloze":
+            quiz.write_cloze(path)
+        elif path[-5:] == ".json":
+            quiz.write_json(path, True)
+        elif path[-5:] == ".gift":
+            quiz.write_gift(path)
+        elif path[-3:] == ".md":
+            quiz.write_markdown(path)
+        elif path[-4:] == ".pdf":
+            quiz.write_pdf(path)
+        elif path[-4:] == ".tex":
+            quiz.write_latex(path)
         elif path[-4:] == ".txt":
             quiz.write_aiken(path)
-        elif path[-5:] == ".gift":
-            raise NotImplemented("Gift not implemented")
-        elif path[-3:] == ".md":
-            raise NotImplemented("Markdown implemented")
+        elif path[-4:] == ".xml":
+            quiz.write_xml(path, True)
         else:
             raise ValueError(f"Extension {path.rsplit('.', 1)[-1]} can not be read")
         return path
