@@ -1,5 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
+
+from PyQt5.QtCore import reset
 if TYPE_CHECKING:
     from typing import List, Dict
 import re
@@ -9,6 +11,7 @@ from xml.etree import ElementTree as et
 from PIL import Image
 from PyPDF2.pdf import PageObject
 from PyPDF2 import PdfFileReader 
+from enum import Enum
 from .enums import Numbering
 from . import questions
 
@@ -138,7 +141,7 @@ class Quiz:
         for child in self.__categories.values():            # Then add children data
             child._to_xml_element(root)
 
-    def _to_json(self, data: dict):
+    def _to_json(self, data: dict|list):
         """[summary]
 
         Args:
@@ -147,16 +150,23 @@ class Quiz:
         Returns:
             [type]: [description]
         """
-        for i in data:
-            if isinstance(data[i], list):
-                data[i] = [self._to_json(k.__dict__.copy()) if "__dict__" in dir(k) 
-                            else k for k in data[i]]
-            elif isinstance(data[i], dict):
-                data[i] = self._to_json(data[i])
-            elif "__dict__" in dir(data[i]):
-                data[i] = self._to_json(data[i].__dict__.copy())
-            elif "value" in dir(data[i]):
-                data[i] = data[i].value
+        for num, i in enumerate(data):
+            res = val = data[i] if isinstance(data, dict) else i
+            if isinstance(val, list) or isinstance(val, dict):
+                res = self._to_json(val.copy())
+            elif isinstance(val, Enum): # For the enums
+                res = val.value
+            elif hasattr(val, "__dict__"): # for the objects
+                tmp = val.__dict__.copy()
+                if isinstance(val, questions.Question): 
+                    tmp["_type"] = val._type
+                    del tmp["_Question__parent"]
+                elif isinstance(val, Quiz): 
+                    del tmp["_Quiz__parent"]
+                res = self._to_json(tmp)
+            if res != val:
+                if isinstance(data, dict): data[i] = res
+                else: data[num] = res
         return data
 
     def get_hier(self) -> dict:
@@ -279,11 +289,22 @@ class Quiz:
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
+        qdict: Dict[str, questions.Question] = {
+            getattr(questions, m)._type: getattr(questions, m) for m in questions.QTYPES
+        }
+        def _from_json(dt: dict, parent: Quiz):
+            quiz = cls(dt["_Quiz__name"], parent)
+            for i in range(len(dt["_questions"])):
+                val = dt["_questions"][i]
+                dt["_questions"][i] = qdict[val["_type"]].from_json(val)
+                dt["_questions"][i].parent = quiz
+            for i in dt["_Quiz__categories"]:
+                val = dt["_Quiz__categories"][i] 
+                dt["_Quiz__categories"][i] = _from_json(dt["_Quiz__categories"][i], quiz)
+            return quiz
         with open(file_path, "rb") as infile:
             data = json.load(infile)
-        for key in data:
-            pass
-        return cls()
+        return _from_json(data, None)
 
     @classmethod
     def read_latex(cls) -> "Quiz":
@@ -429,7 +450,7 @@ class Quiz:
 
     def write_gift(self, file_path: str) -> None:
         # TODO
-        pass
+        raise NotImplemented("Gift not implemented")
 
     def write_json(self, file_path: str, pretty_print: bool=False) -> None:
         """[summary]
@@ -438,15 +459,22 @@ class Quiz:
             file_path (str): [description]
             pretty_print (bool, optional): [description]. Defaults to False.
         """
-        with open(file_path, "w") as ofile:
-            if pretty_print:
-                json.dump(self._to_json(self.__dict__.copy()), ofile, indent=4)
-            else:
-                json.dump(self._to_json(self.__dict__.copy()), ofile)
+        tmp = self.__dict__.copy()
+        del tmp["_Quiz__parent"]
+        with open(file_path, "w", encoding="utf-8") as ofile:
+            json.dump(self._to_json(tmp), ofile, indent=4 if pretty_print else 0)
 
     def write_latex(self, file_path: str) -> None:
         # TODO
-        pass
+        raise NotImplemented("LaTex not implemented")
+
+    def write_markdown(self, file_path: str) -> None:
+        # TODO
+        raise NotImplemented("Markdown not implemented")
+
+    def write_pdf(self, file_path: str):
+        # TODO
+        raise NotImplemented("PDF not implemented")
 
     def write_xml(self, file_path: str, pretty_print: bool=False):
         """Generates XML compatible with Moodle and saves to a file.
@@ -462,6 +490,3 @@ class Quiz:
             self._indent(root)
         quiz.write(file_path, encoding="utf-8", xml_declaration=True, short_empty_elements=True)
 
-    def write_pdf(self):
-        # TODO
-        pass

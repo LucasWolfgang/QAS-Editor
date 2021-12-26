@@ -70,6 +70,11 @@ class Question():
             self.__parent._questions.append(self)
 
     @classmethod
+    def from_json(cls, data) -> "Question":
+        data["question_text"] = FText.from_json(data["question_text"])
+        return cls(**data)
+
+    @classmethod
     def from_xml(cls, root: et.Element, **kwargs) -> "Question":
         data = {x.tag: x for x in root}
         res = {}
@@ -143,6 +148,18 @@ class QCalculated(Question):
         self.units.append(Unit(name, multiplier))
 
     @classmethod
+    def from_json(cls, data) -> "QCalculated":
+        data["unit_handling"] = UnitHandling.from_json(data["unit_handling"])
+        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
+        for i in range(len(data["units"])):
+            data["units"][i] = Unit.from_json(data["units"][i])
+        for i in range(len(data["datasets"])):
+            data["datasets"][i] = Dataset.from_json(data["datasets"][i])
+        for i in range(len(data["answers"])):
+            data["answers"][i] = CalculatedAnswer.from_json(data["answers"][i])
+        return super().from_json(data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "QCalculated":
         data = {x.tag: x for x in root}
         res = {}
@@ -199,7 +216,7 @@ class QCalculatedMultichoice(Question):
         self.synchronize = synchronize
         self.single = single
         self.numbering = numbering
-        self.combined_feedback = combined_feedback
+        self.combined_feedback = combined_feedback if combined_feedback else CombinedFeedback()
         self.multiple_tries = multiple_tries
         self.datasets: List[Dataset] = datasets if datasets is not None else []
         self.answers: List[CalculatedAnswer] = answers if answers is not None else []
@@ -213,6 +230,17 @@ class QCalculatedMultichoice(Question):
 
     def add_unit(self, name: str, multiplier: float) -> None:
         self.units.append(Unit(name, multiplier))
+
+    @classmethod
+    def from_json(cls, data: dict) -> QCalculatedMultichoice:
+        data["numbering"] = Numbering(data["numbering"])
+        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
+        for i in range(len(data["datasets"])):
+            data["datasets"][i] = Dataset.from_json(data["datasets"][i])
+        for i in range(len(data["answers"])):
+            data["answers"][i] = CalculatedAnswer.from_json(data["answers"][i])
+        return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Question":
@@ -255,23 +283,14 @@ class QCloze(Question):
     def __init__(self, answers: List[ClozeItem]=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.answers: List[ClozeItem] = answers if answers is not None else []
-        
+    
+    @classmethod
+    def from_json(cls, data: dict) -> "QCloze":
+        return super().from_json(data)
+
     @classmethod
     def from_xml(cls, root: et.Element) -> "QCloze":
         return super().from_xml(root)
-
-    def to_xml(self) -> et.Element:
-        text = [] 
-        last = 0
-        for answer in self.answers:
-            text.append(self.question_text.text[last:answer.start])
-            text.append(str(answer))
-            last = answer.start + 42
-        tmp = self.question_text.text
-        self.question_text.text = "".join(text)
-        result = super().to_xml()
-        self.question_text.text = tmp
-        return result
 
     @classmethod
     def from_cloze(cls, buffer) -> "QCloze":
@@ -289,6 +308,19 @@ class QCloze(Question):
             index = a.end()
         ftext = FText("".join(new_text), Format.HTML)
         return cls(name=name, question_text=ftext, answers=answers)
+    
+    def to_xml(self) -> et.Element:
+        text = [] 
+        last = 0
+        for answer in self.answers:
+            text.append(self.question_text.text[last:answer.start])
+            text.append(str(answer))
+            last = answer.start + 42
+        tmp = self.question_text.text
+        self.question_text.text = "".join(text)
+        result = super().to_xml()
+        self.question_text.text = tmp
+        return result
 
 # ----------------------------------------------------------------------------------------
 
@@ -297,6 +329,10 @@ class QDescription(Question):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+
+    @classmethod
+    def from_json(cls, data: dict) -> "QCloze":
+        return super().from_json(data)
 
     @classmethod
     def from_gift(cls, header: list) -> "QDescription":
@@ -331,6 +367,14 @@ class QDragAndDropText(Question):
         self.combined_feedback = combined_feedback
         self.multiple_tries = multiple_tries
         self.answers: List[DragText] = answers if answers is not None else []
+
+    @classmethod
+    def from_json(cls, data) -> "QDragAndDropText":
+        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
+        for i in range(len(data["answers"])):
+            data["answers"][i] = DragText.from_json(data["answers"][i])
+        return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "QDragAndDropText":    
@@ -409,7 +453,17 @@ class QDragAndDropImage(Question):
         self._dropzones.append(DropZone(x, y, text, choice, len(self._dropzones) + 1))
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "Question":
+    def from_json(cls, data) -> "QDragAndDropImage":
+        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+        data["background"] = B64File.from_json(data["background"])
+        for i in range(len(data["_dragitems"])):
+            data["_dragitems"][i] = DragItem.from_json(data["_dragitems"][i])
+        for i in range(len(data["_dropzones"])):
+            data["_dropzones"][i] = DropZone.from_json(data["_dropzones"][i])   
+        return super().from_json(data)
+
+    @classmethod
+    def from_xml(cls, root: et.Element) -> "QDragAndDropImage":
         data = {x.tag: x for x in root}
         res = {}
         res["combined_feedback"] = CombinedFeedback.from_xml(root)
@@ -465,6 +519,17 @@ class QDragAndDropMarker(Question):
         self._dragitems.append(dragitem)
 
     @classmethod
+    def from_json(cls, data) -> "QDragAndDropMarker":
+        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
+        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+        data["background"] = B64File.from_json(data["background"])
+        for i in range(len(data["_dragitems"])):
+            data["_dragitems"][i] = DragItem.from_json(data["_dragitems"][i])
+        for i in range(len(data["_dropzones"])):
+            data["_dropzones"][i] = DropZone.from_json(data["_dropzones"][i])   
+        return super().from_json(data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "QDragAndDropMarker":
         data = {x.tag: x for x in root}
         res = {}
@@ -498,13 +563,13 @@ class QDragAndDropMarker(Question):
 class QEssay(Question):
     _type = "essay"
 
-    def __init__(self, reponse_format: ResponseFormat=ResponseFormat.HTML,         
+    def __init__(self, response_format: ResponseFormat=ResponseFormat.HTML,         
                 response_required: bool=True, lines: int=10, attachments: int=1, 
                 attachments_required: bool=False, maxbytes: int=None, 
                 filetypes_list: str=None, grader_info: FText=None, 
                 response_template: FText=None, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.response_format = reponse_format
+        self.response_format = response_format
         self.response_required = response_required
         self.responsefield_lines = lines
         self.attachments = attachments
@@ -522,10 +587,17 @@ class QEssay(Question):
         return cls(name=header[1], question_text=FText(header[3], formatting))
 
     @classmethod
+    def from_json(cls, data) -> "QEssay":
+        data["response_format"] = ResponseFormat(data["response_format"])
+        data["grader_info"] = FText.from_json(data["grader_info"])
+        data["response_template"] = FText.from_json(data["response_template"])
+        return super().from_json(data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "QEssay":
         data = {x.tag: x for x in root}
         res = {}
-        res["reponse_format"] = ResponseFormat(data["responseformat"].text)
+        res["response_format"] = ResponseFormat(data["responseformat"].text)
         extract(data, "responserequired"   , res, "response_required" , bool)
         extract(data, "responsefieldlines" , res, "lines"      , int)
         extract(data, "attachments"        , res, "attachments", int)
@@ -591,6 +663,13 @@ class QMatching(Question):
         return qst
 
     @classmethod
+    def from_json(cls, data) -> "QMatching":
+        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+        for i in range(len(data["subquestions"])):
+            data["subquestions"][i] = Subquestion.from_json(data["subquestions"][i])
+        return super().from_json(data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "QMatching":
         res = {}
         res["combined_feedback"] = CombinedFeedback.from_xml(root)
@@ -620,6 +699,11 @@ class QRandomMatching(Question):
         self.subcats = subcats
 
     @classmethod
+    def from_json(cls, data) -> "QRandomMatching":
+        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+        return super().from_json(data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "QRandomMatching":
         data = {x.tag: x for x in root}
         res = {}
@@ -646,6 +730,13 @@ class QMissingWord(Question):
         super().__init__(*args, **kwargs)
         self.combined_feedback = combined_feedback
         self.options = options if options is not None else []
+
+    @classmethod
+    def from_json(cls, data) -> "QMissingWord":
+        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+        for i in range(len(data["options"])):
+            data["options"][i] = SelectOption.from_json(data["options"][i])
+        return super().from_json(data)
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QMissingWord":
@@ -710,6 +801,15 @@ class QMultichoice(Question):
         else:
             raise TypeError(f"answer_numbering should be of type Numbering or str, not {type(answer_numbering)}")
         self.answers = answers if answers is not None else []
+
+    @classmethod
+    def from_json(cls, data) -> "QMultichoice":
+        data["answer_numbering"] = Numbering(data["answer_numbering"])
+        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
+        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+        for i in range(len(data["answers"])):
+            data["answers"][i] = Answer.from_json(data["answers"][i])
+        return super().from_json(data)
 
     @classmethod
     def from_aiken(cls, buffer, name) -> "QMultichoice":
@@ -835,6 +935,15 @@ class QNumerical(Question):
         self.units.append(Unit(name, multiplier))
 
     @classmethod
+    def from_json(cls, data) -> "QNumerical":
+        data["unit_handling"] = UnitHandling.from_json(data["unit_handling"])
+        for i in range(len(data["units"])):
+            data["units"][i] = Unit.from_json(data["units"][i])
+        for i in range(len(data["answers"])):
+            data["answers"][i] = NumericalAnswer.from_json(data["answers"][i])
+        return super().from_json(data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "QNumerical":
         data = {x.tag: x for x in root}
         res = {}
@@ -918,6 +1027,12 @@ class QShortAnswer(Question):
         self.answers.append(Answer(fraction, text, feedback))
 
     @classmethod
+    def from_json(cls, data) -> "QShortAnswer":
+        for i in range(len(data["answers"])):
+            data["answers"][i] = Answer.from_json(data["answers"][i])
+        return super().from_json(data)
+
+    @classmethod
     def from_gift(cls, header: list, answer: list) -> "QShortAnswer":
         formatting = Format(header[2][1:-1])
         if formatting is None:
@@ -973,6 +1088,12 @@ class QTrueFalse(Question):
         self.__answer_true.fraction = 100 if value else 0
         self.__answer_false.fraction = 100 if not value else 0
         self.__correct_answer = value
+
+    @classmethod
+    def from_json(cls, data) -> "QTrueFalse":
+        data["true_ans"] = Answer.from_json(data["_QTrueFalse__answer_true"])
+        data["false_ans"] = Answer.from_json(data["_QTrueFalse__answer_false"])
+        return super().from_json(data)
 
     @classmethod
     def from_gift(cls, header: list, answer: list) -> "QTrueFalse":
@@ -1056,7 +1177,13 @@ class QCrossWord(Question):
             pass
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "Question":
+    def from_json(cls, data) -> "QCrossWord":
+        for i in range(len(data["words"])):
+            data["words"][i] = CrossWord.from_json(data["words"][i])
+        return super().from_json(data)
+
+    @classmethod
+    def from_xml(cls, root: et.Element) -> "QCrossWord":
         raise NotImplementedError("This Class is not avaiable in a Moodle XML")
 
 # ----------------------------------------------------------------------------------------

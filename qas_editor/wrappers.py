@@ -23,6 +23,11 @@ class B64File():
                     self.bfile = str(base64.b64encode(f.read()), "utf-8")
 
     @classmethod
+    def from_json(cls, data: dict) -> "B64File":
+        if data is None: return None
+        return cls(**data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "B64File":
         if root is None:
             return None
@@ -47,6 +52,10 @@ class SelectOption:
         self.group = group
 
     @classmethod
+    def from_json(cls, data: dict) -> "SelectOption":
+        return cls(**data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "SelectOption":
         data = {x.tag: x for x in root}
         text = data["text"].text
@@ -67,6 +76,11 @@ class Subquestion:
         self.text = text
         self.answer = answer
         self.formatting = formatting
+
+    @classmethod
+    def from_json(cls, data: dict) -> "Subquestion":
+        data["formatting"] = Format(data["formatting"])
+        return cls(**data)
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Subquestion":
@@ -94,6 +108,13 @@ class UnitHandling():
         self.left = left
 
     @classmethod
+    def from_json(cls, data: dict) -> "UnitHandling":
+        if data is None: return None
+        data["grading_type"] = Grading(data["grading_type"])
+        data["show"] = ShowUnits(data["show"])
+        return cls(**data)
+
+    @classmethod
     def from_xml(cls, data: Dict[str, et.Element]) -> "UnitHandling":
         res = {}
         res["grading_type"] = Grading(data["unitgradingtype"].text)
@@ -117,6 +138,10 @@ class Unit():
         self.multiplier = multiplier
 
     @classmethod
+    def from_json(cls, data: dict) -> "Unit":
+        return cls(**data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "Unit":
         data = {x.tag: x for x in root}
         unit_name = data["unit_name"].text
@@ -133,12 +158,18 @@ class Unit():
 
 class FText():
 
-    def __init__(self, text: str, formatting: Format) -> None:
+    def __init__(self, text: str, formatting: Format, bfile: list=None) -> None:
         self.text = text
         if not isinstance(formatting, Format):
             raise TypeError("Formatting type is not valid")
         self.formatting = formatting
-        self.bfile: List[B64File] = []
+        self.bfile: List[B64File] = bfile if bfile else []
+
+    @classmethod
+    def from_json(cls, data: dict) -> "FText":
+        if data is None: return None
+        data["formatting"] = Format(data["formatting"])
+        return cls(**data)
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "FText":
@@ -161,16 +192,22 @@ class FText():
 
 class Dataset():
 
-    def __init__(self, status: Status, name: str, ctype: str, dist: Distribution, 
-                minimum: float,  maximum: float, decimals: int) -> None:
+    def __init__(self, status: Status, name: str, ctype: str, distribution: Distribution, 
+                minimum: float, maximum: float, decimals: int, items: dict=None) -> None:
         self.status = status
         self.name = name
-        self.type = ctype
-        self.distribution = dist
+        self.ctype = ctype
+        self.distribution = distribution
         self.minimum = minimum
         self.maximum =  maximum
         self.decimals = decimals
-        self.items: Dict[str, float] = {}
+        self.items: Dict[str, float] = items if items else {}
+    
+    @classmethod
+    def from_json(cls, data: dict) -> "Dataset":
+        data["status"] = Status(data["status"])
+        data["distribution"] = Distribution(data["distribution"])
+        return cls(**data)
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "Dataset":
@@ -194,7 +231,7 @@ class Dataset():
         et.SubElement(status, "text").text = self.status.value
         name = et.SubElement(dataset_definition, "name")
         et.SubElement(name, "text").text = self.name
-        et.SubElement(dataset_definition, "type").text = self.type
+        et.SubElement(dataset_definition, "type").text = self.ctype
         distribution = et.SubElement(dataset_definition, "distribution")
         et.SubElement(distribution, "text").text = self.distribution.value
         minimum = et.SubElement(dataset_definition, "minimum")
@@ -249,6 +286,11 @@ class Hint():
         self.state_incorrect = state_incorrect
 
     @classmethod
+    def from_json(cls, data: dict) -> "Hint":
+        data["formatting"] = Format(data["formatting"])
+        return cls(**data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "Hint":
         data = {x.tag: x for x in root}
         formatting = Format(root.get("format"))
@@ -276,11 +318,20 @@ class CombinedFeedback():
     Class tp wrap combined feeback variables.
     """
 
-    def __init__(self, correct: FText, incomplete: FText, incorrect: FText, show_num: bool) -> None:
+    def __init__(self, correct: FText, incomplete: FText, incorrect: FText, 
+                show_num: bool=False) -> None:
         self.correct = correct
         self.incomplete = incomplete
         self.incorrect = incorrect
         self.show_num = show_num
+
+    @classmethod
+    def from_json(cls, data: dict) -> "CombinedFeedback":
+        if data is None: return None
+        data["correct"] = FText.from_json(data["correct"])
+        data["incomplete"] = FText.from_json(data["incomplete"])
+        data["incorrect"] = FText.from_json(data["incorrect"])
+        return cls(**data)
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "CombinedFeedback":
@@ -305,6 +356,13 @@ class MultipleTries():
     def __init__(self, penalty: float=0.5, hints: List[Hint]=None) -> None:
         self.penalty = penalty
         self.hints = hints if hints is not None else []
+
+    @classmethod
+    def from_json(cls, data: dict) -> "MultipleTries":
+        if data is None: return None
+        for i in range(len(data["hints"])):
+            data["hints"][i] = Hint.from_json(data["hints"][i])
+        return cls(**data)
 
     @classmethod
     def from_xml(cls, data: dict, root: et.Element) -> "MultipleTries":

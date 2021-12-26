@@ -21,6 +21,12 @@ class Answer:
         self.feedback = feedback
 
     @classmethod
+    def from_json(cls, data: dict) -> "Answer":
+        data["formatting"] = Format(data["formatting"])
+        data["feedback"] = FText.from_json(data["feedback"])
+        return cls(**data)
+
+    @classmethod
     def from_xml(cls, root: et.Element, *args) -> "Answer":
         data = {x.tag: x for x in root}
         fraction = root.get("fraction")
@@ -52,9 +58,13 @@ class NumericalAnswer(Answer):
     when initializing.
     """
 
-    def __init__(self, tol: float=0.1, *args, **kwargs) -> None:
+    def __init__(self, tolerance: float=0.1, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.tolerance = tol
+        self.tolerance = tolerance
+
+    @classmethod
+    def from_json(cls, data: dict) -> "NumericalAnswer":
+        return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element, *args) -> "NumericalAnswer":
@@ -81,6 +91,10 @@ class CalculatedAnswer(NumericalAnswer):
         self.tolerance_type = tolerance_type
         self.correct_answer_format = correct_answer_format
         self.correct_answer_length = correct_answer_length
+
+    @classmethod
+    def from_json(cls, data: dict) -> "CalculatedAnswer":
+        return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "CalculatedAnswer":
@@ -127,6 +141,13 @@ class ClozeItem():
         return "".join(text)
 
     @classmethod
+    def from_json(cls, data: dict) -> "ClozeItem":
+        data["cformat"] = ClozeFormat(data["cformat"])
+        for i in range(len(data["opts"])):
+            data["opts"][i] = Answer.from_json(data["opts"])
+        return cls(**data)
+
+    @classmethod
     def from_cloze(cls, regex) -> "ClozeItem":
         options = []
         for opt in regex[3].split("~"):
@@ -154,6 +175,10 @@ class DragText:
         self.text = text
         self.group = group
         self.unlimited = unlimited
+
+    @classmethod
+    def from_json(cls, data: dict) -> "DragText":
+        return cls(**data)
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "DragText":
@@ -188,6 +213,11 @@ class DragItem:
         self.number = number
         self.no_of_drags = no_of_drags
         self.image = image
+
+    @classmethod
+    def from_json(cls, data: dict) -> "DragItem":
+        data["image"] = B64File.from_json(data["image"])
+        return cls(**data)
 
     @classmethod
     def from_xml(cls, root: et.Element) -> "DragItem":
@@ -241,6 +271,12 @@ class DropZone:
         self.number = number
 
     @classmethod
+    def from_json(cls, data: dict) -> "DropZone":
+        if data["shape"] is not None:
+            data["shape"] = ShapeType(data["shape"])
+        return cls(**data)
+
+    @classmethod
     def from_xml(cls, root: et.Element) -> "DropZone":
         data = {x.tag: x for x in root}
         res = {}
@@ -284,6 +320,11 @@ class CrossWord():
         self.y = y
         self.direction = direction
         self.clue = clue
+
+    @classmethod
+    def from_json(cls, data: dict) -> "CrossWord":
+        data["direction"] = Direction(data["direction"])
+        return cls(**data)
 
     @classmethod
     def from_xml(cls, root: et.Element, *args) -> "NumericalAnswer":
