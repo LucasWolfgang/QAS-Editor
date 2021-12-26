@@ -34,6 +34,7 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
     - Aiken file
     - Cloze file
     - GIFT file
+    - JSON
     - Markdown files 
     - Moodle XML file
   - Export
@@ -44,7 +45,6 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
 ## Next features
   - Import
     - LaTex (as MCQ)
-    - JSON
   - Export 
     - Cloze file 
     - GIFT file 
