@@ -29,7 +29,6 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
  </center>
 
  <sup><sup>1</sup> Original table from [moodle-questions](https://github.com/gethvi/moodle-questions)</sup>
-  - GUI to create and update questions manually
   - Import
     - Aiken file
     - Cloze file
@@ -41,6 +40,8 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
     - Aiken file
     - Moodle XML file
     - JSON
+  - GUI to create and update questions manually
+<img src="https://user-images.githubusercontent.com/39681420/154815130-8469ffec-56ea-4530-bbbc-872d27f41b0d.png" alt="drawing" width="600"/>
 
 ## Next features
   - Import
