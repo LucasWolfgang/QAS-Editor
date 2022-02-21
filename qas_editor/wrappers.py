@@ -18,14 +18,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import base64
 from typing import List, Dict
+import logging
+logger = logging.getLogger(__name__)
 from xml.etree import ElementTree as et
 from urllib.request import urlopen
 from .enums import Format, Status, Distribution, Grading, ShowUnits
-from .utils import cdata_str, extract
+from .utils import cdata_str, extract, Serializable
 
 # ----------------------------------------------------------------------------------------
 
-class B64File():
+class B64File(Serializable):
 
     def __init__(self, name: str, path: str=None, bfile: str=None) -> None:
         self.path = path
@@ -63,7 +65,7 @@ class B64File():
 
 # ----------------------------------------------------------------------------------------
 
-class SelectOption:
+class SelectOption(Serializable):
 
     def __init__(self, text: str, group: int) -> None:
         self.text = text
@@ -88,7 +90,7 @@ class SelectOption:
 
 # ----------------------------------------------------------------------------------------
 
-class Subquestion:
+class Subquestion(Serializable):
 
     def __init__(self, formatting: Format, text: str, answer: str) -> None:
         self.text = text
@@ -117,7 +119,7 @@ class Subquestion:
 
 # ----------------------------------------------------------------------------------------
 
-class UnitHandling():
+class UnitHandling(Serializable):
 
     def __init__(self, grading_type: Grading, penalty: float, show: ShowUnits, left: bool) -> None:
         self.grading_type = grading_type
@@ -149,7 +151,7 @@ class UnitHandling():
 
 # ----------------------------------------------------------------------------------------
 
-class Unit():
+class Unit(Serializable):
 
     def __init__(self, unit_name: str, multiplier: float) -> None:
         self.unit_name = unit_name
@@ -174,7 +176,7 @@ class Unit():
 
 # ----------------------------------------------------------------------------------------
 
-class FText():
+class FText(Serializable):
 
     def __init__(self, text: str, formatting: Format, bfile: list=None) -> None:
         self.text = text
@@ -208,7 +210,7 @@ class FText():
 
 # ----------------------------------------------------------------------------------------
 
-class Dataset():
+class Dataset(Serializable):
 
     def __init__(self, status: Status, name: str, ctype: str, distribution: Distribution, 
                 minimum: float, maximum: float, decimals: int, items: dict=None) -> None:
@@ -293,7 +295,7 @@ class Tags(list):
 
 # ----------------------------------------------------------------------------------------
 
-class Hint():
+class Hint(Serializable):
 
     def __init__(self, formatting: Format, text: str, show_correct: bool, 
                 clear_wrong: bool, state_incorrect: bool=False) -> None:
@@ -331,7 +333,7 @@ class Hint():
 
 # ----------------------------------------------------------------------------------------
 
-class CombinedFeedback():
+class CombinedFeedback(Serializable):
     """
     Class tp wrap combined feeback variables.
     """
@@ -369,7 +371,7 @@ class CombinedFeedback():
 
 # ----------------------------------------------------------------------------------------
 
-class MultipleTries():
+class MultipleTries(Serializable):
 
     def __init__(self, penalty: float=0.5, hints: List[Hint]=None) -> None:
         self.penalty = penalty

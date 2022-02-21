@@ -16,7 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from typing import cast
+import logging
+logger = logging.getLogger(__name__)
 
 def extract(data: dict, key: str, res: dict, name: str, cast_type) -> None:
     if key in data:
@@ -33,20 +34,12 @@ def extract(data: dict, key: str, res: dict, name: str, cast_type) -> None:
     elif cast_type == bool:
         res[name] = False
 
+# ------------------------------------------------------------------------------
 
 def cdata_str(text: str):
     return f"<![CDATA[{text}]]>" if text else ""
 
-def conf_logger():
-    import logging
-    import os
-    log = logging.getLogger("qas_editor")
-    log.setLevel(logging.DEBUG)
-    fhandler = logging.FileHandler(filename=f"{os.environ['USERPROFILE']}/qas_editor.log",
-                                mode="w", encoding="utf-8")
-    fhandler.setFormatter(logging.Formatter("%(levelname)s [%(asctime)s]: %(message)s"))
-    fhandler.setLevel(logging.DEBUG)
-    log.addHandler(fhandler)
+# ------------------------------------------------------------------------------
 
 from PyPDF2.generic import IndirectObject
 def quick_print(data, pp):
@@ -63,3 +56,41 @@ def quick_print(data, pp):
         quick_print(data.getObject(), pp+"  ")
     else:
         print(pp, data)
+
+# ------------------------------------------------------------------------------
+
+class Serializable:
+    """An abstract class to be used as base for all serializable classes
+    """
+
+    def __eq__(self, __o: object) -> bool:
+        if not __debug__:
+            return self.__dict__ == __o.__dict__
+        for item in self.__dict__:
+            if self.__dict__[item] != __o.__dict__.get(item):
+                msg = (f"{self.__class__.__name__} not equal. "
+                       f"{item} ({type(self.__dict__[item])}) differs. ")
+                if type(self.__dict__[item]) in (int, float, str):
+                    msg += f"Values:\n\t{self.__dict__[item]}\n\t{__o.__dict__[item]}"
+                logger.debug(msg)
+                return False
+        else:  
+            return True
+
+    @classmethod
+    def from_cloze(cls, regex) -> "Serializable":
+        pass
+
+    @classmethod
+    def from_json(cls, *args, **kwargs) -> "Serializable":
+        pass
+
+    @classmethod
+    def from_xml(cls, *args, **kwargs) -> "Serializable":
+        pass
+
+    def to_cloze(self):
+        pass
+
+    def to_xml(self):
+        pass
