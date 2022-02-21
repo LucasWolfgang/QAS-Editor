@@ -43,6 +43,14 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
   - GUI to create and update questions manually
 <img src="https://user-images.githubusercontent.com/39681420/154815130-8469ffec-56ea-4530-bbbc-872d27f41b0d.png" alt="drawing" width="600"/>
 
+## Requirements
+  - Use the requirements.txt file to get all the required dependecies installed to be able to fully use the library  
+
+    ```python -pip install -r requirements.txt```
+  
+  - <i>PyQt</i> is only necessary to use the GUI, of course.
+  - <i>PyPDF2</i> and <i>Pillow</i> may be replaced by <i>PikePDF</i> in the future 
+
 ## Next features
   - Import
     - LaTex (as MCQ)

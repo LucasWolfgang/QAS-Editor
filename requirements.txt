@@ -1,0 +1,4 @@
+PyQt5 >= 5.15.0
+PyPDF2 >= 1.26.0
+Pillow >= 9.0.0
+latex2mathml >= 3.64.0
