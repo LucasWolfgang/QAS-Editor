@@ -5,7 +5,7 @@
       <text>$course$/qas_editor</text>
     </category>
   </question>
-  <question type="essay">
+  <question type="essay">""
     <name>
       <text>Essai1</text>
     </name>

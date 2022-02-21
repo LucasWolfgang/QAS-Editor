@@ -127,3 +127,6 @@ test_notebook.ipynb
 test.json
 test.txt
 qas_editor/.vscode/launch.json
+
+# Custom
+./test/unittest.log
