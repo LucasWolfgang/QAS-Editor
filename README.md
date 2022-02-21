@@ -1,3 +1,5 @@
+![Pylint 3.6, 3.7, 3.8, 3.9, 3.10](https://github.com/LucasWolfgang/QAS-Editor/actions/workflows/pylint.yml/badge.svg)
+
 # QAS-Editor
  Question and Answer Sheet Editor for importing, editing and exporting different extensions.  
  
