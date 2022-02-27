@@ -15,20 +15,9 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-
-from .answer import Answer, CalculatedAnswer, DragText, NumericalAnswer
-from .enums import *
-from .questions import (QCalculated, QCalculatedMultichoice, QCalculatedSimple,
-                        QCloze, QDescription, QDragAndDropImage,
-                        QDragAndDropMarker, QDragAndDropText, QEssay,
-                        QMatching, QMissingWord, QMultichoice, QNumerical,
-                        QRandomMatching, QShortAnswer, QTrueFalse)
+import sys
+if sys.version_info < (3,):
+    raise Exception("Python 2 is not supported.")
 
 __author__ = "Lucas Wolfgang"
-__version__ = "0.0.1"
-__all__ = ["GUI", "main", "Answer", "DragText", "NumericalAnswer", "CalculatedAnswer",
-        "QDescription", "QCalculated", "QCalculatedSimple",
-        "QCalculatedMultichoice", "QCloze", "QDragAndDropText",
-        "QDragAndDropImage", "QDragAndDropMarker", "QEssay",
-        "QMatching", "QRandomMatching", "QMissingWord", "QMultichoice",
-        "QNumerical", "QShortAnswer", "QTrueFalse"]
+__version__ = "0.0.2"

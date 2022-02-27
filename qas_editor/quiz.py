@@ -17,24 +17,25 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
-
-from PyQt5.QtCore import reset
-if TYPE_CHECKING:
-    from typing import List, Dict
-import re
-import logging
 import json
-from xml.etree import ElementTree as et
-from PIL import Image
-from PyPDF2.pdf import PageObject
-from PyPDF2 import PdfFileReader 
+import logging
+import re
 from enum import Enum
+from typing import TYPE_CHECKING
+from xml.etree import ElementTree as et
 from .enums import Numbering
-from . import questions
-# import pikepdf
+from .questions import QDICT, Question, QMultichoice, QCloze, QDescription,\
+                       QEssay, QNumerical, QMissingWord, QTrueFalse, QMatching,\
+                       QShortAnswer
+if TYPE_CHECKING:
+    from typing import List, Dict   # pylint: disable=C0412
+LOG = logging.getLogger(__name__)
 
-def _escape_cdata(text):
+#from PIL import Image
+#from PyPDF2 import PdfFileReader, pdf
+#import pikepdf
+
+def _escape_cdata(text: str):
     try:
         if str.startswith(text, "<![CDATA[") and str.endswith(text, "]]>"):
             return text
@@ -49,38 +50,57 @@ def _escape_cdata(text):
         et._raise_serialization_error(text)
 et._escape_cdata = _escape_cdata
 
-# ----------------------------------------------------------------------------------------
-
-logger = logging.getLogger(__name__)
+# ------------------------------------------------------------------------------
 
 class ParseError(Exception):
-    pass
+    """Exception used when a parsing fails.
+    """
+
+# ------------------------------------------------------------------------------
 
 class LineBuffer:
+    """Helps parsing text files that uses lines (\\n) as part of the standard
+    somehow.
+    """
 
     def __init__(self, buffer) -> None:
         self.last = buffer.readline()
         self.__bfr = buffer
-    
-    def rd(self, inext:bool=False):
-        if not self.last and inext: raise ParseError()
+
+    def read(self, inext: bool = False):
+        """_summary_
+
+        Args:
+            inext (bool, optional): _description_. Defaults to False.
+
+        Raises:
+            ParseError: _description_
+
+        Returns:
+            _type_: _description_
+        """
+        if not self.last and inext:
+            raise ParseError()
         tmp = self.last
         if inext:
             self.last = self.__bfr.readline()
-            while self.last and self.last == "\n": self.last = self.__bfr.readline()
+            while self.last and self.last == "\n":
+                self.last = self.__bfr.readline()
         return tmp
 
-class Quiz:
+# ------------------------------------------------------------------------------
+
+class Quiz: # pylint: disable=R0904
     """
     This class represents Quiz as a set of Questions.
     """
 
-    def __init__(self, name = "$course$", parent: "Quiz"=None):
-        self._questions: List[questions.Question] = []
+    def __init__(self, name: str = "$course$", parent: "Quiz" = None):
+        self.__questions: List[Question] = []
         self.__categories: Dict[str, Quiz] = {}
         self.__name = name
         self.__parent = None
-        self.parent = parent
+        self.parent = parent    # Already using the property setter
 
     def __iter__(self):
         return self.__categories.__iter__()
@@ -88,20 +108,37 @@ class Quiz:
     def __getitem__(self, key: str):
         return self.__categories[key]
 
+    def __setitem__(self, __k: str, __v: "Quiz"):
+        if not isinstance(__k, str) or not isinstance(__v, Quiz):
+            raise ValueError(f"{__k} is not a string or {__v} is not a Quiz")
+        return self.__categories.__setitem__(__k, __v)
+
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, Quiz):
+            return False
+        if self.__questions != __o.__questions:
+            LOG.debug(f"Quizes {self.name} not equal. Questions differ.")
+            return False
+        if self.__categories != __o.__categories:
+            LOG.debug(f"Quizes {self.name} not equal. Categories differ.")
+            return False
+        return True
+
     @staticmethod
     def __gen_hier(top: "Quiz", category: str) -> tuple:
         cat_list = category.strip().split("/")
-        if top is None: top = Quiz(cat_list[0])
-        elif top.name != cat_list[0]: 
+        if top is None:
+            top = Quiz(cat_list[0])
+        elif top.name != cat_list[0]:
             raise ValueError(f"Top categroy names differ: {top.name} != {cat_list[0]}")
         quiz = top
         for i in cat_list[1:]:
-            if i not in quiz.__categories: 
-                quiz.__categories[i] = Quiz(i, quiz)
-            quiz = quiz.__categories[i]
+            if i not in quiz:
+                quiz[i] = Quiz(i, quiz)
+            quiz = quiz[i]
         return (top, quiz)
 
-    def _indent(self, elem: et.Element, level: int=0):
+    def _indent(self, elem: et.Element, level: int = 0):
         """[summary]
 
         Args:
@@ -109,13 +146,13 @@ class Quiz:
             level (int, optional): [description]. Defaults to 0.
         """
         i = "\n" + level * "  "
-        if len(elem):
+        if len(elem) != 0:
             if not elem.text or not elem.text.strip():
                 elem.text = i + "  "
             if not elem.tail or not elem.tail.strip():
                 elem.tail = i
-            for elem in elem:
-                self._indent(elem, level + 1)
+            for tag in elem:
+                self._indent(tag, level + 1)
             if not elem.tail or not elem.tail.strip():
                 elem.tail = i
         else:
@@ -124,8 +161,8 @@ class Quiz:
 
     def _to_aiken(self) -> str:
         data = ""
-        for question in self._questions:
-            if isinstance(question, questions.QMultichoice):
+        for question in self.__questions:
+            if isinstance(question, QMultichoice):
                 data += f"{question.question_text.text}\n"
                 correct = "ANSWER: None\n\n"
                 for num, ans in enumerate(question.answers):
@@ -143,8 +180,8 @@ class Quiz:
         Args:
             root (et.Element): [description]
         """
-        question = et.Element("question")                   # Add category on the top
-        if len(self._questions) > 0:
+        question = et.Element("question")           # Add category on the top
+        if len(self.__questions) > 0:
             question.set("type", "category")
             category = et.SubElement(question, "category")
             catname = [self.__name]
@@ -154,10 +191,10 @@ class Quiz:
                 tmp = tmp.parent
             catname.reverse()
             et.SubElement(category, "text").text = "/".join(catname)
-            root.append(question)        
-            for question in self._questions:                # Add own questions first
+            root.append(question)
+            for question in self.__questions:       # Add own questions first
                 root.append(question.to_xml())
-        for child in self.__categories.values():            # Then add children data
+        for child in self.__categories.values():    # Then add children data
             child._to_xml_element(root)
 
     def _to_json(self, data: dict|list):
@@ -171,20 +208,21 @@ class Quiz:
         """
         for num, i in enumerate(data):
             res = val = data[i] if isinstance(data, dict) else i
-            if isinstance(val, list) or isinstance(val, dict):
+            if isinstance(val, (list, dict)):
                 res = self._to_json(val.copy())
             elif isinstance(val, Enum): # For the enums
                 res = val.value
             elif hasattr(val, "__dict__"): # for the objects
                 tmp = val.__dict__.copy()
-                if isinstance(val, questions.Question): 
+                if isinstance(val, Question):
                     tmp["_type"] = val._type
                     del tmp["_Question__parent"]
-                elif isinstance(val, Quiz): 
+                elif isinstance(val, Quiz):
                     del tmp["_Quiz__parent"]
                 res = self._to_json(tmp)
             if res != val:
-                if isinstance(data, dict): data[i] = res
+                if isinstance(data, dict):
+                    data[i] = res
                 else: data[num] = res
         return data
 
@@ -195,13 +233,17 @@ class Quiz:
             root (dict): [description]
         """
         data = {}
-        data["__questions__"] = self._questions
+        data["__questions__"] = self.__questions
         for cat in self.__categories:
             data[cat] = self.__categories[cat].get_hier()
         return data
 
+    # --------------------------------------------------------------------------
+
     @property
     def name(self):
+        """_summary_
+        """
         return self.__name
 
     @name.setter
@@ -213,12 +255,10 @@ class Quiz:
             self.__parent.__categories[value] = self
         self.__name = value
 
-    @name.getter
-    def name(self) -> str:
-        return self.__name
-
     @property
     def parent(self):
+        """_summary_
+        """
         return self.__parent
 
     @parent.setter
@@ -233,73 +273,100 @@ class Quiz:
         else:
             self.__parent = None
 
-    @parent.getter
-    def parent(self) -> "Quiz":
-        return self.__parent
-
     @property
     def questions(self):
-        return self._questions.__iter__()
+        """_summary_
+        """
+        return self.__questions.__iter__()
+
+    # --------------------------------------------------------------------------
 
     @classmethod
-    def read_aiken(cls, file_path: str, category: str="$course$") -> "Quiz":
-        """[summary]
+    def read_aiken(cls, file_path: str, category: str = "$course$") -> "Quiz":
+        """_summary_
 
         Args:
-            file_path (str): [description]
+            file_path (str): _description_
+            category (str, optional): _description_. Defaults to "$".
+
+        Returns:
+            Quiz: _description_
         """
         quiz = cls(category)
         name = file_path.rsplit("/", 1)[-1][:-4]
         cnt = 0
         with open(file_path, encoding="utf-8") as ifile:
             buffer = LineBuffer(ifile)
-            while buffer.rd():
-                question = questions.QMultichoice.from_aiken(buffer, f"{name}_{cnt}")
+            while buffer.read():
+                question = QMultichoice.from_aiken(buffer, f"{name}_{cnt}")
                 question.parent = quiz
                 cnt += 1
         return quiz
 
     @classmethod
-    def read_cloze(cls, file_path: str, category: str="$course$") -> "Quiz":
+    def read_cloze(cls, file_path: str, category: str = "$course$") -> "Quiz":
+        """Reads a Cloze file.
+
+        Args:
+            file_path (str): _description_
+            category (str, optional): _description_. Defaults to "$".
+
+        Returns:
+            Quiz: _description_
+        """
         top_quiz: Quiz = Quiz(category)
         with open(file_path, "r", encoding="utf-8") as ifile:
-            question = questions.QCloze.from_cloze(ifile)
+            question = QCloze.from_cloze(ifile)
             question.parent = top_quiz
         return top_quiz
 
     @classmethod
     def read_gift(cls, file_path: str) -> "Quiz":
+        """Reads a gift file.
+
+        Args:
+            file_path (str): _description_
+
+        Raises:
+            ValueError: _description_
+            TypeError: _description_
+            NotImplemented: _description_
+
+        Returns:
+            Quiz: _description_
+        """
         top_quiz: Quiz = None
         quiz = top_quiz
         with open(file_path, "r", encoding="utf-8") as ifile:
             data = "\n" + ifile.read()
         data = re.sub(r"\n//.*?(?=\n)", "", data)           # Remove comments
-        data = re.sub("(?<!\})\n(?!::)", "", data) + "\n"   # Remove \n's inside a question
-        tmp = re.findall(r"(?:\$CATEGORY:\s*(.+))|(?:\:\:(.+?)\:\:(\[.+?\])?(.+?)(?:(\{.*?)(?<!\\)\}(.*?))?)\n", 
-                        data)
+        data = re.sub(r"(?<!\})\n(?!::)", "", data) + "\n"   # Remove \n's inside a question
+        tmp = re.findall(r"(?:\$CATEGORY:\s*(.+))|(?:\:\:(.+?)\:\:(\[.+?\])?"+
+                         r"(.+?)(?:(\{.*?)(?<!\\)\}(.*?))?)\n", data)
         for i in tmp:
             if i[0]:
                 top_quiz, quiz = Quiz.__gen_hier(top_quiz, i[0])
             if not i[0]:
                 question = None
-                ans = re.findall(r"((?<!\\)(?:=|~|TRUE|FALSE|T|F|####|#))(%[\d\.]+%)?((?:(?<=\\)[=~#]|[^~=#])*)", i[4])           
+                ans = re.findall(r"((?<!\\)(?:=|~|TRUE|FALSE|T|F|####|#))"+
+                                 r"(%[\d\.]+%)?((?:(?<=\\)[=~#]|[^~=#])*)", i[4])
                 if not i[4]:
-                    question = questions.QDescription.from_gift(i, ans)
+                    question = QDescription.from_gift(i)
                 elif not ans:
-                    question = questions.QEssay.from_gift(i, ans)
+                    question = QEssay.from_gift(i)
                 elif ans[0][0] == "#":
-                    question = questions.QNumerical.from_gift(i, ans)
-                elif i[5]:  
-                    question = questions.QMissingWord.from_gift(i, ans)  
-                elif ans[0][0] in ["TRUE", "FALSE", "T", "F"]:               
-                    question = questions.QTrueFalse.from_gift(i, ans)
+                    question = QNumerical.from_gift(i, ans)
+                elif i[5]:
+                    question = QMissingWord.from_gift(i, ans)
+                elif ans[0][0] in ["TRUE", "FALSE", "T", "F"]:
+                    question = QTrueFalse.from_gift(i, ans)
                 elif all([a[0] in ["=", "#", "####"] for a in ans]):
                     if re.match(r"(.*?)(?<!\\)->(.*)", ans[0][2]):
-                        question = questions.QMatching.from_gift(i, ans)
+                        question = QMatching.from_gift(i, ans)
                     else:
-                        question = questions.QShortAnswer.from_gift(i, ans)
+                        question = QShortAnswer.from_gift(i, ans)
                 else:
-                    question = questions.QMultichoice.from_gift(i, ans)
+                    question = QMultichoice.from_gift(i, ans)
                 question.parent = quiz
         return top_quiz
 
@@ -308,18 +375,15 @@ class Quiz:
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
-        qdict: Dict[str, questions.Question] = {
-            getattr(questions, m)._type: getattr(questions, m) for m in questions.QTYPES
-        }
-        def _from_json(dt: dict, parent: Quiz):
-            quiz = cls(dt["_Quiz__name"], parent)
-            for i in range(len(dt["_questions"])):
-                val = dt["_questions"][i]
-                dt["_questions"][i] = qdict[val["_type"]].from_json(val)
-                dt["_questions"][i].parent = quiz
-            for i in dt["_Quiz__categories"]:
-                val = dt["_Quiz__categories"][i] 
-                dt["_Quiz__categories"][i] = _from_json(dt["_Quiz__categories"][i], quiz)
+        def _from_json(_dt: dict, parent: Quiz):
+            quiz = cls(_dt["_Quiz__name"], parent)
+            for i in range(len(_dt["_questions"])):
+                val = _dt["_questions"][i]
+                _dt["_questions"][i] = QDICT[val["_type"]].from_json(val)
+                _dt["_questions"][i].parent = quiz
+            for i in _dt["_Quiz__categories"]:
+                val = _dt["_Quiz__categories"][i]
+                _dt["_Quiz__categories"][i] = _from_json(_dt["_Quiz__categories"][i], quiz)
             return quiz
         with open(file_path, "rb") as infile:
             data = json.load(infile)
@@ -327,31 +391,33 @@ class Quiz:
 
     @classmethod
     def read_latex(cls) -> "Quiz":
+        """_summary_
+
+        Returns:
+            Quiz: _description_
+        """
         # TODO
-        pass
+        raise NotImplementedError("LaTeX not implemented")
 
     @classmethod
-    def read_markdown(cls, file_path: str, question_mkr :str="\s*\*\s+(.*)", 
-                        answer_mkr: str="\s*-\s+(!)?(.*)", category_mkr: str="\s*#\s+(.*)", 
-                        answer_numbering: Numbering=Numbering.ALF_LR, 
-                        shuffle_answers: bool=True, single_answer_penalty_weight: int=0):
+    def read_markdown(cls, file_path: str, question_mkr: str = r"\s*\*\s+(.*)",
+                      answer_mkr: str = r"\s*-\s+(!)?(.*)",
+                      category_mkr: str = r"\s*#\s+(.*)", shuffle: bool = True,
+                      numbering: Numbering = Numbering.ALF_LR, penalty: int = 0):
         """[summary]
 
         Args:
             file_path (str): [description]
-            question_mkr (str, optional): [description]. Defaults to "\s*\*\s+(.*)".
-            answer_mkr (str, optional): [description]. Defaults to "\s*-\s+(!)(.*)".
-            category_mkr (str, optional): [description]. Defaults to "\s*#\s+(.*)".
-            answer_numbering (Numbering, optional): [description]. Defaults to Numbering.ALF_LOWER.
-            shuffle_answers (bool, optional): [description]. Defaults to True.
-            single_answer_penalty_weight (int, optional): [description]. Defaults to 0.
+            question_mkr (str, optional): [description]. Defaults to r\"\\s*\\*\\s+(.*)\".
+            answer_mkr (str, optional): [description]. Defaults to r\"\\s*-\\s+(!)(.*)\".
+            category_mkr (str, optional): [description]. Defaults to r\"\\s*#\\s+(.*)\".
+            numbering (Numbering, optional): [description]. Defaults to Numbering.ALF_LOWER.
+            shuffle (bool, optional): [description]. Defaults to True.
+            penalty (int, optional): [description]. Defaults to 0.
 
         Raises:
             ValueError: [description]
-            ValueError: [description]
-            ValueError: [description]
         """
-        regex_exp = f"({category_mkr})|({question_mkr})|({answer_mkr})"
         with open(file_path, encoding="utf-8") as infile:
             lines = infile.readlines()
         lines.append("\n") # Make sure that the document has 2 newlines in the end
@@ -361,7 +427,7 @@ class Quiz:
         top_quiz: Quiz = None
         quiz = top_quiz
         while lines:
-            match = re.match(regex_exp, lines[-1])
+            match = re.match(f"({category_mkr})|({question_mkr})|({answer_mkr})", lines[-1])
             if match:
                 if match[1]:
                     top_quiz, quiz = Quiz.__gen_hier(top_quiz, match[2])
@@ -369,10 +435,10 @@ class Quiz:
                 elif match[3]:
                     if quiz is None:
                         raise ValueError("No classification defined for this question")
-                    question = questions.QMultichoice.from_markdown( lines, 
-                                    answer_mkr, question_mkr, answer_numbering, shuffle_answers,
-                                    single_answer_penalty_weight, name=f"mkquestion_{cnt}")
-                    question.parent = quiz
+                    QMultichoice.from_markdown(lines, answer_mkr, question_mkr,
+                                               numbering, shuffle, penalty,
+                                               name=f"mkquestion_{cnt}").parent = quiz
+                    cnt += 1
                 elif match[5]:
                     raise ValueError(f"Answer found out of a question block: {match[5]}.")
             else:
@@ -380,50 +446,62 @@ class Quiz:
         return top_quiz
 
     @classmethod
-    def read_pdf(cls, file_path: str, ptitle="Question \d+", include_image=True):
-        _serial_img = {'/DCTDecode': "jpg", '/JPXDecode': "jp2", '/CCITTFaxDecode': "tiff"}
-        with open(file_path, "rb") as infile:
-            pdf_file = PdfFileReader(infile)
-            for page_num in range(pdf_file.getNumPages()):
-                page: PageObject = pdf_file.getPage(page_num)
-                if '/XObject' not in page['/Resources']:
-                    continue
-                xObject = page['/Resources']['/XObject'].getObject()
-                for obj in xObject:
-                    if xObject[obj]['/Subtype'] != '/Image':
-                        continue
-                    size = (xObject[obj]['/Width'], xObject[obj]['/Height'])
-                    data = xObject[obj].getData()
-                    if xObject[obj]['/ColorSpace'][0] == '/DeviceRGB':
-                        mode = "RGB"
-                    elif xObject[obj]['/ColorSpace'][0] in ["/DeviceN", "/Indexed"]:
-                        mode = "P"
-                        if xObject[obj]['/ColorSpace'][0] == "/Indexed":
-                            psize = int(xObject[obj]['/ColorSpace'][2])
-                            palette = [255-int(n*psize/255) for n in range(256) for _ in range(3)]
-                        else: 
-                            palette = None
-                    else:
-                        raise ValueError(f"Mode not tested yet: {xObject[obj]['/ColorSpace']}") 
-                    if '/Filter' in xObject[obj]:
-                        filter = xObject[obj]['/Filter']
-                        if filter == '/FlateDecode':
-                            img = Image.frombytes(mode, size, data)
-                            if palette: 
-                                img.putpalette(palette)
-                            img.save(f"page{page_num}_{obj[1:]}.png")
-                        elif filter in _serial_img:
-                            img = open(f"page{page_num}_{obj[1:]}.{_serial_img[filter]}", "wb")
-                            img.write(data)
-                            img.close()
-                        else:
-                            raise ValueError(f"Filter not tested yet: {filter}") 
-                    else:
-                        img = Image.frombytes(mode, size, data)
-                        img.save(obj[1:] + ".png")
+    def read_pdf(cls, file_path: str, ptitle: str = r"Question \d+",
+                 include_image: bool = True) -> "Quiz":
+        """_summary_
+
+        Args:
+            file_path (str): _description_
+            ptitle (str, optional): _description_. Defaults to r"Question \\d+".
+            include_image (bool, optional): _description_. Defaults to True.
+
+        Returns:
+            Quiz: _description_
+        """
+        raise NotImplementedError("PDF not implemented")
+        # _serial_img = {'/DCTDecode': "jpg", '/JPXDecode': "jp2", '/CCITTFaxDecode': "tiff"}
+        # with open(file_path, "rb") as infile:
+        #     pdf_file = PdfFileReader(infile)
+        #     for page_num in range(pdf_file.getNumPages()):
+        #         page: pdf.PageObject = pdf_file.getPage(page_num)
+        #         if '/XObject' not in page['/Resources']:
+        #             continue
+        #         xobj = page['/Resources']['/XObject'].getObject()
+        #         for obj in xobj:
+        #             if xobj[obj]['/Subtype'] != '/Image':
+        #                 continue
+        #             size = (xobj[obj]['/Width'], xobj[obj]['/Height'])
+        #             data = xobj[obj].getData()
+        #             if xobj[obj]['/ColorSpace'][0] == '/DeviceRGB':
+        #                 mode = "RGB"
+        #             elif xobj[obj]['/ColorSpace'][0] in ["/DeviceN", "/Indexed"]:
+        #                 mode = "P"
+        #                 if xobj[obj]['/ColorSpace'][0] == "/Indexed":
+        #                     psize = int(xobj[obj]['/ColorSpace'][2])
+        #                     palette = [255-int(n*psize/255) for n in range(256) for _ in range(3)]
+        #                 else:
+        #                     palette = None
+        #             else:
+        #                 raise ValueError(f"Mode not tested yet: {xobj[obj]['/ColorSpace']}")
+        #             if '/Filter' in xobj[obj]:
+        #                 xfilter = xobj[obj]['/Filter']
+        #                 if xfilter == '/FlateDecode':
+        #                     img = Image.frombytes(mode, size, data)
+        #                     if palette:
+        #                         img.putpalette(palette)
+        #                     img.save(f"page{page_num}_{obj[1:]}.png")
+        #                 elif xfilter in _serial_img:
+        #                     img = open(f"page{page_num}_{obj[1:]}.{_serial_img[xfilter]}", "wb")
+        #                     img.write(data)
+        #                     img.close()
+        #                 else:
+        #                     raise ValueError(f"Filter not tested yet: {xfilter}")
+        #             else:
+        #                 img = Image.frombytes(mode, size, data)
+        #                 img.save(obj[1:] + ".png")
 
     @classmethod
-    def read_xml(cls, file_path: str, category: str="$course$") -> "Quiz":
+    def read_xml(cls, file_path: str, category: str = "$course$") -> "Quiz":
         """[summary]
 
         Raises:
@@ -436,42 +514,69 @@ class Quiz:
         top_quiz: Quiz = None
         quiz = top_quiz
         for question in data_root.getroot():
-            qdict: Dict[str, questions.Question] = {
-                getattr(questions, m)._type: getattr(questions, m) for m in questions.QTYPES
-            }
             if question.tag != "question":
                 continue
             if question.get("type") == "category":
-                top_quiz, quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)         
-            elif question.get("type") not in qdict:
+                top_quiz, quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)
+            elif question.get("type") not in QDICT:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:
                 if top_quiz is None and quiz is None:
                     top_quiz: Quiz = Quiz(category)
                     quiz = top_quiz
-                quiz._questions.append(qdict[question.get("type")].from_xml(question))
+                quiz.__questions.append(QDICT[question.get("type")].from_xml(question))
         return top_quiz
 
     def rem_question(self, question: questions.Question) -> bool:
-        if question not in self._questions: return False
+        """_summary_
+
+        Args:
+            question (questions.Question): _description_
+
+        Returns:
+            bool: _description_
+        """
+        if question not in self.__questions:
+            return False
         question.parent = None
-        self._questions.remove(question)
+        self.__questions.remove(question)
         return True
 
     def write_aiken(self, file_path: str) -> None:
+        """_summary_
+
+        Args:
+            file_path (str): _description_
+        """
         data = self._to_aiken()
         with open(file_path, "w") as ofile:
             ofile.write(data)
-        
+
     def write_cloze(self, file_path: str) -> None:
+        """_summary_
+
+        Args:
+            file_path (str): _description_
+
+        Raises:
+            NotImplementedError: _description_
+        """
         # TODO
-        pass
+        raise NotImplementedError("Cloze not implemented")
 
     def write_gift(self, file_path: str) -> None:
-        # TODO
-        raise NotImplemented("Gift not implemented")
+        """_summary_
 
-    def write_json(self, file_path: str, pretty_print: bool=False) -> None:
+        Args:
+            file_path (str): _description_
+
+        Raises:
+            NotImplementedError: _description_
+        """
+        # TODO
+        raise NotImplementedError("Gift not implemented")
+
+    def write_json(self, file_path: str, pretty_print: bool = False) -> None:
         """[summary]
 
         Args:
@@ -484,28 +589,53 @@ class Quiz:
             json.dump(self._to_json(tmp), ofile, indent=4 if pretty_print else 0)
 
     def write_latex(self, file_path: str) -> None:
+        """_summary_
+
+        Args:
+            file_path (str): _description_
+
+        Raises:
+            NotImplementedError: _description_
+        """
         # TODO
-        raise NotImplemented("LaTex not implemented")
+        raise NotImplementedError("LaTex not implemented")
 
     def write_markdown(self, file_path: str) -> None:
+        """_summary_
+
+        Args:
+            file_path (str): _description_
+
+        Raises:
+            NotImplementedError: _description_
+        """
         # TODO
-        raise NotImplemented("Markdown not implemented")
+        raise NotImplementedError("Markdown not implemented")
 
     def write_pdf(self, file_path: str):
-        # TODO
-        raise NotImplemented("PDF not implemented")
+        """_summary_
 
-    def write_xml(self, file_path: str, pretty_print: bool=False):
+        Args:
+            file_path (str): _description_
+
+        Raises:
+            NotImplementedError: _description_
+        """
+        # TODO
+        raise NotImplementedError("PDF not implemented")
+
+    def write_xml(self, file_path: str, pretty_print: bool = False):
         """Generates XML compatible with Moodle and saves to a file.
 
         Args:
             file_path (str): filename where the XML will be saved
-            pretty_print (bool, optional): (not implemented) saves XML pretty printed. Defaults to False.
+            pretty_print (bool, optional): (not implemented) saves XML pretty
+                printed. Defaults to False.
         """
         quiz: et.ElementTree = et.ElementTree(et.Element("quiz"))
         root = quiz.getroot()
         self._to_xml_element(root)
         if pretty_print:
             self._indent(root)
-        quiz.write(file_path, encoding="utf-8", xml_declaration=True, short_empty_elements=True)
-
+        quiz.write(file_path, encoding="utf-8", xml_declaration=True,
+                   short_empty_elements=True)
