@@ -17,22 +17,23 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from __future__ import annotations
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from .enums import Direction
-    from typing import List
-from .utils import cdata_str, extract
-from .enums import Format, ShapeType, ClozeFormat
+import logging
 from xml.etree import ElementTree as et
+from typing import TYPE_CHECKING
+from .enums import Format, ShapeType, ClozeFormat, Direction
+from .utils import cdata_str, Serializable
 from .wrappers import B64File, FText
+if TYPE_CHECKING:
+    from typing import List
+LOG = logging.getLogger(__name__)
 
-class Answer:
+class Answer(Serializable):
     """
     This is the basic class used to hold possible answers
     """
 
-    def __init__(self, fraction: float, text: str, feedback: FText=None, 
-                formatting: Format=None) -> None:
+    def __init__(self, fraction: float, text: str, feedback: FText,
+                 formatting: Format) -> None:
         self.fraction = fraction
         self.formatting = formatting
         self.text = text
@@ -45,25 +46,23 @@ class Answer:
         return cls(**data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, *args) -> "Answer":
-        data = {x.tag: x for x in root}
-        fraction = root.get("fraction")
-        text = data["text"].text
-        feedback = FText.from_xml(data.get("feedback"))
-        formatting = Format(root.get("format", "html"))
-        return cls(*args, fraction, text, feedback, formatting)
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Answer":
+        tags["fraction"] = (float, "fraction")
+        tags["text"] = (str, "text")
+        tags["feedback"] = (FText.from_xml, "feedback")
+        attrs["format"] = (Format, "format")
+        return super().from_xml(root, tags, attrs)
 
-    def to_xml(self) -> et.Element:
-        answer = et.Element("answer", {"fraction": str(self.fraction)})  
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        answer = et.SubElement(root, "answer", {"fraction": str(self.fraction)})
         if self.formatting:
             answer.set("format", self.formatting.value)
-        answer.set("fraction", str(self.fraction))
         et.SubElement(answer, "text").text = cdata_str(self.text)
         if self.feedback:
-            self.feedback.to_xml(answer, "feedback")
+            self.feedback.to_xml(answer)
         return answer
 
-# ----------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 class NumericalAnswer(Answer):
     """
@@ -72,12 +71,12 @@ class NumericalAnswer(Answer):
     a string.
 
     This class additionally includes tolerance, currently only
-    the absolute tolerance can be specified via tol method 
+    the absolute tolerance can be specified via tol method
     when initializing.
     """
 
-    def __init__(self, tolerance: float=0.1, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, tolerance: float = 0.1, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.tolerance = tolerance
 
     @classmethod
@@ -85,63 +84,56 @@ class NumericalAnswer(Answer):
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, *args) -> "NumericalAnswer":
-        data = {x.tag: x for x in root}
-        tolerance = data["tolerance"].text
-        answer = super().from_xml(root, *args, tolerance)
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "NumericalAnswer":
+        tags["tolerance"] = float
+        return super().from_xml(root, tags, attrs)
+
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        answer = super().to_xml(root, strict)
+        et.SubElement(answer, "tolerance").text = str(self.tolerance)
         return answer
 
-    def to_xml(self) -> et.Element:
-        answer = super().to_xml()
-        tolerance = et.SubElement(answer, "tolerance")
-        tolerance.text = str(self.tolerance)
-        return answer
-
-# ----------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 class CalculatedAnswer(NumericalAnswer):
     """[summary]
     """
-    
-    def __init__(self, tolerance_type: int=1, correct_answer_format: int=1, 
-                correct_answer_length: int=1, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+
+    def __init__(self, tolerance_type: int, answer_format: int,
+                 answer_length: int, **kwargs) -> None:
+        super().__init__(**kwargs)
         self.tolerance_type = tolerance_type
-        self.correct_answer_format = correct_answer_format
-        self.correct_answer_length = correct_answer_length
+        self.answer_format = answer_format
+        self.answer_length = answer_length
 
     @classmethod
     def from_json(cls, data: dict) -> "CalculatedAnswer":
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "CalculatedAnswer":
-        data = {x.tag: x for x in root}
-        tolerance_type = data["tolerancetype"].text
-        correct_answer_format = data["correctanswerformat"].text
-        correct_answer_length = data["correctanswerlength"].text
-        answer: "CalculatedAnswer" = super().from_xml(root, tolerance_type, 
-                                                    correct_answer_format, 
-                                                    correct_answer_length)
-        return answer
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "CalculatedAnswer":
+        tags["tolerancetype"] = (int, "tolerance_type")
+        tags["correctanswerformat"] = (int, "answer_length")
+        tags["correctanswerlength"] = (int, "answer_length")
+        return super().from_xml(root, tags, attrs)
 
-    def to_xml(self) -> et.Element:
-        answer = super().to_xml()
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        answer = super().to_xml(root, strict)
         et.SubElement(answer, "tolerancetype").text = str(self.tolerance_type)
-        et.SubElement(answer, "correctanswerformat").text = str(self.correct_answer_format)
-        et.SubElement(answer, "correctanswerlength").text = str(self.correct_answer_length)
+        et.SubElement(answer, "correctanswerformat").text = str(self.answer_format)
+        et.SubElement(answer, "correctanswerlength").text = str(self.answer_length)
         return answer
 
-# ----------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
-class ClozeItem():
+class ClozeItem(Serializable):
     """This class represents a cloze answer.
-    This is not a standard type in the moodle format, once data in a cloze questions is
-    held within the question text in this format.
+    This is not a standard type in the moodle format, once data in a cloze
+    questions is held within the question text in this format.
     """
 
-    def __init__(self, start: int, grade: int, cformat: ClozeFormat, 
-                options: List[Answer]=None) -> None:
+    def __init__(self, start: int, grade: int, cformat: ClozeFormat,
+                 options: List[Answer] = None) -> None:
         self.start: int = start
         self.cformat: ClozeFormat = cformat
         self.grade = grade
@@ -149,12 +141,12 @@ class ClozeItem():
 
     def __str__(self) -> str:
         text = ["{", f"{self.grade}:{self.cformat.value}:"]
-        o = self.opts[0]
-        text.append(f"{'=' if o.fraction == 100 else ''}{o.text}# \
-                    {o.feedback.text if o.feedback else ''}" )
-        for o in self.opts[1:]:
-            text.append(f"~{'=' if o.fraction == 100 else ''}{o.text}# \
-                        {o.feedback.text if o.feedback else ''}" )
+        opt = self.opts[0]
+        text.append(f"{'=' if opt.fraction == 100 else ''}{opt.text}# \
+                    {opt.feedback.text if opt.feedback else ''}")
+        for opt in self.opts[1:]:
+            text.append(f"~{'=' if opt.fraction == 100 else ''}{opt.text}# \
+                        {opt.feedback.text if opt.feedback else ''}")
         text.append("}")
         return "".join(text)
 
@@ -167,11 +159,21 @@ class ClozeItem():
 
     @classmethod
     def from_cloze(cls, regex) -> "ClozeItem":
+        """_summary_
+
+        Args:
+            regex (_type_): _description_
+
+        Returns:
+            ClozeItem: _description_
+        """
         options = []
         for opt in regex[3].split("~"):
-            if not opt: continue
+            if not opt:
+                continue
             tmp = opt.strip("}~").split("#")
-            if len(tmp) == 2: tmp, fdb = tmp
+            if len(tmp) == 2:
+                tmp, fdb = tmp
             else: tmp, fdb = tmp[0], ""
             frac = 0.0
             if tmp[0] == "=":
@@ -179,17 +181,22 @@ class ClozeItem():
                 tmp = tmp[1:]
             elif tmp[0] == "%":
                 frac, tmp = tmp[1:].split("%")
-                frac = float(frac)    
-            options.append(Answer(frac, tmp, FText(fdb, Format.PLAIN), Format.PLAIN))
+                frac = float(frac)
+            options.append(Answer(frac, tmp,
+                                  FText("feedback", fdb, Format.PLAIN, None),
+                                  Format.PLAIN))
         return cls(regex.start(), int(regex[1]), ClozeFormat(regex[2]), options)
 
-# ----------------------------------------------------------------------------------------
+    def to_xml(self, root: et.Element, strict: bool):
+        LOG.debug(f"Function <to_xml> is not used in {self}")
 
-class DragText:
+# ------------------------------------------------------------------------------
+
+class DragText(Serializable):
     """[summary]
     """
 
-    def __init__(self, text: str, group: int=1, unlimited: bool=False) -> None:
+    def __init__(self, text: str, group: int = 1, unlimited: bool = False) -> None:
         self.text = text
         self.group = group
         self.unlimited = unlimited
@@ -199,32 +206,33 @@ class DragText:
         return cls(**data)
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "DragText":
-        data = {x.tag: x for x in root}
-        text = data["text"].text
-        group = int(data["group"].text)
-        unlimited = True if data.get("infinite") else False
-        return cls(text, group, unlimited)
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "DragText":
+        tags["text"] = (str, "text")
+        tags["group"] = (str, "group")
+        tags["unlimited"] = (bool, "unlimited")
+        return super().from_xml(root, tags, attrs)
 
-    def to_xml(self) -> et.Element:
-        dragbox = et.Element("dragbox")
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        dragbox = et.SubElement(root, "dragbox")
         et.SubElement(dragbox, "text").text = self.text
         et.SubElement(dragbox, "group").text = str(self.group)
         if self.unlimited:
-           et.SubElement(dragbox, "infinite")
+            et.SubElement(dragbox, "infinite")
         return dragbox
 
-# ----------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
-class DragItem:
+class DragItem(Serializable):
     """
     Abstract class representing any drag item.
     """
 
-    def __init__(self, number: int, text: str, unlimited: bool=False, group: int=None, 
-                 no_of_drags: str=None, image: B64File=None) -> None:
+    def __init__(self, number: int, text: str, unlimited: bool = False,
+                 group: int = None, no_of_drags: str = None,
+                 image: B64File = None) -> None:
         if group and no_of_drags:
-            return ValueError("Both group and number of drags can\'t be provided to a single obj.")
+            raise ValueError("Both group and number of drags can\'t "+
+                             "be provided to a single obj.")
         self.text = text
         self.group = group
         self.unlimited = unlimited
@@ -238,18 +246,17 @@ class DragItem:
         return cls(**data)
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "DragItem":
-        data = {x.tag: x for x in root}
-        number = data["no"].text
-        text = data["text"].text
-        unlimited = "infinite" in data
-        group = data.get("draggroup").text if "draggroup" in data else None
-        no_of_drags = data.get("noofdrags").text if "noofdrags" in data else None
-        image = B64File.from_xml(data.get("file"))
-        return cls(number, text, unlimited, group, no_of_drags, image)
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "DragItem":
+        tags["number"] = (int, "number")
+        tags["text"] = (str, "text")
+        tags["infinite"] = (bool, "unlimited")
+        tags["draggroup"] = (int, "group")
+        tags["noofdrags"] = (bool, "no_of_drags")
+        tags["file"] = (B64File.from_xml, "image")
+        return super().from_xml(root, tags, attrs)
 
-    def to_xml(self) -> et.Element:
-        dragitem = et.Element("drag")
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        dragitem = et.SubElement(root, "drag")
         et.SubElement(dragitem, "no").text = str(self.number)
         et.SubElement(dragitem, "text").text = self.text
         if self.group:
@@ -262,15 +269,16 @@ class DragItem:
             dragitem.append(self.image.to_xml())
         return dragitem
 
-# ----------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
-class DropZone:
+class DropZone(Serializable):
     """
     This class represents DropZone for Questions like QDragAndDropImage.
     """
 
-    def __init__(self, x: int, y: int, choice: int, number: int, text: str=None, 
-                 points: str=None, shape: ShapeType=None) -> None:
+    def __init__(self, coord_x: int, coord_y: int, choice: int,
+                 number: int, text: str = None, points: str = None,
+                 shape: ShapeType = None) -> None:
         """[summary]
 
         Args:
@@ -281,8 +289,8 @@ class DropZone:
             number ([type], optional): [description]. Defaults to None.
         """
         self.shape = shape
-        self.x = x
-        self.y = y
+        self.coord_x = coord_x
+        self.coord_y = coord_y
         self.points = points
         self.text = text
         self.choice = choice
@@ -295,26 +303,26 @@ class DropZone:
         return cls(**data)
 
     @classmethod
-    def from_xml(cls, root: et.Element) -> "DropZone":
-        data = {x.tag: x for x in root}
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "DropZone":
+        data = {a.tag: a for a in root}
         res = {}
         if "coords" in data and "shape" in data:
             res["shape"] = ShapeType(data["shape"].text)
             coords = data["coords"].text.split(";", 1)
-            res["x"], res["y"] = map(int, coords[0].split(","))
+            res["coord_x"], res["coord_y"] = map(int, coords[0].split(","))
             res["points"] = coords[1]
         elif "xleft" in data and "ytop" in data:
-            extract(data, "xleft", res, "x", int)
-            extract(data, "ytop", res, "y", int)
+            res["xleft"] = int(data["coord_x"])
+            res["ytop"] = int(data["coord_y"])
         else:
             raise AttributeError("One or more coordenates are missing for the DropZone")
-        extract(data, "choice", res, "choice", int)
-        extract(data, "no", res, "number", int)
-        extract(data, "text", res, "text", str)
+        res["choice"] = int(data["choice"])
+        res["no"] = int(data["number"])
+        res["text"] = data["text"]
         return cls(**res)
 
-    def to_xml(self) -> et.Element:
-        dropzone = et.Element("drop")
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        dropzone = et.SubElement(root, "drop")
         if self.text:
             et.SubElement(dropzone, "text").text = self.text
         et.SubElement(dropzone, "no").text = str(self.number)
@@ -322,20 +330,24 @@ class DropZone:
         if self.shape:
             et.SubElement(dropzone, "shape").text = self.shape.value
         if not self.points:
-            et.SubElement(dropzone, "xleft").text = str(self.x)
-            et.SubElement(dropzone, "ytop").text = str(self.y)
+            et.SubElement(dropzone, "xleft").text = str(self.coord_x)
+            et.SubElement(dropzone, "ytop").text = str(self.coord_y)
         else:
-            et.SubElement(dropzone, "coords").text = f"{self.x},{self.y};{self.points}"
+            _tmp = et.SubElement(dropzone, "coords")
+            _tmp.text = f"{self.coord_x},{self.coord_y};{self.points}"
         return dropzone
 
-# ----------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
-class CrossWord():
+class CrossWord(Serializable):
+    """_summary_
+    """
 
-    def __init__(self, word: str, x: int, y: int, direction: Direction, clue: str) -> None:
+    def __init__(self, word: str, coord_x: int, coord_y: int,
+                 direction: Direction, clue: str) -> None:
         self.word = word
-        self.x = x
-        self.y = y
+        self.coord_x = coord_x
+        self.coord_y = coord_y
         self.direction = direction
         self.clue = clue
 
@@ -345,8 +357,7 @@ class CrossWord():
         return cls(**data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, *args) -> "NumericalAnswer":
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "CrossWord":
         raise NotImplementedError("This Class is not avaiable in a Moodle XML")
 
-    def to_xml(self) -> et.Element:
-        raise NotImplementedError("This Class is not avaiable in a Moodle XML")
+# ------------------------------------------------------------------------------

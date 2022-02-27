@@ -22,56 +22,17 @@ LOG = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from xml.etree import ElementTree as et
 
-def extract(data: dict, key: str, res: dict, name: str, cast_type) -> None:
-    if key in data:
-        if cast_type == str:
-            res[name] = data[key].text
-        elif cast_type in [int, float]:
-            res[name] = data[key].text
-            if res[name]: res[name] = cast_type(res[name])
-        elif cast_type == bool:
-            if data[key].text:
-                res[name] = data[key].text.lower() in ["true", "1", "t"]
-            else:
-                res[name] = True
-        else: 
-            res[name] = cast_type(data[key])
-    elif cast_type == bool:
-        res[name] = False
-    else:
-        res[name] = None
-
-# ------------------------------------------------------------------------------
-
-def xtract(root: et.Element, tag_cast: dict, attr_cast: dict) -> None:
-    results = {}
-    for obj in root:
-        key = obj.tag
-        if key in tag_cast:
-            cast_type, name = tag_cast[key]
-            tmp = obj.text
-            if cast_type == str: continue
-            elif cast_type in [int, float]:
-                if results[name]: results[name] = cast_type(tmp)
-            elif cast_type == bool:
-                tmp = True if not tmp else tmp.lower() in ["true", "1", "t"]
-            else: 
-                tmp = cast_type(obj)
-            if name not in results: results[name] = tmp
-            elif isinstance(results[name], list): results[name].append(tmp)
-            else: results[name] = [results[name], tmp]
-        elif cast_type == bool:
-            results[name] = False
-        else:
-            results[name] = None
-    if attr_cast:
-        for key in attr_cast:
-            results[name] = attr_cast[key](root.get(key))
-    return results
-
 # ------------------------------------------------------------------------------
 
 def cdata_str(text: str):
+    """_summary_
+
+    Args:
+        text (str): _description_
+
+    Returns:
+        _type_: _description_
+    """
     return f"<![CDATA[{text}]]>" if text else ""
 
 # ------------------------------------------------------------------------------
@@ -105,24 +66,13 @@ class Serializable:
             if self.__dict__[item] != __o.__dict__.get(item):
                 msg = (f"{self.__class__.__name__} not equal. "
                        f"{item} ({type(self.__dict__[item])}) differs. ")
-                if type(self.__dict__[item]) in (int, float, str):
+                if isinstance(self.__dict__[item], (int, float, str)):
                     msg += f"Values:\n\t{self.__dict__[item]}\n\t{__o.__dict__[item]}"
                 LOG.debug(msg)
-                return False
-        else:  
+                break
+        else:
             return True
-
-    @classmethod
-    def from_cloze(cls, regex) -> "Serializable":
-        """_summary_
-
-        Args:
-            regex (_type_): _description_
-
-        Returns:
-            Serializable: _description_
-        """        
-        pass
+        return False
 
     @classmethod
     def from_json(cls, data: dict) -> "Serializable":
@@ -130,56 +80,73 @@ class Serializable:
 
         Returns:
             Serializable: _description_
-        """        
-        pass
+        """
+        raise NotImplementedError("JSON not implemented")
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Serializable":
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict): #pylint: disable=R0912
         """Create a new class using XML data
+
+        Args:
+            root (et.Element): _description_
+            tags (dict): _description_
+            attrs (dict): _description_
 
         Returns:
             Serializable: _description_
         """
         if root is None:
-            return None  
+            return None
         results = {}
+        name = tags.pop(True, None) # True is used as a key to ask for the tag
+        if name:                    # If it is present, tag is mapped to <name>
+            results[name] = root.tag
         for obj in root:
             if obj.tag in tags:
-                cast_type, name = tags[obj.tag]
+                cast_type, name = tags.pop(obj.tag)
                 tmp = obj.text
                 if not tmp:
                     text = obj.find("text")
                     tmp = text.text if text else tmp
-                if cast_type == str: continue
-                elif cast_type in [int, float]:
-                    tmp: results[name] = cast_type(tmp)
+                if cast_type in [str, int, float]:
+                    tmp = cast_type(tmp)
                 elif cast_type == bool:
                     tmp = True if not tmp else tmp.lower() in ["true", "1", "t"]
-                else: 
+                else:
                     tmp = cast_type(obj, {}, None)
-                if name not in results: results[name] = tmp
-                elif isinstance(results[name], list): results[name].append(tmp)
-                else: results[name] = [results[name], tmp]
-            elif cast_type == bool:
+                if name not in results:
+                    results[name] = tmp
+                elif isinstance(results[name], list):
+                    results[name].append(tmp)
+                else:
+                    results[name] = [results[name], tmp]
+        for key in tags:
+            cast_type, name = tags[key]
+            if cast_type == bool: # Some tags act like False when missing
                 results[name] = False
-            else:
+            else:   # Otherwise, set to None to show that the tag is missing
                 results[name] = None
         if attrs:
             for key in attrs:
                 results[name] = attrs[key](root.get(key))
-        return results
+        return cls(**results)
 
-    def to_cloze(self):
-        pass
-
-    def to_xml(self, root: et.Element, tag: str, strict: bool) -> None:
-        """_summary_
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        """Create a XML representation of the object instance following the
+        moodle standard. This function if first implemented as "virtual" in
+        the Serializable class, raising an exception if not overriden.
 
         Args:
-            root (Element): _description_
-            tag (str): _description_
-            strict (bool): _description_
-        """                
-        root = None
+            root (et.Element): where the new tags will be added to
+            strict (bool): if the tags added should only be the ones correctly
+                interpreted by moodle.
+
+        Returns:
+            et.Element: The instance root element. In a organized XML, this
+            should be always different from the "root" argument, but since
+            Moodle uses tags, like the ones in CombinedFeedback, that can or not
+            be valid, we end-up in this mess.
+        """
+        raise NotImplementedError("XML not implemented")
 
 # ------------------------------------------------------------------------------
