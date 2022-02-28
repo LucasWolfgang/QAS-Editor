@@ -861,7 +861,7 @@ class QMultichoice(Question):
         elif isinstance(answer_numbering, str):
             self.answer_numbering = Numbering(answer_numbering)
         else:
-            raise TypeError(f"answer_numbering should be of type Numbering "+
+            raise TypeError("answer_numbering should be of type Numbering "+
                             f"or str, not {type(answer_numbering)}")
         self.answers = answers if answers is not None else []
 

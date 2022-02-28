@@ -45,9 +45,9 @@ def _escape_cdata(text: str):
             text = text.replace("<", "&lt;")
         if ">" in text:
             text = text.replace(">", "&gt;")
-        return text
     except (TypeError, AttributeError):
         et._raise_serialization_error(text)
+    return text
 et._escape_cdata = _escape_cdata
 
 # ------------------------------------------------------------------------------
@@ -170,8 +170,8 @@ class Quiz: # pylint: disable=R0904
                     if ans.fraction == 100:
                         correct = f"ANSWER: {chr(num+65)}\n\n"
                 data += correct
-        for child in self.__categories:
-            data += self.__categories[child]._to_aiken()
+        for child in self.__categories.values():
+            data += child._to_aiken()
         return data
 
     def _to_xml_element(self, root: et.Element) -> None:
@@ -234,8 +234,8 @@ class Quiz: # pylint: disable=R0904
         """
         data = {}
         data["__questions__"] = self.__questions
-        for cat in self.__categories:
-            data[cat] = self.__categories[cat].get_hier()
+        for name, quiz in self.__categories.values():
+            data[name] = quiz.get_hier()
         return data
 
     # --------------------------------------------------------------------------
@@ -360,7 +360,7 @@ class Quiz: # pylint: disable=R0904
                     question = QMissingWord.from_gift(i, ans)
                 elif ans[0][0] in ["TRUE", "FALSE", "T", "F"]:
                     question = QTrueFalse.from_gift(i, ans)
-                elif all([a[0] in ["=", "#", "####"] for a in ans]):
+                elif all(a[0] in ["=", "#", "####"] for a in ans):
                     if re.match(r"(.*?)(?<!\\)->(.*)", ans[0][2]):
                         question = QMatching.from_gift(i, ans)
                     else:
@@ -549,7 +549,7 @@ class Quiz: # pylint: disable=R0904
             file_path (str): _description_
         """
         data = self._to_aiken()
-        with open(file_path, "w") as ofile:
+        with open(file_path, "w", encoding="utf-8") as ofile:
             ofile.write(data)
 
     def write_cloze(self, file_path: str) -> None:

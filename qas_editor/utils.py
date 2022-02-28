@@ -62,12 +62,12 @@ class Serializable:
     def __eq__(self, __o: object) -> bool:
         if not __debug__:
             return self.__dict__ == __o.__dict__
-        for item in self.__dict__:
-            if self.__dict__[item] != __o.__dict__.get(item):
+        for key, value in self.__dict__.items():
+            if value != __o.__dict__.get(key):
                 msg = (f"{self.__class__.__name__} not equal. "
-                       f"{item} ({type(self.__dict__[item])}) differs. ")
-                if isinstance(self.__dict__[item], (int, float, str)):
-                    msg += f"Values:\n\t{self.__dict__[item]}\n\t{__o.__dict__[item]}"
+                       f"{key} ({type(value)}) differs. ")
+                if isinstance(value, (int, float, str)):
+                    msg += f"Values:\n\t{value}\n\t{__o.__dict__[key]}"
                 LOG.debug(msg)
                 break
         else:

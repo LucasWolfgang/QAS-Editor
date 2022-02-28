@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import sys
 import os
 import logging
-from PyQt5.QtWidgets import QApplication # pylint: disable=E0611
+from PyQt5.QtWidgets import QApplication # pylint: disable=E0611,E0401
 from .gui.main import Editor
 
 def main():

@@ -1,10 +1,11 @@
 [MESSAGES CONTROL]
-disable = C0302,   # Too many lines in module
-          R0903,   # Too few public methods. Not necessary
-          W1202,   # Use % formatting in logging functions. Can't see why
-          W0511,   # TODO's. Not necessary
-          W0212    # Access to a protected member. Internal methods need to access protected member.
-                   #   but it will be good to revise this one later.
+disable = C0302,    # Too many lines in module
+          R0903,    # Too few public methods. Not necessary
+          W1202,    # Use % formatting in logging functions. Can't see why
+          W1203,    # Use lazy % or .format() formatting in logging functions...
+          W0511,    # TODO's. Not necessary
+          W0212     # Access to a protected member. Internal methods need to access protected member.
+                    #   but it will be good to revise this one later.
 
 [DESIGN]
 # Temporarily increasing the max. Will remove once the dataclasses are implemented
