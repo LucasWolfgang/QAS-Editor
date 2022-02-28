@@ -98,16 +98,13 @@ class Question(Serializable):
 
     @parent.setter
     def parent(self, value):
-        """_summary_
-
-        Args:
-            value (Quiz): _description_
-
-        Raises:
-            AttributeError: _description_
-        """
-        raise AttributeError("This attribute can't be assigned directly to "+
-                             f"{value}. Use {self} parent interface instead.")
+        if (self.__parent is None and value is not None and\
+                self not in value.questions) or (self.__parent is not None and\
+                value is None and self in self.__parent.questions):
+            raise ValueError("This attribute can't be assigned directly. Use "+
+                            f"parent's add/rem_question functions instead.")
+        self.__parent = value
+       
 
     @classmethod
     def from_json(cls, data) -> "Question":

@@ -357,7 +357,7 @@ class Editor(QMainWindow):
         return (quiz, path)
 
     @action_handler
-    def _read_file(self):
+    def _read_file(self, *args):
         tmp = self._read_quiz()
         if tmp:
             self.top_quiz, self.path = tmp

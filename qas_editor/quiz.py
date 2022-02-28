@@ -226,18 +226,6 @@ class Quiz: # pylint: disable=R0904
                 else: data[num] = res
         return data
 
-    def get_hier(self) -> dict:
-        """[summary]
-
-        Args:
-            root (dict): [description]
-        """
-        data = {}
-        data["__questions__"] = self.__questions
-        for name, quiz in self.__categories.values():
-            data[name] = quiz.get_hier()
-        return data
-
     # --------------------------------------------------------------------------
 
     @property
@@ -281,6 +269,28 @@ class Quiz: # pylint: disable=R0904
 
     # --------------------------------------------------------------------------
 
+    def add_question(self, question: Question) -> bool:
+        if question in self.__questions:
+            return False
+        if question.parent is not None:
+            question.parent.rem_question(question)
+        self.__questions.append(question)
+        question.parent = self
+        return True
+
+
+    def get_hier(self) -> dict:
+        """[summary]
+
+        Args:
+            root (dict): [description]
+        """
+        data = {}
+        data["__questions__"] = self.__questions
+        for name, quiz in self.__categories.values():
+            data[name] = quiz.get_hier()
+        return data
+
     @classmethod
     def read_aiken(cls, file_path: str, category: str = "$course$") -> "Quiz":
         """_summary_
@@ -316,8 +326,7 @@ class Quiz: # pylint: disable=R0904
         """
         top_quiz: Quiz = Quiz(category)
         with open(file_path, "r", encoding="utf-8") as ifile:
-            question = QCloze.from_cloze(ifile)
-            question.parent = top_quiz
+            top_quiz.add_question(QCloze.from_cloze(ifile))
         return top_quiz
 
     @classmethod
@@ -527,7 +536,7 @@ class Quiz: # pylint: disable=R0904
                 quiz.__questions.append(QDICT[question.get("type")].from_xml(question))
         return top_quiz
 
-    def rem_question(self, question: questions.Question) -> bool:
+    def rem_question(self, question: Question) -> bool:
         """_summary_
 
         Args:
@@ -538,8 +547,8 @@ class Quiz: # pylint: disable=R0904
         """
         if question not in self.__questions:
             return False
-        question.parent = None
         self.__questions.remove(question)
+        question.parent = None
         return True
 
     def write_aiken(self, file_path: str) -> None:
