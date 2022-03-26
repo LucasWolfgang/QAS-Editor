@@ -50,8 +50,10 @@ class GAnswer(QGridLayout):
         self.addWidget(self._grade, 1, 2)
 
     def __del__(self):
-        for i in range(self.count()):
-            self.itemAt(i).widget().deleteLater()
+        try:
+            for i in range(self.count()):
+                self.itemAt(i).widget().deleteLater()
+        except RuntimeError: pass
 
     def from_obj(self, obj: Answer) -> None:
         """_summary_
@@ -149,8 +151,10 @@ class GCloze(QGridLayout):
         self.addWidget(self._pop, 0, 8)
 
     def __del__(self):
-        for i in range(self.count()):
-            self.itemAt(i).widget().deleteLater()
+        try:
+            for i in range(self.count()):
+                self.itemAt(i).widget().deleteLater()
+        except RuntimeError: pass
 
     def __changed_opt(self, index):
         self._frac.setText(str(self.opts[index].fraction))
@@ -262,8 +266,10 @@ class GDrag(QGridLayout):
         self.obj = None
 
     def __del__(self):
-        for i in range(self.count()):
-            self.itemAt(i).widget().deleteLater()
+        try:
+            for i in range(self.count()):
+                self.itemAt(i).widget().deleteLater()
+        except RuntimeError: pass
 
     def from_obj(self, obj):
         """_summary_
@@ -328,8 +334,10 @@ class GDropZone(QGridLayout):
         self.addWidget(self.text, 0, 5)
 
     def __del__(self):
-        for i in range(self.count()):
-            self.itemAt(i).widget().deleteLater()
+        try:
+            for i in range(self.count()):
+                self.itemAt(i).widget().deleteLater()
+        except RuntimeError: pass
 
     def from_obj(self, _: DragItem):
         """_summary_
