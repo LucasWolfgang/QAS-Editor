@@ -102,9 +102,8 @@ class Question(Serializable):
                 self not in value.questions) or (self.__parent is not None and\
                 value is None and self in self.__parent.questions):
             raise ValueError("This attribute can't be assigned directly. Use "+
-                            f"parent's add/rem_question functions instead.")
+                             f"parent's add/rem_question functions instead.")
         self.__parent = value
-       
 
     @classmethod
     def from_json(cls, data) -> "Question":
@@ -961,8 +960,7 @@ class QMultichoice(Question):
 
     @staticmethod
     def from_markdown(lines: list, answer_mkr: str, question_mkr: str,
-                      answer_numbering: Numbering, shuffle_answers: bool,
-                      penalty: float, name: str = "mkquestion") -> "QMultichoice":
+                      name: str = "mkquestion") -> "QMultichoice":
         """[summary]
 
         Returns:
@@ -973,9 +971,8 @@ class QMultichoice(Question):
         while lines and match is None:
             data += lines.pop().strip()
             match = re.match(answer_mkr, lines[-1])
-        question = QMultichoice(answer_numbering, name=name,
-                                question_text=FText("questiontext", data, Format.MD, None),
-                                shuffle=shuffle_answers, penalty=penalty)
+        question = QMultichoice(name=name,
+                                question_text=FText("questiontext", data, Format.MD, None))
         regex_exp = f"({question_mkr})|({answer_mkr})"
         while lines:
             match = re.match(regex_exp, lines.pop())

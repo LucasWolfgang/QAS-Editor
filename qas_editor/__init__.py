@@ -20,4 +20,4 @@ if sys.version_info < (3, 7):
     raise Exception("Python 2 is not supported.")
 
 __author__ = "Lucas Wolfgang"
-__version__ = "0.0.2"
+__version__ = "0.0.3"

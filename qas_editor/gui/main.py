@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from __future__ import annotations
+import glob
 import logging
 from typing import TYPE_CHECKING
 from PyQt5.QtCore import Qt, QVariant
@@ -225,6 +226,10 @@ class Editor(QMainWindow):
         open_file_action.setStatusTip("Open file")
         open_file_action.triggered.connect(self._read_file)
         file_menu.addAction(open_file_action)
+        open_folder_action = QAction("Open folder", self)
+        open_folder_action.setStatusTip("Open folder")
+        open_folder_action.triggered.connect(self._read_folder)
+        file_menu.addAction(open_folder_action)
         save_file_action = QAction("Save", self)
         save_file_action.setStatusTip("Save top category to specified file on disk")
         save_file_action.triggered.connect(lambda: self._write_file(False))
@@ -253,10 +258,10 @@ class Editor(QMainWindow):
 
     @action_handler
     def _append_category(self, parent: Quiz):
-        tmp = self._read_quiz()
-        if tmp is None:
-            return
-        quiz, self.path = tmp
+        path, _ = QFileDialog.getOpenFileName(self, "Open file", "", self.FORMATS)
+        if not path:
+            return None
+        quiz = Quiz.read_files([path])
         for catname in quiz:
             quiz[catname].parent = parent
         for question in quiz.questions:
@@ -301,6 +306,7 @@ class Editor(QMainWindow):
         item = self.data_view.indexAt(event).data(257)
         delete_action = QAction("Delete", self)
         delete_action.triggered.connect(lambda: self._delete_item(item))
+        self.context_menu.clear()
         self.context_menu.addAction(delete_action)
         duplicate_action = QAction("Duplicate", self)
         duplicate_action.triggered.connect(lambda: self._duplicate_item(item))
@@ -332,37 +338,32 @@ class Editor(QMainWindow):
             pass
         self._update_tree()
 
-    def _read_quiz(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open file", "", self.FORMATS)
-        if not path:
-            return None
-        if path[-4:] == ".xml":
-            quiz = Quiz.read_xml(path)
-        elif path[-4:] == ".txt":
-            quiz = Quiz.read_aiken(path)
-        elif path[-5:] == ".gift":
-            quiz = Quiz.read_gift(path)
-        elif path[-3:] == ".md":
-            quiz = Quiz.read_markdown(path)
-        elif path[-6:] == ".cloze":
-            quiz = Quiz.read_cloze(path)
-        elif path[-5:] == ".json":
-            quiz = Quiz.read_json(path)
-        elif path[-4:] == ".pdf":
-            quiz = Quiz.read_pdf(path)
-        elif path[-4:] == ".tex":
-            quiz = Quiz.read_latex(path)
-        else:
-            raise ValueError(f"Extension {path.rsplit('.', 1)[-1]} can not be read")
-        return (quiz, path)
-
     @action_handler
     def _read_file(self, *args):
-        tmp = self._read_quiz()
-        if tmp:
-            self.top_quiz, self.path = tmp
-            self._set_current_category(self.top_quiz)
-            self._update_tree()
+        files, _ = QFileDialog.getOpenFileNames(self, "Open file", "", self.FORMATS)
+        if not files:
+            return None
+        if len(files) == 1:
+            self.path = files[0]
+        self.top_quiz = Quiz.read_files(files)
+        self._set_current_category(self.top_quiz)
+        self._update_tree()
+
+    @action_handler
+    def _read_folder(self, *args):
+        dialog = QFileDialog(self)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        if not dialog.exec():
+            return None
+        self.top_quiz = Quiz()
+        self.path = None
+        for folder in dialog.selectedFiles():
+            cat = folder.rsplit("/", 1)[-1]
+            quiz = Quiz.read_files(glob.glob(f"{folder}/*"), cat)
+            self.top_quiz[cat] = quiz
+        self._set_current_category(self.top_quiz)
+        self._update_tree()
+
 
     def _rename_category(self, item: Quiz):
         if item.parent:

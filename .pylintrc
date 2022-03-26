@@ -11,3 +11,4 @@ disable = C0302,    # Too many lines in module
 # Temporarily increasing the max. Will remove once the dataclasses are implemented
 max-attributes=15
 max-args=10
+max-bool-expr=8

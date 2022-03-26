@@ -17,13 +17,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from __future__ import annotations
+from asyncio import streams
+import glob
 import json
 import logging
 import re
 from enum import Enum
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
-from .enums import Numbering
 from .questions import QDICT, Question, QMultichoice, QCloze, QDescription,\
                        QEssay, QNumerical, QMissingWord, QTrueFalse, QMatching,\
                        QShortAnswer
@@ -108,6 +109,12 @@ class Quiz: # pylint: disable=R0904
     def __getitem__(self, key: str):
         return self.__categories[key]
 
+    def __len__(self):
+        total = len(self.__questions)
+        for cat in self.__categories.values():
+            total += len(cat)
+        return total
+
     def __setitem__(self, __k: str, __v: "Quiz"):
         if not isinstance(__k, str) or not isinstance(__v, Quiz):
             raise ValueError(f"{__k} is not a string or {__v} is not a Quiz")
@@ -127,16 +134,13 @@ class Quiz: # pylint: disable=R0904
     @staticmethod
     def __gen_hier(top: "Quiz", category: str) -> tuple:
         cat_list = category.strip().split("/")
-        if top is None:
-            top = Quiz(cat_list[0])
-        elif top.name != cat_list[0]:
-            raise ValueError(f"Top categroy names differ: {top.name} != {cat_list[0]}")
+        start = 1 if top.name == cat_list[0] else 0
         quiz = top
-        for i in cat_list[1:]:
+        for i in cat_list[start:]:
             if i not in quiz:
                 quiz[i] = Quiz(i, quiz)
             quiz = quiz[i]
-        return (top, quiz)
+        return quiz
 
     def _indent(self, elem: et.Element, level: int = 0):
         """[summary]
@@ -270,6 +274,14 @@ class Quiz: # pylint: disable=R0904
     # --------------------------------------------------------------------------
 
     def add_question(self, question: Question) -> bool:
+        """_summary_
+
+        Args:
+            question (Question): _description_
+
+        Returns:
+            bool: _description_
+        """
         if question in self.__questions:
             return False
         if question.parent is not None:
@@ -305,12 +317,13 @@ class Quiz: # pylint: disable=R0904
         quiz = cls(category)
         name = file_path.rsplit("/", 1)[-1][:-4]
         cnt = 0
-        with open(file_path, encoding="utf-8") as ifile:
-            buffer = LineBuffer(ifile)
-            while buffer.read():
-                question = QMultichoice.from_aiken(buffer, f"{name}_{cnt}")
-                question.parent = quiz
-                cnt += 1
+        for _path in glob.glob(file_path):
+            with open(_path, encoding="utf-8") as ifile:
+                buffer = LineBuffer(ifile)
+                while buffer.read():
+                    question = QMultichoice.from_aiken(buffer, f"{name}_{cnt}")
+                    question.parent = quiz
+                    cnt += 1
         return quiz
 
     @classmethod
@@ -324,13 +337,49 @@ class Quiz: # pylint: disable=R0904
         Returns:
             Quiz: _description_
         """
-        top_quiz: Quiz = Quiz(category)
+        top_quiz = cls(category)
         with open(file_path, "r", encoding="utf-8") as ifile:
             top_quiz.add_question(QCloze.from_cloze(ifile))
+        LOG.info(f"Created new Quiz instance from cloze file {file_path}")
         return top_quiz
 
     @classmethod
-    def read_gift(cls, file_path: str) -> "Quiz":
+    def read_files(cls, files: list, category: str = "$course$") -> list:
+        """_summary_
+
+        Args:
+            folder_path (str): _description_
+            category (str, optional): _description_. Defaults to "$".
+
+        Returns:
+            list: _description_
+        """
+        _read_methods = {
+            "txt": cls.read_aiken,
+            "cloze": cls.read_cloze,
+            "gift": cls.read_gift,
+            "json": cls.read_json,
+            "latex": cls.read_latex,
+            "md": cls.read_markdown,
+            "pdf": cls.read_pdf,
+            "xml": cls.read_xml
+        }
+        top_quiz = cls(category)
+        for _path in files:
+            try:
+                ext = _path.rsplit(".", 1)[-1]
+                if ext in _read_methods:
+                    quiz = _read_methods[ext](_path)
+                    for cat in quiz:
+                        top_quiz[cat] = quiz[cat]
+                    for question in quiz.questions:
+                        top_quiz.add_question(question)
+            except ValueError:
+                LOG.exception(f"Failed to parse file {_path}.")
+        return top_quiz
+
+    @classmethod
+    def read_gift(cls, file_path: str, category: str = "$course$") -> "Quiz":
         """Reads a gift file.
 
         Args:
@@ -344,17 +393,18 @@ class Quiz: # pylint: disable=R0904
         Returns:
             Quiz: _description_
         """
-        top_quiz: Quiz = None
+        top_quiz = cls(category)
         quiz = top_quiz
+        data = ""
         with open(file_path, "r", encoding="utf-8") as ifile:
-            data = "\n" + ifile.read()
+            data += "\n" + ifile.read()
         data = re.sub(r"\n//.*?(?=\n)", "", data)           # Remove comments
         data = re.sub(r"(?<!\})\n(?!::)", "", data) + "\n"   # Remove \n's inside a question
         tmp = re.findall(r"(?:\$CATEGORY:\s*(.+))|(?:\:\:(.+?)\:\:(\[.+?\])?"+
                          r"(.+?)(?:(\{.*?)(?<!\\)\}(.*?))?)\n", data)
         for i in tmp:
             if i[0]:
-                top_quiz, quiz = Quiz.__gen_hier(top_quiz, i[0])
+                quiz = Quiz.__gen_hier(top_quiz, i[0])
             if not i[0]:
                 question = None
                 ans = re.findall(r"((?<!\\)(?:=|~|TRUE|FALSE|T|F|####|#))"+
@@ -380,7 +430,7 @@ class Quiz: # pylint: disable=R0904
         return top_quiz
 
     @classmethod
-    def read_json(cls, file_path: str) -> "Quiz":
+    def read_json(cls, file_path: streams) -> "Quiz":
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
@@ -399,7 +449,7 @@ class Quiz: # pylint: disable=R0904
         return _from_json(data, None)
 
     @classmethod
-    def read_latex(cls) -> "Quiz":
+    def read_latex(cls, file_path: str, category: str = "$course$") -> "Quiz":
         """_summary_
 
         Returns:
@@ -409,10 +459,10 @@ class Quiz: # pylint: disable=R0904
         raise NotImplementedError("LaTeX not implemented")
 
     @classmethod
-    def read_markdown(cls, file_path: str, question_mkr: str = r"\s*\*\s+(.*)",
-                      answer_mkr: str = r"\s*-\s+(!)?(.*)",
-                      category_mkr: str = r"\s*#\s+(.*)", shuffle: bool = True,
-                      numbering: Numbering = Numbering.ALF_LR, penalty: int = 0):
+    def read_markdown(cls, file_path: str, category="$course$",
+                      prefix="mk_", question_mkr=r"\s*\*\s+(.*)",
+                      answer_mkr=r"\s*-\s+(!)?(.*)",
+                      category_mkr=r"\s*#\s+(.*)") -> "Quiz":
         """[summary]
 
         Args:
@@ -420,9 +470,6 @@ class Quiz: # pylint: disable=R0904
             question_mkr (str, optional): [description]. Defaults to r\"\\s*\\*\\s+(.*)\".
             answer_mkr (str, optional): [description]. Defaults to r\"\\s*-\\s+(!)(.*)\".
             category_mkr (str, optional): [description]. Defaults to r\"\\s*#\\s+(.*)\".
-            numbering (Numbering, optional): [description]. Defaults to Numbering.ALF_LOWER.
-            shuffle (bool, optional): [description]. Defaults to True.
-            penalty (int, optional): [description]. Defaults to 0.
 
         Raises:
             ValueError: [description]
@@ -433,20 +480,19 @@ class Quiz: # pylint: disable=R0904
         lines.append("\n")
         lines.reverse()
         cnt = 0
-        top_quiz: Quiz = None
+        top_quiz = cls(category)
         quiz = top_quiz
         while lines:
             match = re.match(f"({category_mkr})|({question_mkr})|({answer_mkr})", lines[-1])
             if match:
                 if match[1]:
-                    top_quiz, quiz = Quiz.__gen_hier(top_quiz, match[2])
+                    quiz = Quiz.__gen_hier(top_quiz, match[2])
                     lines.pop()
                 elif match[3]:
                     if quiz is None:
                         raise ValueError("No classification defined for this question")
                     QMultichoice.from_markdown(lines, answer_mkr, question_mkr,
-                                               numbering, shuffle, penalty,
-                                               name=f"mkquestion_{cnt}").parent = quiz
+                                               f"{prefix}_{cnt}")
                     cnt += 1
                 elif match[5]:
                     raise ValueError(f"Answer found out of a question block: {match[5]}.")
@@ -526,7 +572,7 @@ class Quiz: # pylint: disable=R0904
             if question.tag != "question":
                 continue
             if question.get("type") == "category":
-                top_quiz, quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)
+                quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)
             elif question.get("type") not in QDICT:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:
