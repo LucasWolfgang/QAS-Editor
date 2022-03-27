@@ -410,37 +410,29 @@ class GTitleFrame(QFrame):
     """ Used as header in a GFrameLayout class.
     """
 
-    clicked = pyqtSignal()
-
-    def __init__(self, parent=None, title="", collapsed=False):
+    def __init__(self, parent, toogle_func, title=""):
         QFrame.__init__(self, parent=parent)
         self.setFrameShadow(QFrame.Sunken)
         self.setStyleSheet("border:1px solid rgb(41, 41, 41); background-color: #acc5f2;")
-
         self._hlayout = QHBoxLayout(self)
         self._hlayout.setContentsMargins(0, 0, 0, 0)
         self._hlayout.setSpacing(0)
-
-        self._arrow = GArrow(collapsed=collapsed)
+        self._arrow = GArrow(collapsed=True)
         self._arrow.setStyleSheet("border:0px")
         self._title = QLabel(title)
         self._title.setFixedHeight(24)
         self._title.move(QPoint(24, 0))
         self._title.setStyleSheet("border:0px")
-
         self._hlayout.addWidget(self._arrow)
         self._hlayout.addWidget(self._title)
+        self.__toogle_func = toogle_func
 
-    def mousePressEvent(self, event): # pylint: disable=C0103
-        """_summary_
-
-        Args:
-            event (_type_): _description_
-        """
-        self.clicked.emit()
-        return super(GTitleFrame, self).mousePressEvent(event)
+    def mousePressEvent(self, a0) -> None:
+        self.__toogle_func()
+        return super().mousePressEvent(a0)
 
 # ------------------------------------------------------------------------------
+
 class GFrameLayout(QVBoxLayout):
     """ Custom widget that gives a collapsable (dropdown style) window that
     contains other QWidgets.
@@ -448,16 +440,16 @@ class GFrameLayout(QVBoxLayout):
 
     def __init__(self, parent=None, title=""):
         QVBoxLayout.__init__(self)
-
         self._is_collasped = True
-        self._title_frame = GTitleFrame(parent, title, True)
-        self._title_frame.clicked.connect(self.toggle_collapsed)
+        self._title_frame = GTitleFrame(parent, self.toggle_collapsed, title)
         super().addWidget(self._title_frame)
         self._content = QWidget()
         self._content.setStyleSheet(".QWidget{border:1px solid rgb(41, 41, 41); \
                                     background-color: #f0f6ff}")
         self._content.setVisible(not self._is_collasped)
         super().addWidget(self._content)
+        self.setContentsMargins(0, 0, 0, 0)
+        self.setSpacing(0)
 
     def addWidget(self, a0: QWidget, stretch=..., alignment=...): # pylint: disable=C0103
         """_summary_
@@ -500,6 +492,7 @@ class GFrameLayout(QVBoxLayout):
         self._title_frame._arrow.set_arrow(int(self._is_collasped))
 
 # ------------------------------------------------------------------------------
+
 class GTagBar(QFrame):
     """Custom widget that allows the user to enter tags and provides a interface
     to later get these tags as a list.

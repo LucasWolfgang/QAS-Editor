@@ -106,49 +106,51 @@ class GAnswer(QGridLayout):
 
 # ------------------------------------------------------------------------------
 
-class GCloze(QGridLayout):
+class GCloze(QHBoxLayout):
     """GUI for QCloze class.
     """
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
+        self.setSpacing(3)
         self.obj: ClozeItem = None
         self.opts = []
         self._pos = QLineEdit()
         self._pos.setFixedWidth(40)
         self._pos.setToolTip("Position in the plain text")
-        self.addWidget(self._pos, 0, 0)
+        self.addWidget(self._pos)
         self._grade = QLineEdit()
-        self._grade.setFixedWidth(25)
+        self._grade.setFixedWidth(20)
         self._grade.setToolTip("Grade for the given answer")
-        self.addWidget(self._grade, 0, 1)
+        self.addWidget(self._grade)
         self._form = QComboBox()
         self._form.addItems([a.value for a in ClozeFormat])
         self._form.setToolTip("Cloze format")
-        self._form.setStyleSheet("margin:0px 15px 0px 0px")
-        self.addWidget(self._form, 0, 2)
+        self.addWidget(self._form)
+        self.addSpacing(25)
         self._opts = QComboBox()
         self._opts.setFixedWidth(140)
         self._opts.currentIndexChanged.connect(self.__changed_opt)
-        self.addWidget(self._opts, 0, 3)
+        self.addWidget(self._opts)
         self._frac = QLineEdit()
         self._frac.setFixedWidth(35)
         self._frac.setToolTip("Fraction of the total grade (in percents)")
-        self.addWidget(self._frac, 0, 4)
+        self.addWidget(self._frac)
         self._text = QLineEdit()
         self._text.setToolTip("Answer text")
-        self.addWidget(self._text, 0, 5)
+        self.addWidget(self._text)
         self._fdbk = QLineEdit()
         self._fdbk.setToolTip("Answer feedback")
-        self.addWidget(self._fdbk, 0, 6)
+        self.addWidget(self._fdbk)
+        self.addSpacing(20)
         self._add = QPushButton("Add")
-        self._add.setFixedWidth(30)
+        self._add.setMinimumWidth(20)
         self._add.clicked.connect(self.add_opts)
-        self.addWidget(self._add, 0, 7)
+        self.addWidget(self._add)
         self._pop = QPushButton("Pop")
-        self._pop.setFixedWidth(30)
+        self._pop.setMinimumWidth(20)
         self._pop.clicked.connect(self.pop_opts)
-        self.addWidget(self._pop, 0, 8)
+        self.addWidget(self._pop)
 
     def __del__(self):
         try:
@@ -375,6 +377,8 @@ class GOptions(QVBoxLayout):
         self.visible = True
         self.toolbar = toolbar
         self.__ctype = None
+        self.setSpacing(0)
+        self.setContentsMargins(0, 0, 0, 0)
 
     def _soft_clear(self, new_size=0, new_type=None):
         if len(self.children()) == 0:

@@ -25,7 +25,7 @@ from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QSplitter, QTreeView, QGroupBox, QMainWindow, QStatusBar,\
                             QFileDialog, QMenu, QComboBox, QAction, QAbstractItemView,\
-                            QCheckBox, QLineEdit, QPushButton
+                            QCheckBox, QLineEdit, QPushButton, QScrollArea
 from ..quiz import Quiz
 from ..questions import QDICT, Question
 from ..enums import Numbering
@@ -75,9 +75,12 @@ class Editor(QMainWindow):
         self._add_solution_block()
         self._add_database_block()
         self.cframe_vbox.addStretch()
-        right = QFrame()
-        right.setLineWidth(2)
-        right.setLayout(self.cframe_vbox)
+        frame = QFrame()
+        frame.setLineWidth(2)
+        frame.setLayout(self.cframe_vbox)
+        right = QScrollArea()
+        right.setWidget(frame)
+        right.setWidgetResizable(True)
 
         # Create main window divider for the splitter
         splitter = QSplitter()
@@ -211,8 +214,7 @@ class Editor(QMainWindow):
         tmp.setContentsMargins(10, 0, 0, 0)
         grid.addWidget(tmp, 0, 6)
         grid.addWidget(self._items["id_number"], 0, 7)
-        grid.addWidget(QLabel("Question text"), 2, 0, 1, 2)
-        grid.addWidget(self._items["question_text"], 3, 0, 1, 8)
+        grid.addWidget(self._items["question_text"], 2, 0, 1, 8)
         frame.setLayout(grid)
         frame.toggle_collapsed()
 
