@@ -67,15 +67,14 @@ class GTextEditor(QTextEdit):
             It may be way faster than using QTextEdit
     """
 
-    def __init__(self, toolbar: "GTextToolbar") -> None:
+    def __init__(self, toolbar: "GTextToolbar", text_type: str) -> None:
         super().__init__()
         self.toolbar = toolbar
-        self.text_format: Format = Format.HTML
-        self.math_type = 0
         self.setAutoFormatting(QTextEdit.AutoAll)
         self.setFont(QFont('Times', 12))
         self.setFontPointSize(12)
         self.textChanged.connect(self.__flag_update)
+        self.__ftext: FText = FText(text_type, "", Format.AUTO, None)
         self.__tags: List[tuple] = []
         self.__need_update = True
 
@@ -104,7 +103,16 @@ class GTextEditor(QTextEdit):
         self.__need_update = False
 
     def _update_format(self, index):
-        self.text_format = list(GTextToolbar.FORMATS.values())[index]
+        self.__ftext.formatting = list(GTextToolbar.FORMATS.values())[index]
+
+    @property
+    def text_format(self):
+        """_summary_
+
+        Returns:
+            _type_: _description_
+        """
+        return self.__ftext.formatting
 
     def canInsertFromMimeData(self, source) -> bool: # pylint: disable=C0103
         """[summary]
@@ -148,7 +156,8 @@ class GTextEditor(QTextEdit):
             txt = self.toHtml()
         else:
             txt = self.toPlainText()
-        return FText(txt, self.text_format)
+        self.__ftext.text = txt
+        return self.__ftext
 
     def insertFromMimeData(self, source): # pylint: disable=C0103
         """[summary]
@@ -196,13 +205,13 @@ class GTextEditor(QTextEdit):
         Args:
             text (FText): _description_
         """
+        self._ftext = text
         if text.formatting == Format.MD:
             self.setMarkdown(text.text)
         elif text.formatting == Format.HTML:
             self.setHtml(text.text)
         else:
             self.setPlainText(text.text)
-        self.text_format = text.formatting
         self.__update_tags()
 
 # ------------------------------------------------------------------------------

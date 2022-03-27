@@ -171,7 +171,7 @@ class Editor(QMainWindow):
     def _add_feedback_block(self) -> None:
         frame = GFrameLayout(title="Feedbacks")
         self.cframe_vbox.addLayout(frame)
-        self._items["general_feedback"] = GTextEditor(self.editor_toolbar)
+        self._items["general_feedback"] = GTextEditor(self.editor_toolbar, "generalfeedback")
         self._items["general_feedback"].setFixedHeight(50)
         self._items["combined_feedback"] = GCFeedback(self.editor_toolbar)
         self._items["combined_feedback"].setFixedHeight(110)
@@ -195,7 +195,7 @@ class Editor(QMainWindow):
         self._items["id_number"].setFixedWidth(40)
         self._items["id_number"].setToolTip("Provides a second way of finding a question.")
         self._items["tags"] = GTagBar()
-        self._items["question_text"] = GTextEditor(self.editor_toolbar)
+        self._items["question_text"] = GTextEditor(self.editor_toolbar, "question_text")
         grid = QGridLayout()
         grid.addWidget(QLabel("Name"), 0, 0)
         grid.addWidget(self._items["name"], 0, 1)
@@ -250,7 +250,7 @@ class Editor(QMainWindow):
     def _add_solution_block(self) -> None:
         frame = GFrameLayout(title="Solutions")
         self.cframe_vbox.addLayout(frame)
-        self._items["solution"] = GTextEditor(self.editor_toolbar)
+        self._items["solution"] = GTextEditor(self.editor_toolbar, "solution")
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Solution"))
         layout.addWidget(self._items["solution"])

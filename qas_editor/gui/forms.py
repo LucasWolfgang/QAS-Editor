@@ -38,10 +38,10 @@ class GAnswer(QGridLayout):
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self.obj = None
-        self._text = GTextEditor(toolbar)
+        self._text = GTextEditor(toolbar, "")
         self.addWidget(self._text, 0, 0, 2, 1)
         self.addWidget(QLabel("Feedback"), 0, 1)
-        self._feedback = GTextEditor(toolbar)
+        self._feedback = GTextEditor(toolbar, "feedback")
         self._feedback.setFixedHeight(30)
         self.addWidget(self._feedback, 0, 2)
         self.addWidget(QLabel("Grade"), 1, 1)
@@ -489,9 +489,9 @@ class GCFeedback(QFrame):
         super().__init__(**kwargs)
         self.setStyleSheet(".GCFeedback{border:1px solid rgb(41, 41, 41);"+
                            "background-color: #e4ebb7}")
-        self._correct = GTextEditor(toolbar)
-        self._incomplete = GTextEditor(toolbar)
-        self._incorrect = GTextEditor(toolbar)
+        self._correct = GTextEditor(toolbar, "correctfeedback")
+        self._incomplete = GTextEditor(toolbar, "partiallycorrectfeedback")
+        self._incorrect = GTextEditor(toolbar, "incorrectfeedback")
         self._show = QCheckBox("Show the number of correct responses once"+
                                " the question has finished")
         _content = QGridLayout(self)
@@ -534,7 +534,7 @@ class GHint(QFrame):
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self.setStyleSheet(".GHint{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
-        self._text = GTextEditor(toolbar)
+        self._text = GTextEditor(toolbar, "")
         self._show = QCheckBox("Show the number of correct responses")
         self._state = QCheckBox("State which markers are incorrectly placed")
         self._clear = QCheckBox("Move incorrectly placed markers back to default start position")

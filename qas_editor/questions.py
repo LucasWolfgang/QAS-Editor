@@ -102,7 +102,7 @@ class Question(Serializable):
                 self not in value.questions) or (self.__parent is not None and\
                 value is None and self in self.__parent.questions):
             raise ValueError("This attribute can't be assigned directly. Use "+
-                             f"parent's add/rem_question functions instead.")
+                             "parent's add/rem_question functions instead.")
         self.__parent = value
 
     @classmethod
