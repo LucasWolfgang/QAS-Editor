@@ -33,7 +33,8 @@ if TYPE_CHECKING:
     from typing import List, Dict
     from .enums import Direction
 LOG = logging.getLogger(__name__)
-QDICT: Dict[str, Question] = {}
+QNAME: Dict[str, Question] = {}
+QTYPE: Dict[str, Question] = {}
 
 class Question(Serializable):
     """
@@ -44,7 +45,8 @@ class Question(Serializable):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        QDICT[cls._type] = cls
+        QNAME[cls.__name__] = cls
+        QTYPE[cls._type] = cls
 
     def __init__(self, name: str, question_text: FText = None,
                  default_grade: float = 1.0, general_feedback: FText = None,

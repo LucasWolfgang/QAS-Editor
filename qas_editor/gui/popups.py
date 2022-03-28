@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from PyQt5.QtWidgets import QDialog, QPushButton, QLineEdit, QVBoxLayout,\
                             QComboBox
 from .utils import action_handler
-from ..quiz import Quiz, QDICT
+from ..quiz import Quiz, QNAME
 
 class CategoryPopup(QDialog):
 
@@ -49,14 +49,14 @@ class CategoryPopup(QDialog):
 
 class QuestionPopup(QDialog):
 
-    def __init__(self, quiz, **kwargs) -> None:
+    def __init__(self, quiz: Quiz, **kwargs) -> None:
         super().__init__(**kwargs)
         self.setWindowTitle("Create Question")
         self.__quiz = quiz
         question_create = QPushButton("Create")
         question_create.clicked.connect(self._create_question)
         self.__question_type = QComboBox()
-        self.__question_type.addItems([cls.__name__ for cls in QDICT.values()])
+        self.__question_type.addItems(QNAME)
         vbox = QVBoxLayout()
         vbox.addWidget(self.__question_type)
         vbox.addWidget(question_create)
@@ -64,7 +64,7 @@ class QuestionPopup(QDialog):
 
     @action_handler
     def _create_question(self, status) -> None:
-        cls = QDICT[self.__question_type.currentText()]
-        self.__quiz["New Question"] = cls(name="New Question")
+        question = QNAME[self.__question_type.currentText()](name="New Question")
+        self.__quiz.add_question(question)
         self.accept()
         

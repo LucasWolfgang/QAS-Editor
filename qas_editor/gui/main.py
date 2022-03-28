@@ -29,7 +29,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
 
 from .popups import CategoryPopup,QuestionPopup
 from ..quiz import Quiz
-from ..questions import QDICT, Question
+from ..questions import QNAME, Question
 from ..enums import Numbering
 from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, IMG_PATH,\
                    action_handler
@@ -151,7 +151,7 @@ class Editor(QMainWindow):
         self.data_root.setHeaderData(0, Qt.Horizontal, "Classification")
         self.data_view.setModel(self.data_root)
         self.question_type = QComboBox()
-        self.question_type.addItems([cls.__name__ for cls in QDICT.values()])
+        self.question_type.addItems(QNAME)
         
         xframe_vbox = QVBoxLayout()
         xframe_vbox.addWidget(self.data_view)

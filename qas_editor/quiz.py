@@ -25,7 +25,7 @@ import re
 from enum import Enum
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
-from .questions import QDICT, Question, QMultichoice, QCloze, QDescription,\
+from .questions import QNAME, Question, QMultichoice, QCloze, QDescription,\
                        QEssay, QNumerical, QMissingWord, QTrueFalse, QMatching,\
                        QShortAnswer
 if TYPE_CHECKING:
@@ -438,7 +438,7 @@ class Quiz: # pylint: disable=R0904
             quiz = cls(_dt["_Quiz__name"], parent)
             for i in range(len(_dt["_questions"])):
                 val = _dt["_questions"][i]
-                _dt["_questions"][i] = QDICT[val["_type"]].from_json(val)
+                _dt["_questions"][i] = QNAME[val["_type"]].from_json(val)
                 _dt["_questions"][i].parent = quiz
             for i in _dt["_Quiz__categories"]:
                 val = _dt["_Quiz__categories"][i]
@@ -573,13 +573,13 @@ class Quiz: # pylint: disable=R0904
                 continue
             if question.get("type") == "category":
                 quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)
-            elif question.get("type") not in QDICT:
+            elif question.get("type") not in QNAME:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:
                 if top_quiz is None and quiz is None:
                     top_quiz: Quiz = Quiz(category)
                     quiz = top_quiz
-                quiz.__questions.append(QDICT[question.get("type")].from_xml(question))
+                quiz.__questions.append(QNAME[question.get("type")].from_xml(question))
         return top_quiz
 
     def rem_question(self, question: Question) -> bool:
