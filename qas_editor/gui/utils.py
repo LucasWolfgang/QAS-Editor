@@ -23,7 +23,7 @@ import logging
 from os.path import splitext
 from uuid import uuid4
 from typing import TYPE_CHECKING
-from PyQt5.QtCore import Qt, QSize, QPoint, QPointF, pyqtSignal
+from PyQt5.QtCore import Qt, QSize, QPoint, QPointF
 from PyQt5.QtGui import QFont, QImage, QTextDocument, QKeySequence, QIcon, QColor, QPainter
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QTextEdit, QToolBar, \
                             QFontComboBox, QComboBox, QActionGroup, QAction, QLineEdit, \

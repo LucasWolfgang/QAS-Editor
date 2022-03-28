@@ -23,13 +23,16 @@ from typing import TYPE_CHECKING
 from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
-                            QSplitter, QTreeView, QGroupBox, QMainWindow, QStatusBar,\
+                            QSplitter, QTreeView, QMainWindow, QStatusBar,\
                             QFileDialog, QMenu, QComboBox, QAction, QAbstractItemView,\
                             QCheckBox, QLineEdit, QPushButton, QScrollArea
+
+from .popups import CategoryPopup,QuestionPopup
 from ..quiz import Quiz
 from ..questions import QDICT, Question
 from ..enums import Numbering
-from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, IMG_PATH, action_handler
+from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, IMG_PATH,\
+                   action_handler
 from .forms import GOptions, GUnitHadling, GCFeedback, GMultipleTries
 if TYPE_CHECKING:
     from typing import Dict
@@ -149,26 +152,9 @@ class Editor(QMainWindow):
         self.data_view.setModel(self.data_root)
         self.question_type = QComboBox()
         self.question_type.addItems([cls.__name__ for cls in QDICT.values()])
-        question_create = QPushButton("Create")
-        question_create.clicked.connect(self._create_question)
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.question_type)
-        vbox.addWidget(question_create)
-        box = QGroupBox("Questions")
-        box.setLayout(vbox)
-        category_create = QPushButton("Create")
-        category_create.clicked.connect(self._create_category)
+        
         xframe_vbox = QVBoxLayout()
         xframe_vbox.addWidget(self.data_view)
-        xframe_vbox.addSpacing(10)
-        xframe_vbox.addWidget(box)
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.category_name)
-        vbox.addWidget(category_create)
-        box = QGroupBox("Categories")
-        box.setLayout(vbox)
-        xframe_vbox.addSpacing(20)
-        xframe_vbox.addWidget(box)
         return xframe_vbox
 
     def _add_feedback_block(self) -> None:
@@ -258,6 +244,23 @@ class Editor(QMainWindow):
         layout.addWidget(self._items["solution"])
         frame.setLayout(layout)
 
+    def _add_new_category(self, quiz):
+        popup = CategoryPopup(quiz, parent=self)
+        popup.show()
+        if popup.exec_():
+            self._update_tree()
+
+    def _add_new_question(self, quiz):
+        popup = QuestionPopup(quiz)
+        popup.show()
+        if popup.exec_():
+            self._update_tree()
+        for key in self._items:
+            if key == "name":
+                continue
+            if hasattr(self._items[key], "clear"):
+                self._items[key].clear()
+    
     @action_handler
     def _append_category(self, parent: Quiz):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", self.FORMATS)
@@ -270,23 +273,6 @@ class Editor(QMainWindow):
             question.parent = parent
         del quiz
         self._update_tree()
-
-    @action_handler
-    def _create_category(self) -> None:
-        quiz = Quiz(self.category_name.text())
-        quiz.parent = self.current_category
-        self._update_tree()
-
-    @action_handler
-    def _create_question(self) -> None:
-        cls = QDICT[self.question_type.currentText()]
-        cls(name="New Question").parent = self.current_category
-        self._update_tree()
-        for key in self._items:
-            if key == "name":
-                continue
-            if hasattr(self._items[key], "clear"):
-                self._items[key].clear()
 
     @action_handler
     def _create_file(self):
@@ -317,12 +303,18 @@ class Editor(QMainWindow):
             save_as = QAction("Save as", self)
             save_as.triggered.connect(lambda: self._write_quiz(item, True))
             self.context_menu.addAction(save_as)
-            append = QAction("Append", self)
-            append.triggered.connect(lambda: self._append_category(item))
-            self.context_menu.addAction(append)
             rename = QAction("Rename", self)
             rename.triggered.connect(lambda: self._rename_category(item))
             self.context_menu.addAction(rename)
+            append = QAction("Append", self)
+            append.triggered.connect(lambda: self._append_category(item))
+            self.context_menu.addAction(append)
+            rename = QAction("New Question", self)
+            rename.triggered.connect(lambda: self._add_new_question(item))
+            self.context_menu.addAction(rename)
+            append = QAction("New Category", self)
+            append.triggered.connect(lambda: self._add_new_category(item))
+            self.context_menu.addAction(append)
         self.context_menu.popup(self.data_view.mapToGlobal(event))
 
     def _delete_item(self, item) -> None:

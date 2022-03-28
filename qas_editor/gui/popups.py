@@ -1,0 +1,70 @@
+""""
+Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+Copyright (C) 2022  Lucas Wolfgang
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+
+from PyQt5.QtWidgets import QDialog, QPushButton, QLineEdit, QVBoxLayout,\
+                            QComboBox
+from .utils import action_handler
+from ..quiz import Quiz, QDICT
+
+class CategoryPopup(QDialog):
+
+    def __init__(self, quiz, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.setWindowTitle("Create Category")
+        self.__quiz = quiz
+        category_create = QPushButton("Create")
+        category_create.clicked.connect(self._create_category)
+        self._category_name = QLineEdit()
+        self._category_name.setFocus()
+        vbox = QVBoxLayout()
+        vbox.addWidget(self._category_name)
+        vbox.addWidget(category_create)
+        self.setLayout(vbox)
+
+    @action_handler
+    def _create_category(self, status) -> None:
+        name = self._category_name.text()
+        if not name:
+            self.reject()
+        quiz = Quiz(name)
+        self.__quiz[name] = quiz
+        self.accept()
+
+# ------------------------------------------------------------------------------
+
+class QuestionPopup(QDialog):
+
+    def __init__(self, quiz, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.setWindowTitle("Create Question")
+        self.__quiz = quiz
+        question_create = QPushButton("Create")
+        question_create.clicked.connect(self._create_question)
+        self.__question_type = QComboBox()
+        self.__question_type.addItems([cls.__name__ for cls in QDICT.values()])
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.__question_type)
+        vbox.addWidget(question_create)
+        self.setLayout(vbox)
+
+    @action_handler
+    def _create_question(self, status) -> None:
+        cls = QDICT[self.__question_type.currentText()]
+        self.__quiz["New Question"] = cls(name="New Question")
+        self.accept()
+        
