@@ -23,7 +23,6 @@ import xml.etree.ElementTree as et
 from urllib import request
 from typing import TYPE_CHECKING
 
-from numpy import roots
 from .enums import Format, Status, Distribution, Grading, ShowUnits
 from .utils import cdata_str, Serializable
 if TYPE_CHECKING:
@@ -139,7 +138,7 @@ class UnitHandling(Serializable):
     """A
     """
 
-    def __init__(self, grading_type: Grading, unit_penalty: float, 
+    def __init__(self, grading_type: Grading, unit_penalty: float,
                  show: ShowUnits, left: bool) -> None:
         super().__init__()
         self.grading_type = grading_type
@@ -302,7 +301,10 @@ class Dataset(Serializable):
         tags["dataset_items"] = (DatasetItem.from_xml, "items", True)
         return super().from_xml(root, tags, attrs)
 
-    def from_xml_list(root: et.Element, *args) -> List["Dataset"]:
+    @staticmethod
+    def from_xml_list(root: et.Element, *_) -> List["Dataset"]:
+        """A
+        """
         return [Dataset.from_xml(obj, {}, {}) for obj in root]
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:

@@ -110,7 +110,7 @@ class Serializable:
                 if not tmp:
                     text = obj.find("text")
                     if text is not None:
-                        tmp = text.text 
+                        tmp = text.text
                 if cast_type == bool:
                     tmp = True if not tmp else tmp.lower() in ["true", "1", "t"]
                 elif isinstance(cast_type, type):

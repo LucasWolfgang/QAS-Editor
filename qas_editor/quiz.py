@@ -434,7 +434,7 @@ class Quiz: # pylint: disable=R0904
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
-        def _fr581om_json(_dt: dict, parent: Quiz):
+        def _from_json(_dt: dict, parent: Quiz):
             quiz = cls(_dt["_Quiz__name"], parent)
             for i in range(len(_dt["_questions"])):
                 val = _dt["_questions"][i]

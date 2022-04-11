@@ -245,7 +245,7 @@ class QCalculatedMultichoice(Question):
                  numbering: Numbering = Numbering.ALF_LR,
                  combined_feedback: CombinedFeedback = None,
                  multiple_tries: MultipleTries = None,
-                 datasets: List[Dataset] = None, 
+                 datasets: List[Dataset] = None,
                  answers: List[CalculatedAnswer] = None, **kwargs):
         super().__init__(**kwargs)
         self.synchronize = synchronize
@@ -350,9 +350,6 @@ class QCloze(Question):
             item = ClozeItem.from_cloze(match)
             self.answers.append(item)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        return super().to_xml(root, strict)
-
 # ------------------------------------------------------------------------------
 
 class QDescription(Question):
@@ -391,7 +388,7 @@ class QDragAndDropText(Question):
     _type = "ddwtos"
 
     def __init__(self, combined_feedback: CombinedFeedback = None,
-                 multiple_tries: MultipleTries = None, 
+                 multiple_tries: MultipleTries = None,
                  answers: List[DragText] = None, **kwargs):
         """
         Currently not implemented.
