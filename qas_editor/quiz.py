@@ -25,7 +25,7 @@ import re
 from enum import Enum
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
-from .questions import QNAME, Question, QMultichoice, QCloze, QDescription,\
+from .questions import QTYPE, Question, QMultichoice, QCloze, QDescription,\
                        QEssay, QNumerical, QMissingWord, QTrueFalse, QMatching,\
                        QShortAnswer
 if TYPE_CHECKING:
@@ -132,7 +132,7 @@ class Quiz: # pylint: disable=R0904
         return True
 
     @staticmethod
-    def __gen_hier(top: "Quiz", category: str) -> tuple:
+    def __gen_hier(top: "Quiz", category: str) -> Quiz:
         cat_list = category.strip().split("/")
         start = 1 if top.name == cat_list[0] else 0
         quiz = top
@@ -178,7 +178,7 @@ class Quiz: # pylint: disable=R0904
             data += child._to_aiken()
         return data
 
-    def _to_xml_element(self, root: et.Element) -> None:
+    def _to_xml_element(self, root: et.Element, strict: bool) -> None:
         """[summary]
 
         Args:
@@ -197,9 +197,9 @@ class Quiz: # pylint: disable=R0904
             et.SubElement(category, "text").text = "/".join(catname)
             root.append(question)
             for question in self.__questions:       # Add own questions first
-                root.append(question.to_xml())
+                question.to_xml(root, strict)
         for child in self.__categories.values():    # Then add children data
-            child._to_xml_element(root)
+            child._to_xml_element(root, strict)
 
     def _to_json(self, data: dict|list):
         """[summary]
@@ -434,11 +434,11 @@ class Quiz: # pylint: disable=R0904
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
-        def _from_json(_dt: dict, parent: Quiz):
+        def _fr581om_json(_dt: dict, parent: Quiz):
             quiz = cls(_dt["_Quiz__name"], parent)
             for i in range(len(_dt["_questions"])):
                 val = _dt["_questions"][i]
-                _dt["_questions"][i] = QNAME[val["_type"]].from_json(val)
+                _dt["_questions"][i] = QTYPE[val["_type"]].from_json(val)
                 _dt["_questions"][i].parent = quiz
             for i in _dt["_Quiz__categories"]:
                 val = _dt["_Quiz__categories"][i]
@@ -565,21 +565,21 @@ class Quiz: # pylint: disable=R0904
         Returns:
             [type]: [description]
         """
+        if not category:
+            raise ValueError("Category string should not be empty")
         data_root = et.parse(file_path)
-        top_quiz: Quiz = None
+        top_quiz: Quiz = cls(category)
         quiz = top_quiz
         for question in data_root.getroot():
             if question.tag != "question":
                 continue
             if question.get("type") == "category":
                 quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)
-            elif question.get("type") not in QNAME:
+            elif question.get("type") not in QTYPE:
                 raise TypeError(f"The type {question.get('type')} not implemented")
             else:
-                if top_quiz is None and quiz is None:
-                    top_quiz: Quiz = Quiz(category)
-                    quiz = top_quiz
-                quiz.__questions.append(QNAME[question.get("type")].from_xml(question))
+                quiz.__questions.append(QTYPE[question.get("type")].
+                                        from_xml(question, {}, {}))
         return top_quiz
 
     def rem_question(self, question: Question) -> bool:
@@ -679,17 +679,17 @@ class Quiz: # pylint: disable=R0904
         # TODO
         raise NotImplementedError("PDF not implemented")
 
-    def write_xml(self, file_path: str, pretty_print: bool = False):
+    def write_xml(self, file_path: str, pretty_print = False, strict = True):
         """Generates XML compatible with Moodle and saves to a file.
 
         Args:
             file_path (str): filename where the XML will be saved
-            pretty_print (bool, optional): (not implemented) saves XML pretty
-                printed. Defaults to False.
+            pretty_print (bool, optional): saves XML pretty printed. Defaults to False.
+            strict (bool, optinal): saves using strict Moodle format. Defaults to True.
         """
         quiz: et.ElementTree = et.ElementTree(et.Element("quiz"))
         root = quiz.getroot()
-        self._to_xml_element(root)
+        self._to_xml_element(root, strict)
         if pretty_print:
             self._indent(root)
         quiz.write(file_path, encoding="utf-8", xml_declaration=True,

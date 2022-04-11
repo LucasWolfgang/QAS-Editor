@@ -131,9 +131,9 @@ class Question(Serializable):
         question = et.SubElement(root, "question", {"type": self._type})
         name = et.SubElement(question, "name")
         et.SubElement(name, "text").text = self.name
-        self.question_text.to_xml(question)
+        self.question_text.to_xml(question, strict)
         if self.general_feedback:
-            self.general_feedback.to_xml(question)
+            self.general_feedback.to_xml(question, strict)
         et.SubElement(question, "defaultgrade").text = str(self.default_grade)
         et.SubElement(question, "hidden").text = "0"
         if self.id_number is not None:
@@ -174,9 +174,9 @@ class QCalculated(Question):
         self.single = single
         self.unit_handling = unit_handling
         self.multiple_tries = multiple_tries
-        self.units: List[Unit] = units if units is not None else []
-        self.datasets: List[Dataset] = datasets if datasets is not None else []
-        self.answers: List[CalculatedAnswer] = answers if answers is not None else []
+        self.units = units if units is not None else []
+        self.datasets = datasets if datasets is not None else []
+        self.answers = answers if answers is not None else []
 
     @classmethod
     def from_json(cls, data) -> "QCalculated":
@@ -192,31 +192,33 @@ class QCalculated(Question):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QCalculated":
-        tags["synchronize"] = (int, "synchronize")
+        tags["synchronize"] = (bool, "synchronize")
         tags["single"] = (bool, "single")
         UnitHandling._add_xml(tags, "unit_handling")
         MultipleTries._add_xml(tags, "multiple_tries")
-        tags["units"] = (Unit.from_xml, "units")
-        tags["dataset_definitions"] = (Dataset.from_xml, "datasets")
-        tags["answer"] = (CalculatedAnswer.from_xml, "answers")
+        tags["units"] = (Unit.from_xml, "units", True)
+        tags["dataset_definitions"] = (Dataset.from_xml_list, "datasets")
+        tags["answer"] = (CalculatedAnswer.from_xml, "answers", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         question = super().to_xml(root, strict)
-        et.SubElement(question, "synchronize").text = self.synchronize
-        et.SubElement(question, "single").text = self.single
+        if self.synchronize:
+            et.SubElement(question, "synchronize")
+        if self.single:
+            et.SubElement(question, "single")
         for answer in self.answers:
-            question.append(answer.to_xml())
-        self.unit_handling.to_xml(question)
-        self.multiple_tries.to_xml(question)
+            answer.to_xml(question, strict)
+        self.unit_handling.to_xml(question, strict)
+        self.multiple_tries.to_xml(question, strict)
         if self.units:
             units = et.SubElement(question, "units")
             for unit in self.units:
-                units.append(unit.to_xml())
+                unit.to_xml(units, strict)
         if self.datasets:
             dataset_definitions = et.SubElement(question, "dataset_definitions")
             for dataset in self.datasets:
-                dataset_definitions.append(dataset.to_xml())
+                dataset.to_xml(dataset_definitions, strict)
         return question
 
 # ------------------------------------------------------------------------------
@@ -243,16 +245,16 @@ class QCalculatedMultichoice(Question):
                  numbering: Numbering = Numbering.ALF_LR,
                  combined_feedback: CombinedFeedback = None,
                  multiple_tries: MultipleTries = None,
-                 datasets: List[Dataset] = None, answers: List[CalculatedAnswer] = None,
-                 **kwargs):
+                 datasets: List[Dataset] = None, 
+                 answers: List[CalculatedAnswer] = None, **kwargs):
         super().__init__(**kwargs)
         self.synchronize = synchronize
         self.single = single
         self.numbering = numbering
         self.combined_feedback = combined_feedback
         self.multiple_tries = multiple_tries
-        self.datasets: List[Dataset] = datasets if datasets is not None else []
-        self.answers: List[CalculatedAnswer] = answers if answers is not None else []
+        self.datasets = datasets if datasets is not None else []
+        self.answers = answers if answers is not None else []
 
     def add_dataset(self, status: Status, name: str, dist: Distribution, minim: float,
                     maxim: float, dec: int) -> None:
@@ -281,22 +283,24 @@ class QCalculatedMultichoice(Question):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Question":
-        tags["synchronize"] = (int, "synchronize")
+        tags["synchronize"] = (bool, "synchronize")
         tags["single"] = (bool, "single")
         tags["answernumbering"] = (Numbering, "numbering")
         CombinedFeedback._add_xml(tags, "combined_feedback")
         MultipleTries._add_xml(tags, "multiple_tries")
-        tags["dataset_definitions"] = (Dataset.from_xml, "datasets")
-        tags["answer"] = (CalculatedAnswer.from_xml, "answers")
+        tags["dataset_definitions"] = (Dataset.from_xml_list, "datasets")
+        tags["answer"] = (CalculatedAnswer.from_xml, "answers", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         question = super().to_xml(root, strict)
-        et.SubElement(question, "synchronize").text = str(self.synchronize)
-        et.SubElement(question, "single").text = str(self.single).lower()
+        if self.synchronize:
+            et.SubElement(question, "synchronize")
+        if self.single:
+            et.SubElement(question, "single")
         et.SubElement(question, "answernumbering").text = self.numbering.value
-        self.combined_feedback.to_xml(question)
-        self.multiple_tries.to_xml(question)
+        self.combined_feedback.to_xml(question, strict)
+        self.multiple_tries.to_xml(question, strict)
         for answer in self.answers:
             answer.to_xml(question, strict)
         dataset_definitions = et.SubElement(question, "dataset_definitions")
@@ -312,9 +316,10 @@ class QCloze(Question):
     """
     _type = "cloze"
 
-    def __init__(self, answers: List[ClozeItem] = None, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.answers: List[ClozeItem] = answers if answers is not None else []
+        self.answers = []
+        self._update_text()
 
     @classmethod
     def from_cloze(cls, buffer) -> "QCloze":
@@ -328,18 +333,8 @@ class QCloze(Question):
         """
         data = buffer.read()
         name, text = data.split("\n", 1)
-        ntext = []
-        index = 0
-        answers: List[ClozeItem] = []
-        pattern = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
-        for num, match in enumerate(pattern.finditer(text)):
-            item = ClozeItem.from_cloze(match)
-            answers.append(item)
-            ntext.append(text[index:item.start])
-            ntext.append(f"<span style=\"background:red\">[[{num:02}]]</span>")
-            index = match.end()
-        ftext = FText("questiontext", "".join(ntext), Format.HTML, None)
-        return cls(name=name, question_text=ftext, answers=answers)
+        ftext = FText("questiontext", text, Format.HTML, None)
+        return cls(name=name, question_text=ftext)
 
     @classmethod
     def from_json(cls, data: dict) -> "QCloze":
@@ -349,18 +344,14 @@ class QCloze(Question):
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QCloze":
         return super().from_xml(root, tags, attrs)
 
+    def _update_text(self):
+        pattern = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
+        for match in pattern.finditer(self.question_text.text):
+            item = ClozeItem.from_cloze(match)
+            self.answers.append(item)
+
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        text = []
-        last = 0
-        for answer in self.answers:
-            text.append(self.question_text.text[last:answer.start])
-            text.append(str(answer))
-            last = answer.start + 42
-        tmp = self.question_text.text
-        self.question_text.text = "".join(text)
-        result = super().to_xml(root, strict)
-        self.question_text.text = tmp
-        return result
+        return super().to_xml(root, strict)
 
 # ------------------------------------------------------------------------------
 
@@ -400,15 +391,15 @@ class QDragAndDropText(Question):
     _type = "ddwtos"
 
     def __init__(self, combined_feedback: CombinedFeedback = None,
-                 multiple_tries: MultipleTries = None, answers: List[DragText] = None,
-                 **kwargs):
+                 multiple_tries: MultipleTries = None, 
+                 answers: List[DragText] = None, **kwargs):
         """
         Currently not implemented.
         """
         super().__init__(**kwargs)
         self.combined_feedback = combined_feedback
         self.multiple_tries = multiple_tries
-        self.answers: List[DragText] = answers if answers is not None else []
+        self.answers = answers if answers is not None else []
 
     @classmethod
     def from_json(cls, data) -> "QDragAndDropText":
@@ -422,7 +413,7 @@ class QDragAndDropText(Question):
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QDragAndDropText":
         CombinedFeedback._add_xml(tags, "combined_feedback")
         MultipleTries._add_xml(tags, "multiple_tries")
-        tags["dragbox"] = (DragText.from_xml, "dragbox")
+        tags["dragbox"] = (DragText.from_xml, "answers", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -430,7 +421,7 @@ class QDragAndDropText(Question):
         self.multiple_tries.to_xml(question, strict)
         self.combined_feedback.to_xml(question, strict)
         for choice in self.answers:
-            choice.to_xml(question)
+            choice.to_xml(question, strict)
         return question
 
 # ----------------------------------------------------------------------------------------
@@ -507,9 +498,9 @@ class QDragAndDropImage(Question):
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QDragAndDropImage":
         CombinedFeedback._add_xml(tags, "combined_feedback")
-        tags["background"] = (B64File.from_xml, "file")
-        tags["drag"] = (DragItem.from_xml, "dragitems")
-        tags["drop"] = (DropZone.from_xml, "dropzones")
+        tags["file"] = (B64File.from_xml, "background")
+        tags["drag"] = (DragItem.from_xml, "dragitems", True)
+        tags["drop"] = (DropZone.from_xml, "dropzones", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool):
@@ -575,10 +566,10 @@ class QDragAndDropMarker(Question):
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QDragAndDropMarker":
         CombinedFeedback._add_xml(tags, "combined_feedback")
         MultipleTries._add_xml(tags, "multiple_tries")
-        tags["background"] = (B64File.from_xml, "file")
+        tags["file"] = (B64File.from_xml, "background")
         tags["showmisplaced"] = (bool, "highlight_empty")
-        tags["drag"] = (DragItem.from_xml, "dragitems")
-        tags["drop"] = (DropZone.from_xml, "dropzones")
+        tags["drag"] = (DragItem.from_xml, "dragitems", True)
+        tags["drop"] = (DropZone.from_xml, "dropzones", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool):
@@ -588,11 +579,11 @@ class QDragAndDropMarker(Question):
         self.multiple_tries.to_xml(question, strict)
         self.combined_feedback.to_xml(question, strict)
         for dragitem in self._dragitems:
-            dragitem.to_xml(question)
+            dragitem.to_xml(question, strict)
         for dropzone in self._dropzones:
-            dropzone.to_xml(question)
+            dropzone.to_xml(question, strict)
         if self.background:
-            self.background.to_xml(question)
+            self.background.to_xml(question, strict)
         return question
 
 # ------------------------------------------------------------------------------
@@ -645,15 +636,15 @@ class QEssay(Question):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QEssay":
-        tags["response_format"] = (ResponseFormat, "responseformat")
+        tags["responseformat"] = (ResponseFormat, "response_format")
         tags["responserequired"] = (bool, "response_required")
         tags["responsefieldlines"] = (int, "lines")
         tags["attachments"] = (int, "attachments")
         tags["attachmentsrequired"] = (bool, "attachments_required")
         tags["maxbytes"] = (int, "maxbytes")
         tags["filetypeslist"] = (str, "filetypes_list")
-        tags["grader_info"] = (FText.from_xml, "graderinfo")
-        tags["response_template"] = (FText.from_xml, "responsetemplate")
+        tags["graderinfo"] = (FText.from_xml, "grader_info")
+        tags["responsetemplate"] = (FText.from_xml, "response_template")
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -734,7 +725,7 @@ class QMatching(Question):
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QMatching":
         CombinedFeedback._add_xml(tags, "combined_feedback")
-        tags["subquestion"] = (Subquestion.from_xml, "subquestions")
+        tags["subquestion"] = (Subquestion.from_xml, "subquestions", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -826,7 +817,7 @@ class QMissingWord(Question):
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QMissingWord":
         CombinedFeedback._add_xml(tags, "combined_feedback")
-        tags["selectoption"] = (SelectOption.from_xml, "options")
+        tags["selectoption"] = (SelectOption.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -943,8 +934,8 @@ class QMultichoice(Question):
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QMultichoice":
         tags["single"] = (bool, "single")
         tags["showstandardinstruction"] = (bool, "show_instruction")
-        tags["answer_numbering"] = (Numbering, "answernumbering")
-        tags["answer"] = (Answer.from_xml, "answers")
+        tags["answernumbering"] = (Numbering, "answer_numbering")
+        tags["answer"] = (Answer.from_xml, "answers", True)
         CombinedFeedback._add_xml(tags, "combined_feedback")
         MultipleTries._add_xml(tags, "multiple_tries")
         return super().from_xml(root, tags, attrs)
@@ -955,7 +946,8 @@ class QMultichoice(Question):
         if self.combined_feedback:
             self.combined_feedback.to_xml(question, strict)
         et.SubElement(question, "answernumbering").text = self.answer_numbering.value
-        et.SubElement(question, "single").text = str(self.single).lower()
+        if self.single:
+            et.SubElement(question, "single")
         for answer in self.answers:
             answer.to_xml(question, strict)
         return question
@@ -997,8 +989,8 @@ class QNumerical(Question):
     _type = "numerical"
 
     def __init__(self, unit_handling: UnitHandling = None,
-                 units: List[Unit] = None, answers: List[NumericalAnswer] = None,
-                 **kwargs) -> None:
+                 units: List[Unit] = None,
+                 answers: List[NumericalAnswer] = None, **kwargs) -> None:
         super().__init__(**kwargs)
         self.unit_handling = unit_handling
         self.units = units if units is not None else []
@@ -1029,7 +1021,8 @@ class QNumerical(Question):
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QNumerical":
         tags["unit_handling"] = (UnitHandling.from_xml, "unit_handling")
-        tags["answer"] = (NumericalAnswer.from_xml, "answers")
+        tags["answer"] = (NumericalAnswer.from_xml, "answers", True)
+        tags["units"] = (Unit.from_xml, "units", True)
         return super().from_xml(root, tags, attrs)
 
     @classmethod
@@ -1144,7 +1137,7 @@ class QShortAnswer(Question):
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QShortAnswer":
         tags["usecase"] = (str, "use_case")
-        tags["answer"] = (Answer.from_xml, "answers")
+        tags["answer"] = (Answer.from_xml, "answers", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -1244,7 +1237,7 @@ class QTrueFalse(Question):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Question":
-        tags["answer"] = (Answer.from_xml, "anwsers")
+        tags["answer"] = (Answer.from_xml, "answers", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:

@@ -50,7 +50,7 @@ class Answer(Serializable):
         tags["fraction"] = (float, "fraction")
         tags["text"] = (str, "text")
         tags["feedback"] = (FText.from_xml, "feedback")
-        attrs["format"] = (Format, "format")
+        attrs["format"] = (Format, "formatting")
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -59,7 +59,7 @@ class Answer(Serializable):
             answer.set("format", self.formatting.value)
         et.SubElement(answer, "text").text = cdata_str(self.text)
         if self.feedback:
-            self.feedback.to_xml(answer)
+            self.feedback.to_xml(answer, strict)
         return answer
 
 # ------------------------------------------------------------------------------
@@ -85,7 +85,7 @@ class NumericalAnswer(Answer):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "NumericalAnswer":
-        tags["tolerance"] = float
+        tags["tolerance"] = (float, "tolerance")
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -113,7 +113,7 @@ class CalculatedAnswer(NumericalAnswer):
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "CalculatedAnswer":
         tags["tolerancetype"] = (int, "tolerance_type")
-        tags["correctanswerformat"] = (int, "answer_length")
+        tags["correctanswerformat"] = (int, "answer_format")
         tags["correctanswerlength"] = (int, "answer_length")
         return super().from_xml(root, tags, attrs)
 
@@ -266,7 +266,7 @@ class DragItem(Serializable):
         if self.no_of_drags:
             et.SubElement(dragitem, "noofdrags").text = str(self.no_of_drags)
         if self.image:
-            dragitem.append(self.image.to_xml())
+            self.image.to_xml(dragitem, strict)
         return dragitem
 
 # ------------------------------------------------------------------------------
@@ -312,13 +312,13 @@ class DropZone(Serializable):
             res["coord_x"], res["coord_y"] = map(int, coords[0].split(","))
             res["points"] = coords[1]
         elif "xleft" in data and "ytop" in data:
-            res["xleft"] = int(data["coord_x"])
-            res["ytop"] = int(data["coord_y"])
+            res["coord_x"] = int(data["xleft"].text)
+            res["coord_y"] = int(data["ytop"].text)
         else:
             raise AttributeError("One or more coordenates are missing for the DropZone")
-        res["choice"] = int(data["choice"])
-        res["no"] = int(data["number"])
-        res["text"] = data["text"]
+        res["choice"] = int(data["choice"].text)
+        res["number"] = int(data["no"].text)
+        res["text"] = data["text"].text if "text" in data else None
         return cls(**res)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:

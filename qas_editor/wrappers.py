@@ -22,6 +22,8 @@ import logging
 import xml.etree.ElementTree as et
 from urllib import request
 from typing import TYPE_CHECKING
+
+from numpy import roots
 from .enums import Format, Status, Distribution, Grading, ShowUnits
 from .utils import cdata_str, Serializable
 if TYPE_CHECKING:
@@ -113,7 +115,7 @@ class Subquestion(Serializable):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Subquestion":
-        tags["format"] = (Format, "formatting")
+        attrs["format"] = (Format, "formatting")
         tags["text"] = (str, "text")
         tags["answer"] = (str, "answer")
         return super().from_xml(root, tags, attrs)
@@ -137,25 +139,23 @@ class UnitHandling(Serializable):
     """A
     """
 
-    def __init__(self, grading_type: Grading, penalty: float, show: ShowUnits,
-                 left: bool) -> None:
+    def __init__(self, grading_type: Grading, unit_penalty: float, 
+                 show: ShowUnits, left: bool) -> None:
         super().__init__()
         self.grading_type = grading_type
-        self.penalty = penalty
+        self.penalty = unit_penalty
         self.show = show
         self.left = left
 
     @staticmethod
     def _add_xml(tags: dict, name: str) -> None:
-        if name in tags:
-            raise KeyError(f"Key {name} is already being used")
         tags["unitgradingtype"] = (Grading, "grading_type")
-        tags["unitpenalty"] = (str, "penalty")
+        tags["unitpenalty"] = (str, "unit_penalty")
         tags["unitsleft"] = (bool, "left")
         tags["showunits"] = (ShowUnits, "show")
         if name is not None:
-            tags[name] = ("unitgradingtype", "unitpenalty",
-                          "unitsleft", "showunits")
+            tags[UnitHandling] = (("grading_type", "unit_penalty",
+                                   "left", "show"), name)
 
     @classmethod
     def from_json(cls, data: dict) -> "UnitHandling":
@@ -225,10 +225,9 @@ class FText(Serializable):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "FText":
+        tags[True] = "name"
         tags["text"] = (str, "text")
-        tags["file"] = (B64File.from_xml, "bfile")
-        if attrs is None:
-            attrs = {}
+        tags["file"] = (B64File.from_xml, "bfile", True)
         attrs["format"] = (Format, "formatting")
         return super().from_xml(root, tags, attrs)
 
@@ -300,8 +299,11 @@ class Dataset(Serializable):
         tags["minimum"] = (str, "minimum")
         tags["maximum"] = (str, "maximum")
         tags["decimals"] = (str, "decimals")
-        tags["dataset_items"] = (DatasetItem.from_xml, "dataset_items")
+        tags["dataset_items"] = (DatasetItem.from_xml, "items", True)
         return super().from_xml(root, tags, attrs)
+
+    def from_xml_list(root: et.Element, *args) -> List["Dataset"]:
+        return [Dataset.from_xml(obj, {}, {}) for obj in root]
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         dataset_def = et.SubElement(root, "dataset_definition")
@@ -330,7 +332,7 @@ class Dataset(Serializable):
 class Tags(Serializable):
     """A
     """
-    def __init__(self, tags: list):
+    def __init__(self, tags: List[str]):
         self.__tags = tags
 
     def __iter__(self):
@@ -351,7 +353,7 @@ class Tags(Serializable):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Tags":
-        tags["tag"] = (str, "tags")
+        tags["tag"] = (str, "tags", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -383,11 +385,9 @@ class Hint(Serializable):
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Hint":
         tags["text"] = (str, "text")
-        tags["options"] = (str, "state_incorrect")
+        tags["options"] = (bool, "state_incorrect")
         tags["shownumcorrect"] = (str, "show_correct")
         tags["clearwrong"] = (str, "clear_wrong")
-        if attrs is None:
-            attrs = {}
         attrs["format"] = (Format, "formatting")
         return super().from_xml(root, tags, attrs)
 
@@ -418,15 +418,13 @@ class CombinedFeedback(Serializable):
 
     @staticmethod
     def _add_xml(tags: dict, name: str) -> None:
-        if name in tags:
-            raise KeyError(f"Key {name} is already being used")
         tags["correctfeedback"] = (FText.from_xml, "correct")
-        tags["partiallycorrectfeedback"] = (FText.from_xml, "incorrect")
+        tags["partiallycorrectfeedback"] = (FText.from_xml, "incomplete")
         tags["incorrectfeedback"] = (FText.from_xml, "incorrect")
         tags["shownumcorrect"] = (bool, "show_num")
         if name is not None:
-            tags[name] = ("correctfeedback", "partiallycorrectfeedback",
-                          "incorrectfeedback", "shownumcorrect")
+            tags[CombinedFeedback] = (("correct", "incomplete",
+                                       "incorrect", "show_num"), name)
 
     @classmethod
     def from_json(cls, data: dict) -> "CombinedFeedback":
@@ -460,12 +458,10 @@ class MultipleTries(Serializable):
 
     @staticmethod
     def _add_xml(tags: dict, name: str) -> None:
-        if name in tags:
-            raise KeyError(f"Key {name} is already being used")
-        tags["hint"] = (Hint.from_xml, "hints")
+        tags["hint"] = (Hint.from_xml, "hints", True)
         tags["penalty"] = (str, "penalty")
         if name is not None:
-            tags[name] = ("hint", "penalty")
+            tags[MultipleTries] = (("hints", "penalty"), name)
 
     @classmethod
     def from_json(cls, data: dict) -> "MultipleTries":

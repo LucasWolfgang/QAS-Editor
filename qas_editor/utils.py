@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import logging
+
 LOG = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from xml.etree import ElementTree as et
@@ -103,32 +104,42 @@ class Serializable:
             results[name] = root.tag
         for obj in root:
             if obj.tag in tags:
-                cast_type, name = tags.pop(obj.tag)
-                tmp = obj.text
+                cast_type, name, *_ = tags[obj.tag]
+                a_list = len(tags[obj.tag]) == 3
+                tmp = obj.text.strip() if obj.text else None
                 if not tmp:
                     text = obj.find("text")
-                    tmp = text.text if text else tmp
-                if cast_type in [str, int, float]:
-                    tmp = cast_type(tmp)
-                elif cast_type == bool:
+                    if text is not None:
+                        tmp = text.text 
+                if cast_type == bool:
                     tmp = True if not tmp else tmp.lower() in ["true", "1", "t"]
-                else:
-                    tmp = cast_type(obj, {}, None)
-                if name not in results:
-                    results[name] = tmp
-                elif isinstance(results[name], list):
+                elif isinstance(cast_type, type):
+                    tmp = cast_type(tmp)
+                else:   # Call back to the from_xml defined for that class
+                    tmp = cast_type(obj, {}, {})
+                if a_list:
+                    if name not in results:
+                        results[name] = []
                     results[name].append(tmp)
                 else:
-                    results[name] = [results[name], tmp]
+                    results[name] = tmp
         for key in tags:
-            cast_type, name = tags[key]
+            cast_type, name, *_ = tags[key]
+            if name in results:
+                continue
             if cast_type == bool: # Some tags act like False when missing
                 results[name] = False
+            elif isinstance(key, type):
+                tmp = {}
+                for k in cast_type:
+                    tmp[k] = results.pop(k)
+                results[name] = key(**tmp)
             else:   # Otherwise, set to None to show that the tag is missing
                 results[name] = None
         if attrs:
             for key in attrs:
-                results[name] = attrs[key](root.get(key))
+                cast_type, name = attrs[key]
+                results[name] = cast_type(root.get(key)) if key in root.attrib else None
         return cls(**results)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
