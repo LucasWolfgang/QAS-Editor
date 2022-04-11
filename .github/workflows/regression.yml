@@ -1,4 +1,4 @@
-name: Pylint
+name: regression
 
 on: [push]
 
@@ -17,7 +17,14 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint
+        pip install pylint pytest anybadge
+        pip install -r requirements.txt
     - name: Analysing the code with pylint
       run: |
-        pylint qas_editor --rcfile=$(git ls-files '.pylintrc')
+        pylint qas_editor --rcfile=$(git ls-files '.pylintrc') --output-format=text | tee ./pylint.log || pylint-exit $?
+        PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint.log)
+        anybadge -l Pylint -f pylint.svg -v $PYLINT_SCORE 2=red 4=orange 8=yellow 10=green
+    - name: Test with pytest
+      run: |
+        pytest
+
