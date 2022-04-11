@@ -19,7 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from PyQt5.QtWidgets import QDialog, QPushButton, QLineEdit, QVBoxLayout,\
                             QComboBox
 from .utils import action_handler
-from ..quiz import Quiz, QNAME
+from ..questions import QNAME
+from ..quiz import Quiz
 
 class CategoryPopup(QDialog):
 
