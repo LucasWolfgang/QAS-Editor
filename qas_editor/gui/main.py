@@ -19,6 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 import glob
 import logging
+import copy
+import sys
 from typing import TYPE_CHECKING
 from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
@@ -27,7 +29,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QFileDialog, QMenu, QComboBox, QAction, QAbstractItemView,\
                             QCheckBox, QLineEdit, QPushButton, QScrollArea
 
-from .popups import CategoryPopup,QuestionPopup
+from .popups import CategoryPopup, QuestionPopup
 from ..quiz import Quiz
 from ..questions import QNAME, Question
 from ..enums import Numbering
@@ -37,6 +39,7 @@ from .forms import GOptions, GUnitHadling, GCFeedback, GMultipleTries
 if TYPE_CHECKING:
     from typing import Dict
     from PyQt5.QtGui import QDropEvent
+    from PyQt5.QtCore import QModelIndex
 LOG = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
@@ -52,12 +55,12 @@ class Editor(QMainWindow):
         super(Editor, self).__init__(*args, **kwargs)
         self.setWindowTitle("QAS Editor GUI")
 
-        # Data handling variables
         self._items: Dict[str, QWidget] = {}
         self.path: str = None
         self.top_quiz = Quiz()
         self.current_category = self.top_quiz
         self.current_question = None
+        self.current_item = None
         self.context_menu = QMenu(self)
 
         self._add_menu_bars()
@@ -98,7 +101,8 @@ class Editor(QMainWindow):
         self.setStatusBar(self.status)
         self.cat_name = QLabel(self.current_category.name)
         self.status.addWidget(self.cat_name)
-        self._update_tree()
+        self._update_tree_item(self.top_quiz, self.root_item)
+        self.data_view.expandAll()
         self.setGeometry(300, 300, 1000, 600)
         self.show()
 
@@ -115,7 +119,7 @@ class Editor(QMainWindow):
         self._items["answers"] = GOptions(self.editor_toolbar)
         aabutton = QPushButton("Add Answer")
         aabutton.clicked.connect(self._items["answers"].add_default)
-        ppbutton = QPushButton("Pop Answer")
+        ppbutton = QPushButton("Pop Answfer")
         ppbutton.clicked.connect(self._items["answers"].pop)
 
         grid = QGridLayout()
@@ -147,9 +151,9 @@ class Editor(QMainWindow):
         self.data_view.setDragDropMode(QAbstractItemView.InternalMove)
         self.data_view.original_dropEvent = self.data_view.dropEvent
         self.data_view.dropEvent = self._dataview_dropevent
-        self.data_root = QStandardItemModel(0, 1)
-        self.data_root.setHeaderData(0, Qt.Horizontal, "Classification")
-        self.data_view.setModel(self.data_root)
+        self.root_item = QStandardItemModel(0, 1)
+        self.root_item.setHeaderData(0, Qt.Horizontal, "Classification")
+        self.data_view.setModel(self.root_item)
         self.question_type = QComboBox()
         self.question_type.addItems(QNAME)
         
@@ -244,41 +248,35 @@ class Editor(QMainWindow):
         layout.addWidget(self._items["solution"])
         frame.setLayout(layout)
 
-    def _add_new_category(self, quiz):
-        popup = CategoryPopup(quiz, parent=self)
+    def _add_new_category(self, quiz: Quiz, parent: QStandardItem):
+        popup = CategoryPopup(True)
         popup.show()
-        if popup.exec_():
-            self._update_tree()
+        if not popup.exec():
+            return
+        quiz[popup.data.name] = popup.data
+        self._new_item(popup.data, parent, "question")
 
-    def _add_new_question(self, quiz):
+    def _add_new_question(self, quiz: Quiz, parent: QStandardItem):
         popup = QuestionPopup(quiz)
         popup.show()
-        if popup.exec_():
-            self._update_tree()
-        for key in self._items:
-            if key == "name":
-                continue
-            if hasattr(self._items[key], "clear"):
-                self._items[key].clear()
-    
+        if not popup.exec():
+            return
+        self._new_item(popup.question, parent, "question")
+
     @action_handler
-    def _append_category(self, parent: Quiz):
+    def _append_category(self, parent: Quiz, item: QStandardItem):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "", self.FORMATS)
         if not path:
             return None
-        quiz = Quiz.read_files([path])
-        for catname in quiz:
-            quiz[catname].parent = parent
-        for question in quiz.questions:
-            question.parent = parent
-        del quiz
-        self._update_tree()
+        quiz = Quiz.read_files([path], path.rsplit("/", 1)[-1])
+        parent[quiz.name] = quiz
+        self._update_tree_item(quiz, item)
 
     @action_handler
     def _create_file(self):
         self.top_quiz = Quiz()
         self.path = None
-        self._update_tree()
+        self._update_tree_item(self.top_quiz, self.root_item)
 
     @action_handler
     def _dataview_dropevent(self, event: QDropEvent):
@@ -291,46 +289,60 @@ class Editor(QMainWindow):
         self.data_view.original_dropEvent(event)
 
     def _data_view_context_menu(self, event):
-        item = self.data_view.indexAt(event).data(257)
-        delete_action = QAction("Delete", self)
-        delete_action.triggered.connect(lambda: self._delete_item(item))
+        model_idx = self.data_view.indexAt(event)
+        item = self.root_item.itemFromIndex(model_idx)
+        data = model_idx.data(257)
         self.context_menu.clear()
-        self.context_menu.addAction(delete_action)
-        duplicate_action = QAction("Duplicate", self)
-        duplicate_action.triggered.connect(lambda: self._duplicate_item(item))
-        self.context_menu.addAction(duplicate_action)
-        if isinstance(item, Quiz):
+        if item != self.root_item.item(0):
+            delete_action = QAction("Delete", self)
+            delete_action.triggered.connect(lambda: self._delete_item(data, item))
+            self.context_menu.addAction(delete_action)
+            clone_action = QAction("Clone (Shallow)", self)
+            clone_action.triggered.connect(lambda: self._clone_shallow(data, item))
+            self.context_menu.addAction(clone_action)
+            clone_action = QAction("Clone (Deep)", self)
+            clone_action.triggered.connect(lambda: self._clone_deep(data, item))
+            self.context_menu.addAction(clone_action)
+        if isinstance(data, Quiz):
             save_as = QAction("Save as", self)
-            save_as.triggered.connect(lambda: self._write_quiz(item, True))
+            save_as.triggered.connect(lambda: self._write_quiz(data, True))
             self.context_menu.addAction(save_as)
             rename = QAction("Rename", self)
-            rename.triggered.connect(lambda: self._rename_category(item))
+            rename.triggered.connect(lambda: self._rename_category(data, item))
             self.context_menu.addAction(rename)
             append = QAction("Append", self)
-            append.triggered.connect(lambda: self._append_category(item))
+            append.triggered.connect(lambda: self._append_category(data, item))
             self.context_menu.addAction(append)
             rename = QAction("New Question", self)
-            rename.triggered.connect(lambda: self._add_new_question(item))
+            rename.triggered.connect(lambda: self._add_new_question(data, item))
             self.context_menu.addAction(rename)
             append = QAction("New Category", self)
-            append.triggered.connect(lambda: self._add_new_category(item))
+            append.triggered.connect(lambda: self._add_new_category(data, item))
             self.context_menu.addAction(append)
         self.context_menu.popup(self.data_view.mapToGlobal(event))
 
-    def _delete_item(self, item) -> None:
+    @action_handler
+    def _delete_item(self, item, parent: QStandardItem) -> None:
+        parent.parent().removeRow(parent.index().row())
         if isinstance(item, Question):
-            parent: Quiz = item.parent
-            parent.rem_question(item)
+            item.parent.rem_question(item)
         elif isinstance(item, Quiz):
             item.parent = None
-        self._update_tree()
 
-    def _duplicate_item(self, item) -> None:
-        if isinstance(item, Question):
-            pass
-        elif isinstance(item, Quiz):
-            pass
-        self._update_tree()
+    @action_handler
+    def _clone_shallow(self, data, item: QStandardItem) -> None:
+        self._new_item(copy.copy(data), item.parent(), "question")
+
+    @action_handler
+    def _clone_deep(self, data, item: QStandardItem) -> None:
+        self._new_item(copy.deepcopy(data), item.parent(), "question")
+
+    def _new_item(self, data: Quiz, parent: QStandardItem, title: str):
+        item = QStandardItem(QIcon(f"{IMG_PATH}/{title}.png"), data.name)
+        item.setEditable(False)
+        item.setData(QVariant(data))
+        parent.appendRow(item)
+        return item
 
     @action_handler
     def _read_file(self, *args):
@@ -341,7 +353,7 @@ class Editor(QMainWindow):
             self.path = files[0]
         self.top_quiz = Quiz.read_files(files)
         self._set_current_category(self.top_quiz)
-        self._update_tree()
+        self._update_tree_item(self.top_quiz, self.root_item)
 
     @action_handler
     def _read_folder(self, *args):
@@ -349,22 +361,27 @@ class Editor(QMainWindow):
         dialog.setFileMode(QFileDialog.FileMode.Directory)
         if not dialog.exec():
             return None
-        self.top_quiz = Quiz()
+        popup = CategoryPopup(False)
+        popup.show()
+        if not popup.exec():
+            return None
+        self.top_quiz = Quiz(popup.data)
         self.path = None
         for folder in dialog.selectedFiles():
             cat = folder.rsplit("/", 1)[-1]
             quiz = Quiz.read_files(glob.glob(f"{folder}/*"), cat)
             self.top_quiz[cat] = quiz
         self._set_current_category(self.top_quiz)
-        self._update_tree()
+        self._update_tree_item(self.top_quiz, self.root_item)
 
-
-    def _rename_category(self, item: Quiz):
-        if item.parent:
-            text = self.category_name.text()
-            if text:
-                item.name = text
-        self._update_tree()
+    @action_handler
+    def _rename_category(self, data: Quiz, item: QStandardItem):
+        popup = CategoryPopup(False)
+        popup.show()
+        if not popup.exec():
+            return
+        data.name = popup.data
+        item.setText(popup.data)
 
     def _set_current_category(self, item: Quiz):
         path = []
@@ -376,22 +393,9 @@ class Editor(QMainWindow):
         path.reverse()
         self.cat_name.setText(" > ".join(path))
 
-    def _update_data_view(self, data: Quiz, parent: QStandardItem) -> None:
-        for k in data.questions:
-            node = QStandardItem(QIcon(f"{IMG_PATH}/question.png"), k.name)
-            node.setEditable(False)
-            node.setData(QVariant(k))
-            parent.appendRow(node)
-        for k in data:
-            node = QStandardItem(QIcon(f"{IMG_PATH}/category.png"), k)
-            node.setEditable(False)
-            node.setData(QVariant(data[k]))
-            parent.appendRow(node)
-            self._update_data_view(data[k], node)
-
     @action_handler
-    def _update_item(self, value) -> None:
-        item = value.data(257)
+    def _update_item(self, model_index: QModelIndex) -> None:
+        item = model_index.data(257)
         def __get_set(key, gets, sets, stype):
             if self.current_question and key in self.current_question.__dict__:
                 self.current_question.__setattr__(key, self._items[key].__getattribute__(gets)())
@@ -419,18 +423,16 @@ class Editor(QMainWindow):
                 self._items[key].setEnabled(key in init_fields)
             self.question_type.setCurrentText(type(item).__name__)
             self.current_question = item
-            self._update_tree()
+            self.current_item = self.root_item.itemFromIndex(model_index)
         else: # This is a classification
             self._set_current_category(item)
 
-    def _update_tree(self) -> None:
-        self.data_root.clear()
-        parent = QStandardItem(QIcon(f"{IMG_PATH}/category.png"), self.top_quiz.name)
-        parent.setData(QVariant(self.top_quiz)) # This first loop is "external" to allow
-        parent.setEditable(False)               # using the dict key without passing it as
-        self.data_root.appendRow(parent)        # argument during recursion
-        self._update_data_view(self.top_quiz, parent)
-        self.data_view.expandAll()
+    def _update_tree_item(self, data: Quiz, parent: QStandardItem) -> None:
+        item = self._new_item(data, parent, "category")
+        for k in data.questions:
+            self._new_item(k, item, "question")
+        for k in data:
+            self._update_tree_item(data[k], item)
 
     def _write_quiz(self, quiz: Quiz, save_as: bool):
         if save_as:

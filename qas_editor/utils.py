@@ -113,6 +113,8 @@ class Serializable:
                         tmp = text.text
                 if cast_type == bool:
                     tmp = True if not tmp else tmp.lower() in ["true", "1", "t"]
+                elif not tmp:
+                    continue
                 elif isinstance(cast_type, type):
                     tmp = cast_type(tmp)
                 else:   # Call back to the from_xml defined for that class

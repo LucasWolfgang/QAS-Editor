@@ -344,7 +344,7 @@ class Quiz: # pylint: disable=R0904
         return top_quiz
 
     @classmethod
-    def read_files(cls, files: list, category: str = "$course$") -> list:
+    def read_files(cls, files: list, category: str = "$course$") -> Quiz:
         """_summary_
 
         Args:
@@ -569,7 +569,7 @@ class Quiz: # pylint: disable=R0904
             raise ValueError("Category string should not be empty")
         data_root = et.parse(file_path)
         top_quiz: Quiz = cls(category)
-        quiz = top_quiz
+        quiz  = top_quiz
         for question in data_root.getroot():
             if question.tag != "question":
                 continue

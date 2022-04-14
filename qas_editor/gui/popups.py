@@ -24,34 +24,43 @@ from ..quiz import Quiz
 
 class CategoryPopup(QDialog):
 
-    def __init__(self, quiz, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.setWindowTitle("Create Category")
-        self.__quiz = quiz
-        category_create = QPushButton("Create")
-        category_create.clicked.connect(self._create_category)
+    def __init__(self, new_cat, suggestion="") -> None:
+        super().__init__()
+        self.setWindowTitle("Create Category" if new_cat else "Rename Category")
+        category_create = QPushButton("Ok")
+        action = self._create_category if new_cat else self._update_category
+        category_create.clicked.connect(action)
         self._category_name = QLineEdit()
         self._category_name.setFocus()
+        self._category_name.setText(suggestion)
         vbox = QVBoxLayout()
         vbox.addWidget(self._category_name)
         vbox.addWidget(category_create)
         self.setLayout(vbox)
+        self.data = None
 
     @action_handler
     def _create_category(self, status) -> None:
         name = self._category_name.text()
         if not name:
             self.reject()
-        quiz = Quiz(name)
-        self.__quiz[name] = quiz
+        self.data = Quiz(name)
+        self.accept()
+
+    @action_handler
+    def _update_category(self, status) -> None:
+        name = self._category_name.text()
+        if not name:
+            self.reject()
+        self.data = name
         self.accept()
 
 # ------------------------------------------------------------------------------
 
 class QuestionPopup(QDialog):
 
-    def __init__(self, quiz: Quiz, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, quiz: Quiz) -> None:
+        super().__init__()
         self.setWindowTitle("Create Question")
         self.__quiz = quiz
         question_create = QPushButton("Create")
@@ -62,10 +71,12 @@ class QuestionPopup(QDialog):
         vbox.addWidget(self.__question_type)
         vbox.addWidget(question_create)
         self.setLayout(vbox)
+        self.question = None
 
     @action_handler
     def _create_question(self, status) -> None:
-        question = QNAME[self.__question_type.currentText()](name="New Question")
-        self.__quiz.add_question(question)
+        self.question = QNAME[self.__question_type.currentText()](name="New Question")
+        self.__quiz.add_question(self.question)
         self.accept()
         
+# ------------------------------------------------------------------------------
