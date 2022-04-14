@@ -24,6 +24,10 @@ jobs:
         pylint qas_editor --rcfile=$(git ls-files '.pylintrc') --output-format=text | tee ./pylint.log || pylint-exit $?
         PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint.log)
         anybadge -l Pylint -f pylint.svg -v $PYLINT_SCORE 2=red 4=orange 8=yellow 10=green
+    - uses: actions/upload-artifact@v3
+      with:
+        name: pylint-badge
+        path: pylint.svg
     - name: Test with pytest
       run: |
         pytest
