@@ -64,13 +64,15 @@ class Question(Serializable):
             shuffle (bool, optional): shuffle answers. Defaults to False.
         """
         self.name = name
-        self.question_text = question_text
+        self.question_text = question_text if question_text is not None else \
+                             FText("questiontext", "", Format.AUTO, None)
         self.default_grade = default_grade
-        self.general_feedback = general_feedback
+        self.general_feedback = general_feedback if general_feedback is not None else \
+                                FText("generalfeedback", "", Format.AUTO, None)
         self.id_number = id_number
         self.shuffle = shuffle
         self.solution = solution
-        self.tags = tags
+        self.tags = tags if tags is not None else Tags()
         self.__parent = None
 
     def __repr__(self):

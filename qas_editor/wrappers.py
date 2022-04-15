@@ -334,8 +334,8 @@ class Dataset(Serializable):
 class Tags(Serializable):
     """A
     """
-    def __init__(self, tags: List[str]):
-        self.__tags = tags
+    def __init__(self, tags: List[str]=None):
+        self.__tags = tags if tags is not None else []
 
     def __iter__(self):
         return self.__tags.__iter__()

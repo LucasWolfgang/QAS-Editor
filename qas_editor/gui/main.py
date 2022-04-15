@@ -20,6 +20,7 @@ from __future__ import annotations
 import glob
 import logging
 import copy
+import os
 from typing import TYPE_CHECKING
 from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
@@ -57,7 +58,6 @@ class Editor(QMainWindow):
         self._items: Dict[str, QWidget] = {}
         self.path: str = None
         self.top_quiz = Quiz()
-        self.current_category = self.top_quiz
         self.current_question = None
         self.current_item = None
         self.context_menu = QMenu(self)
@@ -98,10 +98,11 @@ class Editor(QMainWindow):
         self.setCentralWidget(splitter)
 
         # Create lower status bar.
-        self.status = QStatusBar()
-        self.setStatusBar(self.status)
-        self.cat_name = QLabel(self.current_category.name)
-        self.status.addWidget(self.cat_name)
+        status = QStatusBar()
+        self.setStatusBar(status)
+        self.cat_name = QLabel()
+        status.addWidget(self.cat_name)
+
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
         self.setGeometry(300, 300, 1000, 600)
@@ -334,7 +335,11 @@ class Editor(QMainWindow):
         self._new_item(copy.deepcopy(data), item.parent(), "question")
 
     def _new_item(self, data: Quiz, parent: QStandardItem, title: str):
-        item = QStandardItem(QIcon(f"{IMG_PATH}/{title}.png"), data.name)
+        path = f"{IMG_PATH}/{data.__class__.__name__}_icon.png".lower()
+        if not os.path.isfile(path):
+            path = f"{IMG_PATH}/{title}_icon.png"
+        print(path)
+        item = QStandardItem(QIcon(path), data.name)
         item.setEditable(False)
         item.setData(QVariant(data))
         parent.appendRow(item)
@@ -348,7 +353,6 @@ class Editor(QMainWindow):
         if len(files) == 1:
             self.path = files[0]
         self.top_quiz = Quiz.read_files(files)
-        self._set_current_category(self.top_quiz)
         self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
@@ -365,7 +369,6 @@ class Editor(QMainWindow):
             cat = folder.rsplit("/", 1)[-1]
             quiz = Quiz.read_files(glob.glob(f"{folder}/*"), cat)
             self.top_quiz[cat] = quiz
-        self._set_current_category(self.top_quiz)
         self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
@@ -378,16 +381,6 @@ class Editor(QMainWindow):
             return
         data.name = popup.data
         item.setText(popup.data)
-
-    def _set_current_category(self, item: Quiz):
-        path = []
-        self.current_category = item
-        while item.parent:
-            path.append(item.name)
-            item = item.parent
-        path.append(item.name)
-        path.reverse()
-        self.cat_name.setText(" > ".join(path))
 
     @action_handler
     def _update_item(self, model_index: QModelIndex) -> None:
@@ -420,8 +413,13 @@ class Editor(QMainWindow):
             self.question_type.setCurrentText(type(item).__name__)
             self.current_question = item
             self.current_item = self.root_item.itemFromIndex(model_index)
-        else: # This is a classification
-            self._set_current_category(item)
+        path = [f" ({item.__class__.__name__})"]
+        while item.parent:
+            path.append(item.name)
+            item = item.parent
+        path.append(item.name)
+        path.reverse()
+        self.cat_name.setText(" > ".join(path[:-1]) + path[-1] )
 
     def _update_tree_item(self, data: Quiz, parent: QStandardItem) -> None:
         item = self._new_item(data, parent, "category")
