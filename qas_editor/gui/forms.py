@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from .utils import GTextToolbar
 LOG = logging.getLogger(__name__)
 
-class GAnswer(QGridLayout):
+class GAnswer(QHBoxLayout):
     """GUI for QAnswer class.
     """
 
@@ -39,15 +39,17 @@ class GAnswer(QGridLayout):
         super().__init__(**kwargs)
         self.obj = None
         self._text = GTextEditor(toolbar, "")
-        self.addWidget(self._text, 0, 0, 2, 1)
-        self.addWidget(QLabel("Feedback"), 0, 1)
+        self._text.setToolTip("Use this field to define the answer text")
+        self.addWidget(self._text, 0)
         self._feedback = GTextEditor(toolbar, "feedback")
-        self._feedback.setFixedHeight(30)
-        self.addWidget(self._feedback, 0, 2)
-        self.addWidget(QLabel("Grade"), 1, 1)
+        self._feedback.setToolTip("Use this field to define the answer feedback")
+        self.addWidget(self._feedback, 1)
         self._grade = QLineEdit()
-        self._grade.setFixedWidth(50)
-        self.addWidget(self._grade, 1, 2)
+        self._grade.setMaximumWidth(50)
+        self._grade.setToolTip("Use this field to define the answer grade")
+        self.addWidget(self._grade, 2)
+        self.setStretch(0, 0)
+        self.setStretch(0, 1)
 
     def __del__(self):
         try:
@@ -377,7 +379,7 @@ class GOptions(QVBoxLayout):
         self.visible = True
         self.toolbar = toolbar
         self.__ctype = None
-        self.setSpacing(0)
+        #self.setSpacing(0)
         self.setContentsMargins(0, 0, 0, 0)
 
     def _soft_clear(self, new_size=0, new_type=None):

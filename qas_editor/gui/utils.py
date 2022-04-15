@@ -70,9 +70,6 @@ class GTextEditor(QTextEdit):
     def __init__(self, toolbar: "GTextToolbar", text_type: str) -> None:
         super().__init__()
         self.toolbar = toolbar
-        self.setAutoFormatting(QTextEdit.AutoAll)
-        self.setFont(QFont('Times', 12))
-        self.setFontPointSize(12)
         self.textChanged.connect(self.__flag_update)
         self.__ftext: FText = FText(text_type, "", Format.AUTO, None)
         self.__tags: List[tuple] = []

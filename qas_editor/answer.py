@@ -47,10 +47,10 @@ class Answer(Serializable):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Answer":
-        tags["fraction"] = (float, "fraction")
         tags["text"] = (str, "text")
         tags["feedback"] = (FText.from_xml, "feedback")
         attrs["format"] = (Format, "formatting")
+        attrs["fraction"] = (float, "fraction")
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:

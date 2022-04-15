@@ -349,7 +349,9 @@ class Editor(QMainWindow):
             self.path = files[0]
         self.top_quiz = Quiz.read_files(files)
         self._set_current_category(self.top_quiz)
+        self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
+        self.data_view.expandAll()
 
     @action_handler
     def _read_folder(self, *args):
