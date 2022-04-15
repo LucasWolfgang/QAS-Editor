@@ -33,7 +33,7 @@ jobs:
       uses: LucasWolfgang/dynamic-badges-action@master
       with:
         auth: ${{ secrets.GIST_SECRET }}
-        gistID: <gist-ID>
+        gistID: 344598a4a0f7b92a7889d998e33417c4
         filename: test.json
         label: Hello
         message: ${{ env.PYLINT_SCORE }}
