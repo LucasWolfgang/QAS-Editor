@@ -59,7 +59,7 @@ def action_handler(function: Callable) -> Callable:
             dlg.show()
     return wrapper
 
-# ----------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 
 class GTextEditor(QTextEdit):
     """
@@ -369,6 +369,7 @@ class GTextToolbar(QToolBar):
                     setLineWrapMode(int(self.editor.lineWrapMode() == 0)))
 
 # ------------------------------------------------------------------------------
+
 class GArrow(QFrame):
     """Arrow used in the TitleFrame class to represent open/close status
     """
@@ -406,6 +407,7 @@ class GArrow(QFrame):
         painter.end()
 
 # ------------------------------------------------------------------------------
+
 class GTitleFrame(QFrame):
     """ Used as header in a GFrameLayout class.
     """

@@ -22,13 +22,13 @@ from .utils import action_handler
 from ..questions import QNAME
 from ..quiz import Quiz
 
-class CategoryPopup(QDialog):
+class NamePopup(QDialog):
 
     def __init__(self, new_cat, suggestion="") -> None:
         super().__init__()
-        self.setWindowTitle("Create Category" if new_cat else "Rename Category")
+        self.setWindowTitle("Create" if new_cat else "Rename")
         category_create = QPushButton("Ok")
-        action = self._create_category if new_cat else self._update_category
+        action = self._create_category if new_cat else self._update_name
         category_create.clicked.connect(action)
         self._category_name = QLineEdit()
         self._category_name.setFocus()
@@ -48,7 +48,7 @@ class CategoryPopup(QDialog):
         self.accept()
 
     @action_handler
-    def _update_category(self, status) -> None:
+    def _update_name(self, status) -> None:
         name = self._category_name.text()
         if not name:
             self.reject()

@@ -20,7 +20,6 @@ from __future__ import annotations
 import glob
 import logging
 import copy
-import sys
 from typing import TYPE_CHECKING
 from PyQt5.QtCore import Qt, QVariant
 from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
@@ -29,7 +28,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QFileDialog, QMenu, QComboBox, QAction, QAbstractItemView,\
                             QCheckBox, QLineEdit, QPushButton, QScrollArea
 
-from .popups import CategoryPopup, QuestionPopup
+from .popups import NamePopup, QuestionPopup
 from ..quiz import Quiz
 from ..questions import QNAME, Question
 from ..enums import Numbering
@@ -178,9 +177,6 @@ class Editor(QMainWindow):
         frame = GFrameLayout(self, title="General Data")
         self.cframe_vbox.addLayout(frame)
 
-        self._items["name"] = QLineEdit()
-        self._items["name"].setToolTip("Name used to storage the question in the database.")
-        self._items["name"] = QLineEdit()
         self._items["default_grade"] = QLineEdit()
         self._items["default_grade"].setFixedWidth(30)
         self._items["default_grade"].setToolTip("Default grade for the question.")
@@ -190,21 +186,18 @@ class Editor(QMainWindow):
         self._items["tags"] = GTagBar()
         self._items["question_text"] = GTextEditor(self.editor_toolbar, "question_text")
         grid = QGridLayout()
-        grid.addWidget(QLabel("Name"), 0, 0)
-        grid.addWidget(self._items["name"], 0, 1)
-        tmp = QLabel("Tags")
-        tmp.setContentsMargins(10, 0, 0, 0)
-        grid.addWidget(tmp, 0, 2)
-        grid.addWidget(self._items["tags"], 0, 3)
+        grid.addWidget(QLabel("Tags"), 0, 0)
+        grid.addWidget(self._items["tags"], 0, 1)
+        grid.setColumnStretch(1, 1)
         tmp = QLabel("Default grade")
         tmp.setContentsMargins(10, 0, 0, 0)
-        grid.addWidget(tmp, 0, 4)
-        grid.addWidget(self._items["default_grade"], 0, 5)
+        grid.addWidget(tmp, 0, 2)
+        grid.addWidget(self._items["default_grade"], 0, 3)
         tmp = QLabel("ID")
         tmp.setContentsMargins(10, 0, 0, 0)
-        grid.addWidget(tmp, 0, 6)
-        grid.addWidget(self._items["id_number"], 0, 7)
-        grid.addWidget(self._items["question_text"], 2, 0, 1, 8)
+        grid.addWidget(tmp, 0, 4)
+        grid.addWidget(self._items["id_number"], 0, 5)
+        grid.addWidget(self._items["question_text"], 1, 0, 1, 6)
         frame.setLayout(grid)
         frame.toggle_collapsed()
 
@@ -249,7 +242,7 @@ class Editor(QMainWindow):
         frame.setLayout(layout)
 
     def _add_new_category(self, quiz: Quiz, parent: QStandardItem):
-        popup = CategoryPopup(True)
+        popup = NamePopup(True)
         popup.show()
         if not popup.exec():
             return
@@ -293,6 +286,9 @@ class Editor(QMainWindow):
         item = self.root_item.itemFromIndex(model_idx)
         data = model_idx.data(257)
         self.context_menu.clear()
+        rename = QAction("Rename", self)
+        rename.triggered.connect(lambda: self._rename_category(data, item))
+        self.context_menu.addAction(rename)
         if item != self.root_item.item(0):
             delete_action = QAction("Delete", self)
             delete_action.triggered.connect(lambda: self._delete_item(data, item))
@@ -307,9 +303,6 @@ class Editor(QMainWindow):
             save_as = QAction("Save as", self)
             save_as.triggered.connect(lambda: self._write_quiz(data, True))
             self.context_menu.addAction(save_as)
-            rename = QAction("Rename", self)
-            rename.triggered.connect(lambda: self._rename_category(data, item))
-            self.context_menu.addAction(rename)
             append = QAction("Append", self)
             append.triggered.connect(lambda: self._append_category(data, item))
             self.context_menu.addAction(append)
@@ -361,22 +354,20 @@ class Editor(QMainWindow):
         dialog.setFileMode(QFileDialog.FileMode.Directory)
         if not dialog.exec():
             return None
-        popup = CategoryPopup(False)
-        popup.show()
-        if not popup.exec():
-            return None
-        self.top_quiz = Quiz(popup.data)
+        self.top_quiz = Quiz()
         self.path = None
         for folder in dialog.selectedFiles():
             cat = folder.rsplit("/", 1)[-1]
             quiz = Quiz.read_files(glob.glob(f"{folder}/*"), cat)
             self.top_quiz[cat] = quiz
         self._set_current_category(self.top_quiz)
+        self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
+        self.data_view.expandAll()
 
     @action_handler
-    def _rename_category(self, data: Quiz, item: QStandardItem):
-        popup = CategoryPopup(False)
+    def _rename_category(self, data, item: QStandardItem):
+        popup = NamePopup(False)
         popup.show()
         if not popup.exec():
             return
