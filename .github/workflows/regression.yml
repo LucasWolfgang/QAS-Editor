@@ -27,7 +27,7 @@ jobs:
     - name: Analysing the code with pylint
       run: |
         pylint qas_editor --rcfile=$(git ls-files '.pylintrc') --output-format=text | tee ./pylint.log || pylint-exit $?
-        echo "::set-env PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint.log)"
+        echo "PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint.log)" >> $GITHUB_ENV
         
     - name: Create Awesome Badge
       uses: LucasWolfgang/dynamic-badges-action@master
@@ -36,7 +36,7 @@ jobs:
         gistID: <gist-ID>
         filename: test.json
         label: Hello
-        message: ${{ PYLINT_SCORE }}
+        message: ${{ env.PYLINT_SCORE }}
         minColorRange: 6
         maxColorRange: 10
 
