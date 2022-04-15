@@ -80,6 +80,8 @@ class Editor(QMainWindow):
         self._add_solution_block()
         self._add_database_block()
         self.cframe_vbox.addStretch()
+        for value in self._items.values():
+            value.setEnabled(False)
         frame = QFrame()
         frame.setLineWidth(2)
         frame.setLayout(self.cframe_vbox)
@@ -185,6 +187,7 @@ class Editor(QMainWindow):
         self._items["id_number"].setToolTip("Provides a second way of finding a question.")
         self._items["tags"] = GTagBar()
         self._items["question_text"] = GTextEditor(self.editor_toolbar, "question_text")
+        self._items["question_text"].setMinimumHeight(100)
         grid = QGridLayout()
         grid.addWidget(QLabel("Tags"), 0, 0)
         grid.addWidget(self._items["tags"], 0, 1)

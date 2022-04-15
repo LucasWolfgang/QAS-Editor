@@ -114,6 +114,15 @@ class GTextEditor(QTextEdit):
         """
         return self.__ftext.formatting
 
+    @text_format.setter
+    def text_format(self, data):
+        """_summary_
+
+        Returns:
+            _type_: _description_
+        """
+        self.__ftext.formatting = data
+
     def canInsertFromMimeData(self, source) -> bool: # pylint: disable=C0103
         """[summary]
 
