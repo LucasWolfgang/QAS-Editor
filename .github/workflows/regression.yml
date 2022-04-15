@@ -3,7 +3,7 @@ name: regression
 on: 
   push:
     paths:
-      - '**.js'
+      - '**.py'
 
 jobs:
   build:
