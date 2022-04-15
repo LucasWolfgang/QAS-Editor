@@ -282,7 +282,7 @@ class Quiz: # pylint: disable=R0904
         Returns:
             bool: _description_
         """
-        if question in self.__questions:
+        if any(question is item for item in self.__questions):
             return False
         if question.parent is not None:
             question.parent.rem_question(question)

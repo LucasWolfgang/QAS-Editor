@@ -76,7 +76,9 @@ class QuestionPopup(QDialog):
     @action_handler
     def _create_question(self, status) -> None:
         self.question = QNAME[self.__question_type.currentText()](name="New Question")
-        self.__quiz.add_question(self.question)
-        self.accept()
+        if self.__quiz.add_question(self.question):
+            self.accept()
+        else:
+            self.reject()
         
 # ------------------------------------------------------------------------------

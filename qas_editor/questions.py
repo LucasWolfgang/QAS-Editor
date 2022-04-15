@@ -79,7 +79,7 @@ class Question(Serializable):
         return f"Type: {self.__class__.__name__}, name: \'{self.name}\'."
 
     def __eq__(self, __o: object) -> bool:
-        if not isinstance(__o, Question):
+        if not isinstance(__o, self.__class__):
             return False
         # Never compare parents. So pop/insert makes it faster
         _pa = self.__dict__.pop("_Question__parent")
