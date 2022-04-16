@@ -459,7 +459,7 @@ class GFrameLayout(QVBoxLayout):
         self.setContentsMargins(0, 0, 0, 0)
         self.setSpacing(0)
 
-    def addWidget(self, a0: QWidget, stretch=..., alignment=...): # pylint: disable=C0103
+    def addWidget(self, a0: QWidget, stretch=..., alignment=...):  # pylint: disable=C0103
         """_summary_
 
         Args:
@@ -472,7 +472,7 @@ class GFrameLayout(QVBoxLayout):
         """
         raise AttributeError(f"Method is not supported in {self}")
 
-    def addLayout(self, layout, stretch=...) -> None: # pylint: disable=C0103
+    def addLayout(self, layout, stretch=...) -> None:  # pylint: disable=C0103
         """_summary_
 
         Args:
@@ -484,7 +484,7 @@ class GFrameLayout(QVBoxLayout):
         """
         raise AttributeError(f"Method is not supported in {self}")
 
-    def setLayout(self, layout) -> None: # pylint: disable=C0103
+    def setLayout(self, layout) -> None:  # pylint: disable=C0103
         """_summary_
 
         Args:
@@ -509,9 +509,9 @@ class GTagBar(QFrame):
     def __init__(self):
         super(GTagBar, self).__init__()
         self.tags = []
-        self.setStyleSheet("QPushButton { border:0px sunken; font-weight:bold} "+
-                           "QLabel { background:#c4edc2; font-size:12px; "+
-                           "border-radius:4px; padding-left:2px} .GTagBar { "+
+        self.setStyleSheet("QPushButton { border:0px sunken; font-weight:bold} " +
+                           "QLabel { background:#c4edc2; font-size:12px; " +
+                           "border-radius:4px; padding-left:2px} .GTagBar { " +
                            "border:1px sunken; background: #d1d1d1; padding:2px}")
         self.h_layout = QHBoxLayout()
         self.h_layout.setContentsMargins(0, 0, 0, 0)

@@ -20,8 +20,6 @@ import sys
 import os
 import logging
 
-# ------------------------------------------------------------------------------
-
 test_path = os.path.dirname(__file__)
 src_path = os.path.abspath(os.path.join(test_path, '..'))
 sys.path.append(src_path)
@@ -29,14 +27,13 @@ from qas_editor import quiz
 log = logging.getLogger()
 log.setLevel(logging.DEBUG)
 fhandler = logging.FileHandler(filename=f"{test_path}/unittest.log",
-                            mode="w", encoding="utf-8")
+                               mode="w", encoding="utf-8")
 fhandler.setFormatter(logging.Formatter("%(levelname)s [%(asctime)s]: %(message)s",
                                         "%H:%M:%S"))
 fhandler.setLevel(logging.DEBUG)
 log.addHandler(fhandler)
 log.debug("Initializing pytest regression...")
 
-# ------------------------------------------------------------------------------
 
 def test_file_xml():
     EXAMPLE = f"{test_path}/datasets/moodle.xml"
