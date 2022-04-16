@@ -37,25 +37,27 @@ jobs:
         gistID: 344598a4a0f7b92a7889d998e33417c4
         filename: pylint.json
         label: Pylint
-        message: ${{ env.PYLINT_SCORE }}
+        message: points
         minColorRange: 6
         maxColorRange: 10
+        valColorRange: ${{ env.PYLINT_SCORE }}
 
     - name: Lint with flake8
       run: |
         echo "FLAKE_ERRORS=$(flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --output-file ./flake8.log)" >> $GITHUB_ENV
 
-    - name: Create Flak8 Badge
+    - name: Create Flake8 Badge
       uses: LucasWolfgang/dynamic-badges-action@master
       with:
         auth: ${{ secrets.GIST_SECRET }}
         gistID: 344598a4a0f7b92a7889d998e33417c4
         filename: flake8.json
-        label: Pylint
+        label: Flake8
         message: errors
         minColorRange: 0
         maxColorRange: 50
         valColorRange: ${{ env.FLAKE_ERRORS }}
+        invertColorRange: 1
 
     - name: Test with pytest
       run: |
@@ -70,5 +72,8 @@ jobs:
         auth: ${{ secrets.GIST_SECRET }}
         gistID: 344598a4a0f7b92a7889d998e33417c4
         filename: pytest.json
-        label: Pylint
-        message: ${{ env.PYTEST_SCORE }} / ${{ env.PYTEST_MAX }} tests
+        label: Pytest
+        message: tests
+        minColorRange: ${{ env.PYTEST_MIN }} 
+        maxColorRange: ${{ env.PYTEST_MAX }} 
+        valColorRange: ${{ env.PYTEST_SCORE }}
