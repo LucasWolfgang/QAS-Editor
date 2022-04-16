@@ -580,11 +580,11 @@ class GHint(QFrame):
         self._show = QCheckBox("Show the number of correct responses")
         self._state = QCheckBox("State which markers are incorrectly placed")
         self._clear = QCheckBox("Move incorrectly placed markers back to default start position")
-        _content = QVBoxLayout(self)
-        _content.addWidget(self._text)
-        _content.addWidget(self._show)
-        _content.addWidget(self._state)
-        _content.addWidget(self._clear)
+        _content = QGridLayout(self)
+        _content.addWidget(self._text, 0, 0, 3, 1)
+        _content.addWidget(self._show, 0, 1)
+        _content.addWidget(self._state, 1, 1)
+        _content.addWidget(self._clear, 2, 1)
 
     def from_obj(self, obj: Hint) -> None:
         """_summary_
@@ -627,16 +627,18 @@ class GMultipleTries(QVBoxLayout):
 
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
+        _header = QHBoxLayout()
         self._penalty = QLineEdit()
         self._penalty.setText("0")
-        add = QPushButton("Add Hint")
-        add.clicked.connect(lambda: self.addWidget(GHint(toolbar)))
-        rem = QPushButton("Remove Last")
-        _header = QHBoxLayout()
         _header.addWidget(QLabel("Penalty for each try"))
         _header.addWidget(self._penalty)
+        add = QPushButton("Add Hint")
+        add.clicked.connect(lambda: self.addWidget(GHint(toolbar)))
         _header.addWidget(add)
+        rem = QPushButton("Remove Last")
+        rem.clicked.connect(self.pop)
         _header.addWidget(rem)
+        _header.setStretch(1, 1)
         self.addLayout(_header)
         self._toolbar = toolbar
 
@@ -655,6 +657,13 @@ class GMultipleTries(QVBoxLayout):
                 self.itemAt(i).layout().deleteLater()
         for num in range(len(obj.hints)):
             self.itemAt(num+2).from_obj(obj.hints[num])
+
+    def pop(self) -> None:
+        """_summary_
+        """
+        if not self.count():
+            return
+        self.itemAt(self.count()-1).widget().deleteLater()
 
     def to_obj(self) -> None:
         """_summary_

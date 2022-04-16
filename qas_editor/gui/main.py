@@ -231,7 +231,7 @@ class Editor(QMainWindow):
         self.addToolBar(Qt.TopToolBarArea, self.editor_toolbar)
 
     def _add_multiple_tries_block(self) -> None:
-        frame = GFrameLayout(title="Multiple Tries")
+        frame = GFrameLayout(self, title="Multiple Tries")
         self.cframe_vbox.addLayout(frame)
         self._items["multiple_tries"] = GMultipleTries(self.editor_toolbar)
         frame.setLayout(self._items["multiple_tries"])
