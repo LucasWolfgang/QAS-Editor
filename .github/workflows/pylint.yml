@@ -23,24 +23,20 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
+        python -m pip install pylint
         
     - name: Analysing the code with pylint
       run: |
         pylint qas_editor --rcfile=$(git ls-files '.pylintrc') --output-format=text | tee ./pylint.log || pylint-exit $?
         echo "PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint.log)" >> $GITHUB_ENV
         
-    - name: Create Awesome Badge
+    - name: Create Pylint Badge
       uses: LucasWolfgang/dynamic-badges-action@master
       with:
         auth: ${{ secrets.GIST_SECRET }}
         gistID: 344598a4a0f7b92a7889d998e33417c4
-        filename: test.json
-        label: Hello
+        filename: pylint.json
+        label: Pylint
         message: ${{ env.PYLINT_SCORE }}
         minColorRange: 6
         maxColorRange: 10
-
-    - name: Test with pytest
-      run: |
-        pytest
-
