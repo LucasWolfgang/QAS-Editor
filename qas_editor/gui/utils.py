@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 IMG_PATH = __file__.replace('\\', '/').rsplit('/', 2)[0] + "/images"
 LOG = logging.getLogger(__name__)
 
+
 def action_handler(function: Callable) -> Callable:
     """_summary_
 
@@ -120,7 +121,7 @@ class GTextEditor(QTextEdit):
         """
         self.__ftext.formatting = data
 
-    def canInsertFromMimeData(self, source) -> bool: # pylint: disable=C0103
+    def canInsertFromMimeData(self, source) -> bool:  # pylint: disable=C0103
         """[summary]
 
         Args:
@@ -131,7 +132,7 @@ class GTextEditor(QTextEdit):
         """
         return source.hasImage() or super().canInsertFromMimeData(source)
 
-    def focusInEvent(self, event) -> None: # pylint: disable=C0103
+    def focusInEvent(self, event) -> None:  # pylint: disable=C0103
         """_summary_
 
         Args:
@@ -140,7 +141,7 @@ class GTextEditor(QTextEdit):
         self.toolbar.update_editor(self)
         return super().focusOutEvent(event)
 
-    def focusOutEvent(self, event) -> None: # pylint: disable=C0103
+    def focusOutEvent(self, event) -> None:  # pylint: disable=C0103
         """_summary_
 
         Args:
@@ -165,7 +166,7 @@ class GTextEditor(QTextEdit):
         self.__ftext.text = txt
         return self.__ftext
 
-    def insertFromMimeData(self, source): # pylint: disable=C0103
+    def insertFromMimeData(self, source):  # pylint: disable=C0103
         """[summary]
 
         Args:
@@ -193,7 +194,7 @@ class GTextEditor(QTextEdit):
             return
         super(GTextEditor, self).insertFromMimeData(source)
 
-    def keyPressEvent(self, event: QKeyEvent) -> None: # pylint: disable=C0103
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # pylint: disable=C0103
         """_summary_
 
         Args:
