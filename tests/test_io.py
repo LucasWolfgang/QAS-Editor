@@ -42,7 +42,7 @@ def test_file_xml():
     control.write_xml(XML_TEST, True)
     new_data = quiz.Quiz.read_xml(XML_TEST)
     os.remove(XML_TEST)
-    assert control == new_data
+    assert control.compare(new_data)
 
 
 def test_aikien() -> None:

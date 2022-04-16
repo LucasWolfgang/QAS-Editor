@@ -25,6 +25,8 @@ import re
 from enum import Enum
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
+
+from qas_editor.utils import Serializable
 from .questions import QTYPE, Question, QMultichoice, QCloze, QDescription,\
                        QEssay, QNumerical, QMissingWord, QTrueFalse, QMatching,\
                        QShortAnswer
@@ -91,7 +93,7 @@ class LineBuffer:
 
 # ------------------------------------------------------------------------------
 
-class Quiz: # pylint: disable=R0904
+class Quiz(Serializable): # pylint: disable=R0904
     """
     This class represents Quiz as a set of Questions.
     """
@@ -119,17 +121,6 @@ class Quiz: # pylint: disable=R0904
         if not isinstance(__k, str) or not isinstance(__v, Quiz):
             raise ValueError(f"{__k} is not a string or {__v} is not a Quiz")
         return self.__categories.__setitem__(__k, __v)
-
-    def __eq__(self, __o: object) -> bool:
-        if not isinstance(__o, Quiz):
-            return False
-        if self.__questions != __o.__questions:
-            LOG.debug(f"Quizes {self.name} not equal. Questions differ.")
-            return False
-        if self.__categories != __o.__categories:
-            LOG.debug(f"Quizes {self.name} not equal. Categories differ.")
-            return False
-        return True
 
     @staticmethod
     def __gen_hier(top: "Quiz", category: str) -> Quiz:
@@ -282,7 +273,7 @@ class Quiz: # pylint: disable=R0904
         Returns:
             bool: _description_
         """
-        if any(question is item for item in self.__questions):
+        if question in self.__questions:
             return False
         if question.parent is not None:
             question.parent.rem_question(question)

@@ -75,22 +75,6 @@ class Question(Serializable):
         self.tags = tags if tags is not None else Tags()
         self.__parent = None
 
-    def __repr__(self):
-        """Change string representation.
-        """
-        return f"Type: {self.__class__.__name__}, name: \'{self.name}\'."
-
-    def __eq__(self, __o: object) -> bool:
-        if not isinstance(__o, self.__class__):
-            return False
-        # Never compare parents. So pop/insert makes it faster
-        _pa = self.__dict__.pop("_Question__parent")
-        _pb = __o.__dict__.pop("_Question__parent")
-        res = super().__eq__(__o)
-        self.__dict__["_Question__parent"] = _pa
-        __o.__dict__["_Question__parent"] = _pb
-        return res
-
     @property
     def parent(self):
         """_summary_

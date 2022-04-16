@@ -17,6 +17,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 from typing import TYPE_CHECKING
+import copy
 import logging
 
 LOG = logging.getLogger(__name__)
@@ -57,20 +58,40 @@ class Serializable:
     """An abstract class to be used as base for all serializable classes
     """
 
-    def __eq__(self, __o: object) -> bool:
-        if not __debug__:
-            return self.__dict__ == __o.__dict__
+    @staticmethod
+    def __itercmp(__a, __b):
+        if not isinstance(__b, __a.__class__):
+            return False
+        if hasattr(__a, "compare"):
+            __a.compare(__b)
+        elif isinstance(__a, list):
+            if len(__a) != len(__b):
+                return False
+            tmp = copy.copy(__b)
+            for ita in __a:
+                for idx, itb in enumerate(tmp):
+                    if Serializable.__itercmp(ita, itb):
+                        break
+                else:
+                    return False
+                tmp.pop(idx)
+        elif isinstance(__a, dict):
+            for key, value in __a.items():
+                if not Serializable.__itercmp(value, __b.get(key)):
+                    return False
+        elif __a != __b:
+            return False
+        return True
+
+    def compare(self, __o: object) -> bool:
+        if not isinstance(__o, self.__class__):
+            return False
         for key, value in self.__dict__.items():
-            if value != __o.__dict__.get(key):
-                msg = (f"{self.__class__.__name__} not equal. "
-                       f"{key} ({type(value)}) differs. ")
-                if isinstance(value, (int, float, str)):
-                    msg += f"Values:\n\t{value}\n\t{__o.__dict__[key]}"
-                LOG.debug(msg)
-                break
-        else:
-            return True
-        return False
+            if key in ("_Question__parent", "_Quiz__parent"):
+                continue
+            if not Serializable.__itercmp(value, __o.__dict__.get(key)):
+                raise ValueError(f"Items differs:\n\t{value}\n\t{__o.__dict__[key]}")
+        return True
 
     @classmethod
     def from_json(cls, data: dict) -> "Serializable":
