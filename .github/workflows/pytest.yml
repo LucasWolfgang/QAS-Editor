@@ -35,7 +35,7 @@ jobs:
       run: |
         pytest >> ./pytest.log
         echo "PYTEST_MAX=$(sed -n 's/collected \([0-9]*\) items/\1/p' ./pytest.log)" >> $GITHUB_ENV
-        echo "PYTEST_MIN=$(echo "$YTEST_MAX - 2" | bc) " >> $GITHUB_ENV
+        echo "PYTEST_MIN=$(echo "$PYTEST_MAX - 2" | bc) " >> $GITHUB_ENV
         echo "PYTEST_SCORE=$(sed -n 's/^===.* \([0-9]*\) passed in.*===/\1/p' ./pytest.log)" >> $GITHUB_ENV
         
     - name: Create Pylint Badge
@@ -45,4 +45,4 @@ jobs:
         gistID: 344598a4a0f7b92a7889d998e33417c4
         filename: pytest.json
         label: Pylint
-        message: ${{ env.PYTEST_SCORE }} / ${{ env.PYTEST_TOTAL }} tests
+        message: ${{ env.PYTEST_SCORE }} / ${{ env.PYTEST_MAX }} tests
