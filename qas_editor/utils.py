@@ -23,7 +23,6 @@ LOG = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from xml.etree import ElementTree as et
 
-# ------------------------------------------------------------------------------
 
 def cdata_str(text: str):
     """_summary_
@@ -36,7 +35,6 @@ def cdata_str(text: str):
     """
     return f"<![CDATA[{text}]]>" if text else ""
 
-# ------------------------------------------------------------------------------
 
 # from PyPDF2.generic import IndirectObject
 # def quick_print(data, pp):
@@ -54,7 +52,6 @@ def cdata_str(text: str):
 #     else:
 #         print(pp, data)
 
-# ------------------------------------------------------------------------------
 
 class Serializable:
     """An abstract class to be used as base for all serializable classes
@@ -85,7 +82,7 @@ class Serializable:
         raise NotImplementedError("JSON not implemented")
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict): #pylint: disable=R0912
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):  # pylint: disable=R0912
         """Create a new class using XML data
 
         Args:
