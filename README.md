@@ -1,5 +1,8 @@
-![Pylint](https://github.com/LucasWolfgang/QAS-Editor/actions/workflows/regression.yml/pylint.svg)
-![Pylint](https://github.com/LucasWolfgang/QAS-Editor/actions/workflows/regression.yml/badge.svg)
+<div align="center">
+  <img src="https://badge.fury.io/gh/LucasWolfgang%2FQAS-editor.svg">
+  <img src="https://img.shields.io/endpoint?https://gist.githubusercontent.com/LucasWolfgang/344598a4a0f7b92a7889d998e33417c4/raw/pylint.json">
+  <img src="https://img.shields.io/endpoint?https://gist.githubusercontent.com/LucasWolfgang/344598a4a0f7b92a7889d998e33417c4/raw/pytest.json">
+</div>
 
 # QAS-Editor
  Question and Answer Sheet Editor for importing, editing and exporting different extensions.  
