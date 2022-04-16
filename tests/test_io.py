@@ -47,20 +47,26 @@ def test_file_xml():
     os.remove(XML_TEST)
     assert control == new_data
 
+
 def test_aikien() -> None:
     log.debug("Testing Aiken read/write.")
+
 
 def test_cloze() -> None:
     log.debug("Testing Cloze read/write.")
 
+
 def test_gift() -> None:
     log.debug("Testing GIFT read/write.")
+
 
 def test_markdown() -> None:
     log.debug("Testing Markdown read/write.")
 
+
 def test_latex() -> None:
     log.debug("Testing LaTeX read/write.")
+
 
 def test_pdf() -> None:
     log.debug("Testing PDF read/write.")
