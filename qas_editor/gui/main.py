@@ -338,7 +338,6 @@ class Editor(QMainWindow):
         path = f"{IMG_PATH}/{data.__class__.__name__}_icon.png".lower()
         if not os.path.isfile(path):
             path = f"{IMG_PATH}/{title}_icon.png"
-        print(path)
         item = QStandardItem(QIcon(path), data.name)
         item.setEditable(False)
         item.setData(QVariant(data))

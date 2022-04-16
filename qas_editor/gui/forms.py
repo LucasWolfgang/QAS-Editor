@@ -22,7 +22,7 @@ import logging
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
                             QComboBox, QCheckBox, QLineEdit, QPushButton,\
                             QLabel, QGridLayout
-from ..answer import Answer, DragItem, DragText, ClozeItem
+from ..answer import Answer, CalculatedAnswer, DragItem, DragText, ClozeItem
 from ..enums import ClozeFormat, Format, Grading, ShowUnits
 from ..wrappers import CombinedFeedback, FText, Hint, MultipleTries, UnitHandling
 from ..questions import QCrossWord
@@ -105,6 +105,40 @@ class GAnswer(QHBoxLayout):
         """
         for child in self.children():
             child.setVisible(visible)
+
+# ------------------------------------------------------------------------------
+
+class GCalculated(QFrame):
+
+    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.__obj = None
+        grid = QGridLayout(self)
+        self.setLayout(grid)
+        self._text = GTextEditor(toolbar, "", parent=self)
+        self._text.setToolTip("Use this field to define the answer formula")
+        grid.addWidget(self._text, 0, 0)
+        self._grade = QLineEdit(self)
+        self._grade.setMaximumWidth(50)
+        self._grade.setToolTip("Use this field to define the answer grade")
+        grid.addWidget(self._grade, 0, 1)
+        self._feedback = GTextEditor(toolbar, "feedback", parent=self)
+        self._feedback.setToolTip("Use this field to define the answer feedback")
+        grid.addWidget(self._feedback, 0, 2, 1, 3)
+        self._tol_type = QComboBox(self)
+        grid.addWidget(self._tol_type, 1, 0)
+        self._tolerance = QLineEdit(self)
+        grid.addWidget(self._tolerance, 1, 1)
+        self._ans_type = QCheckBox(self)
+        grid.addWidget(self._ans_type, 2, 0)
+        self._answer_disp = QLineEdit(self)
+        grid.addWidget(self._answer_disp, 2, 1)
+
+    def from_obj(self, obj: Answer) -> None:
+        self.__obj = obj
+
+    def to_obj(self) -> CalculatedAnswer:
+        pass
 
 # ------------------------------------------------------------------------------
 
@@ -423,6 +457,8 @@ class GOptions(QVBoxLayout):
         elif self.__ctype is DragItem:
             item = GDrag(False)
         elif self.__ctype is ClozeItem:
+            item = GCloze()
+        elif self.__ctype is CalculatedAnswer:
             item = GCloze()
         else: raise TypeError(f"Type {self.__ctype} is not implemented")
         self.addLayout(item)
