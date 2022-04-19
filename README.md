@@ -6,7 +6,7 @@
 </div>
 
 <div align="center">
-:exclamation: There is NO stable release so far. The frontend (UI) changes daily, and although the backend is more stable, it is full of bug! :exclamation:
+:exclamation: There is NO stable release so far. The frontend (UI) changes daily, and although the backend is more stable, it is still incomplete! :exclamation:
 </div>
 
 # QAS-Editor
