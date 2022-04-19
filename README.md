@@ -5,6 +5,10 @@
   <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LucasWolfgang/344598a4a0f7b92a7889d998e33417c4/raw/flake8.json">
 </div>
 
+<div align="center">
+:exclamation: There is NO stable release so far. The frontend (UI) changes daily, and although the backend is more stable, it is full of bug! :exclamation:
+</div>
+
 # QAS-Editor
  Question and Answer Sheet Editor for importing, editing and exporting different extensions.  
  
