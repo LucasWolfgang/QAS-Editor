@@ -5,7 +5,7 @@
       <text>$course$/qas_editor</text>
     </category>
   </question>
-  <question type="essay">""
+  <question type="essay">
     <name>
       <text>Essai1</text>
     </name>
@@ -15,7 +15,7 @@
     <generalfeedback format="html">
       <text></text>
     </generalfeedback>
-    <defaultgrade>1.1000000</defaultgrade>
+    <defaultgrade>1.1</defaultgrade>
     <penalty>0.0</penalty>
     <hidden>0</hidden>
     <responseformat>editor</responseformat>
@@ -2801,5 +2801,55 @@
         <text><![CDATA[Each new version of Moodle until Moodle 3.5&nbsp; brought a new photo of Martin's children. The correct answer is 'True'.]]></text>
       </feedback>
     </answer>
+  </question>
+  <question type="gapselect">
+    <name>
+      <text>MW Test</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p dir="ltr" style="text-align: left;">This is a [[1]] kind of question<br></p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p dir="ltr" style="text-align: left;">Generic feedback<br></p>]]></text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <shuffleanswers>1</shuffleanswers>
+    <correctfeedback format="html">
+      <text>Your answer is correct.</text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text>Your answer is partially correct.</text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text>Your answer is incorrect.</text>
+    </incorrectfeedback>
+    <shownumcorrect/>
+    <selectoption>
+      <text>Missing Word</text>
+      <group>1</group>
+    </selectoption>
+    <selectoption>
+      <text>Not Missing Word</text>
+      <group>1</group>
+    </selectoption>
+    <selectoption>
+      <text>Another thing</text>
+      <group>1</group>
+    </selectoption>
+    <selectoption>
+      <text>And a Test</text>
+      <group>1</group>
+    </selectoption>
+    <hint format="html">
+      <text><![CDATA[<p dir="ltr" style="text-align: left;">A hint<br></p>]]></text>
+      <clearwrong/>
+    </hint>
+    <hint format="html">
+      <text></text>
+      <shownumcorrect/>
+    </hint>
   </question>
 </quiz>
