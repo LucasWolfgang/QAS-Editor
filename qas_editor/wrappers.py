@@ -24,7 +24,7 @@ from urllib import request
 from typing import TYPE_CHECKING
 
 from .enums import Format, Status, Distribution, Grading, ShowUnits
-from .utils import cdata_str, Serializable
+from .utils import Serializable
 if TYPE_CHECKING:
     from typing import List
 LOG = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ class Subquestion(Serializable):
         subquestion = et.SubElement(root, "subquestion",
                                     {"format": self.formatting.value})
         text = et.Element("text")
-        text.text = cdata_str(self.text)
+        text.text = self.text
         subquestion.append(text)
         answer = et.Element("answer")
         subquestion.append(answer)
@@ -138,8 +138,8 @@ class UnitHandling(Serializable):
     """A
     """
 
-    def __init__(self, grading_type: Grading, unit_penalty: float,
-                 show: ShowUnits, left: bool) -> None:
+    def __init__(self, grading_type = Grading.IGNORE, unit_penalty = 0.0,
+                 show = ShowUnits.TEXT, left = False) -> None:
         super().__init__()
         self.grading_type = grading_type
         self.penalty = unit_penalty
@@ -207,8 +207,8 @@ class FText(Serializable):
     """A
     """
 
-    def __init__(self, name: str, text: str, formatting: Format,
-                 bfile: List[B64File]) -> None:
+    def __init__(self, name: str, text = "", formatting = Format.AUTO,
+                 bfile: List[B64File] = None) -> None:
         super().__init__()
         self.name = name
         self.text = text
@@ -232,7 +232,8 @@ class FText(Serializable):
 
     def to_xml(self, root: et.Element, strict: bool = False) -> None:
         elem = et.SubElement(root, self.name, {"format": self.formatting.value})
-        et.SubElement(elem, "text").text = cdata_str(self.text)
+        txt = et.SubElement(elem, "text")
+        txt.text = self.text
         for bfile in self.bfile:
             bfile.to_xml(elem, strict)
         return elem
@@ -395,7 +396,8 @@ class Hint(Serializable):
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         hint = et.SubElement(root, "hint", {"format": self.formatting.value})
-        et.SubElement(hint, "text").text = cdata_str(self.text)
+        txt = et.SubElement(hint, "text")
+        txt.text = self.text
         if self.show_correct:
             et.SubElement(hint, "shownumcorrect")
         if self.state_incorrect:
@@ -411,11 +413,13 @@ class CombinedFeedback(Serializable):
     Class tp wrap combined feeback variables.
     """
 
-    def __init__(self, correct: FText, incomplete: FText, incorrect: FText,
-                 show_num: bool = False) -> None:
-        self.correct = correct
-        self.incomplete = incomplete
-        self.incorrect = incorrect
+    def __init__(self, correct: FText = None, incomplete: FText = None,
+                 incorrect: FText = None, show_num = False) -> None:
+        self.correct = FText("correctfeedback") if correct is None else correct
+        self.incomplete = FText("partiallycorrectfeedback") \
+                          if incomplete is None else incomplete
+        self.incorrect = FText("incorrectfeedback") if incorrect is None else \
+                         incorrect
         self.show_num = show_num
 
     @staticmethod

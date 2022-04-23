@@ -26,72 +26,18 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
 
-from qas_editor.utils import Serializable
-from .questions import QTYPE, Question, QMultichoice, QCloze, QDescription,\
+from .utils import Serializable, LineBuffer, serialize_fxml
+from .questions import QTYPE, QMultichoice, QCloze, QDescription,\
                        QEssay, QNumerical, QMissingWord, QTrueFalse, QMatching,\
                        QShortAnswer
 if TYPE_CHECKING:
-    from typing import List, Dict   # pylint: disable=C0412
+    from typing import Dict   # pylint: disable=C0412
 LOG = logging.getLogger(__name__)
 
 #from PIL import Image
 #from PyPDF2 import PdfFileReader, pdf
 #import pikepdf
 
-def _escape_cdata(text: str):
-    try:
-        if str.startswith(text, "<![CDATA[") and str.endswith(text, "]]>"):
-            return text
-        if "&" in text:
-            text = text.replace("&", "&amp;")
-        if "<" in text:
-            text = text.replace("<", "&lt;")
-        if ">" in text:
-            text = text.replace(">", "&gt;")
-    except (TypeError, AttributeError):
-        et._raise_serialization_error(text)
-    return text
-et._escape_cdata = _escape_cdata
-
-# ------------------------------------------------------------------------------
-
-class ParseError(Exception):
-    """Exception used when a parsing fails.
-    """
-
-# ------------------------------------------------------------------------------
-
-class LineBuffer:
-    """Helps parsing text files that uses lines (\\n) as part of the standard
-    somehow.
-    """
-
-    def __init__(self, buffer) -> None:
-        self.last = buffer.readline()
-        self.__bfr = buffer
-
-    def read(self, inext: bool = False):
-        """_summary_
-
-        Args:
-            inext (bool, optional): _description_. Defaults to False.
-
-        Raises:
-            ParseError: _description_
-
-        Returns:
-            _type_: _description_
-        """
-        if not self.last and inext:
-            raise ParseError()
-        tmp = self.last
-        if inext:
-            self.last = self.__bfr.readline()
-            while self.last and self.last == "\n":
-                self.last = self.__bfr.readline()
-        return tmp
-
-# ------------------------------------------------------------------------------
 
 class Quiz(Serializable): # pylint: disable=R0904
     """
@@ -99,7 +45,7 @@ class Quiz(Serializable): # pylint: disable=R0904
     """
 
     def __init__(self, name: str = "$course$", parent: "Quiz" = None):
-        self.__questions: List[Question] = []
+        self.__questions: list = []
         self.__categories: Dict[str, Quiz] = {}
         self.__name = name
         self.__parent = None
@@ -133,32 +79,11 @@ class Quiz(Serializable): # pylint: disable=R0904
             quiz = quiz[i]
         return quiz
 
-    def _indent(self, elem: et.Element, level: int = 0):
-        """[summary]
-
-        Args:
-            elem (et.Element): [description]
-            level (int, optional): [description]. Defaults to 0.
-        """
-        i = "\n" + level * "  "
-        if len(elem) != 0:
-            if not elem.text or not elem.text.strip():
-                elem.text = i + "  "
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
-            for tag in elem:
-                self._indent(tag, level + 1)
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
-        else:
-            if level and (not elem.tail or not elem.tail.strip()):
-                elem.tail = i
-
     def _to_aiken(self) -> str:
         data = ""
         for question in self.__questions:
             if isinstance(question, QMultichoice):
-                data += f"{question.question_text.text}\n"
+                data += f"{question.question.text}\n"
                 correct = "ANSWER: None\n\n"
                 for num, ans in enumerate(question.answers):
                     data += f"{chr(num+65)}) {ans.text}\n"
@@ -209,10 +134,11 @@ class Quiz(Serializable): # pylint: disable=R0904
                 res = val.value
             elif hasattr(val, "__dict__"): # for the objects
                 tmp = val.__dict__.copy()
-                if isinstance(val, Question):
-                    tmp["_type"] = val._type
+                if hasattr(val, "MOODLE"):
+                    tmp["MOODLE"] = val.MOODLE
+                if "_Question__parent" in tmp:
                     del tmp["_Question__parent"]
-                elif isinstance(val, Quiz):
+                elif "_Quiz__parent" in tmp:
                     del tmp["_Quiz__parent"]
                 res = self._to_json(tmp)
             if res != val:
@@ -264,7 +190,7 @@ class Quiz(Serializable): # pylint: disable=R0904
 
     # --------------------------------------------------------------------------
 
-    def add_question(self, question: Question) -> bool:
+    def add_question(self, question) -> bool:
         """_summary_
 
         Args:
@@ -401,9 +327,9 @@ class Quiz(Serializable): # pylint: disable=R0904
                 ans = re.findall(r"((?<!\\)(?:=|~|TRUE|FALSE|T|F|####|#))"+
                                  r"(%[\d\.]+%)?((?:(?<=\\)[=~#]|[^~=#])*)", i[4])
                 if not i[4]:
-                    question = QDescription.from_gift(i)
+                    question = QDescription.from_gift(i, ans)
                 elif not ans:
-                    question = QEssay.from_gift(i)
+                    question = QEssay.from_gift(i, ans)
                 elif ans[0][0] == "#":
                     question = QNumerical.from_gift(i, ans)
                 elif i[5]:
@@ -429,7 +355,7 @@ class Quiz(Serializable): # pylint: disable=R0904
             quiz = cls(_dt["_Quiz__name"], parent)
             for i in range(len(_dt["_questions"])):
                 val = _dt["_questions"][i]
-                _dt["_questions"][i] = QTYPE[val["_type"]].from_json(val)
+                _dt["_questions"][i] = QTYPE[val["MOODLE"]].from_json(val)
                 _dt["_questions"][i].parent = quiz
             for i in _dt["_Quiz__categories"]:
                 val = _dt["_Quiz__categories"][i]
@@ -573,7 +499,7 @@ class Quiz(Serializable): # pylint: disable=R0904
                                         from_xml(question, {}, {}))
         return top_quiz
 
-    def rem_question(self, question: Question) -> bool:
+    def rem_question(self, question) -> bool:
         """_summary_
 
         Args:
@@ -678,10 +604,10 @@ class Quiz(Serializable): # pylint: disable=R0904
             pretty_print (bool, optional): saves XML pretty printed. Defaults to False.
             strict (bool, optinal): saves using strict Moodle format. Defaults to True.
         """
-        quiz: et.ElementTree = et.ElementTree(et.Element("quiz"))
-        root = quiz.getroot()
+        root = et.Element("quiz")
         self._to_xml_element(root, strict)
-        if pretty_print:
-            self._indent(root)
-        quiz.write(file_path, encoding="utf-8", xml_declaration=True,
-                   short_empty_elements=True)
+        # quiz.write(file_path, encoding="utf-8", xml_declaration=True,
+        #            short_empty_elements=pretty_print, method = "fxml")
+        with et._get_writer(file_path, "utf-8") as write:
+            write("<?xml version='1.0' encoding='utf-8'?>\n")
+            serialize_fxml(write, root, True, pretty_print)

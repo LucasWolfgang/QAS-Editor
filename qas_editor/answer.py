@@ -21,11 +21,12 @@ import logging
 from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
 from .enums import Format, ShapeType, ClozeFormat, Direction
-from .utils import cdata_str, Serializable
+from .utils import Serializable
 from .wrappers import B64File, FText
 if TYPE_CHECKING:
     from typing import List
 LOG = logging.getLogger(__name__)
+
 
 class Answer(Serializable):
     """
@@ -57,7 +58,7 @@ class Answer(Serializable):
         answer = et.SubElement(root, "answer", {"fraction": str(self.fraction)})
         if self.formatting:
             answer.set("format", self.formatting.value)
-        et.SubElement(answer, "text").text = cdata_str(self.text)
+        et.SubElement(answer, "text").text = f"<![CDATA[{self.text}]]>"
         if self.feedback:
             self.feedback.to_xml(answer, strict)
         return answer
@@ -111,7 +112,7 @@ class CalculatedAnswer(NumericalAnswer):
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "CalculatedAnswer":
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["tolerancetype"] = (int, "tolerance_type")
         tags["correctanswerformat"] = (int, "answer_format")
         tags["correctanswerlength"] = (int, "answer_length")
@@ -188,7 +189,7 @@ class ClozeItem(Serializable):
         return cls(regex.start(), int(regex[1]), ClozeFormat(regex[2]), options)
 
     def to_xml(self, root: et.Element, strict: bool):
-        LOG.debug(f"Function <to_xml> is not used in {self}")
+        LOG.debug("Function <to_xml> always ignored for ClozeItem instances.")
 
 # ------------------------------------------------------------------------------
 

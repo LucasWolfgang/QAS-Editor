@@ -21,8 +21,8 @@ import re
 import logging
 from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
-from .wrappers import B64File, CombinedFeedback, Dataset, FText, MultipleTries,\
-                    SelectOption, Subquestion, Unit, Tags, UnitHandling
+from .wrappers import B64File, Dataset, FText, Hint, Tags,\
+                    SelectOption, Subquestion, Unit, UnitHandling
 from .utils import Serializable
 from .enums import Format, ResponseFormat, Status, Distribution, Numbering
 from .answer import Answer, ClozeItem, NumericalAnswer, DragText, \
@@ -33,46 +33,48 @@ if TYPE_CHECKING:
     from typing import List, Dict
     from .enums import Direction
 LOG = logging.getLogger(__name__)
-QNAME: Dict[str, Question] = {}
-QTYPE: Dict[str, Question] = {}
 
-class Question(Serializable):
+
+QNAME: Dict[str, _Question] = {}
+QTYPE: Dict[str, _Question] = {}
+
+
+class _Question(Serializable):
     """
     This is an abstract class Question used as a parent for specific
     types of Questions.
     """
-    _type = None
+    MOODLE = None
+    QNAME = None
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        QNAME[cls.__name__] = cls
-        QTYPE[cls._type] = cls
+        if cls.QNAME is not None:
+            QNAME[cls.QNAME] = cls
+        if cls.MOODLE is not None:
+            QTYPE[cls.MOODLE] = cls
 
-    def __init__(self, name: str, question_text: FText = None,
-                 default_grade: float = 1.0, general_feedback: FText = None,
-                 id_number: int = None, shuffle: bool = False,
-                 tags: Tags = None, solution: FText = None) -> None:
+    def __init__(self, name: str, question: FText = None,
+                 default_grade: float = 1.0, feedback: FText = None,
+                 id_number: int = None, tags: Tags = None) -> None:
         """
         [summary]
 
         Args:
             name (str): name of the question
-            question_text (FText): text of the question
+            question (FText): text of the question
             default_grade (float): the default mark
             general_feedback (str, optional): general feedback. Defaults to None.
             id_number (int, optional): id number. Defaults to None.
-            shuffle (bool, optional): shuffle answers. Defaults to False.
         """
         self.name = name
-        self.question_text = question_text if question_text is not None else \
-                             FText("questiontext", "", Format.AUTO, None)
+        self.question = question if question is not None else \
+                        FText("questiontext")
         self.default_grade = default_grade
-        self.general_feedback = general_feedback if general_feedback is not None else \
-                                FText("generalfeedback", "", Format.AUTO, None)
+        self.feedback = feedback if feedback is not None else \
+                        FText("generalfeedback")
         self.id_number = id_number
-        self.shuffle = shuffle
-        self.solution = solution
-        self.tags = tags if tags is not None else Tags()
+        self.tags = Tags() if tags is None else tags
         self.__parent = None
 
     @property
@@ -94,57 +96,134 @@ class Question(Serializable):
         self.__parent = value
 
     @classmethod
-    def from_json(cls, data) -> "Question":
-        data["question_text"] = FText.from_json(data["question_text"])
+    def from_json(cls, data):
+        data["question"] = FText.from_json(data["question"])
+        data["feedback"] = FText.from_json(data["feedback"])
         return cls(**data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Question":
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["name"] = (str, "name")
-        tags["questiontext"] = (FText.from_xml, "question_text")
-        tags["generalfeedback"] = (FText.from_xml, "general_feedback")
+        tags["questiontext"] = (FText.from_xml, "question")
+        tags["generalfeedback"] = (FText.from_xml, "feedback")
         tags["defaultgrade"] = (float, "default_grade")
         tags["idnumber"] = (int, "id_number")
-        tags["shuffleanswers"] = (bool, "shuffle")
         tags["tags"] = (Tags.from_xml, "tags")
-        tags["solution"] = (FText.from_xml, "solution")
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         """
         This method converts current object to Moodle XML.
         """
-        question = et.SubElement(root, "question", {"type": self._type})
+        question = et.SubElement(root, "question", {"type": self.MOODLE})
         name = et.SubElement(question, "name")
         et.SubElement(name, "text").text = self.name
-        self.question_text.to_xml(question, strict)
-        if self.general_feedback:
-            self.general_feedback.to_xml(question, strict)
-        et.SubElement(question, "defaultgrade").text = str(self.default_grade)
-        et.SubElement(question, "hidden").text = "0"
+        self.question.to_xml(question, strict)
+        if self.feedback:
+            self.feedback.to_xml(question, strict)
+        et.SubElement(question, "defaultgrade").text = self.default_grade
+        # et.SubElement(question, "hidden").text = "0"
         if self.id_number is not None:
-            et.SubElement(question, "idnumber").text = str(self.id_number)
-        if self.shuffle:
-            et.SubElement(question, "shuffleanswers").text = "true"
+            et.SubElement(question, "idnumber").text = self.id_number
         if self.tags:
-            question.append(self.tags.to_xml(question, strict))
-        if not strict and self.solution:
-            self.solution.to_xml(question, strict)
+            self.tags.to_xml(question, strict)
         return question
 
-# ------------------------------------------------------------------------------
 
-class QCalculated(Question):
+class _QuestionMT(_Question):
+
+    def __init__(self, penalty: float = 0.5, hints = None,
+                 options: list = None, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.penalty = penalty
+        self.hints = [] if hints is None else hints
+        self.options = [] if options is None else options
+
+    @classmethod
+    def from_json(cls, data: dict):
+        for i in range(len(data["hints"])):
+            data["hints"][i] = Hint.from_json(data["hints"][i])
+        # Defintion of options reading should be done by children
+        return cls(**data)
+
+    @classmethod
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
+        tags["hint"] = (Hint.from_xml, "hints", True)
+        tags["penalty"] = (float, "penalty")
+        # Defintion of options reading should be done by children
+        return super().from_xml(root, tags, attrs)
+
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        question = super().to_xml(root, strict)
+        for hint in self.hints:
+            hint.to_xml(question , strict)
+        et.SubElement(question, "penalty").text = str(self.penalty)
+        if hasattr(self, "options"):
+            for sub in self.options:
+                sub.to_xml(question, strict)
+        return question
+
+
+class _QuestionMTCS(_QuestionMT):
+    """Represents classes that have both Multiple tries attributes and
+    Combinated Feedbacks parameters. There are no classes that don't present
+    all the 4 first attributes. Shuffle was added here too because it is
+    also used by all the classes that uses the other 2 groups, except
+    <code>QRandomMatching</code>. For now, this is the more efficient way to
+    handle this. TODO: track future updates to shuffle attribute.
+    """
+
+    def __init__(self, if_correct: FText = None, if_incomplete: FText = None,
+                 if_incorrect: FText = None, shuffle = False, show_num = False,
+                 **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.if_correct = FText("correctfeedback") \
+                          if if_correct is None else if_correct
+        self.if_incomplete = FText("partiallycorrectfeedback") \
+                             if if_incomplete is None else if_incomplete
+        self.if_incorrect = FText("incorrectfeedback") \
+                            if if_incorrect is None else if_incorrect
+        self.show_num = show_num
+        self.shuffle = shuffle
+
+    @classmethod
+    def from_json(cls, data: dict):
+        data["if_correct"] = FText.from_json(data["if_correct"])
+        data["if_incomplete"] = FText.from_json(data["if_incomplete"])
+        data["if_incorrect"] = FText.from_json(data["if_incorrect"])
+        return super().from_json(data)
+
+    @classmethod
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
+        tags["correctfeedback"] = (FText.from_xml, "if_correct")
+        tags["partiallycorrectfeedback"] = (FText.from_xml, "if_incomplete")
+        tags["incorrectfeedback"] = (FText.from_xml, "if_incorrect")
+        tags["shownumcorrect"] = (bool, "show_num")
+        tags["shuffleanswers"] = (bool, "shuffle")
+        return super().from_xml(root, tags, attrs)
+
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        question = super().to_xml(root, strict)
+        self.if_correct.to_xml(question, strict)
+        self.if_incomplete.to_xml(question, strict)
+        self.if_incorrect.to_xml(question, strict)
+        if self.show_num:
+            et.SubElement(question, "shownumcorrect")
+        if hasattr(self, "shuffle") and self.shuffle:
+            et.SubElement(question, "shuffleanswers")
+        return question
+
+
+class QCalculated(_QuestionMT):
     """Represents a "Calculated"q question, in which a numberical result should
     be provided.
     """
-    _type = "calculated"
+    MOODLE = "calculated"
+    QNAME = "Calculated"
 
     def __init__(self, synchronize: int = 0, single: bool = False,
-                 unit_handling: UnitHandling = None, units: List[Unit] = None,
-                 datasets: List[Dataset] = None,
-                 answers: List[CalculatedAnswer] = None,
-                 multiple_tries: MultipleTries = None, **kwargs):
+                 uhandling: UnitHandling = None, units: List[Unit] = None,
+                 datasets: List[Dataset] = None, **kwargs):
         """[summary]
 
         Args:
@@ -153,38 +232,33 @@ class QCalculated(Question):
             unit_handling (UnitHandling, optional): [description]. Defaults to None.
             units (List[Unit], optional): [description]. Defaults to None.
             datasets (List[Dataset], optional): [description]. Defaults to None.
-            answers (List[CalculatedAnswer], optional): [description]. Defaults to None.
         """
         super().__init__(**kwargs)
         self.synchronize = synchronize
         self.single = single
-        self.unit_handling = unit_handling
-        self.multiple_tries = multiple_tries
-        self.units = units if units is not None else []
-        self.datasets = datasets if datasets is not None else []
-        self.answers = answers if answers is not None else []
+        self.unit_handling = UnitHandling() if uhandling is None else uhandling
+        self.units = [] if units is None else units
+        self.datasets = [] if datasets is None else datasets
 
     @classmethod
     def from_json(cls, data) -> "QCalculated":
         data["unit_handling"] = UnitHandling.from_json(data["unit_handling"])
-        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
         for i in range(len(data["units"])):
             data["units"][i] = Unit.from_json(data["units"][i])
         for i in range(len(data["datasets"])):
             data["datasets"][i] = Dataset.from_json(data["datasets"][i])
-        for i in range(len(data["answers"])):
-            data["answers"][i] = CalculatedAnswer.from_json(data["answers"][i])
+        for i in range(len(data["options"])):
+            data["options"][i] = CalculatedAnswer.from_json(data["options"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QCalculated":
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["synchronize"] = (bool, "synchronize")
         tags["single"] = (bool, "single")
-        UnitHandling._add_xml(tags, "unit_handling")
-        MultipleTries._add_xml(tags, "multiple_tries")
+        tags["unit_handling"] = (UnitHandling.from_xml, "uhandling")
         tags["units"] = (Unit.from_xml, "units", True)
         tags["dataset_definitions"] = (Dataset.from_xml_list, "datasets")
-        tags["answer"] = (CalculatedAnswer.from_xml, "answers", True)
+        tags["answer"] = (CalculatedAnswer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -193,10 +267,7 @@ class QCalculated(Question):
             et.SubElement(question, "synchronize")
         if self.single:
             et.SubElement(question, "single")
-        for answer in self.answers:
-            answer.to_xml(question, strict)
         self.unit_handling.to_xml(question, strict)
-        self.multiple_tries.to_xml(question, strict)
         if self.units:
             units = et.SubElement(question, "units")
             for unit in self.units:
@@ -207,43 +278,34 @@ class QCalculated(Question):
                 dataset.to_xml(dataset_definitions, strict)
         return question
 
-# ------------------------------------------------------------------------------
 
 class QCalculatedSimple(QCalculated):
     """Same as QCalculated. Implemented only for compatibility with the moodle
     XML format.
     """
-    _type = "calculatedsimple"
+    MOODLE = "calculatedsimple"
+    QNAME = "Simplified Calculated"
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
-# ------------------------------------------------------------------------------
-
-class QCalculatedMultichoice(Question):
+class QCalculatedMultichoice(_QuestionMTCS):
     """Represents a "Calculated" question with multiple choices, behaving like
     a multichoice question where the answers are calculated using equations and
     datasets.
     """
-    _type = "calculatedmulti"
+    MOODLE = "calculatedmulti"
+    QNAME = "Calculated Multichoice"
 
     def __init__(self, synchronize: int = 0, single: bool = False,
                  numbering: Numbering = Numbering.ALF_LR,
-                 combined_feedback: CombinedFeedback = None,
-                 multiple_tries: MultipleTries = None,
-                 datasets: List[Dataset] = None,
-                 answers: List[CalculatedAnswer] = None, **kwargs):
+                 datasets: List[Dataset] = None, **kwargs):
         super().__init__(**kwargs)
         self.synchronize = synchronize
         self.single = single
         self.numbering = numbering
-        self.combined_feedback = combined_feedback
-        self.multiple_tries = multiple_tries
         self.datasets = datasets if datasets is not None else []
-        self.answers = answers if answers is not None else []
 
-    def add_dataset(self, status: Status, name: str, dist: Distribution, minim: float,
-                    maxim: float, dec: int) -> None:
+    def add_dataset(self, status: Status, name: str, dist: Distribution,
+                    minim: float, maxim: float, dec: int) -> None:
         """_summary_
 
         Args:
@@ -259,23 +321,19 @@ class QCalculatedMultichoice(Question):
     @classmethod
     def from_json(cls, data: dict) -> QCalculatedMultichoice:
         data["numbering"] = Numbering(data["numbering"])
-        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
-        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
         for i in range(len(data["datasets"])):
             data["datasets"][i] = Dataset.from_json(data["datasets"][i])
-        for i in range(len(data["answers"])):
-            data["answers"][i] = CalculatedAnswer.from_json(data["answers"][i])
+        for i in range(len(data["options"])):
+            data["options"][i] = CalculatedAnswer.from_json(data["options"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Question":
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["synchronize"] = (bool, "synchronize")
         tags["single"] = (bool, "single")
         tags["answernumbering"] = (Numbering, "numbering")
-        CombinedFeedback._add_xml(tags, "combined_feedback")
-        MultipleTries._add_xml(tags, "multiple_tries")
         tags["dataset_definitions"] = (Dataset.from_xml_list, "datasets")
-        tags["answer"] = (CalculatedAnswer.from_xml, "answers", True)
+        tags["answer"] = (CalculatedAnswer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -285,34 +343,29 @@ class QCalculatedMultichoice(Question):
         if self.single:
             et.SubElement(question, "single")
         et.SubElement(question, "answernumbering").text = self.numbering.value
-        self.combined_feedback.to_xml(question, strict)
-        self.multiple_tries.to_xml(question, strict)
-        for answer in self.answers:
-            answer.to_xml(question, strict)
         dataset_definitions = et.SubElement(question, "dataset_definitions")
         for dataset in self.datasets:
             dataset.to_xml(dataset_definitions, strict)
         return question
 
-# ------------------------------------------------------------------------------
 
-class QCloze(Question):
+class QCloze(_QuestionMT):
     """This is a very simples class that hold cloze data. All data is compressed
     inside the question text, so no further implementation is necessary.
     """
-    _type = "cloze"
+    MOODLE = "cloze"
+    QNAME = "Cloze"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.answers = []
         self._update_text()
 
     @classmethod
-    def from_cloze(cls, buffer) -> "QCloze":
+    def from_cloze(cls, buffer):
         """_summary_
 
         Args:
-            buffer (_type_): _description_
+            buffer (MOODLE_): _description_
 
         Returns:
             QCloze: _description_
@@ -320,104 +373,60 @@ class QCloze(Question):
         data = buffer.read()
         name, text = data.split("\n", 1)
         ftext = FText("questiontext", text, Format.HTML, None)
-        return cls(name=name, question_text=ftext)
-
-    @classmethod
-    def from_json(cls, data: dict) -> "QCloze":
-        return super().from_json(data)
-
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QCloze":
-        return super().from_xml(root, tags, attrs)
+        return cls(name=name, question=ftext)
 
     def _update_text(self):
         pattern = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
-        for match in pattern.finditer(self.question_text.text):
+        for match in pattern.finditer(self.question.text):
             item = ClozeItem.from_cloze(match)
-            self.answers.append(item)
+            self.options.append(item)
 
-# ------------------------------------------------------------------------------
 
-class QDescription(Question):
+class QDescription(_Question):
     """Represents a simple description. This is not a question. It has the same
     extructure as Question class and was add for compatiblity with the moodle
     XML format.
     """
-    _type = "description"
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    MOODLE = "description"
+    QNAME = "Description"
 
     @classmethod
-    def from_gift(cls, header: list) -> "QDescription":
-        """_summary_
-
-        Args:
-            header (list): _description_
-
-        Returns:
-            QDescription: _description_
-        """
+    def from_gift(cls, header: list, answer: list):
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        return cls(name=header[1],
-                   question_text=FText("questiontext", header[3], formatting, None))
+        return cls(name=header[1], question=FText("questiontext", header[3],
+                                                  formatting, None))
 
-# ------------------------------------------------------------------------------
 
-class QDragAndDropText(Question):
+class QDragAndDropText(_QuestionMTCS):
     """
     This class represents a drag and drop text onto image question.
     It inherits from abstract class Question.
     """
-    _type = "ddwtos"
-
-    def __init__(self, combined_feedback: CombinedFeedback = None,
-                 multiple_tries: MultipleTries = None,
-                 answers: List[DragText] = None, **kwargs):
-        """
-        Currently not implemented.
-        """
-        super().__init__(**kwargs)
-        self.combined_feedback = combined_feedback
-        self.multiple_tries = multiple_tries
-        self.answers = answers if answers is not None else []
+    MOODLE = "ddwtos"
+    QNAME = "Drag and Drop Text"
 
     @classmethod
-    def from_json(cls, data) -> "QDragAndDropText":
-        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
-        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
-        for i in range(len(data["answers"])):
-            data["answers"][i] = DragText.from_json(data["answers"][i])
+    def from_json(cls, data):
+        for i in range(len(data["options"])):
+            data["options"][i] = DragText.from_json(data["options"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QDragAndDropText":
-        CombinedFeedback._add_xml(tags, "combined_feedback")
-        MultipleTries._add_xml(tags, "multiple_tries")
-        tags["dragbox"] = (DragText.from_xml, "answers", True)
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
+        tags["dragbox"] = (DragText.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
-        self.multiple_tries.to_xml(question, strict)
-        self.combined_feedback.to_xml(question, strict)
-        for choice in self.answers:
-            choice.to_xml(question, strict)
-        return question
 
-# ----------------------------------------------------------------------------------------
-
-class QDragAndDropImage(Question):
+class QDragAndDropImage(_QuestionMTCS):
     """This class represents a drag and drop onto image question.
     It inherits from abstract class Question.
     """
-    _type = "ddimageortext"
+    MOODLE = "ddimageortext"
+    QNAME = "Drag and Drop Image"
 
     def __init__(self, background: B64File = None,
-                 combined_feedback: CombinedFeedback = None,
-                 dragitems: List[DragItem] = None,
                  dropzones: List[DropZone] = None, **kwargs) -> None:
         """Creates an drag and drop onto image type of question.
 
@@ -426,11 +435,10 @@ class QDragAndDropImage(Question):
         """
         super().__init__(**kwargs)
         self.background = background
-        self.combined_feedback = combined_feedback
-        self._dragitems: List[DragItem] = dragitems if dragitems is not None else []
         self._dropzones: List[DropZone] = dropzones if dropzones is not None else []
 
-    def add_dragimage(self, text: str, group: int, file: str, unlimited: bool = False) -> None:
+    def add_dragimage(self, text: str, group: int, file: str,
+                      unlimited: bool = False) -> None:
         """Adds new DragItem with assigned DropZones.
 
         Args:
@@ -440,9 +448,9 @@ class QDragAndDropImage(Question):
             unlimited (bool, optional): if item is allowed to be used again.
                 Defaults to False.
         """
-        dragimage = DragItem(len(self._dragitems) + 1, text, unlimited, group,
+        dragimage = DragItem(len(self.options) + 1, text, unlimited, group,
                              image=file)
-        self._dragitems.append(dragimage)
+        self.options.append(dragimage)
 
     def add_dragtext(self, text: str, group: str, unlimited: bool = False) -> None:
         """Adds new DragText with assigned DropZones.
@@ -453,8 +461,8 @@ class QDragAndDropImage(Question):
             unlimited (bool, optional): if item is allowed to be used again.
                 Defaults to False.
         """
-        dragitem = DragItem(len(self._dragitems) + 1, text, unlimited, group)
-        self._dragitems.append(dragitem)
+        dragitem = DragItem(len(self.options) + 1, text, unlimited, group)
+        self.options.append(dragitem)
 
     def add_dropzone(self, coord_x: int, coord_y: int, text: str, choice: int) -> None:
         """[summary]
@@ -469,46 +477,37 @@ class QDragAndDropImage(Question):
                                         len(self._dropzones) + 1))
 
     @classmethod
-    def from_json(cls, data) -> "QDragAndDropImage":
-        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+    def from_json(cls, data):
         data["background"] = B64File.from_json(data["background"])
-        for i in range(len(data["_dragitems"])):
-            data["_dragitems"][i] = DragItem.from_json(data["_dragitems"][i])
+        for i in range(len(data["options"])):
+            data["options"][i] = DragItem.from_json(data["options"][i])
         for i in range(len(data["_dropzones"])):
             data["_dropzones"][i] = DropZone.from_json(data["_dropzones"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QDragAndDropImage":
-        CombinedFeedback._add_xml(tags, "combined_feedback")
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["file"] = (B64File.from_xml, "background")
-        tags["drag"] = (DragItem.from_xml, "dragitems", True)
+        tags["drag"] = (DragItem.from_xml, "options", True)
         tags["drop"] = (DropZone.from_xml, "dropzones", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool):
         question = super().to_xml(root, strict)
-        self.combined_feedback.to_xml(question, strict)
         if self.background:
             self.background.to_xml(question, strict)
-        for dragitem in self._dragitems:
-            dragitem.to_xml(question, strict)
         for dropzone in self._dropzones:
             dropzone.to_xml(question, strict)
         return question
 
-# ------------------------------------------------------------------------------
 
-class QDragAndDropMarker(Question):
+class QDragAndDropMarker(_QuestionMTCS):
     """Represents a Drag and Drop question where the items are markers.
     """
-    _type = "ddmarker"
+    MOODLE = "ddmarker"
+    QNAME = "Drag and Drop Marker"
 
-    def __init__(self, background: B64File = None,
-                 combined_feedback: CombinedFeedback = None,
-                 multiple_tries: MultipleTries = None,
-                 dragitems: List[DragItem] = None,
-                 dropzones: List[DropZone] = None,
+    def __init__(self, background: B64File = None, dropzones: List[DropZone] = None,
                  highlight_empty: bool = False, **kwargs):
         """Creates an drag and drop onto image type of question.
 
@@ -517,13 +516,10 @@ class QDragAndDropMarker(Question):
         """
         super().__init__(**kwargs)
         self.background = background
-        self.combined_feedback = combined_feedback
-        self.multiple_tries = multiple_tries
         self.highlight_empty = highlight_empty
-        self._dragitems = dragitems if dragitems is not None else []
         self._dropzones = dropzones if dropzones is not None else []
 
-    def add_dragmarker(self, text: str, no_of_drags: str, unlimited: bool = False):
+    def add_option(self, text: str, no_of_drags: str, unlimited: bool = False):
         """[summary]
 
         Args:
@@ -531,27 +527,24 @@ class QDragAndDropMarker(Question):
             no_of_drags (str): [description]
             unlimited (bool, optional): [description]. Defaults to False.
         """
-        dragitem = DragItem(len(self._dragitems) + 1, text, unlimited, no_of_drags=no_of_drags)
-        self._dragitems.append(dragitem)
+        dragitem = DragItem(len(self.options) + 1, text, unlimited,
+                            no_of_drags=no_of_drags)
+        self.options.append(dragitem)
 
     @classmethod
-    def from_json(cls, data) -> "QDragAndDropMarker":
-        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
-        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+    def from_json(cls, data):
         data["background"] = B64File.from_json(data["background"])
-        for i in range(len(data["_dragitems"])):
-            data["_dragitems"][i] = DragItem.from_json(data["_dragitems"][i])
+        for i in range(len(data["options"])):
+            data["options"][i] = DragItem.from_json(data["options"][i])
         for i in range(len(data["_dropzones"])):
             data["_dropzones"][i] = DropZone.from_json(data["_dropzones"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QDragAndDropMarker":
-        CombinedFeedback._add_xml(tags, "combined_feedback")
-        MultipleTries._add_xml(tags, "multiple_tries")
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["file"] = (B64File.from_xml, "background")
         tags["showmisplaced"] = (bool, "highlight_empty")
-        tags["drag"] = (DragItem.from_xml, "dragitems", True)
+        tags["drag"] = (DragItem.from_xml, "options", True)
         tags["drop"] = (DropZone.from_xml, "dropzones", True)
         return super().from_xml(root, tags, attrs)
 
@@ -559,27 +552,23 @@ class QDragAndDropMarker(Question):
         question = super().to_xml(root, strict)
         if self.highlight_empty:
             et.SubElement(question, "showmisplaced")
-        self.multiple_tries.to_xml(question, strict)
-        self.combined_feedback.to_xml(question, strict)
-        for dragitem in self._dragitems:
-            dragitem.to_xml(question, strict)
         for dropzone in self._dropzones:
             dropzone.to_xml(question, strict)
         if self.background:
             self.background.to_xml(question, strict)
         return question
 
-# ------------------------------------------------------------------------------
 
-class QEssay(Question):
+class QEssay(_Question):
     """Represents an essay question, in which the answer is written as an essay
     and need to be submitted for review (no automatic correct/answer feedback
     provided).
     """
-    _type = "essay"
+    MOODLE = "essay"
+    QNAME = "Essay"
 
     def __init__(self, response_format: ResponseFormat = ResponseFormat.HTML,
-                 response_required: bool = True, lines: int = 10, attachments: int = 1,
+                 response_required: bool = True, lines: int = 10, attachments: int = 0,
                  attachments_required: bool = False, maxbytes: int = None,
                  filetypes_list: str = None, grader_info: FText = None,
                  response_template: FText = None, **kwargs) -> None:
@@ -595,30 +584,22 @@ class QEssay(Question):
         self.response_template = response_template
 
     @classmethod
-    def from_gift(cls, header: list) -> "QEssay":
-        """_summary_
-
-        Args:
-            header (list): _description_
-
-        Returns:
-            QEssay: _description_
-        """
+    def from_gift(cls, header: list, answer: list):
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        return cls(name=header[1],
-                   question_text=FText("questiontext", header[3], formatting, None))
+        return cls(name=header[1], question=FText("questiontext", header[3],
+                                                  formatting, None))
 
     @classmethod
-    def from_json(cls, data) -> "QEssay":
+    def from_json(cls, data):
         data["response_format"] = ResponseFormat(data["response_format"])
         data["grader_info"] = FText.from_json(data["grader_info"])
         data["response_template"] = FText.from_json(data["response_template"])
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QEssay":
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["responseformat"] = (ResponseFormat, "response_format")
         tags["responserequired"] = (bool, "response_required")
         tags["responsefieldlines"] = (int, "lines")
@@ -635,12 +616,12 @@ class QEssay(Question):
         et.SubElement(question, "responseformat").text = self.response_format.value
         if self.response_required:
             et.SubElement(question, "responserequired")
-        et.SubElement(question, "responsefieldlines").text = str(self.responsefield_lines)
-        et.SubElement(question, "attachments").text = str(self.attachments)
+        et.SubElement(question, "responsefieldlines").text = self.responsefield_lines
+        et.SubElement(question, "attachments").text = self.attachments
         if self.attachments_required:
             et.SubElement(question, "attachmentsrequired")
         if self.maxbytes:
-            et.SubElement(question, "maxbytes").text = str(self.maxbytes)
+            et.SubElement(question, "maxbytes").text = self.maxbytes
         if self.filetypes_list:
             et.SubElement(question, "filetypeslist").text = self.filetypes_list
         if self.grader_info:
@@ -649,145 +630,96 @@ class QEssay(Question):
             self.response_template.to_xml(question, strict)
         return question
 
-# ------------------------------------------------------------------------------
 
-class QMatching(Question):
+class QMatching(_QuestionMTCS):
     """Represents a Matching question, in which the goal is to find matchs.
     """
-    _type = "matching"
+    MOODLE = "matching"
+    QNAME = "Matching"
 
-    def __init__(self, combined_feedback: CombinedFeedback = None,
-                 subquestions: List[Subquestion] = None, **kwargs):
-        super().__init__(**kwargs)
-        self.combined_feedback = combined_feedback
-        self.subquestions = subquestions if subquestions is not None else []
-
-    def add_subquestion(self, text: str, answer: str) -> None:
+    def add_option(self, text: str, answer: str) -> None:
         """[summary]
 
         Args:
             text (str): [description]
             answer (str): [description]
         """
-        if isinstance(text, str) and isinstance(answer, str):
-            self.subquestions.append((text, answer))
+        self.options.append(Subquestion(Format.AUTO, text, answer))
 
     @classmethod
-    def from_gift(cls, header: list, answer: list) -> "QMatching":
-        """_summary_
-
-        Args:
-            header (list): _description_
-            answer (list): _description_
-
-        Returns:
-            QMatching: _description_
-        """
+    def from_gift(cls, header: list, answer: list):
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        qst = cls(name=header[1],
-                  question_text=FText("questiontext", header[3], formatting, None))
+        qst = cls(name=header[1], question=FText("questiontext", header[3],
+                                                 formatting, None))
         for ans in answer:
             if ans[0] == "=":
                 rgx = re.match(r"(.*?)(?<!\\)->(.*)", ans[2])
-                qst.subquestions.append(Subquestion(formatting, rgx[1].strip(),
+                qst.options.append(Subquestion(formatting, rgx[1].strip(),
                                                     rgx[2].strip()))
             elif ans[0] == "####":
-                qst.general_feedback = FText("generalfeedback", ans[2],
+                qst.feedback = FText("generalfeedback", ans[2],
                                              formatting, None)
         return qst
 
     @classmethod
-    def from_json(cls, data) -> "QMatching":
-        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
-        for i in range(len(data["subquestions"])):
-            data["subquestions"][i] = Subquestion.from_json(data["subquestions"][i])
+    def from_json(cls, data):
+        for i in range(len(data["options"])):
+            data["options"][i] = Subquestion.from_json(data["options"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QMatching":
-        CombinedFeedback._add_xml(tags, "combined_feedback")
-        tags["subquestion"] = (Subquestion.from_xml, "subquestions", True)
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
+        tags["subquestion"] = (Subquestion.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
-        if self.combined_feedback:
-            self.combined_feedback.to_xml(question, strict)
-        for sub in self.subquestions:
-            sub.to_xml(question, strict)
-        return question
 
-# ------------------------------------------------------------------------------
-
-class QRandomMatching(Question):
+class QRandomMatching(_QuestionMTCS):
     """Represents a Random match question.
     """
-    _type = "randomsamatch"
+    MOODLE = "randomsamatch"
+    QNAME = "Random Matching"
 
-    def __init__(self, choose: int = 0, subcats: bool = False,
-                 combined_feedback: CombinedFeedback = None, **kwargs) -> None:
+    def __init__(self, choose: int = 0, subcats: bool = False, **kwargs):
         super().__init__(**kwargs)
-        self.combined_feedback = combined_feedback
+        delattr(self, "options")
+        delattr(self, "shuffle")
         self.choose = choose
         self.subcats = subcats
 
     @classmethod
-    def from_json(cls, data) -> "QRandomMatching":
-        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
-        return super().from_json(data)
-
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QRandomMatching":
-        CombinedFeedback._add_xml(tags, "combined_feedback")
-        tags["choose"] = (str, "choose")
-        tags["subcats"] = (str, "subcats")
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
+        tags["choose"] = (int, "choose")
+        tags["subcats"] = (bool, "subcats")
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         question = super().to_xml(root, strict)
-        self.combined_feedback.to_xml(question, strict)
         et.SubElement(question, "choose").text = self.choose
         et.SubElement(question, "subcats").text = self.subcats
         return question
 
-# ------------------------------------------------------------------------------
 
-class QMissingWord(Question):
+class QMissingWord(_QuestionMTCS):
     """ Represents a "Missing Word" question.
     """
-    _type = "gapselect"
-
-    def __init__(self, combined_feedback: CombinedFeedback = None,
-                 options: List[SelectOption] = None, **kwargs):
-        super().__init__(**kwargs)
-        self.combined_feedback = combined_feedback
-        self.options = options if options is not None else []
+    MOODLE = "gapselect"
+    QNAME = "Missing Word"
 
     @classmethod
-    def from_json(cls, data) -> "QMissingWord":
-        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
+    def from_json(cls, data):
         for i in range(len(data["options"])):
             data["options"][i] = SelectOption.from_json(data["options"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_gift(cls, header: list, answer: list) -> "QMissingWord":
-        """_summary_
-
-        Args:
-            header (list): _description_
-            answer (list): _description_
-
-        Returns:
-            QMissingWord: _description_
-        """
+    def from_gift(cls, header: list, answer: list):
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        qst = cls(name=header[1], question_text=FText("questiontext", header[3],
-                                                      formatting, None))
+        qst = cls(name=header[1], question=FText("questiontext", header[3],
+                                                 formatting, None))
         correct = None
         for i in answer:
             if i[0] == "=":
@@ -798,68 +730,33 @@ class QMissingWord(Question):
         return qst
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QMissingWord":
-        CombinedFeedback._add_xml(tags, "combined_feedback")
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["selectoption"] = (SelectOption.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
-        if self.combined_feedback:
-            self.combined_feedback.to_xml(question, strict)
-        for opt in self.options:
-            opt.to_xml(question, strict)
-        return question
 
-# ------------------------------------------------------------------------------
-
-class QMultichoice(Question):
+class QMultichoice(_QuestionMTCS):
     """This class represents 'Multiple choice' question.
     """
-    _type = "multichoice"
+    MOODLE = "multichoice"
+    QNAME = "Multichoice"
 
     def __init__(self, single: bool = True, show_instruction: bool = False,
-                 answer_numbering: Numbering = Numbering.ALF_LR,
-                 multiple_tries: MultipleTries = None,
-                 combined_feedback: CombinedFeedback = None,
-                 answers: List[Answer] = None, **kwargs):
+                 answer_numbering: Numbering = Numbering.ALF_LR, **kwargs):
         super().__init__(**kwargs)
         self.single = single
         self.show_instruction = show_instruction
-        self.combined_feedback = combined_feedback
-        self.multiple_tries = multiple_tries
-        if isinstance(answer_numbering, Numbering):
-            self.answer_numbering = answer_numbering
-        elif isinstance(answer_numbering, str):
-            self.answer_numbering = Numbering(answer_numbering)
-        else:
-            raise TypeError("answer_numbering should be of type Numbering "+
-                            f"or str, not {type(answer_numbering)}")
-        self.answers = answers if answers is not None else []
-
-    def add_answer(self, fraction: float, text: str, feedback: str = None) -> None:
-        """
-        Adds an answer to this question.
-
-        Args:
-            fraction (float): Percentage of the grade
-            text (str): text of the anwser
-            feedback (str, optional): feedback shown when this answer is submitted.
-                Defaults to None.
-        """
-        self.answers.append(Answer(fraction, text, feedback, Format.AUTO))
+        self.answer_numbering = answer_numbering
 
     @classmethod
-    def from_json(cls, data) -> "QMultichoice":
+    def from_json(cls, data):
         data["answer_numbering"] = Numbering(data["answer_numbering"])
-        data["multiple_tries"] = MultipleTries.from_json(data["multiple_tries"])
-        data["combined_feedback"] = CombinedFeedback.from_json(data["combined_feedback"])
-        for i in range(len(data["answers"])):
-            data["answers"][i] = Answer.from_json(data["answers"][i])
+        for i in range(len(data["options"])):
+            data["options"][i] = Answer.from_json(data["options"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_aiken(cls, buffer, name) -> "QMultichoice":
+    def from_aiken(cls, buffer, name):
         """_summary_
 
         Args:
@@ -879,65 +776,42 @@ class QMultichoice(Question):
             answers[ord(buffer.read(True)[8].upper())-65].fraction = 100.0
         except IndexError:
             LOG.exception(f"Failed to set correct answer in question {name}.")
-        return cls(name=name, answers=answers,
-                   question_text=FText("questiontext", header, Format.PLAIN, None))
+        return cls(name=name, options=answers,
+                   question=FText("questiontext", header, Format.PLAIN, None))
 
     @classmethod
-    def from_gift(cls, header: list, answer: list) -> "QMultichoice":
-        """_summary_
-
-        Args:
-            header (list): _description_
-            answer (list): _description_
-
-        Returns:
-            QMultichoice: _description_
-        """
+    def from_gift(cls, header: list, answer: list):
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        qst = cls(name=header[1], question_text=FText("questiontext", header[3],
-                                                      formatting, None))
+        qst = cls(name=header[1], question=FText("questiontext", header[3],
+                                                 formatting, None))
         prev_answer = None
         for ans in answer:
             txt = ans[2]
             if ans[0] == "~": # Wrong or partially correct answer
                 fraction = 0 if not ans[1] else float(ans[1][1:-1])
                 prev_answer = Answer(fraction, txt, None, formatting)
-                qst.answers.append(prev_answer)
+                qst.options.append(prev_answer)
             elif ans[0] == "=": # Correct answer
                 prev_answer = Answer(100, txt, None, formatting)
-                qst.answers.append(prev_answer)
+                qst.options.append(prev_answer)
             elif ans[0] == "#": # Answer feedback
                 prev_answer.feedback = FText("feedback", ans[2],
                                              formatting, None)
         return qst
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QMultichoice":
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["single"] = (bool, "single")
         tags["showstandardinstruction"] = (bool, "show_instruction")
         tags["answernumbering"] = (Numbering, "answer_numbering")
-        tags["answer"] = (Answer.from_xml, "answers", True)
-        CombinedFeedback._add_xml(tags, "combined_feedback")
-        MultipleTries._add_xml(tags, "multiple_tries")
+        tags["answer"] = (Answer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
-
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
-        self.multiple_tries.to_xml(question, strict)
-        if self.combined_feedback:
-            self.combined_feedback.to_xml(question, strict)
-        et.SubElement(question, "answernumbering").text = self.answer_numbering.value
-        if self.single:
-            et.SubElement(question, "single")
-        for answer in self.answers:
-            answer.to_xml(question, strict)
-        return question
 
     @staticmethod
     def from_markdown(lines: list, answer_mkr: str, question_mkr: str,
-                      name: str = "mkquestion") -> "QMultichoice":
+                      name: str = "mkquestion"):
         """[summary]
 
         Returns:
@@ -948,38 +822,44 @@ class QMultichoice(Question):
         while lines and match is None:
             data += lines.pop().strip()
             match = re.match(answer_mkr, lines[-1])
-        question = QMultichoice(name=name,
-                                question_text=FText("questiontext", data, Format.MD, None))
+        question = QMultichoice(name=name, question=FText("questiontext", data,
+                                                          Format.MD, None))
         regex_exp = f"({question_mkr})|({answer_mkr})"
         while lines:
             match = re.match(regex_exp, lines.pop())
             if match and match[3]:
                 ans = Answer(100.0 if match[4] is not None else 0.0, match[5],
                              None, Format.HTML)
-                question.answers.append(ans)
+                question.options.append(ans)
             else:
                 break
         return question
 
-# ------------------------------------------------------------------------------
+    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+        question = super().to_xml(root, strict)
+        et.SubElement(question, "answernumbering").text = self.answer_numbering.value
+        if self.single:
+            et.SubElement(question, "single")
+        return question
 
-class QNumerical(Question):
+
+class QNumerical(_QuestionMT):
     """
     This class represents 'Numerical Question' moodle question type.
     Units are currently not implemented, only numerical answer, which
     are specified as text and absolute tolerance value are implemented
     """
-    _type = "numerical"
+    MOODLE = "numerical"
+    QNAME = "Numerical"
 
-    def __init__(self, unit_handling: UnitHandling = None,
-                 units: List[Unit] = None,
-                 answers: List[NumericalAnswer] = None, **kwargs) -> None:
+    def __init__(self, uhandling: UnitHandling = None,
+                 units: List[Unit] = None,  **kwargs):
         super().__init__(**kwargs)
-        self.unit_handling = unit_handling
+        self.unit_handling = UnitHandling() if uhandling is None else \
+                             uhandling
         self.units = units if units is not None else []
-        self.answers = answers if answers is not None else []
 
-    def add_answer(self, tol: float, fraction: float, text: str,
+    def add_option(self, text: str, tol: float, fraction: float,
                    feedback: str = None) -> None:
         """_summary_
 
@@ -989,36 +869,27 @@ class QNumerical(Question):
             text (str): _description_
             feedback (str, optional): _description_. Defaults to None.
         """
-        self.answers.append(NumericalAnswer(tol, fraction=fraction, text=text,
+        self.options.append(NumericalAnswer(tol, fraction=fraction, text=text,
                                             formatting=feedback))
 
     @classmethod
-    def from_json(cls, data) -> "QNumerical":
+    def from_json(cls, data):
         data["unit_handling"] = UnitHandling.from_json(data["unit_handling"])
         for i in range(len(data["units"])):
             data["units"][i] = Unit.from_json(data["units"][i])
-        for i in range(len(data["answers"])):
-            data["answers"][i] = NumericalAnswer.from_json(data["answers"][i])
+        for i in range(len(data["options"])):
+            data["options"][i] = NumericalAnswer.from_json(data["options"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QNumerical":
-        tags["unit_handling"] = (UnitHandling.from_xml, "unit_handling")
-        tags["answer"] = (NumericalAnswer.from_xml, "answers", True)
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
+        tags["unit_handling"] = (UnitHandling.from_xml, "uhandling")
+        tags["answer"] = (NumericalAnswer.from_xml, "options", True)
         tags["units"] = (Unit.from_xml, "units", True)
         return super().from_xml(root, tags, attrs)
 
     @classmethod
-    def from_gift(cls, header: list, answer: list) -> "QNumerical":
-        """_summary_
-
-        Args:
-            header (list): _description_
-            answer (list): _description_
-
-        Returns:
-            QNumerical: _description_
-        """
+    def from_gift(cls, header: list, answer: list):
         def _extract(data: str) -> tuple:
             rgx = re.match(r"(.+?)(:|(?:\.\.))(.+)", data)
             if rgx[2] == "..": # Converts min/max to value +- tol
@@ -1032,11 +903,11 @@ class QNumerical(Question):
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        qst = cls(name=header[1], question_text=FText("questiontext", header[3],
+        qst = cls(name=header[1], question=FText("questiontext", header[3],
                                                       formatting, None))
         if len(answer) == 1:
             txt, tol = _extract(answer[0][2])
-            qst.answers.append(NumericalAnswer(tol, fraction=100, text=txt,
+            qst.options.append(NumericalAnswer(tol, fraction=100, text=txt,
                                                formatting=Format.AUTO))
         elif len(answer) > 1:
             for ans in answer[1:]:
@@ -1045,7 +916,7 @@ class QNumerical(Question):
                     fraction = float(ans[1][1:-1]) if ans[0] == "=" else 0
                     nans = NumericalAnswer(tol, fraction=fraction, text=txt,
                                            formatting=Format.AUTO)
-                    qst.answers.append(nans)
+                    qst.options.append(nans)
                 elif ans[0] == "~":
                     nans = NumericalAnswer(0, fraction=0, text="",
                                            formatting=Format.AUTO)
@@ -1055,102 +926,76 @@ class QNumerical(Question):
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         question = super().to_xml(root, strict)
-        for answer in self.answers:
-            answer.to_xml(question, strict)
-        if self.unit_handling:
-            self.unit_handling.to_xml(question, strict)
+        self.unit_handling.to_xml(question, strict)
         if len(self.units) > 0:
             units = et.SubElement(question, "units")
             for unit in self.units:
                 unit.to_xml(units, strict)
         return question
 
-# ------------------------------------------------------------------------------
 
-class QShortAnswer(Question):
+class QShortAnswer(_QuestionMT):
     """
     This class represents 'Short answer' question.
     """
-    _type = "shortanswer"
+    MOODLE = "shortanswer"
+    QNAME = "Short Answer"
 
-    def __init__(self, use_case: bool = False, answers: List[Answer] = None,
-                 **kwargs) -> None:
+    def __init__(self, use_case: bool = False, **kwargs) -> None:
         super().__init__(**kwargs)
         self.use_case = use_case
-        self.answers = answers if answers is not None else []
-
-    def add_answer(self, fraction: float, text: str, feedback: str = None):
-        """Adds an answer to this question.
-
-        Args:
-            fraction (float): Percentage of the grade
-            text (str): text of the anwser
-            feedback (str, optional): feedback shown when this answer is submitted.
-                Defaults to None.
-        """
-        self.answers.append(Answer(fraction, text, feedback, Format.AUTO))
 
     @classmethod
-    def from_json(cls, data) -> "QShortAnswer":
-        for i in range(len(data["answers"])):
-            data["answers"][i] = Answer.from_json(data["answers"][i])
+    def from_json(cls, data):
+        for i in range(len(data["options"])):
+            data["options"][i] = Answer.from_json(data["options"][i])
         return super().from_json(data)
 
     @classmethod
-    def from_gift(cls, header: list, answer: list) -> "QShortAnswer":
-        """_summary_
-
-        Args:
-            header (list): _description_
-            answer (list): _description_
-
-        Returns:
-            QShortAnswer: _description_
-        """
+    def from_gift(cls, header: list, answer: list):
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        qst = cls(False, name=header[1],
-                  question_text=FText("questiontext", header[3], formatting, None))
+        qst = cls(name=header[1], question=FText("questiontext", header[3], formatting, None))
         for ans in answer:
             fraction = 100 if not ans[1] else float(ans[1][1:-1])
-            qst.answers.append(Answer(fraction, ans[2], formatting, Format.AUTO))
+            qst.options.append(Answer(fraction, ans[2], formatting, Format.AUTO))
         return qst
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "QShortAnswer":
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["usecase"] = (str, "use_case")
-        tags["answer"] = (Answer.from_xml, "answers", True)
+        tags["answer"] = (Answer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         question = super().to_xml(root, strict)
         et.SubElement(question, "usecase").text = self.use_case
-        for answer in self.answers:
-            answer.to_xml(question, strict)
         return question
 
-# ------------------------------------------------------------------------------
 
-class QTrueFalse(Question):
+class QTrueFalse(_Question):
     """
     This class represents true/false question.
     """
-    _type = "truefalse"
+    MOODLE = "truefalse"
+    QNAME = "True or False"
 
-    def __init__(self, answers: List[Answer], **kwargs) -> None:
+    def __init__(self, options: list, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.__true = None
-        self.__false = None
-        self.__correct = None
-        if len(answers) != 2:
-            raise ValueError()
-        for answer in answers:
-            if answer.text.lower() == "true":
-                self.__true = answer
-                self.__correct = answer.fraction == 100
-            elif answer.text.lower() == "false":
-                self.__false = answer
+        if options is not None:
+            if len(options) != 2:
+                raise ValueError()
+            for answer in options:
+                if answer.text.lower() == "true":
+                    self.__true = answer
+                    self.__correct = answer.fraction == 100
+                elif answer.text.lower() == "false":
+                    self.__false = answer
+        else:
+            self.__true = Answer(100, "true", FText("feedback"), Format.AUTO)
+            self.__false = Answer(0, "false", FText("feedback"), Format.AUTO)
+            self.__correct = True
 
     def set_feedbacks(self, correct: FText, incorrect: FText):
         """_summary_
@@ -1183,44 +1028,35 @@ class QTrueFalse(Question):
         self.__correct = value
 
     @classmethod
-    def from_json(cls, data) -> "QTrueFalse":
-        data["answers"] = [Answer.from_json(data["_QTrueFalse__true"]),
+    def from_json(cls, data):
+        data["options"] = [Answer.from_json(data["_QTrueFalse__true"]),
                            Answer.from_json(data["_QTrueFalse__false"])]
         return super().from_json(data)
 
     @classmethod
-    def from_gift(cls, header: list, answer: list) -> "QTrueFalse":
-        """_summary_
-
-        Args:
-            header (list): _description_
-            answer (list): _description_
-
-        Returns:
-            QTrueFalse: _description_
-        """
+    def from_gift(cls, header: list, answer: list):
         correct = answer.pop(0)[0].lower() in ["true", "t"]
         true_ans = Answer(100 if correct else 0, "true", None, Format.AUTO)
         false_ans = Answer(0 if correct else 100, "false", None, Format.AUTO)
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        qst = cls(answers=[true_ans, false_ans], name=header[1],
-                  question_text=FText("questiontext", header[3], formatting, None))
+        qst = cls(options=[true_ans, false_ans], name=header[1],
+                  question=FText("questiontext", header[3], formatting, None))
         for ans in answer:
             if ans[0] == "####":
-                qst.general_feedback = FText("generalfeedback", ans[2],
-                                             Format(header[2][1:-1]), None)
+                qst.feedback = FText("generalfeedback", ans[2],
+                                     Format(header[2][1:-1]))
             elif false_ans.feedback is None:
                 false_ans.feedback = FText("feedback", ans[2],
-                                           Format(header[2][1:-1]), None)
+                                           Format(header[2][1:-1]))
             else:
-                true_ans = FText("feedback", ans[2], Format(header[2][1:-1]), None)
+                true_ans = FText("feedback", ans[2], Format(header[2][1:-1]))
         return qst
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Question":
-        tags["answer"] = (Answer.from_xml, "answers", True)
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
+        tags["answer"] = (Answer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -1229,18 +1065,17 @@ class QTrueFalse(Question):
         self.__false.to_xml(question, strict)
         return question
 
-# ------------------------------------------------------------------------------
 
-class QFreeDrawing(Question):
+class QFreeDrawing(_Question):
     """Represents a question where the use is free to make any drawing. The
     result is submited for review (there is no automatic correct/wrong feedback).
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-# ------------------------------------------------------------------------------
 
-class QLineDrawing(Question):
+class QLineDrawing(_Question):
     """Represents a question where the user should draw line either to complete
     an image or to draw a new one. The result is submited for review (there is
     no automatic correct/wrong feedback).
@@ -1249,9 +1084,8 @@ class QLineDrawing(Question):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-# ------------------------------------------------------------------------------
 
-class QCrossWord(Question):
+class QCrossWord(_Question):
     """Represents a Crossword question.
     """
 
@@ -1293,9 +1127,7 @@ class QCrossWord(Question):
                 solution[word.coord_x][word.coord_y] = {}
 
     @classmethod
-    def from_json(cls, data) -> "QCrossWord":
+    def from_json(cls, data):
         for i in range(len(data["words"])):
             data["words"][i] = CrossWord.from_json(data["words"][i])
         return super().from_json(data)
-
-# ------------------------------------------------------------------------------
