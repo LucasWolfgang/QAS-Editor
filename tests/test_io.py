@@ -18,7 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
 import os
-
 test_path = os.path.dirname(__file__)
 src_path = os.path.abspath(os.path.join(test_path, '..'))
 sys.path.append(src_path)
@@ -31,7 +30,7 @@ def test_file_xml():
     XML_TEST = f"{EXAMPLE}.tmp"
     control.write_xml(XML_TEST, True)
     new_data = quiz.Quiz.read_xml(XML_TEST)
-    os.remove(XML_TEST)
+    # os.remove(XML_TEST)
     assert control.compare(new_data, [])
 
 

@@ -1,8 +1,8 @@
 <div align="center">
   <img src="https://badge.fury.io/gh/LucasWolfgang%2FQAS-editor.svg">
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LucasWolfgang/344598a4a0f7b92a7889d998e33417c4/raw/pylint.json">
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LucasWolfgang/344598a4a0f7b92a7889d998e33417c4/raw/pytest.json">
-  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LucasWolfgang/344598a4a0f7b92a7889d998e33417c4/raw/flake8.json">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LucasWolfgang/344598a4a0f7b92a7889d998e33417c4/raw/pylint_3.7.json">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LucasWolfgang/344598a4a0f7b92a7889d998e33417c4/raw/pytest_3.7.json">
+  <img src="https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/LucasWolfgang/344598a4a0f7b92a7889d998e33417c4/raw/flake8_3.7.json">
 </div>
 
 <div align="center">

@@ -25,39 +25,41 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
 from ..answer import Answer, CalculatedAnswer, DragItem, DragText, ClozeItem
 from ..enums import ClozeFormat, Format, Grading, ShowUnits
 from ..wrappers import FText, Hint, Subquestion, UnitHandling
-from ..questions import QCalculatedMultichoice, QCalculatedSimple, QCloze, QDragAndDropImage, \
-                        QDragAndDropText, QMatching, QMultichoice, QCalculated, \
-                        QNumerical, QRandomMatching
+from ..questions import QCalculatedMultichoice, QCalculatedSimple, QCloze,\
+                        QDragAndDropImage, QDragAndDropText, QMatching,\
+                        QMultichoice, QCalculated, QNumerical, QRandomMatching
 from .utils import GField, GTextEditor, action_handler
 if TYPE_CHECKING:
     from .utils import GTextToolbar
 LOG = logging.getLogger(__name__)
 
+
 class GAnswer(QHBoxLayout):
     """GUI for QAnswer class.
     """
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs):
         super().__init__()
         self.obj = None
         self._text = GTextEditor(kwargs.get("toolbar"), "")
-        self._text.setToolTip("Use this field to define the answer text")
+        self._text.setToolTip("Answer's text")
         self.addWidget(self._text, 0)
         self._feedback = GTextEditor(kwargs.get("toolbar"), "feedback")
-        self._feedback.setToolTip("Use this field to define the answer feedback")
+        self._feedback.setToolTip("Feedback for this answer")
         self.addWidget(self._feedback, 1)
         self._grade = GField(str, "fraction")
         self._grade.setMaximumWidth(50)
-        self._grade.setToolTip("Use this field to define the answer grade")
+        self._grade.setToolTip("Grade for this answer")
         self.addWidget(self._grade, 2)
         self.setStretch(0, 0)
         self.setStretch(0, 1)
- 
+
     def __del__(self):
         try:
             for i in range(self.count()):
                 self.itemAt(i).widget().deleteLater()
-        except RuntimeError: pass
+        except RuntimeError:
+            pass
 
     def from_obj(self, obj: Answer) -> None:
         """_summary_
@@ -67,10 +69,8 @@ class GAnswer(QHBoxLayout):
         """
         print(type(obj))
         self._text.from_obj(obj)
-        #self.obj = Answer(fraction, text, feedback, formatting)
         self._grade.from_obj(obj)
         self._feedback.from_obj(obj)
-
 
     def setVisible(self, visible: bool) -> None:  # pylint: disable=C0103
         """_summary_
@@ -81,24 +81,23 @@ class GAnswer(QHBoxLayout):
         for child in self.children():
             child.setVisible(visible)
 
-# ------------------------------------------------------------------------------
 
 class GCalculated(QFrame):
 
-    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
+    def __init__(self, toolbar: GTextToolbar, **kwargs):
         super().__init__(**kwargs)
         self.__obj = None
         grid = QGridLayout(self)
         self.setLayout(grid)
         self._text = GTextEditor(toolbar, "", parent=self)
-        self._text.setToolTip("Use this field to define the answer formula")
+        self._text.setToolTip("Answer's formula")
         grid.addWidget(self._text, 0, 0)
         self._grade = QLineEdit(self)
         self._grade.setMaximumWidth(50)
-        self._grade.setToolTip("Use this field to define the answer grade")
+        self._grade.setToolTip("Grade for this answer")
         grid.addWidget(self._grade, 0, 1)
         self._feedback = GTextEditor(toolbar, "feedback", parent=self)
-        self._feedback.setToolTip("Use this field to define the answer feedback")
+        self._feedback.setToolTip("Feedback for this answer")
         grid.addWidget(self._feedback, 0, 2, 1, 3)
         self._tol_type = QComboBox(self)
         grid.addWidget(self._tol_type, 1, 0)
@@ -115,7 +114,6 @@ class GCalculated(QFrame):
     def to_obj(self) -> CalculatedAnswer:
         pass
 
-# ------------------------------------------------------------------------------
 
 class GCloze(QHBoxLayout):
     """GUI for QCloze class.
@@ -167,7 +165,8 @@ class GCloze(QHBoxLayout):
         try:
             for i in range(self.count()):
                 self.itemAt(i).widget().deleteLater()
-        except RuntimeError: pass
+        except RuntimeError:
+            pass
 
     def __changed_opt(self, index):
         self._frac.setText(str(self.opts[index].fraction))
@@ -240,7 +239,6 @@ class GCloze(QHBoxLayout):
         for child in self.children():
             child.setVisible(visible)
 
-# ------------------------------------------------------------------------------
 
 class GDrag(QGridLayout):
     """This class works from both DragText and DragItem.
@@ -282,7 +280,8 @@ class GDrag(QGridLayout):
         try:
             for i in range(self.count()):
                 self.itemAt(i).widget().deleteLater()
-        except RuntimeError: pass
+        except RuntimeError:
+            pass
 
     def from_obj(self, obj):
         """_summary_
@@ -321,11 +320,11 @@ class GDrag(QGridLayout):
                 self.obj = DragText(self.text.text(), self.group.text(),
                                     self.unlimited.isChecked())
             else:
-                self.obj = DragItem(0, self.text.text(), self.unlimited.isChecked(),
+                self.obj = DragItem(0, self.text.text(),
+                                    self.unlimited.isChecked(),
                                     self.group.text(), self.img)
         return self.obj
 
-# ----------------------------------------------------------------------------------------
 
 class GDropZone(QGridLayout):
     """GUI for QDropZone class.
@@ -350,7 +349,8 @@ class GDropZone(QGridLayout):
         try:
             for i in range(self.count()):
                 self.itemAt(i).widget().deleteLater()
-        except RuntimeError: pass
+        except RuntimeError:
+            pass
 
     def from_obj(self, _: DragItem):
         """_summary_
@@ -377,7 +377,6 @@ class GDropZone(QGridLayout):
         """
         LOG.debug(f"Function <to_obj> not implemented in {self}")
 
-# ----------------------------------------------------------------------------------------
 
 class GOptions(QVBoxLayout):
     """GUI for GOptions class.
@@ -414,7 +413,7 @@ class GOptions(QVBoxLayout):
         """
         obj = obj.answers
         if not isinstance(obj, self.__ctype):
-            raise ValueError(f"Objects in this Layout can only be of type {self.__ctype}.")
+            raise ValueError(f"Object type {type(obj)} != {self.__ctype}.")
         item = self.add_default()
         item.from_obj(obj)
 
@@ -433,7 +432,7 @@ class GOptions(QVBoxLayout):
         self.addLayout(item)
         return item
 
-    def addLayout(self, layout, stretch: int = 0) -> None:  # pylint: disable=C0103
+    def addLayout(self, layout, stretch: int = 0):  # pylint: disable=C0103
         """_summary_
 
         Args:
@@ -444,7 +443,7 @@ class GOptions(QVBoxLayout):
             _type_: _description_
         """
         if not isinstance(layout, GAnswer) and not isinstance(layout, GDrag):
-            LOG.warning(f"Attempted adding non-valid layout {type(layout)} to GOptions.")
+            LOG.warning(f"Attempted adding {type(layout)} to GOptions.")
         return super().addLayout(layout, stretch=stretch)
 
     def from_obj(self, obj) -> None:
@@ -502,7 +501,6 @@ class GOptions(QVBoxLayout):
         """
         return [child.to_obj() for child in self.children()]
 
-# ------------------------------------------------------------------------------
 
 class GCFeedback(QFrame):
     """GUI class for the CombinedFeedback wrapper
@@ -511,13 +509,13 @@ class GCFeedback(QFrame):
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self.__obj = None
-        self.setStyleSheet(".GCFeedback{border:1px solid rgb(41, 41, 41);"+
+        self.setStyleSheet(".GCFeedback{border:1px solid rgb(41, 41, 41);"
                            "background-color: #e4ebb7}")
         self._correct = GTextEditor(toolbar, "correct")
         self._incomplete = GTextEditor(toolbar, "incomplete")
         self._incorrect = GTextEditor(toolbar, "incorrect")
-        self._show = QCheckBox("Show the number of correct responses once"+
-                               " the question has finished")
+        self._show = QCheckBox("Show the number of correct responses once "
+                               "the question has finished")
         _content = QGridLayout(self)
         _content.addWidget(QLabel("Feedback for correct answer"), 0, 0)
         _content.addWidget(self._correct, 1, 0)
@@ -542,7 +540,6 @@ class GCFeedback(QFrame):
     def get_attr(self):
         return "combined_feedback"
 
-# ----------------------------------------------------------------------------------------
 
 class GHint(QFrame):
     """GUI class for the Hint wrapper.
@@ -551,11 +548,13 @@ class GHint(QFrame):
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self.__obj = None
-        self.setStyleSheet(".GHint{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
+        self.setStyleSheet(".GHint {border:1px solid rgb(41, 41, 41); "
+                           " background-color: #e4ebb7}")
         self._text = GTextEditor(toolbar, "")
         self._show = QCheckBox("Show the number of correct responses")
         self._state = QCheckBox("State which markers are incorrectly placed")
-        self._clear = QCheckBox("Move incorrectly placed markers back to default start position")
+        self._clear = QCheckBox("Move incorrectly placed markers back to "
+                                "default start position")
         _content = QGridLayout(self)
         _content.addWidget(self._text, 0, 0, 3, 1)
         _content.addWidget(self._show, 0, 1)
@@ -599,7 +598,6 @@ class GHint(QFrame):
         return Hint(formatting, text, self._show.isChecked(),
                     self._clear.isChecked(), self._state.isChecked())
 
-# ----------------------------------------------------------------------------------------
 
 class GMultipleTries(QVBoxLayout):
     """GUI class for the MultipleTries wrapper
@@ -657,7 +655,6 @@ class GMultipleTries(QVBoxLayout):
             return
         self.itemAt(self.count()-1).widget().deleteLater()
 
-# ----------------------------------------------------------------------------------------
 
 class GUnitHadling(QFrame):
     """GUi class for the UnitHandling wrapper.
@@ -670,15 +667,18 @@ class GUnitHadling(QFrame):
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.setStyleSheet(".GUnitHadling{border:1px solid; background-color: #e4ebb7}")
+        self.setStyleSheet(".GUnitHadling {border:1px solid;"
+                           " background-color: #e4ebb7}")
         self.__obj = None
         self._grading = QComboBox()
-        self._grading.addItems(["Ignore", "Fraction of reponse", "Fraction of question"])
+        self._grading.addItems(["Ignore", "Fraction of reponse",
+                                "Fraction of question"])
         self._penalty = QLineEdit()
         self._penalty.setFixedWidth(70)
         self._penalty.setText("0")
         self._show = QComboBox()
-        self._show.addItems(["Text input", "Multiple choice", "Drop-down", "Not visible"])
+        self._show.addItems(["Text input", "Multiple choice", "Drop-down",
+                             "Not visible"])
         self._left = QCheckBox("Put units on the left")
         _content = QGridLayout(self)
         _content.addWidget(QLabel("Grading"), 0, 0)
@@ -720,7 +720,6 @@ class GUnitHadling(QFrame):
         show = ShowUnits[self.SHOW_UNITS[self._show.currentText()]]
         return UnitHandling(grade, penalty, show, self._left.isChecked())
 
-# ------------------------------------------------------------------------------
 
 class GCrossWord(QWidget):
     """GUI class for the CrossWord question class.
@@ -738,5 +737,3 @@ class GCrossWord(QWidget):
         """_summary_
         """
         LOG.debug(f"Function <to_obj> not implemented in {self}")
-
-# ------------------------------------------------------------------------------

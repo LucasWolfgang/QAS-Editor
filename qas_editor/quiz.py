@@ -28,18 +28,18 @@ from xml.etree import ElementTree as et
 
 from .utils import Serializable, LineBuffer, serialize_fxml
 from .questions import QTYPE, QMultichoice, QCloze, QDescription,\
-                       QEssay, QNumerical, QMissingWord, QTrueFalse, QMatching,\
-                       QShortAnswer
+                       QEssay, QNumerical, QMissingWord, QTrueFalse,\
+                       QMatching, QShortAnswer
 if TYPE_CHECKING:
     from typing import Dict   # pylint: disable=C0412
 LOG = logging.getLogger(__name__)
 
-#from PIL import Image
-#from PyPDF2 import PdfFileReader, pdf
-#import pikepdf
+# from PIL import Image
+# from PyPDF2 import PdfFileReader, pdf
+# import pikepdf
 
 
-class Quiz(Serializable): # pylint: disable=R0904
+class Quiz(Serializable):  # pylint: disable=R0904
     """
     This class represents Quiz as a set of Questions.
     """
@@ -117,7 +117,7 @@ class Quiz(Serializable): # pylint: disable=R0904
         for child in self.__categories.values():    # Then add children data
             child._to_xml_element(root, strict)
 
-    def _to_json(self, data: dict|list):
+    def _to_json(self, data: dict | list):
         """[summary]
 
         Args:
@@ -130,9 +130,9 @@ class Quiz(Serializable): # pylint: disable=R0904
             res = val = data[i] if isinstance(data, dict) else i
             if isinstance(val, (list, dict)):
                 res = self._to_json(val.copy())
-            elif isinstance(val, Enum): # For the enums
+            elif isinstance(val, Enum):  # For the enums
                 res = val.value
-            elif hasattr(val, "__dict__"): # for the objects
+            elif hasattr(val, "__dict__"):  # for the objects
                 tmp = val.__dict__.copy()
                 if hasattr(val, "MOODLE"):
                     tmp["MOODLE"] = val.MOODLE
@@ -144,10 +144,9 @@ class Quiz(Serializable): # pylint: disable=R0904
             if res != val:
                 if isinstance(data, dict):
                     data[i] = res
-                else: data[num] = res
+                else:
+                    data[num] = res
         return data
-
-    # --------------------------------------------------------------------------
 
     @property
     def name(self):
@@ -159,7 +158,8 @@ class Quiz(Serializable): # pylint: disable=R0904
     def name(self, value: str):
         if self.__parent:
             if value in self.__parent.__categories:
-                raise ValueError(f"Question name \"{value}\" already exists on current category")
+                raise ValueError(f"Question name \"{value}\" already "
+                                 "exists on current category")
             self.__parent.__categories.pop(self.__name)
             self.__parent.__categories[value] = self
         self.__name = value
@@ -173,7 +173,8 @@ class Quiz(Serializable): # pylint: disable=R0904
     @parent.setter
     def parent(self, value: "Quiz") -> None:
         if value and self.__name in value.__categories:
-            raise ValueError(f"Question name \"{self.__name}\" already exists on new category")
+            raise ValueError(f"Question name \"{self.__name}\" already "
+                             "exists on new category")
         if self.__parent:
             self.__parent.__categories.pop(self.__name)
         if isinstance(value, Quiz):
@@ -187,8 +188,6 @@ class Quiz(Serializable): # pylint: disable=R0904
         """_summary_
         """
         return self.__questions.__iter__()
-
-    # --------------------------------------------------------------------------
 
     def add_question(self, question) -> bool:
         """_summary_
@@ -206,7 +205,6 @@ class Quiz(Serializable): # pylint: disable=R0904
         self.__questions.append(question)
         question.parent = self
         return True
-
 
     def get_hier(self) -> dict:
         """[summary]
@@ -315,17 +313,19 @@ class Quiz(Serializable): # pylint: disable=R0904
         data = ""
         with open(file_path, "r", encoding="utf-8") as ifile:
             data += "\n" + ifile.read()
-        data = re.sub(r"\n//.*?(?=\n)", "", data)           # Remove comments
-        data = re.sub(r"(?<!\})\n(?!::)", "", data) + "\n"   # Remove \n's inside a question
-        tmp = re.findall(r"(?:\$CATEGORY:\s*(.+))|(?:\:\:(.+?)\:\:(\[.+?\])?"+
+        data = re.sub(r"\n//.*?(?=\n)", "", data)  # Remove comments
+        # Remove \n's inside a question
+        data = re.sub(r"(?<!\})\n(?!::)", "", data) + "\n"
+        tmp = re.findall(r"(?:\$CATEGORY:\s*(.+))|(?:\:\:(.+?)\:\:(\[.+?\])?"
                          r"(.+?)(?:(\{.*?)(?<!\\)\}(.*?))?)\n", data)
         for i in tmp:
             if i[0]:
                 quiz = Quiz.__gen_hier(top_quiz, i[0])
             if not i[0]:
                 question = None
-                ans = re.findall(r"((?<!\\)(?:=|~|TRUE|FALSE|T|F|####|#))"+
-                                 r"(%[\d\.]+%)?((?:(?<=\\)[=~#]|[^~=#])*)", i[4])
+                ans = re.findall(r"((?<!\\)(?:=|~|TRUE|FALSE|T|F|####|#))"
+                                 r"(%[\d\.]+%)?((?:(?<=\\)[=~#]|[^~=#])*)",
+                                 i[4])
                 if not i[4]:
                     question = QDescription.from_gift(i, ans)
                 elif not ans:
@@ -347,7 +347,7 @@ class Quiz(Serializable): # pylint: disable=R0904
         return top_quiz
 
     @classmethod
-    def read_json(cls, file_path: streams) -> "Quiz":
+    def read_json(cls, file_path: streams):
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
@@ -359,14 +359,14 @@ class Quiz(Serializable): # pylint: disable=R0904
                 _dt["_questions"][i].parent = quiz
             for i in _dt["_Quiz__categories"]:
                 val = _dt["_Quiz__categories"][i]
-                _dt["_Quiz__categories"][i] = _from_json(_dt["_Quiz__categories"][i], quiz)
+                _dt["_Quiz__categories"][i] = _from_json(val, quiz)
             return quiz
         with open(file_path, "rb") as infile:
             data = json.load(infile)
         return _from_json(data, None)
 
     @classmethod
-    def read_latex(cls, file_path: str, category: str = "$course$") -> "Quiz":
+    def read_latex(cls, file_path: str, category: str = "$course$"):
         """_summary_
 
         Returns:
@@ -379,63 +379,66 @@ class Quiz(Serializable): # pylint: disable=R0904
     def read_markdown(cls, file_path: str, category="$course$",
                       prefix="mk_", question_mkr=r"\s*\*\s+(.*)",
                       answer_mkr=r"\s*-\s+(!)?(.*)",
-                      category_mkr=r"\s*#\s+(.*)") -> "Quiz":
+                      category_mkr=r"\s*#\s+(.*)"):
         """[summary]
 
         Args:
             file_path (str): [description]
-            question_mkr (str, optional): [description]. Defaults to r\"\\s*\\*\\s+(.*)\".
-            answer_mkr (str, optional): [description]. Defaults to r\"\\s*-\\s+(!)(.*)\".
-            category_mkr (str, optional): [description]. Defaults to r\"\\s*#\\s+(.*)\".
+            question_mkr (str, optional): [description].
+            answer_mkr (str, optional): [description].
+            category_mkr (str, optional): [description].
 
         Raises:
             ValueError: [description]
         """
         with open(file_path, encoding="utf-8") as infile:
             lines = infile.readlines()
-        lines.append("\n") # Make sure that the document has 2 newlines in the end
+        lines.append("\n")
         lines.append("\n")
         lines.reverse()
         cnt = 0
         top_quiz = cls(category)
         quiz = top_quiz
         while lines:
-            match = re.match(f"({category_mkr})|({question_mkr})|({answer_mkr})", lines[-1])
+            match = re.match(f"({category_mkr})|({question_mkr})|"
+                             f"({answer_mkr})", lines[-1])
             if match:
                 if match[1]:
                     quiz = Quiz.__gen_hier(top_quiz, match[2])
                     lines.pop()
                 elif match[3]:
                     if quiz is None:
-                        raise ValueError("No classification defined for this question")
+                        raise ValueError("No classification defined")
                     QMultichoice.from_markdown(lines, answer_mkr, question_mkr,
                                                f"{prefix}_{cnt}")
                     cnt += 1
                 elif match[5]:
-                    raise ValueError(f"Answer found out of a question block: {match[5]}.")
+                    raise ValueError(f"Answer found out of a question "
+                                     f"block: {match[5]}.")
             else:
                 lines.pop()
         return top_quiz
 
     @classmethod
-    def read_pdf(cls, file_path: str, ptitle: str = r"Question \d+",
-                 include_image: bool = True) -> "Quiz":
+    def read_pdf(cls, file_path: str, ptitle=r"Question \d+",
+                 include_image=True):
         """_summary_
 
         Args:
             file_path (str): _description_
-            ptitle (str, optional): _description_. Defaults to r"Question \\d+".
-            include_image (bool, optional): _description_. Defaults to True.
+            ptitle (str, optional): _description_.
+            include_image (bool, optional): _description_.
 
         Returns:
             Quiz: _description_
         """
         raise NotImplementedError("PDF not implemented")
-        # _serial_img = {'/DCTDecode': "jpg", '/JPXDecode': "jp2", '/CCITTFaxDecode': "tiff"}
+        # _simg = {'/DCTDecode': "jpg", '/JPXDecode': "jp2",
+        #          '/CCITTFaxDecode': "tiff"}
         # with open(file_path, "rb") as infile:
         #     pdf_file = PdfFileReader(infile)
-        #     for page_num in range(pdf_file.getNumPages()):
-        #         page: pdf.PageObject = pdf_file.getPage(page_num)
+        #     for num in range(pdf_file.getNumPages()):
+        #         page: pdf.PageObject = pdf_file.getPage(num)
         #         if '/XObject' not in page['/Resources']:
         #             continue
         #         xobj = page['/Resources']['/XObject'].getObject()
@@ -444,30 +447,34 @@ class Quiz(Serializable): # pylint: disable=R0904
         #                 continue
         #             size = (xobj[obj]['/Width'], xobj[obj]['/Height'])
         #             data = xobj[obj].getData()
-        #             if xobj[obj]['/ColorSpace'][0] == '/DeviceRGB':
+        #             color_space = xobj[obj]['/ColorSpace'][0]
+        #             if color_space == '/DeviceRGB':
         #                 mode = "RGB"
-        #             elif xobj[obj]['/ColorSpace'][0] in ["/DeviceN", "/Indexed"]:
+        #             elif color_space in ["/DeviceN", "/Indexed"]:
         #                 mode = "P"
-        #                 if xobj[obj]['/ColorSpace'][0] == "/Indexed":
+        #                 if color_space == "/Indexed":
         #                     psize = int(xobj[obj]['/ColorSpace'][2])
-        #                     palette = [255-int(n*psize/255) for n in range(256) for _ in range(3)]
+        #                     palette = [255-int(n*psize/255) for n in \
+        #                                range(256) for _ in range(3)]
         #                 else:
         #                     palette = None
         #             else:
-        #                 raise ValueError(f"Mode not tested yet: {xobj[obj]['/ColorSpace']}")
+        #                 raise ValueError(f"Mode not tested yet: "
+        #                                   "{xobj[obj]['/ColorSpace']}")
         #             if '/Filter' in xobj[obj]:
         #                 xfilter = xobj[obj]['/Filter']
         #                 if xfilter == '/FlateDecode':
         #                     img = Image.frombytes(mode, size, data)
         #                     if palette:
         #                         img.putpalette(palette)
-        #                     img.save(f"page{page_num}_{obj[1:]}.png")
-        #                 elif xfilter in _serial_img:
-        #                     img = open(f"page{page_num}_{obj[1:]}.{_serial_img[xfilter]}", "wb")
+        #                     img.save(f"page{num}_{obj[1:]}.png")
+        #                 elif xfilter in _simg:
+        #                     name = f"page{num}_{obj[1:]}.{_simg[xfilter]}"
+        #                     img = open(name, "wb")
         #                     img.write(data)
         #                     img.close()
         #                 else:
-        #                     raise ValueError(f"Filter not tested yet: {xfilter}")
+        #                     raise ValueError(f"Filter error: {xfilter}")
         #             else:
         #                 img = Image.frombytes(mode, size, data)
         #                 img.save(obj[1:] + ".png")
@@ -486,14 +493,14 @@ class Quiz(Serializable): # pylint: disable=R0904
             raise ValueError("Category string should not be empty")
         data_root = et.parse(file_path)
         top_quiz: Quiz = cls(category)
-        quiz  = top_quiz
+        quiz = top_quiz
         for question in data_root.getroot():
             if question.tag != "question":
                 continue
             if question.get("type") == "category":
                 quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)
             elif question.get("type") not in QTYPE:
-                raise TypeError(f"The type {question.get('type')} not implemented")
+                raise TypeError(f"Type {question.get('type')} not implemented")
             else:
                 quiz.__questions.append(QTYPE[question.get("type")].
                                         from_xml(question, {}, {}))
@@ -548,17 +555,17 @@ class Quiz(Serializable): # pylint: disable=R0904
         # TODO
         raise NotImplementedError("Gift not implemented")
 
-    def write_json(self, file_path: str, pretty_print: bool = False) -> None:
+    def write_json(self, file_path: str, pretty=False) -> None:
         """[summary]
 
         Args:
             file_path (str): [description]
-            pretty_print (bool, optional): [description]. Defaults to False.
+            pretty (bool, optional): [description]. Defaults to False.
         """
         tmp = self.__dict__.copy()
         del tmp["_Quiz__parent"]
         with open(file_path, "w", encoding="utf-8") as ofile:
-            json.dump(self._to_json(tmp), ofile, indent=4 if pretty_print else 0)
+            json.dump(self._to_json(tmp), ofile, indent=4 if pretty else 0)
 
     def write_latex(self, file_path: str) -> None:
         """_summary_
@@ -596,13 +603,13 @@ class Quiz(Serializable): # pylint: disable=R0904
         # TODO
         raise NotImplementedError("PDF not implemented")
 
-    def write_xml(self, file_path: str, pretty_print = False, strict = True):
+    def write_xml(self, file_path: str, pretty=False, strict=True):
         """Generates XML compatible with Moodle and saves to a file.
 
         Args:
             file_path (str): filename where the XML will be saved
-            pretty_print (bool, optional): saves XML pretty printed. Defaults to False.
-            strict (bool, optinal): saves using strict Moodle format. Defaults to True.
+            pretty (bool): saves XML pretty printed.
+            strict (bool): saves using strict Moodle format.
         """
         root = et.Element("quiz")
         self._to_xml_element(root, strict)
@@ -610,4 +617,4 @@ class Quiz(Serializable): # pylint: disable=R0904
         #            short_empty_elements=pretty_print, method = "fxml")
         with et._get_writer(file_path, "utf-8") as write:
             write("<?xml version='1.0' encoding='utf-8'?>\n")
-            serialize_fxml(write, root, True, pretty_print)
+            serialize_fxml(write, root, True, pretty)

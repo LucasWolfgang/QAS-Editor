@@ -16,14 +16,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-from typing import TYPE_CHECKING
 import copy
 import logging
 from xml.etree import ElementTree as et
 
 LOG = logging.getLogger(__name__)
-if TYPE_CHECKING:
-    from typing import Dict
 
 
 # from PyPDF2.generic import IndirectObject
@@ -42,7 +39,7 @@ if TYPE_CHECKING:
 #     else:
 #         print(pp, data)
 
-def serialize_fxml(write, elem, short_empty, pretty, level = 0):
+def serialize_fxml(write, elem, short_empty, pretty, level=0):
     """_summary_
 
     Args:
@@ -63,7 +60,7 @@ def serialize_fxml(write, elem, short_empty, pretty, level = 0):
         write(level * "  ")
     write(f"<{tag}")
     for key, value in elem.attrib.items():
-        value = et._escape_attrib(value)
+        value = _escape_attrib_html(value)
         write(f" {key}=\"{value}\"")
     if (isinstance(text, str) and text) or text is not None or \
             len(elem) or not short_empty:
@@ -88,11 +85,25 @@ def serialize_fxml(write, elem, short_empty, pretty, level = 0):
 def _escape_cdata(data):
     if data is None:
         return ""
-    if not isinstance(data, str):
+    if isinstance(data, (int, float)):
         return str(data)
     if ("&" in data or "<" in data or ">" in data) and not\
             (str.startswith(data, "<![CDATA[") and str.endswith(data, "]]>")):
         return f"<![CDATA[{data}]]>"
+    return data
+
+
+def _escape_attrib_html(data):
+    if data is None:
+        return ""
+    if isinstance(data, (int, float)):
+        return str(data)
+    if "&" in data:
+        data = data.replace("&", "&amp;")
+    if ">" in data:
+        data = data.replace(">", "&gt;")
+    if "\"" in data:
+        data = data.replace("\"", "&quot;")
     return data
 
 
@@ -168,7 +179,7 @@ class Serializable:
         raise NotImplementedError("JSON not implemented")
 
     @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):  # pylint: disable=R0912
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         """Create a new class using XML data
 
         Args:
@@ -188,28 +199,27 @@ class Serializable:
         for obj in root:
             if obj.tag in tags:
                 cast_type, name, *_ = tags[obj.tag]
-                a_list = len(tags[obj.tag]) == 3
-                tmp = obj.text.strip() if obj.text else None
-                if not tmp:
-                    text = obj.find("text")
-                    if text is not None:
-                        tmp = text.text
-                if cast_type == bool:
-                    tmp = True if not tmp else tmp.lower() in ["true", "1", "t"]
-                elif not isinstance(cast_type, type):
+                if not isinstance(cast_type, type):
                     tmp = cast_type(obj, {}, {})
-                elif tmp:
-                    tmp = cast_type(tmp)
-                if a_list:
+                else:
+                    tmp = obj.text.strip() if obj.text else ""
+                    if not tmp:
+                        text = obj.find("text")
+                        if text is not None:
+                            tmp = text.text
+                    if cast_type == bool:
+                        tmp = tmp.lower() in ["true", "1", "t", ""]
+                    elif tmp or cast_type == str:
+                        tmp = cast_type(tmp)
+                if len(tags[obj.tag]) == 3:
                     if name not in results:
                         results[name] = []
                     results[name].append(tmp)
                 else:
                     results[name] = tmp
+                    tags.pop(obj.tag)
         for key in tags:
             cast_type, name, *_ = tags[key]
-            if name in results:
-                continue
             if cast_type == bool: # Some tags act like False when missing
                 results[name] = False
             else:   # Otherwise, set to None to show that the tag is missing
@@ -217,7 +227,9 @@ class Serializable:
         if attrs:
             for key in attrs:
                 cast_type, name = attrs[key]
-                results[name] = cast_type(root.get(key)) if key in root.attrib else None
+                results[name] = root.get(key, None)
+                if results[name] is not None:
+                    results[name] = cast_type(results[name])
         return cls(**results)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -233,8 +245,8 @@ class Serializable:
         Returns:
             et.Element: The instance root element. In a organized XML, this
             should be always different from the "root" argument, but since
-            Moodle uses tags, like the ones in CombinedFeedback, that can or not
-            be valid, we end-up in this mess.
+            Moodle uses tags, like the ones in CombinedFeedback, that can or
+            not be valid, we end-up in this mess.
         """
         raise NotImplementedError("XML not implemented")
 

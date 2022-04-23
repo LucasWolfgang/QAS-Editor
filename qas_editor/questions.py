@@ -64,15 +64,13 @@ class _Question(Serializable):
             name (str): name of the question
             question (FText): text of the question
             default_grade (float): the default mark
-            general_feedback (str, optional): general feedback. Defaults to None.
-            id_number (int, optional): id number. Defaults to None.
+            general_feedback (str, optional): general feedback.
+            id_number (int, optional): id number.
         """
         self.name = name
-        self.question = question if question is not None else \
-                        FText("questiontext")
+        self.question = FText("questiontext") if question is None else question
         self.default_grade = default_grade
-        self.feedback = feedback if feedback is not None else \
-                        FText("generalfeedback")
+        self.feedback = FText("generalfeedback") if feedback is None else feedback
         self.id_number = id_number
         self.tags = Tags() if tags is None else tags
         self.__parent = None
@@ -88,10 +86,10 @@ class _Question(Serializable):
 
     @parent.setter
     def parent(self, value):
-        if (self.__parent is None and value is not None and\
-                self not in value.questions) or (self.__parent is not None and\
+        if (self.__parent is None and value is not None and
+                self not in value.questions) or (self.__parent is not None and
                 value is None and self in self.__parent.questions):
-            raise ValueError("This attribute can't be assigned directly. Use "+
+            raise ValueError("This attribute can't be assigned directly. Use "
                              "parent's add/rem_question functions instead.")
         self.__parent = value
 
@@ -132,8 +130,8 @@ class _Question(Serializable):
 
 class _QuestionMT(_Question):
 
-    def __init__(self, penalty: float = 0.5, hints = None,
-                 options: list = None, **kwargs) -> None:
+    def __init__(self, options: list = None, penalty=0.5, hints=None,
+                 **kwargs):
         super().__init__(**kwargs)
         self.penalty = penalty
         self.hints = [] if hints is None else hints
@@ -156,7 +154,7 @@ class _QuestionMT(_Question):
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         question = super().to_xml(root, strict)
         for hint in self.hints:
-            hint.to_xml(question , strict)
+            hint.to_xml(question, strict)
         et.SubElement(question, "penalty").text = str(self.penalty)
         if hasattr(self, "options"):
             for sub in self.options:
@@ -174,15 +172,15 @@ class _QuestionMTCS(_QuestionMT):
     """
 
     def __init__(self, if_correct: FText = None, if_incomplete: FText = None,
-                 if_incorrect: FText = None, shuffle = False, show_num = False,
+                 if_incorrect: FText = None, shuffle=False, show_num=False,
                  **kwargs) -> None:
         super().__init__(**kwargs)
         self.if_correct = FText("correctfeedback") \
-                          if if_correct is None else if_correct
+            if if_correct is None else if_correct
         self.if_incomplete = FText("partiallycorrectfeedback") \
-                             if if_incomplete is None else if_incomplete
+            if if_incomplete is None else if_incomplete
         self.if_incorrect = FText("incorrectfeedback") \
-                            if if_incorrect is None else if_incorrect
+            if if_incorrect is None else if_incorrect
         self.show_num = show_num
         self.shuffle = shuffle
 
@@ -228,10 +226,10 @@ class QCalculated(_QuestionMT):
 
         Args:
             synchronize (int): [description]
-            single (bool, optional): [description]. Defaults to False.
-            unit_handling (UnitHandling, optional): [description]. Defaults to None.
-            units (List[Unit], optional): [description]. Defaults to None.
-            datasets (List[Dataset], optional): [description]. Defaults to None.
+            single (bool, optional): [description].
+            unit_handling (UnitHandling, optional): [description].
+            units (List[Unit], optional): [description].
+            datasets (List[Dataset], optional): [description].
         """
         super().__init__(**kwargs)
         self.synchronize = synchronize
@@ -273,9 +271,9 @@ class QCalculated(_QuestionMT):
             for unit in self.units:
                 unit.to_xml(units, strict)
         if self.datasets:
-            dataset_definitions = et.SubElement(question, "dataset_definitions")
+            definitions = et.SubElement(question, "dataset_definitions")
             for dataset in self.datasets:
-                dataset.to_xml(dataset_definitions, strict)
+                dataset.to_xml(definitions, strict)
         return question
 
 
@@ -316,7 +314,8 @@ class QCalculatedMultichoice(_QuestionMTCS):
             maxim (float): _description_
             dec (int): _description_
         """
-        self.datasets.append(Dataset(status, name, "calculated", dist, minim, maxim, dec))
+        data = Dataset(status, name, "calculated", dist, minim, maxim, dec)
+        self.datasets.append(data)
 
     @classmethod
     def from_json(cls, data: dict) -> QCalculatedMultichoice:
@@ -427,7 +426,7 @@ class QDragAndDropImage(_QuestionMTCS):
     QNAME = "Drag and Drop Image"
 
     def __init__(self, background: B64File = None,
-                 dropzones: List[DropZone] = None, **kwargs) -> None:
+                 zones: List[DropZone] = None, **kwargs) -> None:
         """Creates an drag and drop onto image type of question.
 
         Args:
@@ -435,10 +434,9 @@ class QDragAndDropImage(_QuestionMTCS):
         """
         super().__init__(**kwargs)
         self.background = background
-        self._dropzones: List[DropZone] = dropzones if dropzones is not None else []
+        self._dropzones: List[DropZone] = zones if zones is not None else []
 
-    def add_dragimage(self, text: str, group: int, file: str,
-                      unlimited: bool = False) -> None:
+    def add_image(self, text: str, group: int, file: str, unlimited=False):
         """Adds new DragItem with assigned DropZones.
 
         Args:
@@ -452,7 +450,7 @@ class QDragAndDropImage(_QuestionMTCS):
                              image=file)
         self.options.append(dragimage)
 
-    def add_dragtext(self, text: str, group: str, unlimited: bool = False) -> None:
+    def add_text(self, text: str, group: str, unlimited=False):
         """Adds new DragText with assigned DropZones.
 
         Args:
@@ -464,7 +462,7 @@ class QDragAndDropImage(_QuestionMTCS):
         dragitem = DragItem(len(self.options) + 1, text, unlimited, group)
         self.options.append(dragitem)
 
-    def add_dropzone(self, coord_x: int, coord_y: int, text: str, choice: int) -> None:
+    def add_zone(self, coord_x: int, coord_y: int, text: str, choice: int):
         """[summary]
 
         Args:
@@ -489,7 +487,7 @@ class QDragAndDropImage(_QuestionMTCS):
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["file"] = (B64File.from_xml, "background")
         tags["drag"] = (DragItem.from_xml, "options", True)
-        tags["drop"] = (DropZone.from_xml, "dropzones", True)
+        tags["drop"] = (DropZone.from_xml, "zones", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool):
@@ -507,8 +505,9 @@ class QDragAndDropMarker(_QuestionMTCS):
     MOODLE = "ddmarker"
     QNAME = "Drag and Drop Marker"
 
-    def __init__(self, background: B64File = None, dropzones: List[DropZone] = None,
-                 highlight_empty: bool = False, **kwargs):
+    def __init__(self, background: B64File = None,
+                 zones: List[DropZone] = None, highlight_empty=False,
+                 **kwargs):
         """Creates an drag and drop onto image type of question.
 
         Args:
@@ -517,7 +516,7 @@ class QDragAndDropMarker(_QuestionMTCS):
         super().__init__(**kwargs)
         self.background = background
         self.highlight_empty = highlight_empty
-        self._dropzones = dropzones if dropzones is not None else []
+        self._dropzones = zones if zones is not None else []
 
     def add_option(self, text: str, no_of_drags: str, unlimited: bool = False):
         """[summary]
@@ -545,7 +544,7 @@ class QDragAndDropMarker(_QuestionMTCS):
         tags["file"] = (B64File.from_xml, "background")
         tags["showmisplaced"] = (bool, "highlight_empty")
         tags["drag"] = (DragItem.from_xml, "options", True)
-        tags["drop"] = (DropZone.from_xml, "dropzones", True)
+        tags["drop"] = (DropZone.from_xml, "zones", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool):
@@ -567,21 +566,20 @@ class QEssay(_Question):
     MOODLE = "essay"
     QNAME = "Essay"
 
-    def __init__(self, response_format: ResponseFormat = ResponseFormat.HTML,
-                 response_required: bool = True, lines: int = 10, attachments: int = 0,
-                 attachments_required: bool = False, maxbytes: int = None,
-                 filetypes_list: str = None, grader_info: FText = None,
-                 response_template: FText = None, **kwargs) -> None:
+    def __init__(self, grader_info: FText = None, response_required=True,
+                 template: FText = None, response_format=ResponseFormat.HTML,
+                 lines=10, attachments=0, attachments_required=False,
+                 maxbytes=0, filetypes_list="", **kwargs):
         super().__init__(**kwargs)
         self.response_format = response_format
         self.response_required = response_required
-        self.responsefield_lines = lines
+        self.num_lines = lines
         self.attachments = attachments
         self.attachments_required = attachments_required
         self.maxbytes = maxbytes
         self.filetypes_list = filetypes_list
         self.grader_info = grader_info
-        self.response_template = response_template
+        self.template = template
 
     @classmethod
     def from_gift(cls, header: list, answer: list):
@@ -595,7 +593,7 @@ class QEssay(_Question):
     def from_json(cls, data):
         data["response_format"] = ResponseFormat(data["response_format"])
         data["grader_info"] = FText.from_json(data["grader_info"])
-        data["response_template"] = FText.from_json(data["response_template"])
+        data["template"] = FText.from_json(data["template"])
         return super().from_json(data)
 
     @classmethod
@@ -608,7 +606,7 @@ class QEssay(_Question):
         tags["maxbytes"] = (int, "maxbytes")
         tags["filetypeslist"] = (str, "filetypes_list")
         tags["graderinfo"] = (FText.from_xml, "grader_info")
-        tags["responsetemplate"] = (FText.from_xml, "response_template")
+        tags["responsetemplate"] = (FText.from_xml, "template")
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
@@ -616,7 +614,7 @@ class QEssay(_Question):
         et.SubElement(question, "responseformat").text = self.response_format.value
         if self.response_required:
             et.SubElement(question, "responserequired")
-        et.SubElement(question, "responsefieldlines").text = self.responsefield_lines
+        et.SubElement(question, "responsefieldlines").text = self.num_lines
         et.SubElement(question, "attachments").text = self.attachments
         if self.attachments_required:
             et.SubElement(question, "attachmentsrequired")
@@ -626,8 +624,8 @@ class QEssay(_Question):
             et.SubElement(question, "filetypeslist").text = self.filetypes_list
         if self.grader_info:
             self.grader_info.to_xml(question, strict)
-        if self.response_template:
-            self.response_template.to_xml(question, strict)
+        if self.template:
+            self.template.to_xml(question, strict)
         return question
 
 
@@ -657,10 +655,9 @@ class QMatching(_QuestionMTCS):
             if ans[0] == "=":
                 rgx = re.match(r"(.*?)(?<!\\)->(.*)", ans[2])
                 qst.options.append(Subquestion(formatting, rgx[1].strip(),
-                                                    rgx[2].strip()))
+                                               rgx[2].strip()))
             elif ans[0] == "####":
-                qst.feedback = FText("generalfeedback", ans[2],
-                                             formatting, None)
+                qst.feedback = FText("generalfeedback", ans[2], formatting)
         return qst
 
     @classmethod
@@ -789,14 +786,14 @@ class QMultichoice(_QuestionMTCS):
         prev_answer = None
         for ans in answer:
             txt = ans[2]
-            if ans[0] == "~": # Wrong or partially correct answer
+            if ans[0] == "~":  # Wrong or partially correct answer
                 fraction = 0 if not ans[1] else float(ans[1][1:-1])
                 prev_answer = Answer(fraction, txt, None, formatting)
                 qst.options.append(prev_answer)
-            elif ans[0] == "=": # Correct answer
+            elif ans[0] == "=":  # Correct answer
                 prev_answer = Answer(100, txt, None, formatting)
                 qst.options.append(prev_answer)
-            elif ans[0] == "#": # Answer feedback
+            elif ans[0] == "#":  # Answer feedback
                 prev_answer.feedback = FText("feedback", ans[2],
                                              formatting, None)
         return qst
@@ -956,11 +953,11 @@ class QShortAnswer(_QuestionMT):
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        qst = cls(name=header[1], question=FText("questiontext", header[3], 
+        qst = cls(name=header[1], question=FText("questiontext", header[3],
                                                  formatting, None))
         for ans in answer:
             fraction = 100 if not ans[1] else float(ans[1][1:-1])
-            qst.options.append(Answer(fraction, ans[2], formatting, Format.AUTO))
+            qst.options.append(Answer(fraction, ans[2], formatting))
         return qst
 
     @classmethod
@@ -1069,7 +1066,7 @@ class QTrueFalse(_Question):
 
 class QFreeDrawing(_Question):
     """Represents a question where the use is free to make any drawing. The
-    result is submited for review (there is no automatic correct/wrong 
+    result is submited for review (there is no automatic correct/wrong
     feedback).
     """
 

@@ -226,7 +226,6 @@ class GTextEditor(QTextEdit):
             self.setPlainText(self.__obj.text)
         self.__update_tags()
 
-# ------------------------------------------------------------------------------
 
 class GTextToolbar(QToolBar):
     """A toolbar for the Editor UI instanciated in a window.
@@ -241,21 +240,21 @@ class GTextToolbar(QToolBar):
         self.editor: GTextEditor = None
         self.setIconSize(QSize(16, 16))
 
-        self.fonts = QFontComboBox(self)
-        self.addWidget(self.fonts)
+        self._fonts = QFontComboBox(self)
+        self.addWidget(self._fonts)
 
-        self.text_type = QComboBox(self)
-        self.text_type.addItems(list(self.FORMATS.keys()))
-        self.addWidget(self.text_type)
+        self._ttype = QComboBox(self)
+        self._ttype.addItems(list(self.FORMATS.keys()))
+        self.addWidget(self._ttype)
 
-        self.math_type = QComboBox(self)
-        self.math_type.addItems(["LaTex", "MathML", "Ignore"])
-        self.addWidget(self.math_type)
+        self._mtype = QComboBox(self)
+        self._mtype.addItems(["LaTex", "MathML", "Ignore"])
+        self.addWidget(self._mtype)
 
-        self.fontsize = QComboBox(self)
-        self.fontsize.addItems(["7", "8", "9", "10", "11", "12", "13", "14",
-                                "18", "24", "36", "48", "64"])
-        self.addWidget(self.fontsize)
+        self._fsize = QComboBox(self)
+        self._fsize.addItems(["7", "8", "9", "10", "11", "12", "13", "14",
+                              "18", "24", "36", "48", "64"])
+        self.addWidget(self._fsize)
         self.addSeparator()
 
         self._bold = QAction(QIcon(f"{IMG_PATH}/bold.png"), "Bold", self)
@@ -271,7 +270,7 @@ class GTextToolbar(QToolBar):
         self.addAction(self._italic)
 
         self._underline = QAction(QIcon(f"{IMG_PATH}/underline.png"),
-                                        "Underline", self)
+                                  "Underline", self)
         self._underline.setStatusTip("Underline")
         self._underline.setShortcut(QKeySequence.Underline)
         self._underline.setCheckable(True)
@@ -279,7 +278,7 @@ class GTextToolbar(QToolBar):
         self.addSeparator()
 
         self._alignl = QAction(QIcon(f"{IMG_PATH}/alignment.png"),
-                                     "Align left", self)
+                               "Align left", self)
         self._alignl.setStatusTip("Align text left")
         self._alignl.setCheckable(True)
         self.addAction(self._alignl)
@@ -317,21 +316,36 @@ class GTextToolbar(QToolBar):
         self.addAction(self._wrap)
 
         # Format-related widgets/actions, used to disable/enable signals.
-        self._format_actions = [self.fonts, self.fontsize, self._bold,
+        self._format_actions = [self._fonts, self._fsize, self._bold,
                                 self._underline, self._italic]
         # No need to disable signals for alignment, as they are paragraph-wide.
         self.setFocusPolicy(Qt.ClickFocus)
         self.setDisabled(True)
 
-    def hasFocus(self) -> bool: # pylint: disable=C0103
+    def __align_left(self):
+        self.editor.setAlignment(Qt.AlignLeft)
+
+    def __align_center(self):
+        self.editor.setAlignment(Qt.AlignCenter)
+
+    def __align_right(self):
+        self.editor.setAlignment(Qt.AlignRight)
+
+    def __align_justf(self):
+        self.editor.setAlignment(Qt.AlignJustify)
+
+    def __wrap_text(self):
+        self.editor.setLineWrapMode(int(self.editor.lineWrapMode() == 0))
+
+    def hasFocus(self) -> bool:  # pylint: disable=C0103
         """_summary_
 
         Returns:
             bool: _description_
         """
-        return super().hasFocus() or self.fonts.hasFocus() or \
-                self.fontsize.hasFocus() or self.math_type.hasFocus() or \
-                self.text_type.hasFocus()
+        return super().hasFocus() or self._fonts.hasFocus() or \
+            self._fsize.hasFocus() or self._mtype.hasFocus() or \
+            self._ttype.hasFocus()
 
     def update_editor(self, text_editor: GTextEditor) -> None:
         """Update the font format toolbar/actions when a new text selection
@@ -340,11 +354,11 @@ class GTextToolbar(QToolBar):
         """
         self.setDisabled(text_editor is None)
         if text_editor == self.editor:
-            return # Nothing to do here
+            return
         if self.editor is not None:
-            self.text_type.currentIndexChanged.disconnect()
-            self.fonts.currentFontChanged.disconnect()
-            self.fontsize.currentIndexChanged[str].disconnect()
+            self._ttype.currentIndexChanged.disconnect()
+            self._fonts.currentFontChanged.disconnect()
+            self._fsize.currentIndexChanged[str].disconnect()
             self._bold.toggled.disconnect()
             self._underline.toggled.disconnect()
             self._italic.toggled.disconnect()
@@ -355,10 +369,10 @@ class GTextToolbar(QToolBar):
             self._wrap.triggered.disconnect()
         self.editor = text_editor
         if self.editor is not None:
-            for _obj in self._format_actions:  # Disable signals for format widgets
+            for _obj in self._format_actions:
                 _obj.blockSignals(True)
-            self.fonts.setCurrentFont(self.editor.currentFont())
-            self.fontsize.setCurrentText(str(int(self.editor.fontPointSize())))
+            self._fonts.setCurrentFont(self.editor.currentFont())
+            self._fsize.setCurrentText(str(int(self.editor.fontPointSize())))
             self._italic.setChecked(self.editor.fontItalic())
             self._underline.setChecked(self.editor.fontUnderline())
             self._bold.setChecked(self.editor.fontWeight() == QFont.Bold)
@@ -366,27 +380,22 @@ class GTextToolbar(QToolBar):
             self._alignc.setChecked(self.editor.alignment() == Qt.AlignCenter)
             self._alignr.setChecked(self.editor.alignment() == Qt.AlignRight)
             self._alignj.setChecked(self.editor.alignment() == Qt.AlignJustify)
-            self.text_type.setCurrentText(self.editor.text_format.name)
+            self._ttype.setCurrentText(self.editor.text_format.name)
             for _obj in self._format_actions:
                 _obj.blockSignals(False)
-            self.text_type.currentIndexChanged.connect(self.editor.__update_fmt)
-            self.fonts.currentFontChanged.connect(self.editor.setCurrentFont)
+            self._ttype.currentIndexChanged.connect(self.editor.__update_fmt)
+            self._fonts.currentFontChanged.connect(self.editor.setCurrentFont)
             self._underline.toggled.connect(self.editor.setFontUnderline)
             self._italic.toggled.connect(self.editor.setFontItalic)
-            self.fontsize.currentIndexChanged[str].connect(
+            self._fsize.currentIndexChanged[str].connect(
                     lambda s: self.editor.setFontPointSize(float(s)))
             self._bold.toggled.connect(lambda x: self.editor.setFontWeight(
                     QFont.Bold if x else QFont.Normal))
-            self._alignl.triggered.connect(lambda: 
-                    self.editor.setAlignment(Qt.AlignLeft))
-            self._alignc.triggered.connect(lambda:
-                    self.editor.setAlignment(Qt.AlignCenter))
-            self._alignr.triggered.connect(lambda:
-                    self.editor.setAlignment(Qt.AlignRight))
-            self._alignj.triggered.connect(lambda:
-                    self.editor.setAlignment(Qt.AlignJustify))
-            self._wrap.triggered.connect(lambda: self.editor.
-                    setLineWrapMode(int(self.editor.lineWrapMode() == 0)))
+            self._alignl.triggered.connect(self.__align_left)
+            self._alignc.triggered.connect(self.__align_center)
+            self._alignr.triggered.connect(self.__align_right)
+            self._alignj.triggered.connect(self.__align_justf)
+            self._wrap.triggered.connect(self.__wrap_text)
 
 
 class GArrow(QFrame):

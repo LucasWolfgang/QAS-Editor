@@ -34,7 +34,7 @@ class Answer(Serializable):
     """
 
     def __init__(self, fraction: float, text: str, feedback: FText,
-                 formatting: Format):
+                 formatting=Format.AUTO):
         self.fraction = fraction
         self.formatting = formatting
         self.text = text
@@ -55,7 +55,7 @@ class Answer(Serializable):
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        answer = et.SubElement(root, "answer", {"fraction": str(self.fraction)})
+        answer = et.SubElement(root, "answer", {"fraction": self.fraction})
         if self.formatting:
             answer.set("format", self.formatting.value)
         et.SubElement(answer, "text").text = f"<![CDATA[{self.text}]]>"
@@ -182,7 +182,7 @@ class ClozeItem(Serializable):
                 frac, tmp = tmp[1:].split("%")
                 frac = float(frac)
             options.append(Answer(frac, tmp,
-                                  FText("feedback", fdb, Format.PLAIN, None),
+                                  FText("feedback", fdb, Format.PLAIN),
                                   Format.PLAIN))
         return cls(regex.start(), int(regex[1]), ClozeFormat(regex[2]), options)
 
@@ -198,10 +198,6 @@ class DragText(Serializable):
         self.text = text
         self.group = group
         self.unlimited = unlimited
-
-    @classmethod
-    def from_json(cls, data: dict):
-        return cls(**data)
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):

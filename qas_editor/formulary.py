@@ -22,6 +22,7 @@ from qas_editor.utils import Serializable
 if TYPE_CHECKING:
     from .wrappers import FText
 
+
 class Formulary(Serializable):
     """Represents test formularies, which can contain equations, tables and
     other data that is not question specific and is usually added as an
@@ -88,7 +89,8 @@ class Table(Serializable):
 
 
 class Rule(Serializable):
-    """Represents a theory, law or other set of sentences that describe a given phenomenum.
+    """Represents a theory, law or other set of sentences that describe a
+    given phenomenum.
     """
 
     def __init__(self, name: str, text: FText, proof: FText) -> None:
