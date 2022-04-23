@@ -40,7 +40,7 @@ class ClozeFormat(Enum):
     MULTIRESPONSE_H = "MRH"
     MRH = "MRH"
 
-# ------------------------------------------------------------------------------
+
 class Direction(Enum):
     """Enumerates the four directions
     """
@@ -49,14 +49,13 @@ class Direction(Enum):
     RIGHT = 3
     LEFT = 4
 
-# ------------------------------------------------------------------------------
+
 class Distribution(Enum):
     """Enumerates dataset distribution types.
     """
     UNI = "uniform"
     LOG = "loguniform"
 
-# ------------------------------------------------------------------------------
 
 class Format(Enum):
     """Enumerates text format types
@@ -66,7 +65,6 @@ class Format(Enum):
     PLAIN = "plain_text"
     MD = "markdown"
 
-# ------------------------------------------------------------------------------
 
 class Grading(Enum):
     """Enumerates Grading patterns
@@ -75,7 +73,6 @@ class Grading(Enum):
     RESPONSE = "1"      # Fraction of reponse grade
     QUESTION = "2"      # Fraction of question grade
 
-# ------------------------------------------------------------------------------
 
 class Numbering(Enum):
     """Enumerates Numbering patterns
@@ -87,7 +84,6 @@ class Numbering(Enum):
     ROM_LR = "iii"
     ROM_UR = "IIII"
 
-# ------------------------------------------------------------------------------
 
 class MathType(Enum):
     """Enumerates ways to represent math function in questions' test
@@ -96,7 +92,6 @@ class MathType(Enum):
     MATHML = "MathML"
     LATEX = "LaTex"
 
-# ------------------------------------------------------------------------------
 
 class ShapeType(Enum):
     """Enumerates Shape Types
@@ -105,7 +100,6 @@ class ShapeType(Enum):
     RECT = "rectangle"
     POLY = "polygon"
 
-# ------------------------------------------------------------------------------
 
 class ShowUnits(Enum):
     """Enumerates way to show Units
@@ -115,7 +109,6 @@ class ShowUnits(Enum):
     DROP_DOWN = "2"     # Drop-down
     NONE = "3"          # Not visible
 
-# ------------------------------------------------------------------------------
 
 class Status(Enum):
     """Enumerates Status for Datasets
@@ -123,7 +116,6 @@ class Status(Enum):
     PRV = "private"
     SHR = "shared"
 
-# ------------------------------------------------------------------------------
 
 class ResponseFormat(Enum):
     """Enumerates Response Formats
@@ -134,7 +126,6 @@ class ResponseFormat(Enum):
     MONO = "monospaced"
     ATCH = "noinline"
 
-# ------------------------------------------------------------------------------
 
 class ToleranceFormat(Enum):
     """Enumerates Tolerance Formats
@@ -142,7 +133,6 @@ class ToleranceFormat(Enum):
     DEC = "1"           # Decimals
     SIG = "2"           # Significant Figures
 
-# ------------------------------------------------------------------------------
 
 class ToleranceType(Enum):
     """Enumerates Tolerance Types
@@ -150,5 +140,3 @@ class ToleranceType(Enum):
     REL = "1"           # Relative
     NOM = "2"           # Nominal
     GEO = "3"           # Geometric
-
-# ------------------------------------------------------------------------------

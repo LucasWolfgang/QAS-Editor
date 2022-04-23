@@ -19,8 +19,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import sys
 import os
 import logging
-from PyQt5.QtWidgets import QApplication # pylint: disable=E0611,E0401
+from PyQt5.QtWidgets import QApplication  # pylint: disable=E0611,E0401
 from .gui.main import Editor
+
 
 def main():
     """Main method. Called when the package runs using -m from CLI.
@@ -28,15 +29,17 @@ def main():
     log = logging.getLogger("qas_editor")
     log.setLevel(logging.DEBUG)
     var = "USERPROFILE" if os.name == "NT" else "HOME"
-    fhandler = logging.FileHandler(filename=f"{os.environ[var]}/qas_editor.log",
-                                   mode="w", encoding="utf-8")
-    fhandler.setFormatter(logging.Formatter("%(levelname)s [%(asctime)s]: %(message)s"))
-    fhandler.setLevel(logging.DEBUG)
-    log.addHandler(fhandler)
+    handler = logging.FileHandler(filename=f"{os.environ[var]}/qas_editor.log",
+                                  mode="w", encoding="utf-8")
+    formatter = logging.Formatter("%(levelname)s [%(asctime)s]: %(message)s")
+    handler.setFormatter(formatter)
+    handler.setLevel(logging.DEBUG)
+    log.addHandler(handler)
     app = QApplication(sys.argv)
     app.setStyle('Breeze')
     Editor()
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     main()

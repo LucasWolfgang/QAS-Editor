@@ -18,21 +18,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import sys
 import os
-import logging
 
 test_path = os.path.dirname(__file__)
 src_path = os.path.abspath(os.path.join(test_path, '..'))
 sys.path.append(src_path)
 from qas_editor import quiz
-log = logging.getLogger()
-log.setLevel(logging.DEBUG)
-fhandler = logging.FileHandler(filename=f"{test_path}/unittest.log",
-                               mode="w", encoding="utf-8")
-fhandler.setFormatter(logging.Formatter("%(levelname)s [%(asctime)s]: %(message)s",
-                                        "%H:%M:%S"))
-fhandler.setLevel(logging.DEBUG)
-log.addHandler(fhandler)
-log.debug("Initializing pytest regression...")
 
 
 def test_file_xml():
@@ -42,30 +32,30 @@ def test_file_xml():
     control.write_xml(XML_TEST, True)
     new_data = quiz.Quiz.read_xml(XML_TEST)
     os.remove(XML_TEST)
-    assert control.compare(new_data)
+    assert control.compare(new_data, [])
 
 
 def test_aikien() -> None:
-    log.debug("Testing Aiken read/write.")
+    pass
 
 
 def test_cloze() -> None:
-    log.debug("Testing Cloze read/write.")
+    pass
 
 
 def test_gift() -> None:
-    log.debug("Testing GIFT read/write.")
+    pass
 
 
 def test_markdown() -> None:
-    log.debug("Testing Markdown read/write.")
+    pass
 
 
 def test_latex() -> None:
-    log.debug("Testing LaTeX read/write.")
+    pass
 
 
 def test_pdf() -> None:
-    log.debug("Testing PDF read/write.")
+    pass
 
 # ------------------------------------------------------------------------------
