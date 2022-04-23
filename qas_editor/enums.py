@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from enum import Enum
 
+
 class ClozeFormat(Enum):
     """Enumerates Cloze formats
     """

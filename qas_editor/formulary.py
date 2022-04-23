@@ -23,9 +23,9 @@ if TYPE_CHECKING:
     from .wrappers import FText
 
 class Formulary(Serializable):
-    """Represents test formularies, which can contain equations, tables and other data
-    that is not question specific and is usually added as an appendix in the last page
-    of a test to be used by the student as reference
+    """Represents test formularies, which can contain equations, tables and
+    other data that is not question specific and is usually added as an
+    appendix in the last page of a test to be used by the student as reference
     """
 
     def __init__(self) -> None:
@@ -38,7 +38,6 @@ class Formulary(Serializable):
     def to_xml(self, root, strict: bool):
         pass
 
-# ------------------------------------------------------------------------------
 
 class Equation(Serializable):
     """Represents an equation in a formulary
@@ -63,7 +62,6 @@ class Equation(Serializable):
     def to_xml(self, root, strict: bool):
         pass
 
-# ------------------------------------------------------------------------------
 
 class Table(Serializable):
     """Represents a table in a formulary
@@ -88,7 +86,6 @@ class Table(Serializable):
     def to_xml(self, root, strict: bool):
         pass
 
-# ------------------------------------------------------------------------------
 
 class Rule(Serializable):
     """Represents a theory, law or other set of sentences that describe a given phenomenum.

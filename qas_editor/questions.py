@@ -742,15 +742,15 @@ class QMultichoice(_QuestionMTCS):
     QNAME = "Multichoice"
 
     def __init__(self, single: bool = True, show_instruction: bool = False,
-                 answer_numbering: Numbering = Numbering.ALF_LR, **kwargs):
+                 numbering: Numbering = Numbering.ALF_LR, **kwargs):
         super().__init__(**kwargs)
         self.single = single
         self.show_instruction = show_instruction
-        self.answer_numbering = answer_numbering
+        self.numbering = numbering
 
     @classmethod
     def from_json(cls, data):
-        data["answer_numbering"] = Numbering(data["answer_numbering"])
+        data["numbering"] = Numbering(data["numbering"])
         for i in range(len(data["options"])):
             data["options"][i] = Answer.from_json(data["options"][i])
         return super().from_json(data)
@@ -805,7 +805,7 @@ class QMultichoice(_QuestionMTCS):
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["single"] = (bool, "single")
         tags["showstandardinstruction"] = (bool, "show_instruction")
-        tags["answernumbering"] = (Numbering, "answer_numbering")
+        tags["answernumbering"] = (Numbering, "numbering")
         tags["answer"] = (Answer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
@@ -837,7 +837,7 @@ class QMultichoice(_QuestionMTCS):
 
     def to_xml(self, root: et.Element, strict: bool) -> et.Element:
         question = super().to_xml(root, strict)
-        et.SubElement(question, "answernumbering").text = self.answer_numbering.value
+        et.SubElement(question, "answernumbering").text = self.numbering.value
         if self.single:
             et.SubElement(question, "single")
         return question
@@ -856,7 +856,7 @@ class QNumerical(_QuestionMT):
                  units: List[Unit] = None,  **kwargs):
         super().__init__(**kwargs)
         self.unit_handling = UnitHandling() if uhandling is None else \
-                             uhandling
+            uhandling
         self.units = units if units is not None else []
 
     def add_option(self, text: str, tol: float, fraction: float,
@@ -892,7 +892,7 @@ class QNumerical(_QuestionMT):
     def from_gift(cls, header: list, answer: list):
         def _extract(data: str) -> tuple:
             rgx = re.match(r"(.+?)(:|(?:\.\.))(.+)", data)
-            if rgx[2] == "..": # Converts min/max to value +- tol
+            if rgx[2] == "..":  # Converts min/max to value +- tol
                 txt = (float(rgx[1]) + float(rgx[3]))/2
                 tol = txt - float(rgx[1])
                 txt = str(txt)
@@ -904,14 +904,14 @@ class QNumerical(_QuestionMT):
         if formatting is None:
             formatting = Format.MD
         qst = cls(name=header[1], question=FText("questiontext", header[3],
-                                                      formatting, None))
+                                                 formatting, None))
         if len(answer) == 1:
             txt, tol = _extract(answer[0][2])
             qst.options.append(NumericalAnswer(tol, fraction=100, text=txt,
                                                formatting=Format.AUTO))
         elif len(answer) > 1:
             for ans in answer[1:]:
-                if ans[0] == "=":   # Happens first, thus nans is always defined
+                if ans[0] == "=":   # Happens first, thus ans is always defined
                     txt, tol = _extract(ans[2])
                     fraction = float(ans[1][1:-1]) if ans[0] == "=" else 0
                     nans = NumericalAnswer(tol, fraction=fraction, text=txt,
@@ -941,7 +941,7 @@ class QShortAnswer(_QuestionMT):
     MOODLE = "shortanswer"
     QNAME = "Short Answer"
 
-    def __init__(self, use_case: bool = False, **kwargs) -> None:
+    def __init__(self, use_case: bool = False, **kwargs):
         super().__init__(**kwargs)
         self.use_case = use_case
 
@@ -956,7 +956,8 @@ class QShortAnswer(_QuestionMT):
         formatting = Format(header[2][1:-1])
         if formatting is None:
             formatting = Format.MD
-        qst = cls(name=header[1], question=FText("questiontext", header[3], formatting, None))
+        qst = cls(name=header[1], question=FText("questiontext", header[3], 
+                                                 formatting, None))
         for ans in answer:
             fraction = 100 if not ans[1] else float(ans[1][1:-1])
             qst.options.append(Answer(fraction, ans[2], formatting, Format.AUTO))
@@ -1004,11 +1005,11 @@ class QTrueFalse(_Question):
             correct (FText): _description_
             incorrect (FText): _description_
         """
-        self.__true.feedback = correct if self.correct_answer else incorrect
-        self.__false.feedback = correct if not self.correct_answer else incorrect
+        self.__true.feedback = correct if self.correct else incorrect
+        self.__false.feedback = correct if not self.correct else incorrect
 
     @property
-    def correct_answer(self) -> bool:
+    def correct(self) -> bool:
         """_summary_
 
         Returns:
@@ -1016,8 +1017,8 @@ class QTrueFalse(_Question):
         """
         return self.__correct
 
-    @correct_answer.setter
-    def correct_answer(self, value: bool) -> None:
+    @correct.setter
+    def correct(self, value: bool) -> None:
         """_summary_
 
         Args:
@@ -1068,7 +1069,8 @@ class QTrueFalse(_Question):
 
 class QFreeDrawing(_Question):
     """Represents a question where the use is free to make any drawing. The
-    result is submited for review (there is no automatic correct/wrong feedback).
+    result is submited for review (there is no automatic correct/wrong 
+    feedback).
     """
 
     def __init__(self, *args, **kwargs):
