@@ -35,7 +35,7 @@ jobs:
       with:
         auth: ${{ secrets.GIST_SECRET }}
         gistID: 344598a4a0f7b92a7889d998e33417c4
-        filename: pylint.json
+        filename: pylint_${{ matrix.python-version }}.json
         label: Pylint
         message: ${{ env.PYLINT_SCORE }} / 10.0 points
         minColorRange: 6
@@ -51,7 +51,7 @@ jobs:
       with:
         auth: ${{ secrets.GIST_SECRET }}
         gistID: 344598a4a0f7b92a7889d998e33417c4
-        filename: flake8.json
+        filename: flake8_${{ matrix.python-version }}.json
         label: Flake8
         message: ${{ env.FLAKE_ERRORS }} errors
         minColorRange: 0
@@ -71,7 +71,7 @@ jobs:
       with:
         auth: ${{ secrets.GIST_SECRET }}
         gistID: 344598a4a0f7b92a7889d998e33417c4
-        filename: pytest.json
+        filename: pytest_${{ matrix.python-version }}.json
         label: Pytest
         message: ${{ env.PYTEST_SCORE }} / ${{ env.PYTEST_MAX }} tests
         minColorRange: ${{ env.PYTEST_MIN }} 
