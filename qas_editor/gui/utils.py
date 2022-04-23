@@ -24,10 +24,12 @@ from os.path import splitext
 from uuid import uuid4
 from typing import TYPE_CHECKING
 from PyQt5.QtCore import Qt, QSize, QPoint, QPointF
-from PyQt5.QtGui import QFont, QImage, QTextDocument, QKeySequence, QIcon, QColor, QPainter
-from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame, QTextEdit, QToolBar, \
-                            QFontComboBox, QComboBox, QActionGroup, QAction, QLineEdit, \
-                            QPushButton, QLabel, QMessageBox
+from PyQt5.QtGui import QFont, QImage, QTextDocument, QKeySequence, QIcon,\
+                        QColor, QPainter
+from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
+                            QTextEdit, QToolBar, QFontComboBox, QComboBox,\
+                            QActionGroup, QAction, QLineEdit, QPushButton,\
+                            QLabel, QMessageBox, QCheckBox
 from ..enums import Format
 from ..wrappers import FText, Tags
 if TYPE_CHECKING:
@@ -60,7 +62,6 @@ def action_handler(function: Callable) -> Callable:
             dlg.show()
     return wrapper
 
-# ------------------------------------------------------------------------------
 
 class GTextEditor(QTextEdit):
     """
@@ -68,11 +69,12 @@ class GTextEditor(QTextEdit):
             It may be way faster than using QTextEdit
     """
 
-    def __init__(self, toolbar: "GTextToolbar", text_type: str) -> None:
+    def __init__(self, toolbar: "GTextToolbar", attribute: str) -> None:
         super().__init__()
         self.toolbar = toolbar
+        self.__obj = None
+        self.__attr = attribute
         self.textChanged.connect(self.__flag_update)
-        self.__ftext: FText = FText(text_type, "", Format.AUTO, None)
         self.__tags: List[tuple] = []
         self.__need_update = True
 
@@ -100,8 +102,8 @@ class GTextEditor(QTextEdit):
             self.__tags.append(i.span())
         self.__need_update = False
 
-    def _update_format(self, index):
-        self.__ftext.formatting = list(GTextToolbar.FORMATS.values())[index]
+    def __update_fmt(self, index):
+        self.__obj.formatting = list(GTextToolbar.FORMATS.values())[index]
 
     @property
     def text_format(self):
@@ -110,7 +112,7 @@ class GTextEditor(QTextEdit):
         Returns:
             _type_: _description_
         """
-        return self.__ftext.formatting
+        return self.__obj.formatting
 
     @text_format.setter
     def text_format(self, data):
@@ -119,7 +121,7 @@ class GTextEditor(QTextEdit):
         Returns:
             _type_: _description_
         """
-        self.__ftext.formatting = data
+        self.__obj.formatting = data
 
     def canInsertFromMimeData(self, source) -> bool:  # pylint: disable=C0103
         """[summary]
@@ -163,8 +165,11 @@ class GTextEditor(QTextEdit):
             txt = self.toHtml()
         else:
             txt = self.toPlainText()
-        self.__ftext.text = txt
-        return self.__ftext
+        self.__obj.text = txt
+        return self.__obj
+
+    def get_attr(self):
+        return self.__attr
 
     def insertFromMimeData(self, source):  # pylint: disable=C0103
         """[summary]
@@ -173,14 +178,14 @@ class GTextEditor(QTextEdit):
             source ([type]): [description]
         """
         cursor = self.textCursor()
-        document = self.document()
+        doc = self.document()
 
         if source.hasUrls():
             for url in source.urls():
                 file_ext = splitext(str(url.toLocalFile()))[1].lower()
                 if url.isLocalFile() and file_ext in ['.jpg', '.png', '.bmp']:
                     image = QImage(url.toLocalFile())
-                    document.addResource(QTextDocument.ImageResource, url, image)
+                    doc.addResource(QTextDocument.ImageResource, url, image)
                     cursor.insertImage(url.toLocalFile())
                 else:
                     break
@@ -189,7 +194,7 @@ class GTextEditor(QTextEdit):
         elif source.hasImage():
             image = source.imageData()
             uuid = uuid4().hex
-            document.addResource(QTextDocument.ImageResource, uuid, image)
+            doc.addResource(QTextDocument.ImageResource, uuid, image)
             cursor.insertImage(uuid)
             return
         super(GTextEditor, self).insertFromMimeData(source)
@@ -206,19 +211,19 @@ class GTextEditor(QTextEdit):
                 return None
         return super().keyPressEvent(event)
 
-    def set_ftext(self, text: FText) -> None:
+    def from_obj(self, obj) -> None:
         """_summary_
 
         Args:
             text (FText): _description_
         """
-        self._ftext = text
-        if text.formatting == Format.MD:
-            self.setMarkdown(text.text)
-        elif text.formatting == Format.HTML:
-            self.setHtml(text.text)
+        self.__obj = getattr(obj, self.__attr)
+        if self.__obj.formatting == Format.MD:
+            self.setMarkdown(self.__obj.text)
+        elif self.__obj.formatting == Format.HTML:
+            self.setHtml(self.__obj.text)
         else:
-            self.setPlainText(text.text)
+            self.setPlainText(self.__obj.text)
         self.__update_tags()
 
 # ------------------------------------------------------------------------------
@@ -227,7 +232,8 @@ class GTextToolbar(QToolBar):
     """A toolbar for the Editor UI instanciated in a window.
     """
 
-    FORMATS = {"MarkDown": Format.MD, "HTML": Format.HTML, "PlainText": Format.PLAIN}
+    FORMATS = {"MarkDown": Format.MD, "HTML": Format.HTML,
+               "PlainText": Format.PLAIN}
 
     def __init__(self, *args, **kwargs):  # pylint: disable=R0915
         super(GTextToolbar, self).__init__(*args, **kwargs)
@@ -252,43 +258,45 @@ class GTextToolbar(QToolBar):
         self.addWidget(self.fontsize)
         self.addSeparator()
 
-        self._bold = QAction(QIcon(f"{IMG_PATH}/edit-bold.png"), "Bold", self)
+        self._bold = QAction(QIcon(f"{IMG_PATH}/bold.png"), "Bold", self)
         self._bold.setStatusTip("Bold")
         self._bold.setShortcut(QKeySequence.Bold)
         self._bold.setCheckable(True)
         self.addAction(self._bold)
 
-        self._italic = QAction(QIcon(f"{IMG_PATH}/edit-italic.png"), "Italic", self)
+        self._italic = QAction(QIcon(f"{IMG_PATH}/italic.png"), "Italic", self)
         self._italic.setStatusTip("Italic")
         self._italic.setShortcut(QKeySequence.Italic)
         self._italic.setCheckable(True)
         self.addAction(self._italic)
 
-        self._underline = QAction(QIcon(f"{IMG_PATH}/edit-underline.png"), "Underline", self)
+        self._underline = QAction(QIcon(f"{IMG_PATH}/underline.png"),
+                                        "Underline", self)
         self._underline.setStatusTip("Underline")
         self._underline.setShortcut(QKeySequence.Underline)
         self._underline.setCheckable(True)
         self.addAction(self._underline)
         self.addSeparator()
 
-        self._alignl = QAction(QIcon(f"{IMG_PATH}/edit-alignment.png"), "Align left", self)
+        self._alignl = QAction(QIcon(f"{IMG_PATH}/alignment.png"),
+                                     "Align left", self)
         self._alignl.setStatusTip("Align text left")
         self._alignl.setCheckable(True)
         self.addAction(self._alignl)
 
-        self._alignc = QAction(QIcon(f"{IMG_PATH}/edit-alignment-center.png"),
+        self._alignc = QAction(QIcon(f"{IMG_PATH}/align_center.png"),
                                "Align center", self)
         self._alignc.setStatusTip("Align text center")
         self._alignc.setCheckable(True)
         self.addAction(self._alignc)
 
-        self._alignr = QAction(QIcon(f"{IMG_PATH}/edit-alignment-right.png"),
+        self._alignr = QAction(QIcon(f"{IMG_PATH}/align_right.png"),
                                "Align right", self)
         self._alignr.setStatusTip("Align text right")
         self._alignr.setCheckable(True)
         self.addAction(self._alignr)
 
-        self._alignj = QAction(QIcon(f"{IMG_PATH}/edit-alignment-justify.png"),
+        self._alignj = QAction(QIcon(f"{IMG_PATH}/align_justify.png"),
                                "Justify", self)
         self._alignj.setStatusTip("Justify text")
         self._alignj.setCheckable(True)
@@ -301,7 +309,7 @@ class GTextToolbar(QToolBar):
         format_group.addAction(self._alignr)
         format_group.addAction(self._alignj)
 
-        self._wrap = QAction(QIcon(f"{IMG_PATH}/arrow-continue.png"),
+        self._wrap = QAction(QIcon(f"{IMG_PATH}/wrap.png"),
                              "Wrap text to window", self)
         self._wrap.setStatusTip("Toggle wrap text to window")
         self._wrap.setCheckable(True)
@@ -321,8 +329,9 @@ class GTextToolbar(QToolBar):
         Returns:
             bool: _description_
         """
-        return super().hasFocus() or self.fonts.hasFocus() or self.fontsize.hasFocus() \
-                or self.math_type.hasFocus() or self.text_type.hasFocus()
+        return super().hasFocus() or self.fonts.hasFocus() or \
+                self.fontsize.hasFocus() or self.math_type.hasFocus() or \
+                self.text_type.hasFocus()
 
     def update_editor(self, text_editor: GTextEditor) -> None:
         """Update the font format toolbar/actions when a new text selection
@@ -360,22 +369,25 @@ class GTextToolbar(QToolBar):
             self.text_type.setCurrentText(self.editor.text_format.name)
             for _obj in self._format_actions:
                 _obj.blockSignals(False)
-            self.text_type.currentIndexChanged.connect(self.editor._update_format)
+            self.text_type.currentIndexChanged.connect(self.editor.__update_fmt)
             self.fonts.currentFontChanged.connect(self.editor.setCurrentFont)
             self._underline.toggled.connect(self.editor.setFontUnderline)
             self._italic.toggled.connect(self.editor.setFontItalic)
-            self.fontsize.currentIndexChanged[str].\
-                    connect(lambda s: self.editor.setFontPointSize(float(s)))
-            self._bold.toggled.connect(lambda x: self.editor.\
-                    setFontWeight(QFont.Bold if x else QFont.Normal))
-            self._alignl.triggered.connect(lambda: self.editor.setAlignment(Qt.AlignLeft))
-            self._alignc.triggered.connect(lambda: self.editor.setAlignment(Qt.AlignCenter))
-            self._alignr.triggered.connect(lambda: self.editor.setAlignment(Qt.AlignRight))
-            self._alignj.triggered.connect(lambda: self.editor.setAlignment(Qt.AlignJustify))
-            self._wrap.triggered.connect(lambda: self.editor.\
+            self.fontsize.currentIndexChanged[str].connect(
+                    lambda s: self.editor.setFontPointSize(float(s)))
+            self._bold.toggled.connect(lambda x: self.editor.setFontWeight(
+                    QFont.Bold if x else QFont.Normal))
+            self._alignl.triggered.connect(lambda: 
+                    self.editor.setAlignment(Qt.AlignLeft))
+            self._alignc.triggered.connect(lambda:
+                    self.editor.setAlignment(Qt.AlignCenter))
+            self._alignr.triggered.connect(lambda:
+                    self.editor.setAlignment(Qt.AlignRight))
+            self._alignj.triggered.connect(lambda:
+                    self.editor.setAlignment(Qt.AlignJustify))
+            self._wrap.triggered.connect(lambda: self.editor.
                     setLineWrapMode(int(self.editor.lineWrapMode() == 0)))
 
-# ------------------------------------------------------------------------------
 
 class GArrow(QFrame):
     """Arrow used in the TitleFrame class to represent open/close status
@@ -384,10 +396,8 @@ class GArrow(QFrame):
     def __init__(self, parent=None, collapsed=False):
         QFrame.__init__(self, parent=parent)
         self.setMaximumSize(24, 24)
-        self._arrow_horizontal = (QPointF(7.0, 8.0), QPointF(17.0, 8.0),
-                                  QPointF(12.0, 13.0))
-        self._arrow_vertical = (QPointF(8.0, 7.0), QPointF(13.0, 12.0),
-                                QPointF(8.0, 17.0))
+        self.__hori = (QPointF(7, 8), QPointF(17, 8), QPointF(12, 13))
+        self.__vert = (QPointF(8, 7), QPointF(13, 12), QPointF(8, 17))
         self._arrow = None
         self.set_arrow(int(collapsed))
 
@@ -397,8 +407,8 @@ class GArrow(QFrame):
         Args:
             arrow_dir (bool): _description_
         """
-        self._arrow = self._arrow_vertical if arrow_dir else self._arrow_horizontal
-        self.update() # Fix bug where arrows do not update if children dont fill top layout
+        self._arrow = self.__vert if arrow_dir else self.__hori
+        self.update()
 
     def paintEvent(self, _):    # pylint: disable=C0103
         """_summary_
@@ -413,16 +423,16 @@ class GArrow(QFrame):
         painter.drawPolygon(*self._arrow)
         painter.end()
 
-# ------------------------------------------------------------------------------
 
 class GTitleFrame(QFrame):
-    """ Used as header in a GFrameLayout class.
+    """Used as header in a GFrameLayout class.
     """
 
     def __init__(self, parent, toogle_func, title=""):
         QFrame.__init__(self, parent=parent)
         self.setFrameShadow(QFrame.Sunken)
-        self.setStyleSheet("border:1px solid rgb(41, 41, 41); background-color: #acc5f2;")
+        self.setStyleSheet("border:1px solid rgb(41, 41, 41); "
+                           "background-color: #acc5f2;")
         self._hlayout = QHBoxLayout(self)
         self._hlayout.setContentsMargins(0, 0, 0, 0)
         self._hlayout.setSpacing(0)
@@ -440,50 +450,26 @@ class GTitleFrame(QFrame):
         self.__toogle_func()
         return super().mousePressEvent(a0)
 
-# ------------------------------------------------------------------------------
 
 class GFrameLayout(QVBoxLayout):
-    """ Custom widget that gives a collapsable (dropdown style) window that
+    """Custom widget that gives a collapsable (dropdown style) window that
     contains other QWidgets.
     """
+    addWidget = property(doc='(!) Disallowed inherited')
+    addLayout = property(doc='(!) Disallowed inherited')
 
-    def __init__(self, parent=None, title=""):
+    def __init__(self, parent=None, title="", content=None):
         QVBoxLayout.__init__(self)
         self._is_collasped = True
         self._title_frame = GTitleFrame(parent, self.toggle_collapsed, title)
         super().addWidget(self._title_frame)
-        self._content = QWidget()
-        self._content.setStyleSheet(".QWidget{border:1px solid rgb(41, 41, 41); \
-                                    background-color: #f0f6ff}")
+        self._content = QWidget(parent) if content is None else content
+        self._content.setStyleSheet(".QWidget{border:1px solid rgb(41, 41, 41)"
+                                    "; background-color: #f0f6ff}")
         self._content.setVisible(not self._is_collasped)
         super().addWidget(self._content)
         self.setContentsMargins(0, 0, 0, 0)
         self.setSpacing(0)
-
-    def addWidget(self, a0: QWidget, stretch=..., alignment=...):  # pylint: disable=C0103
-        """_summary_
-
-        Args:
-            a0 (QWidget): _description_
-            stretch (_type_, optional): _description_. Defaults to ....
-            alignment (_type_, optional): _description_. Defaults to ....
-
-        Raises:
-            AttributeError: _description_
-        """
-        raise AttributeError(f"Method is not supported in {self}")
-
-    def addLayout(self, layout, stretch=...) -> None:  # pylint: disable=C0103
-        """_summary_
-
-        Args:
-            layout (_type_): _description_
-            stretch (_type_, optional): _description_. Defaults to ....
-
-        Raises:
-            AttributeError: _description_
-        """
-        raise AttributeError(f"Method is not supported in {self}")
 
     def setLayout(self, layout) -> None:  # pylint: disable=C0103
         """_summary_
@@ -500,20 +486,19 @@ class GFrameLayout(QVBoxLayout):
         self._is_collasped = not self._is_collasped
         self._title_frame._arrow.set_arrow(int(self._is_collasped))
 
-# ------------------------------------------------------------------------------
 
 class GTagBar(QFrame):
-    """Custom widget that allows the user to enter tags and provides a interface
-    to later get these tags as a list.
+    """Custom widget that allows the user to enter tags and provides a
+    interface to later get these tags as a list.
     """
 
-    def __init__(self):
-        super(GTagBar, self).__init__()
+    def __init__(self, parent):
+        super().__init__(parent)
         self.tags = []
-        self.setStyleSheet("QPushButton { border:0px sunken; font-weight:bold} " +
-                           "QLabel { background:#c4edc2; font-size:12px; " +
-                           "border-radius:4px; padding-left:2px} .GTagBar { " +
-                           "border:1px sunken; background: #d1d1d1; padding:2px}")
+        self.setStyleSheet("QPushButton {border:0px sunken; font-weight:bold} "
+                           "QLabel {background:#c4edc2; font-size:12px; border"
+                           "-radius:4px; padding-left:2px} .GTagBar {border:"
+                           "1px sunken; background: #d1d1d1; padding:2px}")
         self.h_layout = QHBoxLayout()
         self.h_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(self.h_layout)
@@ -556,13 +541,16 @@ class GTagBar(QFrame):
         self.tags.sort(key=lambda x: x.lower())
         self.refresh()
 
-    def from_obj(self, obj: Tags) -> None:
+    def from_obj(self, obj) -> None:
         """_summary_
 
         Args:
             obj (Tags): _description_
         """
-        self.tags = list(obj)
+        self.tags = obj.tags
+
+    def get_attr(self):
+        return "tags"
 
     def refresh(self):
         """_summary_
@@ -582,4 +570,64 @@ class GTagBar(QFrame):
         """
         return Tags(self.tags)
 
-# ------------------------------------------------------------------------------
+
+class GDropbox(QComboBox):
+
+    def __init__(self, parent, cast_type, attribute) -> None:
+        super().__init__(parent)
+        self.__attr = attribute
+        self._cast = cast_type
+        self.__obj = None
+
+    def focusOutEvent(self, e) -> None:
+        if self.__obj is not None:
+            setattr(self.__obj, self.__attr, self.currentText())
+        return super().focusOutEvent(e)
+
+    def from_obj(self, obj):
+        self.__obj = obj
+        self.setCurrentText(str(getattr(obj, self.__attr)))
+
+    def get_attr(self):
+        return self.__attr
+
+
+class GField(QLineEdit):
+
+    def __init__(self, parent, cast_type, attribute) -> None:
+        super().__init__(parent)
+        self.__attr = attribute
+        self._cast = cast_type
+        self.__obj = None
+
+    def focusOutEvent(self, e) -> None:
+        if self.__obj is not None:
+            setattr(self.__obj, self.__attr, self.text())
+        return super().focusOutEvent(e)
+
+    def from_obj(self, obj):
+        self.__obj = obj
+        self.setText(str(getattr(obj, self.__attr)))
+
+    def get_attr(self):
+        return self.__attr
+
+
+class GCheckBox(QCheckBox):
+
+    def __init__(self, parent, text, attribute) -> None:
+        super().__init__(text, parent)
+        self.__attr = attribute
+        self.__obj = None
+
+    def focusOutEvent(self, e) -> None:
+        if self.__obj is not None:
+            setattr(self.__obj, self.__attr, self.isChecked())
+        return super().focusOutEvent(e)
+
+    def from_obj(self, obj):
+        self.__obj = obj
+        self.setChecked(bool(getattr(obj, self.__attr)))
+
+    def get_attr(self):
+        return self.__attr

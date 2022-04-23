@@ -22,19 +22,19 @@ import logging
 import copy
 import os
 from typing import TYPE_CHECKING
-from PyQt5.QtCore import Qt, QVariant
+from PyQt5.QtCore import Qt, QVariant, QSize
 from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QSplitter, QTreeView, QMainWindow, QStatusBar,\
-                            QFileDialog, QMenu, QComboBox, QAction, QAbstractItemView,\
-                            QCheckBox, QLineEdit, QPushButton, QScrollArea
+                            QFileDialog, QMenu, QAction, QAbstractItemView,\
+                            QPushButton, QScrollArea
 
 from .popups import NamePopup, QuestionPopup
 from ..quiz import Quiz
-from ..questions import QNAME, Question
+from ..questions import _Question
 from ..enums import Numbering
 from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, IMG_PATH,\
-                   action_handler
+                   GField, GCheckBox, GDropbox, action_handler
 from .forms import GOptions, GUnitHadling, GCFeedback, GMultipleTries
 if TYPE_CHECKING:
     from typing import Dict
@@ -42,7 +42,6 @@ if TYPE_CHECKING:
     from PyQt5.QtCore import QModelIndex
 LOG = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------------------
 
 class Editor(QMainWindow):
     """This is the main class.
@@ -51,6 +50,16 @@ class Editor(QMainWindow):
     FORMATS = "Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;JSON (*.json)"+\
               ";;LaTex (*.tex);;Markdown (*.md);;PDF (*.pdf);;XML (*.xml)"
 
+    SERIALIZER = { "cloze":  ("write_cloze"),
+                   "json":   ("write_json"),
+                   "gift":   ("write_gift"),
+                   "md":     ("write_markdown"),
+                   "pdf":    ("write_pdf"),
+                   "tex":    ("write_latex"),
+                   "txt":    ("write_aiken"),
+                   "xml":    ("write_xml")
+    }
+
     def __init__(self, *args, **kwargs):
         super(Editor, self).__init__(*args, **kwargs)
         self.setWindowTitle("QAS Editor GUI")
@@ -58,15 +67,14 @@ class Editor(QMainWindow):
         self._items: Dict[str, QWidget] = {}
         self.path: str = None
         self.top_quiz = Quiz()
-        self.current_question = None
-        self.current_item = None
+        self._cur_question = None
         self.context_menu = QMenu(self)
 
         self._add_menu_bars()
 
         # Left side
         self.data_view = QTreeView()
-        self.category_name = QLineEdit()
+        self.data_view.setIconSize(QSize(18,18))
         xframe_vbox = self._add_datatree_viewer()
         left = QWidget()
         left.setLayout(xframe_vbox)
@@ -76,12 +84,14 @@ class Editor(QMainWindow):
         self._add_general_data_block()
         self._add_answer_block()
         self._add_multiple_tries_block()
-        self._add_feedback_block()
         self._add_solution_block()
         self._add_database_block()
         self.cframe_vbox.addStretch()
+        self.cframe_vbox.setSpacing(5)
+        # self.cframe_vbox.setContentsMargins(0,0,0,0)
         for value in self._items.values():
             value.setEnabled(False)
+
         frame = QFrame()
         frame.setLineWidth(2)
         frame.setLayout(self.cframe_vbox)
@@ -94,7 +104,7 @@ class Editor(QMainWindow):
         splitter.addWidget(left)
         splitter.addWidget(right)
         splitter.setStretchFactor(1, 1)
-        splitter.setSizes([250, 100])   # The second value does not make difference
+        splitter.setSizes([250, 100])
         self.setCentralWidget(splitter)
 
         # Create lower status bar.
@@ -111,17 +121,18 @@ class Editor(QMainWindow):
     def _add_answer_block(self) -> None:
         frame = GFrameLayout(title="Answers")
         self.cframe_vbox.addLayout(frame)
-        self._items["shuffle"] = QCheckBox("Shuffle the answers")
-        self._items["show_instruction"] = QCheckBox("Show instructions")
-        self._items["single"] = QCheckBox("Single answer")
+        self._items["shuffle"] = GCheckBox(self, "Shuffle the answers", "shuffle")
+        self._items["show_instruction"] = GCheckBox(self, "Show instructions",
+                                                    "show_instruction")
+        self._items["single"] = GCheckBox(self, "Single answer", "single")
         self._items["single"].setContentsMargins(10, 0, 0, 0)
-        self._items["answer_numbering"] = QComboBox()
+        self._items["answer_numbering"] = GDropbox(self, str, "answer_numbering")
         self._items["answer_numbering"].addItems([c.value for c in Numbering])
         self._items["unit_handling"] = GUnitHadling()
-        self._items["answers"] = GOptions(self.editor_toolbar)
+        self._items["answers"] = GOptions(self.toolbar)
         aabutton = QPushButton("Add Answer")
         aabutton.clicked.connect(self._items["answers"].add_default)
-        ppbutton = QPushButton("Pop Answfer")
+        ppbutton = QPushButton("Pop Answer")
         ppbutton.clicked.connect(self._items["answers"].pop)
 
         grid = QGridLayout()
@@ -146,7 +157,7 @@ class Editor(QMainWindow):
         self.data_view.setHeaderHidden(True)
         self.data_view.doubleClicked.connect(self._update_item)
         self.data_view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.data_view.customContextMenuRequested.connect(self._data_view_context_menu)
+        self.data_view.customContextMenuRequested.connect(self._data_view_cxt)
         self.data_view.setDragEnabled(True)
         self.data_view.setAcceptDrops(True)
         self.data_view.setDropIndicatorShown(True)
@@ -156,39 +167,27 @@ class Editor(QMainWindow):
         self.root_item = QStandardItemModel(0, 1)
         self.root_item.setHeaderData(0, Qt.Horizontal, "Classification")
         self.data_view.setModel(self.root_item)
-        self.question_type = QComboBox()
-        self.question_type.addItems(QNAME)
         
         xframe_vbox = QVBoxLayout()
         xframe_vbox.addWidget(self.data_view)
         return xframe_vbox
 
-    def _add_feedback_block(self) -> None:
-        frame = GFrameLayout(title="Feedbacks")
-        self.cframe_vbox.addLayout(frame)
-        self._items["general_feedback"] = GTextEditor(self.editor_toolbar, "generalfeedback")
-        self._items["general_feedback"].setFixedHeight(50)
-        self._items["combined_feedback"] = GCFeedback(self.editor_toolbar)
-        self._items["combined_feedback"].setFixedHeight(110)
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("General feedback"))
-        layout.addWidget(self._items["general_feedback"])
-        layout.addWidget(self._items["combined_feedback"])
-        frame.setLayout(layout)
-
     def _add_general_data_block(self) -> None:
         frame = GFrameLayout(self, title="General Data")
         self.cframe_vbox.addLayout(frame)
 
-        self._items["default_grade"] = QLineEdit()
+        self._items["default_grade"] = GField(self, int, "default_grade")
         self._items["default_grade"].setFixedWidth(30)
-        self._items["default_grade"].setToolTip("Default grade for the question.")
-        self._items["id_number"] = QLineEdit()
+        self._items["default_grade"].setToolTip("Default grade.")
+        self._items["id_number"] = GField(self, int, "id_number")
         self._items["id_number"].setFixedWidth(40)
-        self._items["id_number"].setToolTip("Provides a second way of finding a question.")
-        self._items["tags"] = GTagBar()
-        self._items["question_text"] = GTextEditor(self.editor_toolbar, "question_text")
-        self._items["question_text"].setMinimumHeight(100)
+        self._items["id_number"].setToolTip("Provides a second way of "
+                                            "finding a question.")
+        self._items["tags"] = GTagBar(self)
+        self._items["tags"].setToolTip("List of tags used by the question.")
+        self._items["question"] = GTextEditor(self.toolbar, "question")
+        self._items["question"].setMinimumHeight(100)
+        self._items["question"].setToolTip("Tags used to ")
         grid = QGridLayout()
         grid.addWidget(QLabel("Tags"), 0, 0)
         grid.addWidget(self._items["tags"], 0, 1)
@@ -201,48 +200,53 @@ class Editor(QMainWindow):
         tmp.setContentsMargins(10, 0, 0, 0)
         grid.addWidget(tmp, 0, 4)
         grid.addWidget(self._items["id_number"], 0, 5)
-        grid.addWidget(self._items["question_text"], 1, 0, 1, 6)
+        grid.addWidget(self._items["question"], 1, 0, 1, 6)
         frame.setLayout(grid)
         frame.toggle_collapsed()
 
     def _add_menu_bars(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
-        new_file_action = QAction("New file", self)
-        new_file_action.setStatusTip("New file")
-        new_file_action.triggered.connect(self._create_file)
-        file_menu.addAction(new_file_action)
-        open_file_action = QAction("Open file", self)
-        open_file_action.setStatusTip("Open file")
-        open_file_action.triggered.connect(self._read_file)
-        file_menu.addAction(open_file_action)
-        open_folder_action = QAction("Open folder", self)
-        open_folder_action.setStatusTip("Open folder")
-        open_folder_action.triggered.connect(self._read_folder)
-        file_menu.addAction(open_folder_action)
-        save_file_action = QAction("Save", self)
-        save_file_action.setStatusTip("Save top category to specified file on disk")
-        save_file_action.triggered.connect(lambda: self._write_file(False))
-        file_menu.addAction(save_file_action)
-        saveas_file_action = QAction("Save As...", self)
-        saveas_file_action.setStatusTip("Save top category to specified file on disk")
-        saveas_file_action.triggered.connect(lambda: self._write_file(True))
-        file_menu.addAction(saveas_file_action)
-        self.editor_toolbar = GTextToolbar()
-        self.addToolBar(Qt.TopToolBarArea, self.editor_toolbar)
+        new_file = QAction("New file", self)
+        new_file.setStatusTip("New file")
+        new_file.triggered.connect(self._create_file)
+        file_menu.addAction(new_file)
+        open_file = QAction("Open file", self)
+        open_file.setStatusTip("Open file")
+        open_file.triggered.connect(self._read_file)
+        file_menu.addAction(open_file)
+        open_folder = QAction("Open folder", self)
+        open_folder.setStatusTip("Open folder")
+        open_folder.triggered.connect(self._read_folder)
+        file_menu.addAction(open_folder)
+        save_file = QAction("Save", self)
+        save_file.setStatusTip("Save top category to specified file on disk")
+        save_file.triggered.connect(lambda: self._write_file(False))
+        file_menu.addAction(save_file)
+        saveas_file = QAction("Save As...", self)
+        saveas_file.setStatusTip("Save top category to specified file on disk")
+        saveas_file.triggered.connect(lambda: self._write_file(True))
+        file_menu.addAction(saveas_file)
+        self.toolbar = GTextToolbar()
+        self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
     def _add_multiple_tries_block(self) -> None:
         frame = GFrameLayout(self, title="Multiple Tries")
         self.cframe_vbox.addLayout(frame)
-        self._items["multiple_tries"] = GMultipleTries(self.editor_toolbar)
+        self._items["multiple_tries"] = GMultipleTries(self, self.toolbar)
         frame.setLayout(self._items["multiple_tries"])
 
     def _add_solution_block(self) -> None:
-        frame = GFrameLayout(title="Solutions")
+        frame = GFrameLayout(title="Solution and Feedback")
         self.cframe_vbox.addLayout(frame)
-        self._items["solution"] = GTextEditor(self.editor_toolbar, "solution")
+        self._items["general_feedback"] = GTextEditor(self.toolbar,
+                                                      "general_feedback")
+        self._items["general_feedback"].setFixedHeight(50)
+        self._items["combined_feedback"] = GCFeedback(self.toolbar)
+        self._items["combined_feedback"].setFixedHeight(110)
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Solution"))
-        layout.addWidget(self._items["solution"])
+        layout.addWidget(QLabel("General feedback"))
+        layout.addWidget(self._items["general_feedback"])
+        layout.addWidget(self._items["combined_feedback"])
         frame.setLayout(layout)
 
     def _add_new_category(self, quiz: Quiz, parent: QStandardItem):
@@ -262,7 +266,8 @@ class Editor(QMainWindow):
 
     @action_handler
     def _append_category(self, parent: Quiz, item: QStandardItem):
-        path, _ = QFileDialog.getOpenFileName(self, "Open file", "", self.FORMATS)
+        path, _ = QFileDialog.getOpenFileName(self, "Open file", "",
+                                              self.FORMATS)
         if not path:
             return None
         quiz = Quiz.read_files([path], path.rsplit("/", 1)[-1])
@@ -279,13 +284,13 @@ class Editor(QMainWindow):
     def _dataview_dropevent(self, event: QDropEvent):
         from_obj = self.data_view.selectedIndexes()[0].data(257)
         to_obj = self.data_view.indexAt(event.pos()).data(257)
-        if isinstance(to_obj, Question):
+        if isinstance(to_obj, _Question):
             event.ignore()
             raise TypeError()
-        from_obj.parent = to_obj    # This already does all the magic (using @properties)
+        from_obj.parent = to_obj    # This already does all the magic
         self.data_view.original_dropEvent(event)
 
-    def _data_view_context_menu(self, event):
+    def _data_view_cxt(self, event):
         model_idx = self.data_view.indexAt(event)
         item = self.root_item.itemFromIndex(model_idx)
         data = model_idx.data(257)
@@ -294,15 +299,15 @@ class Editor(QMainWindow):
         rename.triggered.connect(lambda: self._rename_category(data, item))
         self.context_menu.addAction(rename)
         if item != self.root_item.item(0):
-            delete_action = QAction("Delete", self)
-            delete_action.triggered.connect(lambda: self._delete_item(data, item))
-            self.context_menu.addAction(delete_action)
-            clone_action = QAction("Clone (Shallow)", self)
-            clone_action.triggered.connect(lambda: self._clone_shallow(data, item))
-            self.context_menu.addAction(clone_action)
-            clone_action = QAction("Clone (Deep)", self)
-            clone_action.triggered.connect(lambda: self._clone_deep(data, item))
-            self.context_menu.addAction(clone_action)
+            delete = QAction("Delete", self)
+            delete.triggered.connect(lambda: self._delete_item(data, item))
+            self.context_menu.addAction(delete)
+            clone = QAction("Clone (Shallow)", self)
+            clone.triggered.connect(lambda: self._clone_shallow(data, item))
+            self.context_menu.addAction(clone)
+            clone = QAction("Clone (Deep)", self)
+            clone.triggered.connect(lambda: self._clone_deep(data, item))
+            self.context_menu.addAction(clone)
         if isinstance(data, Quiz):
             save_as = QAction("Save as", self)
             save_as.triggered.connect(lambda: self._write_quiz(data, True))
@@ -321,7 +326,7 @@ class Editor(QMainWindow):
     @action_handler
     def _delete_item(self, item, parent: QStandardItem) -> None:
         parent.parent().removeRow(parent.index().row())
-        if isinstance(item, Question):
+        if isinstance(item, _Question):
             item.parent.rem_question(item)
         elif isinstance(item, Quiz):
             item.parent = None
@@ -346,7 +351,8 @@ class Editor(QMainWindow):
 
     @action_handler
     def _read_file(self, *args):
-        files, _ = QFileDialog.getOpenFileNames(self, "Open file", "", self.FORMATS)
+        files, _ = QFileDialog.getOpenFileNames(self, "Open file", "",
+                                                self.FORMATS)
         if not files:
             return None
         if len(files) == 1:
@@ -384,34 +390,15 @@ class Editor(QMainWindow):
     @action_handler
     def _update_item(self, model_index: QModelIndex) -> None:
         item = model_index.data(257)
-        def __get_set(key, gets, sets, stype):
-            if self.current_question and key in self.current_question.__dict__:
-                self.current_question.__setattr__(key, self._items[key].__getattribute__(gets)())
-            if key in item.__dict__ and item.__dict__[key] is not None:
-                value = item.__dict__[key]
-                if stype:
-                    value = stype(value)
-                self._items[key].__getattribute__(sets)(value)
-        if isinstance(item, Question):
-            init_fields = list(item.__init__.__code__.co_names)
-            init_fields.extend(Question.__init__.__code__.co_names)
-            for key in self._items:
-                if isinstance(self._items[key], QComboBox):
-                    __get_set(key, "currentText", "setCurrentText", str)
-                elif isinstance(self._items[key], QLineEdit):
-                    __get_set(key, "text", "setText", str)
-                elif isinstance(self._items[key], GTextEditor):
-                    __get_set(key, "get_ftext", "set_ftext", None)
-                elif isinstance(self._items[key], QCheckBox):
-                    __get_set(key, "isChecked", "setChecked", bool)
-                elif hasattr(self._items[key], "from_obj"): # Suposse it als has to_obj
-                    __get_set(key, "to_obj", "from_obj", None)
+        if isinstance(item, _Question):
+            for key in self._items.values():
+                attr = key.get_attr()
+                if attr in item.__dict__:
+                    key.setEnabled(True)
+                    key.from_obj(item)
                 else:
-                    LOG.warning(f"No form defined for {key}")
-                self._items[key].setEnabled(key in init_fields)
-            self.question_type.setCurrentText(type(item).__name__)
-            self.current_question = item
-            self.current_item = self.root_item.itemFromIndex(model_index)
+                    key.setEnabled(False)
+            self._cur_question = item
         path = [f" ({item.__class__.__name__})"]
         while item.parent:
             path.append(item.name)
@@ -429,29 +416,14 @@ class Editor(QMainWindow):
 
     def _write_quiz(self, quiz: Quiz, save_as: bool):
         if save_as:
-            path, _ = QFileDialog.getSaveFileName(self, "Save file", "", self.FORMATS)
+            path, _ = QFileDialog.getSaveFileName(self, "Save file", "",
+                                                  self.FORMATS)
             if not path:
                 return None
         else:
             path = self.path
-        if path[-6:] == ".cloze":
-            quiz.write_cloze(path)
-        elif path[-5:] == ".json":
-            quiz.write_json(path, True)
-        elif path[-5:] == ".gift":
-            quiz.write_gift(path)
-        elif path[-3:] == ".md":
-            quiz.write_markdown(path)
-        elif path[-4:] == ".pdf":
-            quiz.write_pdf(path)
-        elif path[-4:] == ".tex":
-            quiz.write_latex(path)
-        elif path[-4:] == ".txt":
-            quiz.write_aiken(path)
-        elif path[-4:] == ".xml":
-            quiz.write_xml(path, True)
-        else:
-            raise ValueError(f"Extension {path.rsplit('.', 1)[-1]} can not be read")
+        ext = path.rsplit('.', 1)[-1]
+        quiz.__getattribute__(self.SERIALIZER[ext][0])(path)
         return path
 
     @action_handler
@@ -459,6 +431,3 @@ class Editor(QMainWindow):
         path = self._write_quiz(self.top_quiz, save_as)
         if path:
             self.path = path
-
-
-# ----------------------------------------------------------------------------------------

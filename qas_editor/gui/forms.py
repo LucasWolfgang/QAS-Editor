@@ -24,9 +24,11 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
                             QLabel, QGridLayout
 from ..answer import Answer, CalculatedAnswer, DragItem, DragText, ClozeItem
 from ..enums import ClozeFormat, Format, Grading, ShowUnits
-from ..wrappers import CombinedFeedback, FText, Hint, MultipleTries, UnitHandling
-from ..questions import QCrossWord
-from .utils import GTextEditor, action_handler
+from ..wrappers import FText, Hint, Subquestion, UnitHandling
+from ..questions import QCalculatedMultichoice, QCalculatedSimple, QCloze, QDragAndDropImage, \
+                        QDragAndDropText, QMatching, QMultichoice, QCalculated, \
+                        QNumerical, QRandomMatching
+from .utils import GField, GTextEditor, action_handler
 if TYPE_CHECKING:
     from .utils import GTextToolbar
 LOG = logging.getLogger(__name__)
@@ -35,22 +37,22 @@ class GAnswer(QHBoxLayout):
     """GUI for QAnswer class.
     """
 
-    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, **kwargs) -> None:
+        super().__init__()
         self.obj = None
-        self._text = GTextEditor(toolbar, "")
+        self._text = GTextEditor(kwargs.get("toolbar"), "")
         self._text.setToolTip("Use this field to define the answer text")
         self.addWidget(self._text, 0)
-        self._feedback = GTextEditor(toolbar, "feedback")
+        self._feedback = GTextEditor(kwargs.get("toolbar"), "feedback")
         self._feedback.setToolTip("Use this field to define the answer feedback")
         self.addWidget(self._feedback, 1)
-        self._grade = QLineEdit()
+        self._grade = GField(str, "fraction")
         self._grade.setMaximumWidth(50)
         self._grade.setToolTip("Use this field to define the answer grade")
         self.addWidget(self._grade, 2)
         self.setStretch(0, 0)
         self.setStretch(0, 1)
-
+ 
     def __del__(self):
         try:
             for i in range(self.count()):
@@ -63,41 +65,14 @@ class GAnswer(QHBoxLayout):
         Args:
             obj (Answer): _description_
         """
-        self._grade.setText(str(obj.fraction))
-        self._text.text_format = obj.formatting
-        if obj.formatting == Format.MD:
-            self._text.setMarkdown(obj.text)
-        elif obj.formatting == Format.HTML:
-            self._text.setHtml(obj.text)
-        elif obj.formatting == Format.PLAIN:
-            self._text.setPlainText(obj.text)
-        self.obj = obj
+        print(type(obj))
+        self._text.from_obj(obj)
+        #self.obj = Answer(fraction, text, feedback, formatting)
+        self._grade.from_obj(obj)
+        self._feedback.from_obj(obj)
 
-    def to_obj(self) -> Answer:
-        """_summary_
 
-        Returns:
-            Answer: _description_
-        """
-        fraction = float(self._grade.text())
-        formatting = self._text.text_format
-        if formatting == Format.MD:
-            text = self._text.toMarkdown()
-        elif formatting == Format.HTML:
-            text = self._text.toHtml()
-        else:
-            text = self._text.toPlainText()
-        feedback = self._feedback.get_ftext()
-        if self.obj is not None:
-            self.obj.fraction = fraction
-            self.obj.text = text
-            self.obj.feedback = feedback
-            self.obj.formatting = formatting
-        else:
-            self.obj = Answer(fraction, text, feedback, formatting)
-        return self.obj
-
-    def setVisible(self, visible: bool) -> None: # pylint: disable=C0103
+    def setVisible(self, visible: bool) -> None:  # pylint: disable=C0103
         """_summary_
 
         Args:
@@ -134,7 +109,7 @@ class GCalculated(QFrame):
         self._answer_disp = QLineEdit(self)
         grid.addWidget(self._answer_disp, 2, 1)
 
-    def from_obj(self, obj: Answer) -> None:
+    def from_obj(self, obj: CalculatedAnswer) -> None:
         self.__obj = obj
 
     def to_obj(self) -> CalculatedAnswer:
@@ -226,7 +201,7 @@ class GCloze(QHBoxLayout):
         self.opts.pop()
         self._opts.removeItem(self._opts.count()-1)
 
-    def from_obj(self, obj: ClozeItem) -> None:
+    def from_obj(self, obj: Answer) -> None:
         """_summary_
 
         Args:
@@ -407,25 +382,26 @@ class GDropZone(QGridLayout):
 class GOptions(QVBoxLayout):
     """GUI for GOptions class.
     """
+    _TYPES = {
+        QCalculated: (GCalculated, "answers", False),
+        QCalculatedSimple: (GCalculated, "answers", False),
+        QCalculatedMultichoice: (GCalculated, "answers", False),
+        QCloze: (GCloze, "answers", False),
+        QDragAndDropText: (GDrag, "answers", True),
+        QDragAndDropImage: (GDrag, "answers", False),
+        QMatching: (Subquestion, "answers", False),
+        QRandomMatching: (),
+        QMultichoice: (GAnswer, "answers", False),
+        QNumerical: (GAnswer, "answers", False)
+    }
 
     def __init__(self, toolbar, **kwargs) -> None:
         super().__init__(**kwargs)
         self.visible = True
         self.toolbar = toolbar
         self.__ctype = None
-        #self.setSpacing(0)
+        self.__obj: list = None
         self.setContentsMargins(0, 0, 0, 0)
-
-    def _soft_clear(self, new_size=0, new_type=None):
-        if len(self.children()) == 0:
-            return
-        to_rem = 0
-        if new_type and new_type != self.__ctype:
-            to_rem = self.count()
-        elif self.count() > new_size:
-            to_rem = self.count() - new_size
-        for i in reversed(range(to_rem)):
-            self.itemAt(i).layout().deleteLater()
 
     def add(self, obj):
         """_summary_
@@ -436,6 +412,7 @@ class GOptions(QVBoxLayout):
         Raises:
             ValueError: _description_
         """
+        obj = obj.answers
         if not isinstance(obj, self.__ctype):
             raise ValueError(f"Objects in this Layout can only be of type {self.__ctype}.")
         item = self.add_default()
@@ -450,17 +427,9 @@ class GOptions(QVBoxLayout):
         Returns:
             _type_: _description_
         """
-        if   self.__ctype is Answer:
-            item = GAnswer(self.toolbar)
-        elif self.__ctype is DragText:
-            item = GDrag(True)
-        elif self.__ctype is DragItem:
-            item = GDrag(False)
-        elif self.__ctype is ClozeItem:
-            item = GCloze()
-        elif self.__ctype is CalculatedAnswer:
-            item = GCloze()
-        else: raise TypeError(f"Type {self.__ctype} is not implemented")
+        cls, _, only_text = self._TYPES[self.__ctype]
+        item = cls(toolbar=self.toolbar, only_text=only_text)
+        print(item.__dict__)
         self.addLayout(item)
         return item
 
@@ -478,22 +447,34 @@ class GOptions(QVBoxLayout):
             LOG.warning(f"Attempted adding non-valid layout {type(layout)} to GOptions.")
         return super().addLayout(layout, stretch=stretch)
 
-    def from_obj(self, objs: list) -> None:
+    def from_obj(self, obj) -> None:
         """_summary_
 
         Args:
             objs (list): _description_
         """
-        self._soft_clear(len(objs), None if not objs else type(objs[0]))
-        if not objs:
+        ctype = self.__ctype
+        self.__ctype = type(obj)
+        self.__obj = obj.__getattribute__(self._TYPES[self.__ctype][1])
+        if len(self.children()) == 0:
             return
-        self.__ctype = type(objs[0])
-        for obj, child in zip(objs, self.children()):
+        to_rem = 0
+        new_size = len(self.__obj)
+        if self._TYPES[ctype][0] != self._TYPES[self.__ctype][0]:
+            to_rem = self.count()
+        elif self.count() > new_size:
+            to_rem = self.count() - new_size
+        for i in reversed(range(to_rem)):
+            self.itemAt(i).layout().deleteLater()
+        for obj, child in zip(self.__obj, self.children()):
             if hasattr(child, "from_obj"):
                 child.from_obj(obj)
-        if self.count() < len(objs):
-            for obj in objs[self.count():]:
+        if self.count() < new_size:
+            for obj in self.__obj[self.count():]:
                 self.add(obj)
+
+    def get_attr(self):
+        return "answers"
 
     def pop(self) -> None:
         """_summary_
@@ -529,11 +510,12 @@ class GCFeedback(QFrame):
 
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
+        self.__obj = None
         self.setStyleSheet(".GCFeedback{border:1px solid rgb(41, 41, 41);"+
                            "background-color: #e4ebb7}")
-        self._correct = GTextEditor(toolbar, "correctfeedback")
-        self._incomplete = GTextEditor(toolbar, "partiallycorrectfeedback")
-        self._incorrect = GTextEditor(toolbar, "incorrectfeedback")
+        self._correct = GTextEditor(toolbar, "correct")
+        self._incomplete = GTextEditor(toolbar, "incomplete")
+        self._incorrect = GTextEditor(toolbar, "incorrect")
         self._show = QCheckBox("Show the number of correct responses once"+
                                " the question has finished")
         _content = QGridLayout(self)
@@ -546,26 +528,19 @@ class GCFeedback(QFrame):
         _content.addWidget(self._show, 2, 0, 1, 3)
         _content.setColumnStretch(3, 1)
 
-    def from_obj(self, obj: CombinedFeedback) -> None:
+    def from_obj(self, obj) -> None:
         """_summary_
 
         Args:
             obj (CombinedFeedback): _description_
         """
-        self._correct.set_ftext(obj.correct)
-        self._incomplete.set_ftext(obj.incomplete)
-        self._incorrect.set_ftext(obj.incorrect)
+        self.__obj = obj
+        self._correct.from_obj(self.__obj)
+        self._incomplete.from_obj(self.__obj)
+        self._incorrect.from_obj(self.__obj)
 
-    def to_obj(self) -> None:
-        """_summary_
-
-        Returns:
-            _type_: _description_
-        """
-        correct = self._correct.get_ftext()
-        incomplete = self._incomplete.get_ftext()
-        incorrect = self._incorrect.get_ftext()
-        return CombinedFeedback(correct, incomplete, incorrect, self._show.isChecked())
+    def get_attr(self):
+        return "combined_feedback"
 
 # ----------------------------------------------------------------------------------------
 
@@ -575,6 +550,7 @@ class GHint(QFrame):
 
     def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
         super().__init__(**kwargs)
+        self.__obj = None
         self.setStyleSheet(".GHint{border:1px solid rgb(41, 41, 41); background-color: #e4ebb7}")
         self._text = GTextEditor(toolbar, "")
         self._show = QCheckBox("Show the number of correct responses")
@@ -592,16 +568,20 @@ class GHint(QFrame):
         Args:
             obj (Hint): _description_
         """
-        self._show.setChecked(obj.show_correct)
-        self._clear.setChecked(obj.clear_wrong)
-        self._state.setChecked(obj.state_incorrect)
-        self._text.text_format = obj.formatting
-        if obj.formatting == Format.MD:
-            self._text.setMarkdown(obj.text)
-        elif obj.formatting == Format.HTML:
-            self._text.setHtml(obj.text)
-        elif obj.formatting == Format.PLAIN:
-            self._text.setPlainText(obj.text)
+        self.__obj = obj
+        self._show.setChecked(self.__obj.show_correct)
+        self._clear.setChecked(self.__obj.clear_wrong)
+        self._state.setChecked(self.__obj.state_incorrect)
+        self._text.text_format = self.__obj.formatting
+        if self.__obj.formatting == Format.MD:
+            self._text.setMarkdown(self.__obj.text)
+        elif self.__obj.formatting == Format.HTML:
+            self._text.setHtml(self.__obj.text)
+        elif self.__obj.formatting == Format.PLAIN:
+            self._text.setPlainText(self.__obj.text)
+
+    def get_attr(self):
+        return "hints"
 
     def to_obj(self):
         """_summary_
@@ -625,15 +605,16 @@ class GMultipleTries(QVBoxLayout):
     """GUI class for the MultipleTries wrapper
     """
 
-    def __init__(self, toolbar: GTextToolbar, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, parent: QWidget, toolbar: GTextToolbar) -> None:
+        super().__init__(parent)
+        self.__obj = None
         _header = QHBoxLayout()
-        self._penalty = QLineEdit()
+        self._penalty = GField(parent, str, "penalty")
         self._penalty.setText("0")
         _header.addWidget(QLabel("Penalty for each try"))
         _header.addWidget(self._penalty)
         add = QPushButton("Add Hint")
-        add.clicked.connect(lambda: self.addWidget(GHint(toolbar)))
+        add.clicked.connect(self._add_hint)
         _header.addWidget(add)
         rem = QPushButton("Remove Last")
         rem.clicked.connect(self.pop)
@@ -642,21 +623,32 @@ class GMultipleTries(QVBoxLayout):
         self.addLayout(_header)
         self._toolbar = toolbar
 
-    def from_obj(self, obj: MultipleTries) -> None:
+    def _add_hint(self):
+        ui = GHint(self._toolbar)
+        hint = Hint(Format.AUTO, "", True, True)
+        ui.from_obj(hint)
+        self.__obj.hints.append()
+        super().addWidget(ui)
+
+    def from_obj(self, obj) -> None:
         """_summary_
 
         Args:
             obj (MultipleTries): _description_
         """
-        self._penalty.setText(str(obj.penalty))
-        if len(obj.hints) > self.count()-1:
-            for _ in range(len(obj.hints)-self.count()):
+        self.__obj = obj.multiple_tries
+        self._penalty.from_obj(self.__obj)
+        if len(self.__obj.hints) > self.count()-1:
+            for _ in range(len(self.__obj.hints)-self.count()):
                 self.addWidget(GHint(self._toolbar))
-        elif len(obj.hints)+1 < self.count():
-            for i in reversed(range(self.count()-len(obj.hints))):
+        elif len(self.__obj.hints)+1 < self.count():
+            for i in reversed(range(self.count()-len(self.__obj.hints))):
                 self.itemAt(i).layout().deleteLater()
-        for num in range(len(obj.hints)):
-            self.itemAt(num+2).from_obj(obj.hints[num])
+        for num in range(len(self.__obj.hints)):
+            self.itemAt(num+2).from_obj(self.__obj.hints[num])
+
+    def get_attr(self):
+        return "multiple_tries"
 
     def pop(self) -> None:
         """_summary_
@@ -664,18 +656,6 @@ class GMultipleTries(QVBoxLayout):
         if not self.count():
             return
         self.itemAt(self.count()-1).widget().deleteLater()
-
-    def to_obj(self) -> None:
-        """_summary_
-
-        Returns:
-            _type_: _description_
-        """
-        penalty = float(self._penalty.text())
-        hints = []
-        for num in range(self.count()-1):
-            hints.append(self.itemAt(num+1).to_obj())
-        return MultipleTries(penalty, hints)
 
 # ----------------------------------------------------------------------------------------
 
@@ -691,6 +671,7 @@ class GUnitHadling(QFrame):
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self.setStyleSheet(".GUnitHadling{border:1px solid; background-color: #e4ebb7}")
+        self.__obj = None
         self._grading = QComboBox()
         self._grading.addItems(["Ignore", "Fraction of reponse", "Fraction of question"])
         self._penalty = QLineEdit()
@@ -710,19 +691,23 @@ class GUnitHadling(QFrame):
         _content.setContentsMargins(5, 2, 5, 1)
         self.setFixedSize(300, 55)
 
-    def from_obj(self, obj: UnitHandling) -> None:
+    def from_obj(self, obj) -> None:
         """_summary_
 
         Args:
             obj (UnitHandling): _description_
         """
+        self.__obj = obj.unit_handling
         for key, value in self.GRADE.items():
-            if obj.grading_type.value == value:
+            if self.__obj.grading_type.value == value:
                 self._grading.setCurrentText(key)
         for key, value in self.SHOW_UNITS.items():
-            if obj.show.value == value:
+            if self.__obj.show.value == value:
                 self._show.setCurrentIndex(key)
-        self._penalty.setText(str(obj.penalty))
+        self._penalty.setText(str(self.__obj.penalty))
+
+    def get_attr(self):
+        return "unit_handling"
 
     def to_obj(self) -> UnitHandling:
         """_summary_
@@ -741,7 +726,7 @@ class GCrossWord(QWidget):
     """GUI class for the CrossWord question class.
     """
 
-    def from_obj(self, _: QCrossWord) -> None:
+    def from_obj(self, _) -> None:
         """_summary_
 
         Args:

@@ -22,6 +22,7 @@ from .utils import action_handler
 from ..questions import QNAME
 from ..quiz import Quiz
 
+
 class NamePopup(QDialog):
 
     def __init__(self, new_cat, suggestion="") -> None:
@@ -55,7 +56,6 @@ class NamePopup(QDialog):
         self.data = name
         self.accept()
 
-# ------------------------------------------------------------------------------
 
 class QuestionPopup(QDialog):
 
@@ -65,20 +65,18 @@ class QuestionPopup(QDialog):
         self.__quiz = quiz
         question_create = QPushButton("Create")
         question_create.clicked.connect(self._create_question)
-        self.__question_type = QComboBox()
-        self.__question_type.addItems(QNAME)
+        self.__type = QComboBox()
+        self.__type.addItems(QNAME)
         vbox = QVBoxLayout()
-        vbox.addWidget(self.__question_type)
+        vbox.addWidget(self.__type)
         vbox.addWidget(question_create)
         self.setLayout(vbox)
         self.question = None
 
     @action_handler
     def _create_question(self, status) -> None:
-        self.question = QNAME[self.__question_type.currentText()](name="New Question")
+        self.question = QNAME[self.__type.currentText()](name="New Question")
         if self.__quiz.add_question(self.question):
             self.accept()
         else:
             self.reject()
-        
-# ------------------------------------------------------------------------------
