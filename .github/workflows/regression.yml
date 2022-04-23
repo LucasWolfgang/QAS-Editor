@@ -37,7 +37,7 @@ jobs:
         gistID: 344598a4a0f7b92a7889d998e33417c4
         filename: pylint.json
         label: Pylint
-        message: points
+        message: ${{ env.PYLINT_SCORE }} / 10.0 points
         minColorRange: 6
         maxColorRange: 10
         valColorRange: ${{ env.PYLINT_SCORE }}
@@ -53,7 +53,7 @@ jobs:
         gistID: 344598a4a0f7b92a7889d998e33417c4
         filename: flake8.json
         label: Flake8
-        message: errors
+        message: ${{ env.FLAKE_ERRORS }} errors
         minColorRange: 0
         maxColorRange: 50
         valColorRange: ${{ env.FLAKE_ERRORS }}
@@ -73,7 +73,7 @@ jobs:
         gistID: 344598a4a0f7b92a7889d998e33417c4
         filename: pytest.json
         label: Pytest
-        message: tests
+        message: ${{ env.PYTEST_SCORE }} / ${{ env.PYTEST_MAX }} tests
         minColorRange: ${{ env.PYTEST_MIN }} 
         maxColorRange: ${{ env.PYTEST_MAX }} 
         valColorRange: ${{ env.PYTEST_SCORE }}
