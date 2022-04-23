@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Python: Module",
+            "name": "GUI debug",
             "type": "python",
             "request": "launch",
             "module": "qas_editor",

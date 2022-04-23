@@ -4,6 +4,7 @@ disable = C0302,    # Too many lines in module
           W1202,    # Use % formatting in logging functions. Can't see why
           W1203,    # Use lazy % or .format() formatting in logging functions...
           W0511,    # TODO's. Not necessary
+          W0223,
           W0212     # Access to a protected member. Internal methods need to access protected member.
                     #   but it will be good to revise this one later.
 
