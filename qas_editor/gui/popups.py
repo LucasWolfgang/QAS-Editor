@@ -20,7 +20,7 @@ from PyQt5.QtWidgets import QDialog, QPushButton, QLineEdit, QVBoxLayout,\
                             QComboBox
 from .utils import action_handler
 from ..questions import QNAME
-from ..quiz import Quiz
+from ..quiz import Category
 
 
 class NamePopup(QDialog):
@@ -45,7 +45,7 @@ class NamePopup(QDialog):
         name = self._category_name.text()
         if not name:
             self.reject()
-        self.data = Quiz(name)
+        self.data = Category(name)
         self.accept()
 
     @action_handler
@@ -59,7 +59,7 @@ class NamePopup(QDialog):
 
 class QuestionPopup(QDialog):
 
-    def __init__(self, quiz: Quiz) -> None:
+    def __init__(self, quiz: Category) -> None:
         super().__init__()
         self.setWindowTitle("Create Question")
         self.__quiz = quiz

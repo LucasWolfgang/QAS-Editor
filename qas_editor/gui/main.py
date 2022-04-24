@@ -30,7 +30,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QPushButton, QScrollArea
 
 from .popups import NamePopup, QuestionPopup
-from ..quiz import Quiz
+from ..quiz import Category
 from ..questions import _Question
 from ..enums import Numbering
 from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, IMG_PATH,\
@@ -65,7 +65,7 @@ class Editor(QMainWindow):
 
         self._items: Dict[str, QWidget] = {}
         self.path: str = None
-        self.top_quiz = Quiz()
+        self.top_quiz = Category()
         self.cxt_menu = QMenu(self)
         self.cxt_item: QStandardItem = None
         self.cxt_data: _Question = None
@@ -271,13 +271,13 @@ class Editor(QMainWindow):
                                               self.FORMATS)
         if not path:
             return None
-        quiz = Quiz.read_files([path], path.rsplit("/", 1)[-1])
+        quiz = Category.read_files([path], path.rsplit("/", 1)[-1])
         self.cxt_data[quiz.name] = quiz
         self._update_tree_item(quiz, self.cxt_item)
 
     @action_handler
     def _create_file(self):
-        self.top_quiz = Quiz()
+        self.top_quiz = Category()
         self.path = None
         self._update_tree_item(self.top_quiz, self.root_item)
 
@@ -285,10 +285,13 @@ class Editor(QMainWindow):
     def _dataview_dropevent(self, event: QDropEvent):
         from_obj = self.data_view.selectedIndexes()[0].data(257)
         to_obj = self.data_view.indexAt(event.pos()).data(257)
-        if isinstance(to_obj, _Question):
+        if isinstance(to_obj, Category):
+            if isinstance(from_obj, _Question):
+                to_obj.add_subcat(from_obj)
+            else:
+                to_obj.add_question(from_obj)
+        else:
             event.ignore()
-            raise TypeError()
-        from_obj.parent = to_obj    # This already does all the magic
         self.data_view.original_dropEvent(event)
 
     def _data_view_cxt(self, event):
@@ -309,7 +312,7 @@ class Editor(QMainWindow):
             clone = QAction("Clone (Deep)", self)
             clone.triggered.connect(self._clone_deep)
             self.cxt_menu.addAction(clone)
-        if isinstance(self.cxt_data, Quiz):
+        if isinstance(self.cxt_data, Category):
             save_as = QAction("Save as", self)
             save_as.triggered.connect(lambda: self._write_quiz(self.cxt_data,
                                                                True))
@@ -328,10 +331,11 @@ class Editor(QMainWindow):
     @action_handler
     def _delete_item(self):
         self.cxt_item.parent().removeRow(self.cxt_item.index().row())
+        cat = self.cxt_data.parent
         if isinstance(self.cxt_data, _Question):
-            self.cxt_item.parent.rem_question(self.cxt_item)
-        elif isinstance(self.cxt_data, Quiz):
-            self.cxt_item.parent = None
+            cat.pop_question(self.cxt_data)
+        elif isinstance(self.cxt_data, Category):
+            cat.pop_subcat(self.cxt_data)
 
     @action_handler
     def _clone_shallow(self) -> None:
@@ -343,7 +347,7 @@ class Editor(QMainWindow):
         new_data = copy.deepcopy(self.cxt_data)
         self._new_item(new_data, self.cxt_itemparent(), "question")
 
-    def _new_item(self, data: Quiz, parent: QStandardItem, title: str):
+    def _new_item(self, data: Category, parent: QStandardItem, title: str):
         path = f"{IMG_PATH}/{data.__class__.__name__}_icon.png".lower()
         if not os.path.isfile(path):
             path = f"{IMG_PATH}/{title}_icon.png"
@@ -361,7 +365,7 @@ class Editor(QMainWindow):
             return None
         if len(files) == 1:
             self.path = files[0]
-        self.top_quiz = Quiz.read_files(files)
+        self.top_quiz = Category.read_files(files)
         self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
@@ -372,11 +376,11 @@ class Editor(QMainWindow):
         dialog.setFileMode(QFileDialog.FileMode.Directory)
         if not dialog.exec():
             return None
-        self.top_quiz = Quiz()
+        self.top_quiz = Category()
         self.path = None
         for folder in dialog.selectedFiles():
             cat = folder.rsplit("/", 1)[-1]
-            quiz = Quiz.read_files(glob.glob(f"{folder}/*"), cat)
+            quiz = Category.read_files(glob.glob(f"{folder}/*"), cat)
             self.top_quiz[cat] = quiz
         self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
@@ -411,14 +415,14 @@ class Editor(QMainWindow):
         path.reverse()
         self.cat_name.setText(" > ".join(path[:-1]) + path[-1])
 
-    def _update_tree_item(self, data: Quiz, parent: QStandardItem) -> None:
+    def _update_tree_item(self, data: Category, parent: QStandardItem) -> None:
         item = self._new_item(data, parent, "category")
         for k in data.questions:
             self._new_item(k, item, "question")
         for k in data:
             self._update_tree_item(data[k], item)
 
-    def _write_quiz(self, quiz: Quiz, save_as: bool):
+    def _write_quiz(self, quiz: Category, save_as: bool):
         if save_as:
             path, _ = QFileDialog.getSaveFileName(self, "Save file", "",
                                                   self.FORMATS)

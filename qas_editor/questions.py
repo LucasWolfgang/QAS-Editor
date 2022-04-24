@@ -32,6 +32,7 @@ from .answer import Answer, ClozeItem, NumericalAnswer, DragText, \
 if TYPE_CHECKING:
     from typing import List, Dict
     from .enums import Direction
+    from .quiz import Category
 LOG = logging.getLogger(__name__)
 
 
@@ -76,7 +77,7 @@ class _Question(Serializable):
         self.__parent = None
 
     @property
-    def parent(self):
+    def parent(self) -> Category:
         """_summary_
 
         Returns:
@@ -86,11 +87,10 @@ class _Question(Serializable):
 
     @parent.setter
     def parent(self, value):
-        if (self.__parent is None and value is not None and
-                self not in value.questions) or (self.__parent is not None and
-                value is None and self in self.__parent.questions):
+        if (value is not None and self not in value.questions) or\
+                (self.__parent is not None and self in self.__parent.questions):
             raise ValueError("This attribute can't be assigned directly. Use "
-                             "parent's add/rem_question functions instead.")
+                             "parent's add/pop_question functions instead.")
         self.__parent = value
 
     @classmethod
@@ -763,7 +763,7 @@ class QMultichoice(_QuestionMTCS):
         Returns:
             QMultichoice: _description_
         """
-        header = buffer.read(True)
+        header = buffer.read(True).strip()
         answers = []
         while buffer.read() and "ANSWER:" not in buffer.read()[:7]:
             ans = re.match(r"[A-Z]+\) (.+)", buffer.read(True))

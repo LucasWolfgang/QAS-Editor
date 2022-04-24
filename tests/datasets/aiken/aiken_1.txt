@@ -3,21 +3,25 @@ A) 2.6
 B) 2.5
 C) 2.0
 ANSWER: B
+
 During the month of September 2013, Moodle ran a successful MOOC for teachers new to Moodle. What was the name of the course?
 A) Teaching with Moodle
 B) Moodle MOOC
 C) Moodle for Teachers
 ANSWER: A
+
 Moodle is Modular. That means it has plugins (or add-ons) which can be included along with its standard modules to make it much more powerful. Over the years many contributors have made extra modules - some of which have become part of a standard Moodle installation. Which was the first ever contributed module or "add-on"?
 A) The workshop module
 B) The quiz module
 C) The forum module
 ANSWER: A
+
 This is an example of a multiple choice question with only one answer.When was Moodle 3.0 released?
 A) November 2020
 B) November 2015
 C) May 2020
 ANSWER: B
+
 You may include a variety of media in your questions.Which of the following sound recordings matches the musical score shown below?[Music score]Apologies if you are deaf, this question will not work for you. And if you are an author be aware that you may have deaf students.
 A)  .
 B)  .

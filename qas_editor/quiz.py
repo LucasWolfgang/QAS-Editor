@@ -29,7 +29,7 @@ from xml.etree import ElementTree as et
 from .utils import Serializable, LineBuffer, serialize_fxml
 from .questions import QTYPE, QMultichoice, QCloze, QDescription,\
                        QEssay, QNumerical, QMissingWord, QTrueFalse,\
-                       QMatching, QShortAnswer
+                       QMatching, QShortAnswer, _Question
 if TYPE_CHECKING:
     from typing import Dict   # pylint: disable=C0412
 LOG = logging.getLogger(__name__)
@@ -39,17 +39,16 @@ LOG = logging.getLogger(__name__)
 # import pikepdf
 
 
-class Quiz(Serializable):  # pylint: disable=R0904
+class Category(Serializable):  # pylint: disable=R0904
     """
     This class represents Quiz as a set of Questions.
     """
 
-    def __init__(self, name: str = "$course$", parent: "Quiz" = None):
+    def __init__(self, name: str = "$course$"):
         self.__questions: list = []
-        self.__categories: Dict[str, Quiz] = {}
+        self.__categories: Dict[str, Category] = {}
         self.__name = name
         self.__parent = None
-        self.parent = parent    # Already using the property setter
 
     def __iter__(self):
         return self.__categories.__iter__()
@@ -58,24 +57,15 @@ class Quiz(Serializable):  # pylint: disable=R0904
         return self.__categories[key]
 
     def __len__(self):
-        total = len(self.__questions)
-        for cat in self.__categories.values():
-            total += len(cat)
-        return total
-
-    def __setitem__(self, __k: str, __v: "Quiz"):
-        if not isinstance(__k, str) or not isinstance(__v, Quiz):
-            raise ValueError(f"{__k} is not a string or {__v} is not a Quiz")
-        return self.__categories.__setitem__(__k, __v)
+        return len(self.__categories)
 
     @staticmethod
-    def __gen_hier(top: "Quiz", category: str) -> Quiz:
+    def __gen_hier(top: "Category", category: str) -> Category:
         cat_list = category.strip().split("/")
         start = 1 if top.name == cat_list[0] else 0
         quiz = top
         for i in cat_list[start:]:
-            if i not in quiz:
-                quiz[i] = Quiz(i, quiz)
+            quiz.add_subcat(Category(i))
             quiz = quiz[i]
         return quiz
 
@@ -85,7 +75,7 @@ class Quiz(Serializable):  # pylint: disable=R0904
             if isinstance(question, QMultichoice):
                 data += f"{question.question.text}\n"
                 correct = "ANSWER: None\n\n"
-                for num, ans in enumerate(question.answers):
+                for num, ans in enumerate(question.options):
                     data += f"{chr(num+65)}) {ans.text}\n"
                     if ans.fraction == 100:
                         correct = f"ANSWER: {chr(num+65)}\n\n"
@@ -138,8 +128,8 @@ class Quiz(Serializable):  # pylint: disable=R0904
                     tmp["MOODLE"] = val.MOODLE
                 if "_Question__parent" in tmp:
                     del tmp["_Question__parent"]
-                elif "_Quiz__parent" in tmp:
-                    del tmp["_Quiz__parent"]
+                elif "_Category__parent" in tmp:
+                    del tmp["_Category__parent"]
                 res = self._to_json(tmp)
             if res != val:
                 if isinstance(data, dict):
@@ -171,23 +161,29 @@ class Quiz(Serializable):  # pylint: disable=R0904
         return self.__parent
 
     @parent.setter
-    def parent(self, value: "Quiz") -> None:
-        if value and self.__name in value.__categories:
-            raise ValueError(f"Question name \"{self.__name}\" already "
-                             "exists on new category")
-        if self.__parent:
-            self.__parent.__categories.pop(self.__name)
-        if isinstance(value, Quiz):
-            value.__categories[self.__name] = self
-            self.__parent = value
-        else:
-            self.__parent = None
+    def parent(self, value: "Category"):
+        if (value is not None and self.name not in value) or\
+                (self.__parent is not None and self.name in self.__parent):
+            raise ValueError("This attribute can't be assigned directly. Use "
+                             "parent's add/pop_question functions instead.")
+        self.__parent = value
 
     @property
     def questions(self):
         """_summary_
         """
         return self.__questions.__iter__()
+
+    def add_subcat(self, child: Category) -> bool:
+        """_summary_
+        """
+        if child.name in self.__categories:
+            return False
+        if child.parent is not None:
+            child.parent.__categories.pop(child.name)
+        self.__categories[child.name] = child
+        child.parent = self
+        return True
 
     def add_question(self, question) -> bool:
         """_summary_
@@ -198,10 +194,10 @@ class Quiz(Serializable):  # pylint: disable=R0904
         Returns:
             bool: _description_
         """
-        if question in self.__questions:
+        if question in self.__questions or not isinstance(question, _Question):
             return False
         if question.parent is not None:
-            question.parent.rem_question(question)
+            question.parent.pop_question(question)
         self.__questions.append(question)
         question.parent = self
         return True
@@ -218,8 +214,35 @@ class Quiz(Serializable):  # pylint: disable=R0904
             data[name] = quiz.get_hier()
         return data
 
+    def pop_question(self, question) -> bool:
+        """_summary_
+
+        Args:
+            question (questions.Question): _description_
+
+        Returns:
+            bool: if the question was added
+        """
+        if question not in self.__questions:
+            return False
+        self.__questions.remove(question)
+        question.parent = None
+        return True
+
+    def pop_subcat(self, subcat: Category) -> bool:
+        """
+
+        Returns:
+            bool: if the subcategory was added
+        """
+        if subcat.name not in self.__questions:
+            return False
+        self.__categories.pop(subcat.name)
+        subcat.parent = None
+        return True
+
     @classmethod
-    def read_aiken(cls, file_path: str, category: str = "$course$") -> "Quiz":
+    def read_aiken(cls, file_path: str, category: str = "$course$"):
         """_summary_
 
         Args:
@@ -230,19 +253,19 @@ class Quiz(Serializable):  # pylint: disable=R0904
             Quiz: _description_
         """
         quiz = cls(category)
-        name = file_path.rsplit("/", 1)[-1][:-4]
+        name = file_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
         cnt = 0
         for _path in glob.glob(file_path):
             with open(_path, encoding="utf-8") as ifile:
                 buffer = LineBuffer(ifile)
                 while buffer.read():
                     question = QMultichoice.from_aiken(buffer, f"{name}_{cnt}")
-                    question.parent = quiz
+                    quiz.add_question(question)
                     cnt += 1
         return quiz
 
     @classmethod
-    def read_cloze(cls, file_path: str, category: str = "$course$") -> "Quiz":
+    def read_cloze(cls, file_path: str, category: str = "$course$"):
         """Reads a Cloze file.
 
         Args:
@@ -259,7 +282,7 @@ class Quiz(Serializable):  # pylint: disable=R0904
         return top_quiz
 
     @classmethod
-    def read_files(cls, files: list, category: str = "$course$") -> Quiz:
+    def read_files(cls, files: list, category: str = "$course$"):
         """_summary_
 
         Args:
@@ -294,7 +317,7 @@ class Quiz(Serializable):  # pylint: disable=R0904
         return top_quiz
 
     @classmethod
-    def read_gift(cls, file_path: str, category: str = "$course$") -> "Quiz":
+    def read_gift(cls, file_path: str, category: str = "$course$"):
         """Reads a gift file.
 
         Args:
@@ -320,7 +343,7 @@ class Quiz(Serializable):  # pylint: disable=R0904
                          r"(.+?)(?:(\{.*?)(?<!\\)\}(.*?))?)\n", data)
         for i in tmp:
             if i[0]:
-                quiz = Quiz.__gen_hier(top_quiz, i[0])
+                quiz = Category.__gen_hier(top_quiz, i[0])
             if not i[0]:
                 question = None
                 ans = re.findall(r"((?<!\\)(?:=|~|TRUE|FALSE|T|F|####|#))"
@@ -343,7 +366,7 @@ class Quiz(Serializable):  # pylint: disable=R0904
                         question = QShortAnswer.from_gift(i, ans)
                 else:
                     question = QMultichoice.from_gift(i, ans)
-                question.parent = quiz
+                quiz.add_question(question)
         return top_quiz
 
     @classmethod
@@ -351,12 +374,13 @@ class Quiz(Serializable):  # pylint: disable=R0904
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
-        def _from_json(_dt: dict, parent: Quiz):
-            quiz = cls(_dt["_Quiz__name"], parent)
+        def _from_json(_dt: dict, parent: Category):
+            quiz = cls(_dt["_Quiz__name"])
+            parent.add_subcat(quiz)
             for i in range(len(_dt["_questions"])):
                 val = _dt["_questions"][i]
                 _dt["_questions"][i] = QTYPE[val["MOODLE"]].from_json(val)
-                _dt["_questions"][i].parent = quiz
+                quiz.add_question(_dt["_questions"][i])
             for i in _dt["_Quiz__categories"]:
                 val = _dt["_Quiz__categories"][i]
                 _dt["_Quiz__categories"][i] = _from_json(val, quiz)
@@ -404,7 +428,7 @@ class Quiz(Serializable):  # pylint: disable=R0904
                              f"({answer_mkr})", lines[-1])
             if match:
                 if match[1]:
-                    quiz = Quiz.__gen_hier(top_quiz, match[2])
+                    quiz = Category.__gen_hier(top_quiz, match[2])
                     lines.pop()
                 elif match[3]:
                     if quiz is None:
@@ -480,7 +504,7 @@ class Quiz(Serializable):  # pylint: disable=R0904
         #                 img.save(obj[1:] + ".png")
 
     @classmethod
-    def read_xml(cls, file_path: str, category: str = "$course$") -> "Quiz":
+    def read_xml(cls, file_path: str, category: str = "$course$"):
         """[summary]
 
         Raises:
@@ -492,34 +516,27 @@ class Quiz(Serializable):  # pylint: disable=R0904
         if not category:
             raise ValueError("Category string should not be empty")
         data_root = et.parse(file_path)
-        top_quiz: Quiz = cls(category)
+        top_quiz: Category = cls(category)
         quiz = top_quiz
-        for question in data_root.getroot():
-            if question.tag != "question":
+        for elem in data_root.getroot():
+            if elem.tag != "question":
                 continue
-            if question.get("type") == "category":
-                quiz = Quiz.__gen_hier(top_quiz, question[0][0].text)
-            elif question.get("type") not in QTYPE:
-                raise TypeError(f"Type {question.get('type')} not implemented")
+            if elem.get("type") == "category":
+                quiz = Category.__gen_hier(top_quiz, elem[0][0].text)
+            elif elem.get("type") not in QTYPE:
+                raise TypeError(f"Type {elem.get('type')} not implemented")
             else:
-                quiz.__questions.append(QTYPE[question.get("type")].
-                                        from_xml(question, {}, {}))
+                question = QTYPE[elem.get("type")].from_xml(elem, {}, {})
+                quiz.add_question(question)
         return top_quiz
 
-    def rem_question(self, question) -> bool:
-        """_summary_
-
-        Args:
-            question (questions.Question): _description_
-
-        Returns:
-            bool: _description_
+    def size(self):
+        """Total number of questions in this category, including subcategories.
         """
-        if question not in self.__questions:
-            return False
-        self.__questions.remove(question)
-        question.parent = None
-        return True
+        total = len(self.__questions)
+        for cat in self.__categories.values():
+            total += len(cat)
+        return total
 
     def write_aiken(self, file_path: str) -> None:
         """_summary_
@@ -563,7 +580,7 @@ class Quiz(Serializable):  # pylint: disable=R0904
             pretty (bool, optional): [description]. Defaults to False.
         """
         tmp = self.__dict__.copy()
-        del tmp["_Quiz__parent"]
+        del tmp["_Category__parent"]
         with open(file_path, "w", encoding="utf-8") as ofile:
             json.dump(self._to_json(tmp), ofile, indent=4 if pretty else 0)
 

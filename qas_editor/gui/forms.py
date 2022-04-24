@@ -411,7 +411,7 @@ class GOptions(QVBoxLayout):
         Raises:
             ValueError: _description_
         """
-        obj = obj.answers
+        obj = obj.options
         if not isinstance(obj, self.__ctype):
             raise ValueError(f"Object type {type(obj)} != {self.__ctype}.")
         item = self.add_default()

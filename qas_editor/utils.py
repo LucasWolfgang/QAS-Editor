@@ -148,7 +148,7 @@ class Serializable:
             return False
         for key, value in self.__dict__.items():
             path.append(key)
-            if key in ("_Question__parent", "_Quiz__parent"):
+            if key in ("_Question__parent", "_Category__parent"):
                 continue
             if not Serializable.__itercmp(value, __o.__dict__.get(key), path):
                 raise ValueError(f"Items differs in {'/'.join(path)}:"
