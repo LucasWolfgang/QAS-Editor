@@ -400,7 +400,7 @@ class GArrow(QFrame):
 
 
 class GTitleFrame(QFrame):
-    """Used as header in a GFrameLayout class.
+    """Used as header in a GCollapsible class.
     """
 
     def __init__(self, parent, toogle_func, title=""):
@@ -426,7 +426,7 @@ class GTitleFrame(QFrame):
         return super().mousePressEvent(a0)
 
 
-class GFrameLayout(QVBoxLayout):
+class GCollapsible(QVBoxLayout):
     """Custom widget that gives a collapsable (dropdown style) window that
     contains other QWidgets.
     """

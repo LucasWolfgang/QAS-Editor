@@ -780,11 +780,11 @@ class QMultichoice(_QuestionMTCS):
     MOODLE = "multichoice"
     QNAME = "Multichoice"
 
-    def __init__(self, single=True, show_instruction=False,
+    def __init__(self, single=True, show_instr=False,
                  numbering: Numbering = None, **kwargs):
         super().__init__(**kwargs)
         self.single = single
-        self.show_instruction = show_instruction
+        self.show_instr = show_instr
         self.numbering = Numbering.ALF_LR if numbering is None else numbering
 
     @classmethod
@@ -843,7 +843,7 @@ class QMultichoice(_QuestionMTCS):
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["single"] = (bool, "single")
-        tags["showstandardinstruction"] = (bool, "show_instruction")
+        tags["showstandardinstruction"] = (bool, "show_instr")
         tags["answernumbering"] = (Numbering, "numbering")
         tags["answer"] = (Answer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)

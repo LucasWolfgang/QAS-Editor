@@ -33,7 +33,7 @@ from .popups import NamePopup, QuestionPopup
 from ..quiz import Category
 from ..questions import _Question
 from ..enums import Numbering, Grading, ShowUnits
-from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, IMG_PATH,\
+from .utils import GCollapsible, GTextToolbar, GTextEditor, GTagBar, IMG_PATH,\
                    GField, GCheckBox, GDropbox, action_handler
 from .forms import GOptions
 if TYPE_CHECKING:
@@ -69,7 +69,7 @@ class Editor(QMainWindow):
         super(Editor, self).__init__(*args, **kwargs)
         self.setWindowTitle("QAS Editor GUI")
 
-        self._items: Dict[str, QWidget] = {}
+        self._items = []
         self.path: str = None
         self.top_quiz = Category()
         self.cxt_menu = QMenu(self)
@@ -95,7 +95,7 @@ class Editor(QMainWindow):
         # self._block_database()
         self.cframe_vbox.addStretch()
         self.cframe_vbox.setSpacing(5)
-        for value in self._items.values():
+        for value in self._items:
             value.setEnabled(False)
 
         frame = QFrame()
@@ -175,59 +175,56 @@ class Editor(QMainWindow):
         self._update_tree_item(quiz, self.cxt_item)
 
     def _block_answer(self) -> None:
-        frame = GFrameLayout(title="Answers")
+        frame = GCollapsible(title="Answers")
         self.cframe_vbox.addLayout(frame)
-        self._items["shuffle"] = GCheckBox(self, "Shuffle answers", "shuffle")
-        self._items["show_instruction"] = GCheckBox(self, "Show instructions",
-                                                    "show_instruction")
-        self._items["single"] = GCheckBox(self, "Single answer", "single")
-        self._items["single"].setContentsMargins(10, 0, 0, 0)
-        self._items["numbering"] = GDropbox(self, str, "numbering")
-        self._items["numbering"].addItems([c.value for c in Numbering])
-        self._items["numbering"].setToolTip("")
-        self._items["options"] = GOptions(self.toolbar)
 
         group_box = QGroupBox("Unit Handling", self)
-        self._items["grading_type"] = GDropbox(self, Grading, "grading_type",
-                                               self.GRADE)
-        self._items["grading_type"].addItems(self.GRADE.__iter__())
-        self._items["penalty"] = GField(float, "penalty")
-        self._items["penalty"].setText("0")
-        self._items["show_units"] = GDropbox(self, ShowUnits, "show_units")
-        self._items["show_units"].addItems(self.SHOW_UNITS.__iter__())
-        self._items["left"] = GCheckBox(self, "Put units on the left", "left")
-        _content = QGridLayout(self)
-        group_box.setLayout(_content)
+        _content = QGridLayout(group_box)
         _content.addWidget(QLabel("Grading"), 0, 0,  Qt.AlignmentFlag.AlignRight)
-        _content.addWidget(self._items["grading_type"], 0, 1)
+        self._items.append(GDropbox(self, Grading, "grading_type", self.GRADE))
+        self._items[-1].addItems(self.GRADE.__iter__())
+        _content.addWidget(self._items[-1], 0, 1)
         _content.addWidget(QLabel("Penalty"), 0, 2, Qt.AlignmentFlag.AlignLeft)
-        _content.addWidget(self._items["penalty"], 0, 3)
+        self._items.append(GField(float, "penalty"))
+        self._items[-1].setText("0")
+        _content.addWidget(self._items[-1], 0, 3)
         _content.addWidget(QLabel("Show units"), 1, 0)
-        _content.addWidget(self._items["show_units"], 1, 1)
-        _content.addWidget(self._items["left"], 1, 2, 1, 2)
+        self._items.append(GDropbox(self, ShowUnits, "show_units"))
+        self._items[-1].addItems(self.SHOW_UNITS.__iter__())
+        _content.addWidget(self._items[-1], 1, 1)
+        self._items.append(GCheckBox(self, "Put units on the left", "left"))
+        _content.addWidget(self._items[-1], 1, 2, 1, 2)
         _content.setContentsMargins(5, 3, 5, 3)
         _content.setVerticalSpacing(0)
 
-        aabutton = QPushButton("Add Answer")
-        aabutton.clicked.connect(self._items["options"].add_default)
-        ppbutton = QPushButton("Pop Answer")
-        ppbutton.clicked.connect(self._items["options"].pop)
-
         grid = QGridLayout()
-        grid.addWidget(self._items["numbering"], 0, 0)
-        grid.addWidget(self._items["show_instruction"], 1, 0)
-        grid.addWidget(self._items["single"], 0, 2)
-        grid.addWidget(self._items["shuffle"], 1, 2)
+        frame.setLayout(grid)
+        self._items.append(GDropbox(self, str, "numbering"))
+        self._items[-1].addItems([c.value for c in Numbering])
+        self._items[-1].setToolTip("")
+        grid.addWidget(self._items[-1], 0, 0)
+
+        self._items.append(GCheckBox(self, "Show instructions", "show_instr"))
+        grid.addWidget(self._items[-1], 1, 0)
+        self._items.append(GCheckBox(self, "Single answer", "single"))
+        self._items[-1].setContentsMargins(10, 0, 0, 0)
+        grid.addWidget(self._items[-1], 0, 2)
+        self._items.append(GCheckBox(self, "Shuffle answers", "shuffle"))
+        grid.addWidget(self._items[-1], 1, 2)
         grid.addWidget(group_box, 0, 3, 2, 1)
+        self._items.append(GOptions(self.toolbar))
+        aabutton = QPushButton("Add Answer")
+        aabutton.clicked.connect(self._items[-1].add_default)
+        ppbutton = QPushButton("Pop Answer")
+        ppbutton.clicked.connect(self._items[-1].pop)
         grid.addWidget(aabutton, 0, 4)
         grid.addWidget(ppbutton, 1, 4)
-        grid.addLayout(self._items["options"], 2, 0, 1, 5)
+        grid.addLayout(self._items[-1], 2, 0, 1, 5)
         grid.setColumnStretch(4, 1)
         grid.setVerticalSpacing(0)
-        frame.setLayout(grid)
 
     def _block_database(self) -> None:
-        frame = GFrameLayout(title="Database")
+        frame = GCollapsible(title="Database")
         self.cframe_vbox.addLayout(frame)
 
     def _block_datatree(self) -> QVBoxLayout:
@@ -251,46 +248,44 @@ class Editor(QMainWindow):
         return xframe_vbox
 
     def _block_general_data(self) -> None:
-        frame = GFrameLayout(self, title="General Data")
+        frame = GCollapsible(self, title="General Data")
         self.cframe_vbox.addLayout(frame)
-
-        self._items["default_grade"] = GField(int, "default_grade")
-        self._items["default_grade"].setFixedWidth(30)
-        self._items["default_grade"].setToolTip("Default grade.")
-        self._items["dbid"] = GField(int, "dbid")
-        self._items["dbid"].setFixedWidth(40)
-        self._items["dbid"].setToolTip("Provides a second way of "
-                                       "finding a question.")
-        self._items["tags"] = GTagBar(self)
-        self._items["tags"].setToolTip("List of tags used by the question.")
-        self._items["question"] = GTextEditor(self.toolbar, "question")
-        self._items["question"].setMinimumHeight(100)
-        self._items["question"].setToolTip("Tags used to ")
 
         grid = QGridLayout()
         grid.addWidget(QLabel("Tags"), 0, 0)
-        grid.addWidget(self._items["tags"], 0, 1)
+        self._items.append(GTagBar(self))
+        self._items[-1].setToolTip("List of tags used by the question.")
+        grid.addWidget(self._items[-1], 0, 1)
         grid.setColumnStretch(1, 1)
         tmp = QLabel("Default grade")
         tmp.setContentsMargins(10, 0, 0, 0)
         grid.addWidget(tmp, 0, 2)
-        grid.addWidget(self._items["default_grade"], 0, 3)
+        self._items.append(GField(int, "default_grade"))
+        self._items[-1].setFixedWidth(30)
+        self._items[-1].setToolTip("Default grade.")
+        grid.addWidget(self._items[-1], 0, 3)
         tmp = QLabel("ID")
         tmp.setContentsMargins(10, 0, 0, 0)
         grid.addWidget(tmp, 0, 4)
-        grid.addWidget(self._items["dbid"], 0, 5)
-        grid.addWidget(self._items["question"], 1, 0, 1, 6)
+        self._items.append(GField(int, "dbid"))
+        self._items[-1].setFixedWidth(40)
+        self._items[-1].setToolTip("Optional ID for the question.")
+        grid.addWidget(self._items[-1], 0, 5)
+        self._items.append(GTextEditor(self.toolbar, "question"))
+        self._items[-1].setMinimumHeight(100)
+        self._items[-1].setToolTip("Tags used to ")
+        grid.addWidget(self._items[-1], 1, 0, 1, 6)
         frame.setLayout(grid)
         frame.toggle_collapsed()
 
     def _block_multiple_tries(self) -> None:
-        frame = GFrameLayout(self, title="Multiple Tries")
+        frame = GCollapsible(self, title="Multiple Tries")
         self.cframe_vbox.addLayout(frame)
         _header = QHBoxLayout()
-        self._items["penalty"] = GField(str, "penalty")
-        self._items["penalty"].setText("0")
         _header.addWidget(QLabel("Penalty", self))
-        _header.addWidget(self._items["penalty"])
+        self._items.append(GField(str, "penalty"))
+        self._items[-1].setText("0")
+        _header.addWidget(self._items[-1])
         add = QPushButton("Add Hint", self)
         # add.clicked.connect(self._add_hint)
         _header.addWidget(add)
@@ -301,34 +296,33 @@ class Editor(QMainWindow):
         frame.setLayout(_header)
 
     def _block_solution(self) -> None:
-        collapsible = GFrameLayout(title="Solution and Feedback")
+        collapsible = GCollapsible(title="Solution and Feedback")
         self.cframe_vbox.addLayout(collapsible)
         layout = QVBoxLayout()
         collapsible.setLayout(layout)
-        self._items["feedback"] = GTextEditor(self.toolbar, "feedback")
-        self._items["feedback"].setFixedHeight(50)
-        self._items["feedback"].setToolTip("General feedback for the question."
-                                           " May also be used to describe"
-                                           " solutions.")
-        layout.addWidget(self._items["feedback"])
+        self._items.append(GTextEditor(self.toolbar, "feedback"))
+        self._items[-1].setFixedHeight(50)
+        self._items[-1].setToolTip("General feedback for the question. May "
+                                   "also be used to describe solutions.")
+        layout.addWidget(self._items[-1])
         sframe = QFrame(self)
         sframe.setStyleSheet(".QFrame{border:1px solid rgb(41, 41, 41);"
                              "background-color: #e4ebb7}")
         layout.addWidget(sframe)
-        self._items["if_correct"] = GTextEditor(self.toolbar, "if_correct")
-        self._items["if_incomplete"] = GTextEditor(self.toolbar, "if_incomplete")
-        self._items["if_incorrect"] = GTextEditor(self.toolbar, "if_incorrect")
-        self._items["show_num"] = GCheckBox(self, "Show the number of correct "
-                                            "responses once the question has "
-                                            "finished", "show_num")
         _content = QGridLayout(self)
         _content.addWidget(QLabel("Feedback for correct answer"), 0, 0)
-        _content.addWidget(self._items["if_correct"], 1, 0)
+        self._items.append(GTextEditor(self.toolbar, "if_correct"))
+        _content.addWidget(self._items[-1], 1, 0)
         _content.addWidget(QLabel("Feedback for incomplete answer"), 0, 1)
-        _content.addWidget(self._items["if_incomplete"], 1, 1)
+        self._items.append(GTextEditor(self.toolbar, "if_incomplete"))
+        _content.addWidget(self._items[-1], 1, 1)
         _content.addWidget(QLabel("Feedback for incorrect answer"), 0, 2)
-        _content.addWidget(self._items["if_incorrect"], 1, 2)
-        _content.addWidget(self._items["show_num"], 2, 0, 1, 3)
+        self._items.append(GTextEditor(self.toolbar, "if_incorrect"))
+        _content.addWidget(self._items[-1], 1, 2)
+        self._items.append(GCheckBox(self, "Show the number of correct "
+                                     "responses once the question has finished"
+                                     , "show_num"))
+        _content.addWidget(self._items[-1], 2, 0, 1, 3)
         _content.setColumnStretch(3, 1)
         sframe.setLayout(_content)
 
@@ -456,7 +450,7 @@ class Editor(QMainWindow):
     def _update_item(self, model_index: QModelIndex) -> None:
         item = model_index.data(257)
         if isinstance(item, _Question):
-            for key in self._items.values():
+            for key in self._items:
                 attr = key.get_attr()
                 if attr in item.__dict__:
                     key.setEnabled(True)

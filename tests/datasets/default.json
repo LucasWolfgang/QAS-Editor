@@ -305,7 +305,7 @@
                             "solution": null,
                             "tags": null,
                             "single": true,
-                            "show_instruction": false,
+                            "show_instr": false,
                             "combined_feedback": {
                                 "correct": {
                                     "text": "Votre r\u00e9ponse est correcte.",
@@ -401,7 +401,7 @@
                             "solution": null,
                             "tags": null,
                             "single": true,
-                            "show_instruction": false,
+                            "show_instr": false,
                             "combined_feedback": {
                                 "correct": {
                                     "text": "Votre r\u00e9ponse est correcte.",
@@ -477,7 +477,7 @@
                             "solution": null,
                             "tags": null,
                             "single": true,
-                            "show_instruction": false,
+                            "show_instr": false,
                             "combined_feedback": {
                                 "correct": {
                                     "text": "Votre r\u00e9ponse est correcte.",
@@ -1532,7 +1532,7 @@
                             "solution": null,
                             "tags": null,
                             "single": true,
-                            "show_instruction": false,
+                            "show_instr": false,
                             "combined_feedback": {
                                 "correct": {
                                     "text": "Your answer is correct.",
@@ -1608,7 +1608,7 @@
                             "solution": null,
                             "tags": null,
                             "single": true,
-                            "show_instruction": false,
+                            "show_instr": false,
                             "combined_feedback": {
                                 "correct": {
                                     "text": "Your answer is correct.",

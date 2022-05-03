@@ -30,7 +30,7 @@ def test_xml_all():
     XML_TEST = f"{EXAMPLE}.tmp"
     control.write_xml(XML_TEST, True)
     new_data = quiz.Category.read_xml(XML_TEST)
-    # os.remove(XML_TEST)
+    os.remove(XML_TEST)
     assert control.compare(new_data, [])
 
 
@@ -49,5 +49,5 @@ def test_xml_calculated():
     XML_TEST = f"{EXAMPLE}.tmp"
     control.write_xml(XML_TEST, True)
     new_data = quiz.Category.read_xml(XML_TEST)
-    # os.remove(XML_TEST)
+    os.remove(XML_TEST)
     assert control.compare(new_data, [])
