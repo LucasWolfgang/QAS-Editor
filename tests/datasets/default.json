@@ -37,7 +37,7 @@
                         "formatting": "html",
                         "bfile": []
                     },
-                    "_type": "essay"
+                    "MOODLE": "essay"
                 },
                 {
                     "name": "Drag and Drop Text and Image",
@@ -115,7 +115,7 @@
                             "unlimited": false
                         }
                     ],
-                    "_type": "ddwtos"
+                    "MOODLE": "ddwtos"
                 },
                 {
                     "name": "Drag and drop markers test",
@@ -205,7 +205,7 @@
                             "image": null
                         }
                     ],
-                    "_dropzones": [
+                    "zones": [
                         {
                             "shape": "circle",
                             "x": 15,
@@ -234,7 +234,7 @@
                             "number": 3
                         }
                     ],
-                    "_type": "ddmarker"
+                    "MOODLE": "ddmarker"
                 }
             ],
             "_Quiz__categories": {
@@ -274,7 +274,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "_type": "essay"
+                            "MOODLE": "essay"
                         },
                         {
                             "name": "html layout",
@@ -381,7 +381,7 @@
                                     }
                                 }
                             ],
-                            "_type": "multichoice"
+                            "MOODLE": "multichoice"
                         },
                         {
                             "name": "table",
@@ -457,7 +457,7 @@
                                     }
                                 }
                             ],
-                            "_type": "multichoice"
+                            "MOODLE": "multichoice"
                         },
                         {
                             "name": "code",
@@ -523,7 +523,7 @@
                                     }
                                 }
                             ],
-                            "_type": "multichoice"
+                            "MOODLE": "multichoice"
                         },
                         {
                             "name": "ProblemDescription",
@@ -542,7 +542,7 @@
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
-                            "_type": "description"
+                            "MOODLE": "description"
                         }
                     ],
                     "_Quiz__categories": {},
@@ -582,7 +582,7 @@
                                     "tolerance": "0"
                                 }
                             ],
-                            "_type": "numerical"
+                            "MOODLE": "numerical"
                         },
                         {
                             "name": "num:float",
@@ -616,7 +616,7 @@
                                     "tolerance": "0.001"
                                 }
                             ],
-                            "_type": "numerical"
+                            "MOODLE": "numerical"
                         },
                         {
                             "name": "num:2ans",
@@ -661,7 +661,7 @@
                                     "tolerance": "0"
                                 }
                             ],
-                            "_type": "numerical"
+                            "MOODLE": "numerical"
                         },
                         {
                             "name": "num:2rounding",
@@ -706,7 +706,7 @@
                                     "tolerance": "0.1"
                                 }
                             ],
-                            "_type": "numerical"
+                            "MOODLE": "numerical"
                         }
                     ],
                     "_Quiz__categories": {},
@@ -1095,7 +1095,7 @@
                                     "correct_answer_length": "2"
                                 }
                             ],
-                            "_type": "calculated"
+                            "MOODLE": "calculated"
                         },
                         {
                             "name": "Calcul\u00e9e",
@@ -1200,7 +1200,7 @@
                                     "correct_answer_length": "2"
                                 }
                             ],
-                            "_type": "calculatedmulti"
+                            "MOODLE": "calculatedmulti"
                         },
                         {
                             "name": "CheckComputation",
@@ -1314,7 +1314,7 @@
                                     "correct_answer_length": "2"
                                 }
                             ],
-                            "_type": "calculatedmulti"
+                            "MOODLE": "calculatedmulti"
                         },
                         {
                             "name": "Simple calculated question",
@@ -1486,7 +1486,7 @@
                                     "correct_answer_length": "0"
                                 }
                             ],
-                            "_type": "calculatedsimple"
+                            "MOODLE": "calculatedsimple"
                         },
                         {
                             "name": "Cloze",
@@ -1506,7 +1506,7 @@
                             "solution": null,
                             "tags": null,
                             "answers": [],
-                            "_type": "cloze"
+                            "MOODLE": "cloze"
                         }
                     ],
                     "_Quiz__categories": {},
@@ -1588,7 +1588,7 @@
                                     }
                                 }
                             ],
-                            "_type": "multichoice"
+                            "MOODLE": "multichoice"
                         },
                         {
                             "name": "plain text",
@@ -1664,7 +1664,7 @@
                                     }
                                 }
                             ],
-                            "_type": "multichoice"
+                            "MOODLE": "multichoice"
                         },
                         {
                             "name": "h1",
@@ -1723,7 +1723,7 @@
                                     "formatting": "html"
                                 }
                             ],
-                            "_type": "matching"
+                            "MOODLE": "matching"
                         },
                         {
                             "name": "h3",
@@ -1765,7 +1765,7 @@
                                     }
                                 }
                             ],
-                            "_type": "shortanswer"
+                            "MOODLE": "shortanswer"
                         },
                         {
                             "name": "QName",
@@ -1841,7 +1841,7 @@
                                     "image": null
                                 }
                             ],
-                            "_dropzones": [
+                            "zones": [
                                 {
                                     "shape": null,
                                     "x": 0,
@@ -1852,7 +1852,7 @@
                                     "number": 1
                                 }
                             ],
-                            "_type": "ddimageortext"
+                            "MOODLE": "ddimageortext"
                         },
                         {
                             "name": "Random short-answer matching",
@@ -1891,7 +1891,7 @@
                             },
                             "choose": "3",
                             "subcats": "0",
-                            "_type": "randomsamatch"
+                            "MOODLE": "randomsamatch"
                         },
                         {
                             "name": "tf",
@@ -1937,7 +1937,7 @@
                                 }
                             },
                             "_QTrueFalse__correct_answer": false,
-                            "_type": "truefalse"
+                            "MOODLE": "truefalse"
                         }
                     ],
                     "_Quiz__categories": {},
