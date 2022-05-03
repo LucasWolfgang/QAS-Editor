@@ -59,6 +59,9 @@ class Category(Serializable):  # pylint: disable=R0904
     def __len__(self):
         return len(self.__categories)
 
+    def __str__(self) -> str:
+        return f"Category: '{self.name}' @{hex(id(self))}"
+
     @staticmethod
     def __gen_hier(top: "Category", category: str) -> Category:
         cat_list = category.strip().split("/")
@@ -103,7 +106,7 @@ class Category(Serializable):  # pylint: disable=R0904
             et.SubElement(category, "text").text = "/".join(catname)
             root.append(question)
             for question in self.__questions:       # Add own questions first
-                question.to_xml(root, strict)
+                root.append(question.to_xml(strict))
         for child in self.__categories.values():    # Then add children data
             child._to_xml_element(root, strict)
 
@@ -374,20 +377,16 @@ class Category(Serializable):  # pylint: disable=R0904
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
-        def _from_json(_dt: dict, parent: Category):
-            quiz = cls(_dt["_Quiz__name"])
-            parent.add_subcat(quiz)
-            for i in range(len(_dt["_questions"])):
-                val = _dt["_questions"][i]
-                _dt["_questions"][i] = QTYPE[val["MOODLE"]].from_json(val)
-                quiz.add_question(_dt["_questions"][i])
-            for i in _dt["_Quiz__categories"]:
-                val = _dt["_Quiz__categories"][i]
-                _dt["_Quiz__categories"][i] = _from_json(val, quiz)
+        def _from_json(_dt: dict):
+            quiz = cls(_dt["_Category__name"])
+            for qst in _dt["_Category__questions"]:
+                quiz.add_question(QTYPE[qst.pop("MOODLE")].from_json(qst))
+            for i in _dt["_Category__categories"]:
+                quiz.add_subcat(_from_json(_dt["_Category__categories"][i]))
             return quiz
         with open(file_path, "rb") as infile:
             data = json.load(infile)
-        return _from_json(data, None)
+        return _from_json(data)
 
     @classmethod
     def read_latex(cls, file_path: str, category: str = "$course$"):
@@ -582,7 +581,7 @@ class Category(Serializable):  # pylint: disable=R0904
         tmp = self.__dict__.copy()
         del tmp["_Category__parent"]
         with open(file_path, "w", encoding="utf-8") as ofile:
-            json.dump(self._to_json(tmp), ofile, indent=4 if pretty else 0)
+            json.dump(self._to_json(tmp), ofile, indent=4 if pretty else None)
 
     def write_latex(self, file_path: str) -> None:
         """_summary_

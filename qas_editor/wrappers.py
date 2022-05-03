@@ -23,7 +23,7 @@ import xml.etree.ElementTree as et
 from urllib import request
 from typing import TYPE_CHECKING
 
-from .enums import Format, Status, Distribution, Grading, ShowUnits
+from .enums import Format, Status, Distribution
 from .utils import Serializable
 if TYPE_CHECKING:
     from typing import List
@@ -51,9 +51,8 @@ class B64File(Serializable):
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         return cls(root.get("name"), root.get("path"), root.text)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        bfile = et.SubElement(root, "file", {"name": self.name,
-                                             "encoding": "base64"})
+    def to_xml(self, strict: bool) -> et.Element:
+        bfile = et.Element("file", {"name": self.name, "encoding": "base64"})
         if self.path:
             bfile.set("path", self.path)
         bfile.text = self.bfile
@@ -75,8 +74,8 @@ class SelectOption(Serializable):
         tags["group"] = (str, "group")
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        select_option = et.SubElement(root, "selectoption")
+    def to_xml(self, strict: bool) -> et.Element:
+        select_option = et.Element("selectoption")
         text = et.Element("text")
         text.text = self.text
         select_option.append(text)
@@ -108,9 +107,9 @@ class Subquestion(Serializable):
         tags["answer"] = (str, "answer")
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        subquestion = et.SubElement(root, "subquestion",
-                                    {"format": self.formatting.value})
+    def to_xml(self, strict: bool) -> et.Element:
+        subquestion = et.Element("subquestion",
+                                 {"format": self.formatting.value})
         text = et.Element("text")
         text.text = self.text
         subquestion.append(text)
@@ -120,47 +119,6 @@ class Subquestion(Serializable):
         text.text = self.answer
         answer.append(text)
         return subquestion
-
-
-class UnitHandling(Serializable):
-    """A
-    """
-
-    def __init__(self, grading_type=Grading.IGNORE, unit_penalty=0.0,
-                 show=ShowUnits.TEXT, left=False) -> None:
-        super().__init__()
-        self.grading_type = grading_type
-        self.penalty = unit_penalty
-        self.show = show
-        self.left = left
-
-    @staticmethod
-    def _add_xml(tags: dict, name: str) -> None:
-        tags["unitgradingtype"] = (Grading, "grading_type")
-        tags["unitpenalty"] = (str, "unit_penalty")
-        tags["unitsleft"] = (bool, "left")
-        tags["showunits"] = (ShowUnits, "show")
-        if name is not None:
-            tags[UnitHandling] = (("grading_type", "unit_penalty",
-                                   "left", "show"), name)
-
-    @classmethod
-    def from_json(cls, data: dict):
-        data["grading_type"] = Grading(data["grading_type"])
-        data["show"] = ShowUnits(data["show"])
-        return cls(**data)
-
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        UnitHandling._add_xml(tags, None)
-        return super().from_xml(root, tags, attrs)
-
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        et.SubElement(root, "unitgradingtype").text = self.grading_type.value
-        et.SubElement(root, "unitpenalty").text = str(self.penalty)
-        et.SubElement(root, "showunits").text = self.show.value
-        et.SubElement(root, "unitsleft").text = str(self.left)
-        return root
 
 
 class Unit(Serializable):
@@ -173,19 +131,15 @@ class Unit(Serializable):
         self.multiplier = multiplier
 
     @classmethod
-    def from_json(cls, data: dict) -> "Unit":
-        return cls(**data)
-
-    @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Unit":
         tags["unit_name"] = (str, "unit_name")
         tags["multiplier"] = (float, "multiplier")
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        unit = et.SubElement(root, "unit")
+    def to_xml(self, strict: bool) -> et.Element:
+        unit = et.Element("unit")
         et.SubElement(unit, "unit_name").text = self.unit_name
-        et.SubElement(unit, "multiplier").text = str(self.multiplier)
+        et.SubElement(unit, "multiplier").text = self.multiplier
         return unit
 
 
@@ -193,19 +147,19 @@ class FText(Serializable):
     """A
     """
 
-    def __init__(self, name: str, text="", formatting=Format.AUTO,
+    def __init__(self, name: str, text="", formatting: Format = None,
                  bfile: List[B64File] = None):
         super().__init__()
         self.name = name
         self.text = text
-        if not isinstance(formatting, Format):
-            raise TypeError("Formatting type is not valid")
-        self.formatting = formatting
+        self.formatting = Format.AUTO if formatting is None else formatting
         self.bfile = bfile if bfile else []
 
     @classmethod
     def from_json(cls, data: dict):
         data["formatting"] = Format(data["formatting"])
+        for index in range(len(data["bfile"])):
+            data["bfile"][index] = B64File.from_json(data["bfile"][index])
         return cls(**data)
 
     @classmethod
@@ -216,40 +170,58 @@ class FText(Serializable):
         attrs["format"] = (Format, "formatting")
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool = False) -> None:
-        elem = et.SubElement(root, self.name,
-                             {"format": self.formatting.value})
+    def to_xml(self, strict: bool = False) -> None:
+        elem = et.Element(self.name, {"format": self.formatting.value})
         txt = et.SubElement(elem, "text")
         txt.text = self.text
         for bfile in self.bfile:
-            bfile.to_xml(elem, strict)
+            elem.append(bfile.to_xml(strict))
         return elem
 
 
-class DatasetItem(Serializable):
+class DatasetItems(Serializable):
     """A
     """
 
-    def __init__(self, number: int, value: float) -> None:
+    def __init__(self, items: dict = None) -> None:
         super().__init__()
-        self.number = number
-        self.value = value
+        self.__items = {} if items is None else items
+
+    def __len__(self):
+        return self.__items.__len__()
+
+    def __iter__(self):
+        return self.__items.__iter__()
 
     @classmethod
-    def from_json(cls, data: dict):
-        LOG.debug(f"Function <from_json> in {cls} not implemented")
+    def from_json(cls, data: dict) -> "Serializable":
+        data["items"] = {}
+        for key in data["_DatasetItems__items"]:
+            data["items"][int(key)] = data["_DatasetItems__items"][key]
+        data.pop("_DatasetItems__items")
+        return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["number"] = (int, "number")
-        tags["value"] = (float, "value")
-        return super().from_xml(root, tags, attrs)
+        data = {}
+        for item in root:
+            number = int(item.find("number").text)
+            value = float(item.find("value").text)
+            data[number] = value
+        return cls(data)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        dataset_item = et.SubElement(root, "dataset_item")
-        et.SubElement(dataset_item, "number").text = str(self.number)
-        et.SubElement(dataset_item, "value").text = str(self.value)
-        return dataset_item
+    def to_xml(self, strict: bool) -> et.Element:
+        dataset_items = et.Element("dataset_items")
+        for key, val in self.__items.items():
+            item = et.Element("dataset_item")
+            number = et.Element("number")
+            number.text = key
+            item.append(number)
+            value = et.Element("value")
+            value.text = val
+            item.append(value)
+            dataset_items.append(item)
+        return dataset_items
 
 
 class Dataset(Serializable):
@@ -258,7 +230,7 @@ class Dataset(Serializable):
 
     def __init__(self, status: Status, name: str, ctype: str,
                  distribution: Distribution, minimum: float, maximum: float,
-                 decimals: int, items: List[DatasetItem] = None) -> None:
+                 decimals: int, items: DatasetItems = None) -> None:
         super().__init__()
         self.status = status
         self.name = name
@@ -267,12 +239,13 @@ class Dataset(Serializable):
         self.minimum = minimum
         self.maximum = maximum
         self.decimals = decimals
-        self.items = items if items else []
+        self.items = items if items else DatasetItems()
 
     @classmethod
     def from_json(cls, data: dict) -> "Dataset":
         data["status"] = Status(data["status"])
         data["distribution"] = Distribution(data["distribution"])
+        data["items"] = DatasetItems.from_json(data["items"])
         return cls(**data)
 
     @classmethod
@@ -284,7 +257,7 @@ class Dataset(Serializable):
         tags["minimum"] = (str, "minimum")
         tags["maximum"] = (str, "maximum")
         tags["decimals"] = (str, "decimals")
-        tags["dataset_items"] = (DatasetItem.from_xml, "items", True)
+        tags["dataset_items"] = (DatasetItems.from_xml, "items")
         return super().from_xml(root, tags, attrs)
 
     @staticmethod
@@ -293,8 +266,8 @@ class Dataset(Serializable):
         """
         return [Dataset.from_xml(obj, {}, {}) for obj in root]
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        dataset_def = et.SubElement(root, "dataset_definition")
+    def to_xml(self, strict: bool) -> et.Element:
+        dataset_def = et.Element("dataset_definition")
         status = et.SubElement(dataset_def, "status")
         et.SubElement(status, "text").text = self.status.value
         name = et.SubElement(dataset_def, "name")
@@ -309,9 +282,7 @@ class Dataset(Serializable):
         decimals = et.SubElement(dataset_def, "decimals")
         et.SubElement(decimals, "text").text = self.decimals
         et.SubElement(dataset_def, "itemcount").text = len(self.items)
-        dataset_items = et.SubElement(dataset_def, "dataset_items")
-        for item in self.items:
-            item.to_xml(dataset_items, strict)
+        dataset_def.append(self.items.to_xml(strict))
         et.SubElement(dataset_def, "number_of_items").text = len(self.items)
         return dataset_def
 
@@ -335,16 +306,17 @@ class Tags(Serializable):
             self.__tags = __object
 
     @classmethod
-    def from_json(cls, data: dict):
-        LOG.debug(f"Function <from_json> in {cls} not implemented")
+    def from_json(cls, data: dict) -> "Serializable":
+        data["tags"] = data.pop("_Tags__tags")
+        return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Tags":
         tags["tag"] = (str, "tags", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        tags = et.SubElement(root, "tags")
+    def to_xml(self, strict: bool) -> et.Element:
+        tags = et.Element("tags")
         for item in self.__iter__():
             _tag = et.SubElement(tags, "tag")
             et.SubElement(_tag, "text").text = item
@@ -377,8 +349,8 @@ class Hint(Serializable):
         attrs["format"] = (Format, "formatting")
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        hint = et.SubElement(root, "hint", {"format": self.formatting.value})
+    def to_xml(self, strict: bool) -> et.Element:
+        hint = et.Element("hint", {"format": self.formatting.value})
         txt = et.SubElement(hint, "text")
         txt.text = self.text
         if self.show_correct:

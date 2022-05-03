@@ -21,10 +21,11 @@ import re
 import logging
 from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
-from .wrappers import B64File, Dataset, FText, Hint, Tags,\
-                    SelectOption, Subquestion, Unit, UnitHandling
+from .wrappers import B64File, Dataset, FText, Hint, Tags, SelectOption,\
+                      Subquestion, Unit
 from .utils import Serializable
-from .enums import Format, ResponseFormat, Status, Distribution, Numbering
+from .enums import Format, Grading, ResponseFormat, ShowUnits, Status,\
+                   Distribution, Numbering
 from .answer import Answer, ClozeItem, NumericalAnswer, DragText, \
                     CrossWord, CalculatedAnswer, DropZone, DragItem
 # import markdown
@@ -55,9 +56,8 @@ class _Question(Serializable):
         if cls.MOODLE is not None:
             QTYPE[cls.MOODLE] = cls
 
-    def __init__(self, name: str, question: FText = None,
-                 default_grade: float = 1.0, feedback: FText = None,
-                 id_number: int = None, tags: Tags = None) -> None:
+    def __init__(self, name: str, default_grade=1.0, question: FText = None,
+                 dbid: int = None, feedback: FText = None, tags: Tags = None):
         """
         [summary]
 
@@ -66,15 +66,19 @@ class _Question(Serializable):
             question (FText): text of the question
             default_grade (float): the default mark
             general_feedback (str, optional): general feedback.
-            id_number (int, optional): id number.
+            dbid (int, optional): id number.
         """
         self.name = name
         self.question = FText("questiontext") if question is None else question
         self.default_grade = default_grade
-        self.feedback = FText("generalfeedback") if feedback is None else feedback
-        self.id_number = id_number
+        self.feedback = FText("generalfeedback") if feedback \
+                is None else feedback
+        self.dbid = dbid
         self.tags = Tags() if tags is None else tags
         self.__parent = None
+
+    def __str__(self) -> str:
+        return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
 
     @property
     def parent(self) -> Category:
@@ -87,8 +91,8 @@ class _Question(Serializable):
 
     @parent.setter
     def parent(self, value):
-        if (value is not None and self not in value.questions) or\
-                (self.__parent is not None and self in self.__parent.questions):
+        if (self.__parent is not None and self in self.__parent.questions) or \
+                (value is not None and self not in value.questions):
             raise ValueError("This attribute can't be assigned directly. Use "
                              "parent's add/pop_question functions instead.")
         self.__parent = value
@@ -97,6 +101,7 @@ class _Question(Serializable):
     def from_json(cls, data):
         data["question"] = FText.from_json(data["question"])
         data["feedback"] = FText.from_json(data["feedback"])
+        data["tags"] = Tags.from_json(data["tags"])
         return cls(**data)
 
     @classmethod
@@ -105,33 +110,33 @@ class _Question(Serializable):
         tags["questiontext"] = (FText.from_xml, "question")
         tags["generalfeedback"] = (FText.from_xml, "feedback")
         tags["defaultgrade"] = (float, "default_grade")
-        tags["idnumber"] = (int, "id_number")
+        tags["idnumber"] = (int, "dbid")
         tags["tags"] = (Tags.from_xml, "tags")
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+    def to_xml(self, strict: bool) -> et.Element:
         """
         This method converts current object to Moodle XML.
         """
-        question = et.SubElement(root, "question", {"type": self.MOODLE})
+        question = et.Element("question", {"type": self.MOODLE})
         name = et.SubElement(question, "name")
         et.SubElement(name, "text").text = self.name
-        self.question.to_xml(question, strict)
+        question.append(self.question.to_xml(strict))
         if self.feedback:
-            self.feedback.to_xml(question, strict)
+            question.append(self.feedback.to_xml(strict))
         et.SubElement(question, "defaultgrade").text = self.default_grade
         # et.SubElement(question, "hidden").text = "0"
-        if self.id_number is not None:
-            et.SubElement(question, "idnumber").text = self.id_number
+        if self.dbid is not None:
+            et.SubElement(question, "idnumber").text = self.dbid
         if self.tags:
-            self.tags.to_xml(question, strict)
+            question.append(self.tags.to_xml(strict))
         return question
 
 
 class _QuestionMT(_Question):
 
-    def __init__(self, options: list = None, penalty=0.5, hints=None,
-                 **kwargs):
+    def __init__(self, options: list = None, hints: List[Hint] = None,
+                 penalty=0.5, **kwargs):
         super().__init__(**kwargs)
         self.penalty = penalty
         self.hints = [] if hints is None else hints
@@ -142,7 +147,7 @@ class _QuestionMT(_Question):
         for i in range(len(data["hints"])):
             data["hints"][i] = Hint.from_json(data["hints"][i])
         # Defintion of options reading should be done by children
-        return cls(**data)
+        return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
@@ -151,14 +156,16 @@ class _QuestionMT(_Question):
         # Defintion of options reading should be done by children
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
         for hint in self.hints:
-            hint.to_xml(question, strict)
+            question.append(hint.to_xml(strict))
         et.SubElement(question, "penalty").text = str(self.penalty)
-        if hasattr(self, "options"):
-            for sub in self.options:
-                sub.to_xml(question, strict)
+        if hasattr(self, "options"):             # Workaround for
+            for sub in self.options:             # QRandomMatching.
+                elem = sub.to_xml(strict)        # If strict, some may
+                if elem:                         # return None.
+                    question.append(elem)
         return question
 
 
@@ -173,7 +180,7 @@ class _QuestionMTCS(_QuestionMT):
 
     def __init__(self, if_correct: FText = None, if_incomplete: FText = None,
                  if_incorrect: FText = None, shuffle=False, show_num=False,
-                 **kwargs) -> None:
+                 **kwargs):
         super().__init__(**kwargs)
         self.if_correct = FText("correctfeedback") \
             if if_correct is None else if_correct
@@ -200,47 +207,78 @@ class _QuestionMTCS(_QuestionMT):
         tags["shuffleanswers"] = (bool, "shuffle")
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
-        self.if_correct.to_xml(question, strict)
-        self.if_incomplete.to_xml(question, strict)
-        self.if_incorrect.to_xml(question, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
+        question.append(self.if_correct.to_xml(strict))
+        question.append(self.if_incomplete.to_xml(strict))
+        question.append(self.if_incorrect.to_xml(strict))
         if self.show_num:
             et.SubElement(question, "shownumcorrect")
-        if hasattr(self, "shuffle") and self.shuffle:
-            et.SubElement(question, "shuffleanswers")
+        if hasattr(self, "shuffle") and self.shuffle:    # Workaround for
+            et.SubElement(question, "shuffleanswers")   # QRandomMatching
         return question
 
 
-class QCalculated(_QuestionMT):
+class _QuestionMTUH(_QuestionMT):
+    """A
+    """
+
+    def __init__(self, grading_type=Grading.IGNORE, unit_penalty=0.0,
+                 show_unit=ShowUnits.TEXT, left=False, **kwargs):
+        super().__init__(**kwargs)
+        self.grading_type = grading_type
+        self.unit_penalty = unit_penalty
+        self.show_unit = show_unit
+        self.left = left
+
+    @classmethod
+    def from_json(cls, data: dict):
+        data["grading_type"] = Grading(data["grading_type"])
+        data["show_unit"] = ShowUnits(data["show_unit"])
+        return super().from_json(data)
+
+    @classmethod
+    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
+        tags["unitgradingtype"] = (Grading, "grading_type")
+        tags["unitpenalty"] = (str, "unit_penalty")
+        tags["unitsleft"] = (bool, "left")
+        tags["showunits"] = (ShowUnits, "show_unit")
+        return super().from_xml(root, tags, attrs)
+
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
+        et.SubElement(question, "unitgradingtype").text = self.grading_type.value
+        et.SubElement(question, "unitpenalty").text = self.unit_penalty
+        et.SubElement(question, "showunits").text = self.show_unit.value
+        et.SubElement(question, "unitsleft").text = self.left
+        return question
+
+
+class QCalculated(_QuestionMTUH):
     """Represents a "Calculated"q question, in which a numberical result should
     be provided.
     """
     MOODLE = "calculated"
     QNAME = "Calculated"
 
-    def __init__(self, synchronize: int = 0, single: bool = False,
-                 uhandling: UnitHandling = None, units: List[Unit] = None,
+    def __init__(self, synchronize=0, single=False, units: List[Unit] = None,
                  datasets: List[Dataset] = None, **kwargs):
         """[summary]
 
         Args:
             synchronize (int): [description]
             single (bool, optional): [description].
-            unit_handling (UnitHandling, optional): [description].
             units (List[Unit], optional): [description].
             datasets (List[Dataset], optional): [description].
         """
         super().__init__(**kwargs)
         self.synchronize = synchronize
         self.single = single
-        self.unit_handling = UnitHandling() if uhandling is None else uhandling
         self.units = [] if units is None else units
         self.datasets = [] if datasets is None else datasets
 
     @classmethod
     def from_json(cls, data) -> "QCalculated":
-        data["unit_handling"] = UnitHandling.from_json(data["unit_handling"])
         for i in range(len(data["units"])):
             data["units"][i] = Unit.from_json(data["units"][i])
         for i in range(len(data["datasets"])):
@@ -253,27 +291,25 @@ class QCalculated(_QuestionMT):
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["synchronize"] = (bool, "synchronize")
         tags["single"] = (bool, "single")
-        tags["unit_handling"] = (UnitHandling.from_xml, "uhandling")
         tags["units"] = (Unit.from_xml, "units", True)
         tags["dataset_definitions"] = (Dataset.from_xml_list, "datasets")
         tags["answer"] = (CalculatedAnswer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
         if self.synchronize:
             et.SubElement(question, "synchronize")
         if self.single:
             et.SubElement(question, "single")
-        self.unit_handling.to_xml(question, strict)
         if self.units:
             units = et.SubElement(question, "units")
             for unit in self.units:
-                unit.to_xml(units, strict)
+                units.append(unit.to_xml(strict))
         if self.datasets:
             definitions = et.SubElement(question, "dataset_definitions")
             for dataset in self.datasets:
-                dataset.to_xml(definitions, strict)
+                definitions.append(dataset.to_xml(strict))
         return question
 
 
@@ -300,7 +336,7 @@ class QCalculatedMultichoice(_QuestionMTCS):
         self.synchronize = synchronize
         self.single = single
         self.numbering = numbering
-        self.datasets = datasets if datasets is not None else []
+        self.datasets = [] if datasets is None else datasets
 
     def add_dataset(self, status: Status, name: str, dist: Distribution,
                     minim: float, maxim: float, dec: int) -> None:
@@ -335,8 +371,8 @@ class QCalculatedMultichoice(_QuestionMTCS):
         tags["answer"] = (CalculatedAnswer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
         if self.synchronize:
             et.SubElement(question, "synchronize")
         if self.single:
@@ -344,7 +380,7 @@ class QCalculatedMultichoice(_QuestionMTCS):
         et.SubElement(question, "answernumbering").text = self.numbering.value
         dataset_definitions = et.SubElement(question, "dataset_definitions")
         for dataset in self.datasets:
-            dataset.to_xml(dataset_definitions, strict)
+            dataset_definitions.append(dataset.to_xml(strict))
         return question
 
 
@@ -358,6 +394,12 @@ class QCloze(_QuestionMT):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._update_text()
+
+    @classmethod
+    def from_json(cls, data: dict):
+        for i in range(len(data["options"])):
+            data["options"][i] = ClozeItem.from_json(data["options"][i])
+        return super().from_json(data)
 
     @classmethod
     def from_cloze(cls, buffer):
@@ -375,6 +417,7 @@ class QCloze(_QuestionMT):
         return cls(name=name, question=ftext)
 
     def _update_text(self):
+        self.options.clear()
         pattern = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
         for match in pattern.finditer(self.question.text):
             item = ClozeItem.from_cloze(match)
@@ -426,7 +469,7 @@ class QDragAndDropImage(_QuestionMTCS):
     QNAME = "Drag and Drop Image"
 
     def __init__(self, background: B64File = None,
-                 zones: List[DropZone] = None, **kwargs) -> None:
+                 zones: List[DropZone] = None, **kwargs):
         """Creates an drag and drop onto image type of question.
 
         Args:
@@ -434,7 +477,7 @@ class QDragAndDropImage(_QuestionMTCS):
         """
         super().__init__(**kwargs)
         self.background = background
-        self._dropzones: List[DropZone] = zones if zones is not None else []
+        self.zones = [] if zones is None else zones
 
     def add_image(self, text: str, group: int, file: str, unlimited=False):
         """Adds new DragItem with assigned DropZones.
@@ -471,16 +514,16 @@ class QDragAndDropImage(_QuestionMTCS):
             text (str): [description]
             choice (int): [description]
         """
-        self._dropzones.append(DropZone(coord_x, coord_y, text, choice,
-                                        len(self._dropzones) + 1))
+        self.zones.append(DropZone(coord_x, coord_y, text, choice,
+                                   len(self.zones) + 1))
 
     @classmethod
     def from_json(cls, data):
         data["background"] = B64File.from_json(data["background"])
         for i in range(len(data["options"])):
             data["options"][i] = DragItem.from_json(data["options"][i])
-        for i in range(len(data["_dropzones"])):
-            data["_dropzones"][i] = DropZone.from_json(data["_dropzones"][i])
+        for i in range(len(data["zones"])):
+            data["zones"][i] = DropZone.from_json(data["zones"][i])
         return super().from_json(data)
 
     @classmethod
@@ -490,12 +533,12 @@ class QDragAndDropImage(_QuestionMTCS):
         tags["drop"] = (DropZone.from_xml, "zones", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool):
-        question = super().to_xml(root, strict)
+    def to_xml(self, strict: bool):
+        question = super().to_xml(strict)
         if self.background:
-            self.background.to_xml(question, strict)
-        for dropzone in self._dropzones:
-            dropzone.to_xml(question, strict)
+            question.append(self.background.to_xml(strict))
+        for dropzone in self.zones:
+            question.append(dropzone.to_xml(strict))
         return question
 
 
@@ -505,9 +548,8 @@ class QDragAndDropMarker(_QuestionMTCS):
     MOODLE = "ddmarker"
     QNAME = "Drag and Drop Marker"
 
-    def __init__(self, background: B64File = None,
-                 zones: List[DropZone] = None, highlight_empty=False,
-                 **kwargs):
+    def __init__(self, highlight_empty=False, background: B64File = None,
+                 zones: List[DropZone] = None,  **kwargs):
         """Creates an drag and drop onto image type of question.
 
         Args:
@@ -516,7 +558,7 @@ class QDragAndDropMarker(_QuestionMTCS):
         super().__init__(**kwargs)
         self.background = background
         self.highlight_empty = highlight_empty
-        self._dropzones = zones if zones is not None else []
+        self.zones = [] if zones is None else zones
 
     def add_option(self, text: str, no_of_drags: str, unlimited: bool = False):
         """[summary]
@@ -535,8 +577,8 @@ class QDragAndDropMarker(_QuestionMTCS):
         data["background"] = B64File.from_json(data["background"])
         for i in range(len(data["options"])):
             data["options"][i] = DragItem.from_json(data["options"][i])
-        for i in range(len(data["_dropzones"])):
-            data["_dropzones"][i] = DropZone.from_json(data["_dropzones"][i])
+        for i in range(len(data["zones"])):
+            data["zones"][i] = DropZone.from_json(data["zones"][i])
         return super().from_json(data)
 
     @classmethod
@@ -547,14 +589,14 @@ class QDragAndDropMarker(_QuestionMTCS):
         tags["drop"] = (DropZone.from_xml, "zones", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool):
-        question = super().to_xml(root, strict)
+    def to_xml(self, strict: bool):
+        question = super().to_xml(strict)
         if self.highlight_empty:
             et.SubElement(question, "showmisplaced")
-        for dropzone in self._dropzones:
-            dropzone.to_xml(question, strict)
+        for dropzone in self.zones:
+            question.append(dropzone.to_xml(strict))
         if self.background:
-            self.background.to_xml(question, strict)
+            question.append(self.background.to_xml(strict))
         return question
 
 
@@ -568,16 +610,16 @@ class QEssay(_Question):
 
     def __init__(self, grader_info: FText = None, response_required=True,
                  template: FText = None, response_format=ResponseFormat.HTML,
-                 lines=10, attachments=0, attachments_required=False,
-                 maxbytes=0, filetypes_list="", **kwargs):
+                 lines=10, attachments=0, atts_required=False,
+                 max_bytes=0, file_types="", **kwargs):
         super().__init__(**kwargs)
         self.response_format = response_format
         self.response_required = response_required
-        self.num_lines = lines
+        self.lines = lines
         self.attachments = attachments
-        self.attachments_required = attachments_required
-        self.maxbytes = maxbytes
-        self.filetypes_list = filetypes_list
+        self.atts_required = atts_required
+        self.max_bytes = max_bytes
+        self.file_types = file_types
         self.grader_info = grader_info
         self.template = template
 
@@ -602,30 +644,30 @@ class QEssay(_Question):
         tags["responserequired"] = (bool, "response_required")
         tags["responsefieldlines"] = (int, "lines")
         tags["attachments"] = (int, "attachments")
-        tags["attachmentsrequired"] = (bool, "attachments_required")
-        tags["maxbytes"] = (int, "maxbytes")
-        tags["filetypeslist"] = (str, "filetypes_list")
+        tags["attachmentsrequired"] = (bool, "atts_required")
+        tags["maxbytes"] = (int, "max_bytes")
+        tags["filetypeslist"] = (str, "file_types")
         tags["graderinfo"] = (FText.from_xml, "grader_info")
         tags["responsetemplate"] = (FText.from_xml, "template")
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
         et.SubElement(question, "responseformat").text = self.response_format.value
         if self.response_required:
             et.SubElement(question, "responserequired")
-        et.SubElement(question, "responsefieldlines").text = self.num_lines
+        et.SubElement(question, "responsefieldlines").text = self.lines
         et.SubElement(question, "attachments").text = self.attachments
-        if self.attachments_required:
+        if self.atts_required:
             et.SubElement(question, "attachmentsrequired")
-        if self.maxbytes:
-            et.SubElement(question, "maxbytes").text = self.maxbytes
-        if self.filetypes_list:
-            et.SubElement(question, "filetypeslist").text = self.filetypes_list
+        if self.max_bytes:
+            et.SubElement(question, "maxbytes").text = self.max_bytes
+        if self.file_types:
+            et.SubElement(question, "filetypeslist").text = self.file_types
         if self.grader_info:
-            self.grader_info.to_xml(question, strict)
+            question.append(self.grader_info.to_xml(strict))
         if self.template:
-            self.template.to_xml(question, strict)
+            question.append(self.template.to_xml(strict))
         return question
 
 
@@ -691,8 +733,8 @@ class QRandomMatching(_QuestionMTCS):
         tags["subcats"] = (bool, "subcats")
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
         et.SubElement(question, "choose").text = self.choose
         et.SubElement(question, "subcats").text = self.subcats
         return question
@@ -738,12 +780,12 @@ class QMultichoice(_QuestionMTCS):
     MOODLE = "multichoice"
     QNAME = "Multichoice"
 
-    def __init__(self, single: bool = True, show_instruction: bool = False,
-                 numbering: Numbering = Numbering.ALF_LR, **kwargs):
+    def __init__(self, single=True, show_instruction=False,
+                 numbering: Numbering = None, **kwargs):
         super().__init__(**kwargs)
         self.single = single
         self.show_instruction = show_instruction
-        self.numbering = numbering
+        self.numbering = Numbering.ALF_LR if numbering is None else numbering
 
     @classmethod
     def from_json(cls, data):
@@ -832,15 +874,15 @@ class QMultichoice(_QuestionMTCS):
                 break
         return question
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
         et.SubElement(question, "answernumbering").text = self.numbering.value
         if self.single:
             et.SubElement(question, "single")
         return question
 
 
-class QNumerical(_QuestionMT):
+class QNumerical(_QuestionMTUH):
     """
     This class represents 'Numerical Question' moodle question type.
     Units are currently not implemented, only numerical answer, which
@@ -849,12 +891,9 @@ class QNumerical(_QuestionMT):
     MOODLE = "numerical"
     QNAME = "Numerical"
 
-    def __init__(self, uhandling: UnitHandling = None,
-                 units: List[Unit] = None,  **kwargs):
+    def __init__(self, units: List[Unit] = None,  **kwargs):
         super().__init__(**kwargs)
-        self.unit_handling = UnitHandling() if uhandling is None else \
-            uhandling
-        self.units = units if units is not None else []
+        self.units = [] if units is None else units
 
     def add_option(self, text: str, tol: float, fraction: float,
                    feedback: str = None) -> None:
@@ -871,7 +910,6 @@ class QNumerical(_QuestionMT):
 
     @classmethod
     def from_json(cls, data):
-        data["unit_handling"] = UnitHandling.from_json(data["unit_handling"])
         for i in range(len(data["units"])):
             data["units"][i] = Unit.from_json(data["units"][i])
         for i in range(len(data["options"])):
@@ -880,7 +918,6 @@ class QNumerical(_QuestionMT):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["unit_handling"] = (UnitHandling.from_xml, "uhandling")
         tags["answer"] = (NumericalAnswer.from_xml, "options", True)
         tags["units"] = (Unit.from_xml, "units", True)
         return super().from_xml(root, tags, attrs)
@@ -921,13 +958,12 @@ class QNumerical(_QuestionMT):
                     nans.feedback = FText("feedback", ans[2], formatting, None)
         return qst
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
-        self.unit_handling.to_xml(question, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
         if len(self.units) > 0:
             units = et.SubElement(question, "units")
             for unit in self.units:
-                unit.to_xml(units, strict)
+                units.append(unit.to_xml(strict))
         return question
 
 
@@ -966,8 +1002,8 @@ class QShortAnswer(_QuestionMT):
         tags["answer"] = (Answer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
         et.SubElement(question, "usecase").text = self.use_case
         return question
 
@@ -1026,9 +1062,11 @@ class QTrueFalse(_Question):
         self.__correct = value
 
     @classmethod
-    def from_json(cls, data):
-        data["options"] = [Answer.from_json(data["_QTrueFalse__true"]),
-                           Answer.from_json(data["_QTrueFalse__false"])]
+    def from_json(cls, data: dict):
+        true_answer = Answer.from_json(data.pop("_QTrueFalse__true"))
+        wrong_answer = Answer.from_json(data.pop("_QTrueFalse__false"))
+        data["options"] = [true_answer, wrong_answer]
+        data.pop("_QTrueFalse__correct")  # Defined during init call
         return super().from_json(data)
 
     @classmethod
@@ -1057,10 +1095,10 @@ class QTrueFalse(_Question):
         tags["answer"] = (Answer.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
-        question = super().to_xml(root, strict)
-        self.__true.to_xml(question, strict)
-        self.__false.to_xml(question, strict)
+    def to_xml(self, strict: bool) -> et.Element:
+        question = super().to_xml(strict)
+        question.append(self.__true.to_xml(strict))
+        question.append(self.__false.to_xml(strict))
         return question
 
 

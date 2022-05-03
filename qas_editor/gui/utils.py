@@ -31,7 +31,6 @@ from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
                             QActionGroup, QAction, QLineEdit, QPushButton,\
                             QLabel, QMessageBox, QCheckBox
 from ..enums import Format
-from ..wrappers import FText, Tags
 if TYPE_CHECKING:
     from typing import List, Callable
     from PyQt5.QtGui import QKeyEvent
@@ -102,26 +101,8 @@ class GTextEditor(QTextEdit):
             self.__tags.append(i.span())
         self.__need_update = False
 
-    def __update_fmt(self, index):
+    def _update_fmt(self, index):
         self.__obj.formatting = list(GTextToolbar.FORMATS.values())[index]
-
-    @property
-    def text_format(self):
-        """_summary_
-
-        Returns:
-            _type_: _description_
-        """
-        return self.__obj.formatting
-
-    @text_format.setter
-    def text_format(self, data):
-        """_summary_
-
-        Returns:
-            _type_: _description_
-        """
-        self.__obj.formatting = data
 
     def canInsertFromMimeData(self, source) -> bool:  # pylint: disable=C0103
         """[summary]
@@ -152,21 +133,6 @@ class GTextEditor(QTextEdit):
         if not self.toolbar.hasFocus():
             self.toolbar.setDisabled(True)
         return super().focusOutEvent(event)
-
-    def get_ftext(self) -> FText:
-        """[summary]
-
-        Returns:
-            FText: [description]
-        """
-        if self.text_format == Format.MD:
-            txt = self.toMarkdown()
-        elif self.text_format == Format.HTML:
-            txt = self.toHtml()
-        else:
-            txt = self.toPlainText()
-        self.__obj.text = txt
-        return self.__obj
 
     def get_attr(self):
         return self.__attr
@@ -211,7 +177,7 @@ class GTextEditor(QTextEdit):
                 return None
         return super().keyPressEvent(event)
 
-    def from_obj(self, obj) -> None:
+    def from_obj(self, obj, standard=True) -> None:
         """_summary_
 
         Args:
@@ -383,7 +349,7 @@ class GTextToolbar(QToolBar):
             self._ttype.setCurrentText(self.editor.text_format.name)
             for _obj in self._format_actions:
                 _obj.blockSignals(False)
-            self._ttype.currentIndexChanged.connect(self.editor.__update_fmt)
+            self._ttype.currentIndexChanged.connect(self.editor._update_fmt)
             self._fonts.currentFontChanged.connect(self.editor.setCurrentFont)
             self._underline.toggled.connect(self.editor.setFontUnderline)
             self._italic.toggled.connect(self.editor.setFontItalic)
@@ -571,26 +537,22 @@ class GTagBar(QFrame):
         self.h_layout.addWidget(self.line_edit)
         self.line_edit.setFocus()
 
-    def to_obj(self):
-        """_summary_
-
-        Returns:
-            _type_: _description_
-        """
-        return Tags(self.tags)
-
 
 class GDropbox(QComboBox):
 
-    def __init__(self, parent, cast_type, attribute) -> None:
+    def __init__(self, parent, cast_type, attribute, map=None) -> None:
         super().__init__(parent)
         self.__attr = attribute
         self._cast = cast_type
+        self.__map = map
         self.__obj = None
 
     def focusOutEvent(self, e) -> None:
         if self.__obj is not None:
-            setattr(self.__obj, self.__attr, self.currentText())
+            value = self.currentText()
+            if self.__map is not None:
+                value = self.__map[value]
+            setattr(self.__obj, self.__attr, value)
         return super().focusOutEvent(e)
 
     def from_obj(self, obj):
@@ -603,8 +565,8 @@ class GDropbox(QComboBox):
 
 class GField(QLineEdit):
 
-    def __init__(self, parent, cast_type, attribute) -> None:
-        super().__init__(parent)
+    def __init__(self, cast_type, attribute) -> None:
+        super().__init__()
         self.__attr = attribute
         self._cast = cast_type
         self.__obj = None

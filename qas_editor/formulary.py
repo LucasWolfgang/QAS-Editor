@@ -36,7 +36,7 @@ class Formulary(Serializable):
     def from_json(cls, data: dict):
         pass
 
-    def to_xml(self, root, strict: bool):
+    def to_xml(self, strict: bool):
         pass
 
 
@@ -60,7 +60,7 @@ class Equation(Serializable):
     def from_json(cls, data: dict):
         pass
 
-    def to_xml(self, root, strict: bool):
+    def to_xml(self, strict: bool):
         pass
 
 
@@ -84,7 +84,7 @@ class Table(Serializable):
     def from_json(cls, data: dict):
         pass
 
-    def to_xml(self, root, strict: bool):
+    def to_xml(self, strict: bool):
         pass
 
 
@@ -110,5 +110,5 @@ class Rule(Serializable):
     def from_json(cls, data: dict):
         pass
 
-    def to_xml(self, root, strict: bool):
+    def to_xml(self, strict: bool):
         pass

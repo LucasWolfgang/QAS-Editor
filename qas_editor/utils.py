@@ -116,7 +116,9 @@ class Serializable:
         if not isinstance(__b, __a.__class__):
             return False
         if hasattr(__a, "compare"):
+            path.append(str(__a))
             __a.compare(__b, path)
+            path.pop()
         elif isinstance(__a, list):
             if len(__a) != len(__b):
                 return False
@@ -130,13 +132,11 @@ class Serializable:
                 else:
                     return False
                 tmp.pop(idx)
-                path.remove(str(ita))
+                path.pop()
         elif isinstance(__a, dict):
             for key, value in __a.items():
-                path.append(key)
                 if not Serializable.__itercmp(value, __b.get(key), path):
                     return False
-                path.remove(key)
         elif __a != __b:
             return False
         return True
@@ -146,14 +146,14 @@ class Serializable:
         """
         if not isinstance(__o, self.__class__):
             return False
-        for key, value in self.__dict__.items():
-            path.append(key)
-            if key in ("_Question__parent", "_Category__parent"):
-                continue
-            if not Serializable.__itercmp(value, __o.__dict__.get(key), path):
-                raise ValueError(f"Items differs in {'/'.join(path)}:"
-                                 f"\n\t{value}\n\t{__o.__dict__[key]}")
-            path.remove(key)
+        for key, val in self.__dict__.items():
+            if key not in ("_Question__parent", "_Category__parent") and not \
+                    Serializable.__itercmp(val, __o.__dict__.get(key), path):
+                cpr = __o.__dict__.get(key)
+                if isinstance(val, list) and cpr:
+                    val = ", ".join(map(str, val))
+                    cpr = ", ".join(map(str, cpr))
+                raise ValueError(f"Items differs in {key}:\n\t{val}\n\t{cpr}")
         return True
 
     @classmethod
@@ -176,7 +176,7 @@ class Serializable:
         Returns:
             Serializable: _description_
         """
-        raise NotImplementedError("JSON not implemented")
+        return cls(**data) if isinstance(data, dict) else None
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
@@ -193,8 +193,8 @@ class Serializable:
         if root is None:
             return None
         results = {}
-        name = tags.pop(True, None) # True is used as a key to ask for the tag
-        if name:                    # If it is present, tag is mapped to <name>
+        name = tags.pop(True, None)  # True is used as a key to ask for the tag
+        if name:                     # If it is present, tag is mapped to <name>
             results[name] = root.tag
         for obj in root:
             if obj.tag in tags:
@@ -220,10 +220,8 @@ class Serializable:
                     tags.pop(obj.tag)
         for key in tags:
             cast_type, name, *_ = tags[key]
-            if cast_type == bool: # Some tags act like False when missing
+            if cast_type == bool:  # Some tags act like False when missing
                 results[name] = False
-            else:   # Otherwise, set to None to show that the tag is missing
-                results[name] = None
         if attrs:
             for key in attrs:
                 cast_type, name = attrs[key]
@@ -232,7 +230,7 @@ class Serializable:
                     results[name] = cast_type(results[name])
         return cls(**results)
 
-    def to_xml(self, root: et.Element, strict: bool) -> et.Element:
+    def to_xml(self, strict: bool) -> et.Element:
         """Create a XML representation of the object instance following the
         moodle standard. This function if first implemented as "virtual" in
         the Serializable class, raising an exception if not overriden.

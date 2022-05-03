@@ -27,15 +27,15 @@ from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QSplitter, QTreeView, QMainWindow, QStatusBar,\
                             QFileDialog, QMenu, QAction, QAbstractItemView,\
-                            QPushButton, QScrollArea
+                            QPushButton, QScrollArea, QHBoxLayout, QGroupBox
 
 from .popups import NamePopup, QuestionPopup
 from ..quiz import Category
 from ..questions import _Question
-from ..enums import Numbering
+from ..enums import Numbering, Grading, ShowUnits
 from .utils import GFrameLayout, GTextToolbar, GTextEditor, GTagBar, IMG_PATH,\
                    GField, GCheckBox, GDropbox, action_handler
-from .forms import GOptions, GUnitHadling, GCFeedback, GMultipleTries
+from .forms import GOptions
 if TYPE_CHECKING:
     from typing import Dict
     from PyQt5.QtGui import QDropEvent
@@ -59,6 +59,12 @@ class Editor(QMainWindow):
                   "txt":    ("write_aiken"),
                   "xml":    ("write_xml")}
 
+    GRADE = {"Ignore": "IGNORE", "Fraction of reponse": "RESPONSE",
+             "Fraction of question": "QUESTION"}
+
+    SHOW_UNITS = {"Text input": "TEXT", "Multiple choice": "MC",
+                  "Drop-down": "DROP_DOWN", "Not visible": "NONE"}
+
     def __init__(self, *args, **kwargs):
         super(Editor, self).__init__(*args, **kwargs)
         self.setWindowTitle("QAS Editor GUI")
@@ -76,20 +82,19 @@ class Editor(QMainWindow):
         # Left side
         self.data_view = QTreeView()
         self.data_view.setIconSize(QSize(18, 18))
-        xframe_vbox = self._add_datatree_viewer()
+        xframe_vbox = self._block_datatree()
         left = QWidget()
         left.setLayout(xframe_vbox)
 
         # Right side
         self.cframe_vbox = QVBoxLayout()
-        self._add_general_data_block()
-        self._add_answer_block()
-        self._add_multiple_tries_block()
-        self._add_solution_block()
-        self._add_database_block()
+        self._block_general_data()
+        self._block_answer()
+        self._block_multiple_tries()
+        self._block_solution()
+        # self._block_database()
         self.cframe_vbox.addStretch()
         self.cframe_vbox.setSpacing(5)
-        # self.cframe_vbox.setContentsMargins(0,0,0,0)
         for value in self._items.values():
             value.setEnabled(False)
 
@@ -119,92 +124,6 @@ class Editor(QMainWindow):
         self.setGeometry(300, 300, 1000, 600)
         self.show()
 
-    def _add_answer_block(self) -> None:
-        frame = GFrameLayout(title="Answers")
-        self.cframe_vbox.addLayout(frame)
-        self._items["shuffle"] = GCheckBox(self, "Shuffle answers", "shuffle")
-        self._items["show_instruction"] = GCheckBox(self, "Show instructions",
-                                                    "show_instruction")
-        self._items["single"] = GCheckBox(self, "Single answer", "single")
-        self._items["single"].setContentsMargins(10, 0, 0, 0)
-        self._items["numbering"] = GDropbox(self, str, "answer_numbering")
-        self._items["numbering"].addItems([c.value for c in Numbering])
-        self._items["unit_handling"] = GUnitHadling()
-        self._items["answers"] = GOptions(self.toolbar)
-        aabutton = QPushButton("Add Answer")
-        aabutton.clicked.connect(self._items["answers"].add_default)
-        ppbutton = QPushButton("Pop Answer")
-        ppbutton.clicked.connect(self._items["answers"].pop)
-
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Numbering"), 0, 0)
-        grid.addWidget(self._items["answer_numbering"], 0, 1, Qt.AlignLeft)
-        grid.addWidget(self._items["show_instruction"], 1, 0, 1, 2)
-        grid.addWidget(self._items["single"], 0, 2)
-        grid.addWidget(self._items["shuffle"], 1, 2)
-        grid.addWidget(self._items["unit_handling"], 0, 3, 2, 1)
-        grid.addWidget(aabutton, 0, 4)
-        grid.addWidget(ppbutton, 1, 4)
-        grid.addLayout(self._items["answers"], 2, 0, 1, 5)
-        grid.setColumnStretch(4, 1)
-        frame.setLayout(grid)
-
-    def _add_database_block(self) -> None:
-        frame = GFrameLayout(title="Database")
-        self.cframe_vbox.addLayout(frame)
-
-    def _add_datatree_viewer(self) -> QVBoxLayout:
-        self.data_view.setStyleSheet("margin: 5px 5px 0px 5px")
-        self.data_view.setHeaderHidden(True)
-        self.data_view.doubleClicked.connect(self._update_item)
-        self.data_view.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.data_view.customContextMenuRequested.connect(self._data_view_cxt)
-        self.data_view.setDragEnabled(True)
-        self.data_view.setAcceptDrops(True)
-        self.data_view.setDropIndicatorShown(True)
-        self.data_view.setDragDropMode(QAbstractItemView.InternalMove)
-        self.data_view.original_dropEvent = self.data_view.dropEvent
-        self.data_view.dropEvent = self._dataview_dropevent
-        self.root_item = QStandardItemModel(0, 1)
-        self.root_item.setHeaderData(0, Qt.Horizontal, "Classification")
-        self.data_view.setModel(self.root_item)
-
-        xframe_vbox = QVBoxLayout()
-        xframe_vbox.addWidget(self.data_view)
-        return xframe_vbox
-
-    def _add_general_data_block(self) -> None:
-        frame = GFrameLayout(self, title="General Data")
-        self.cframe_vbox.addLayout(frame)
-
-        self._items["default_grade"] = GField(self, int, "default_grade")
-        self._items["default_grade"].setFixedWidth(30)
-        self._items["default_grade"].setToolTip("Default grade.")
-        self._items["id_number"] = GField(self, int, "id_number")
-        self._items["id_number"].setFixedWidth(40)
-        self._items["id_number"].setToolTip("Provides a second way of "
-                                            "finding a question.")
-        self._items["tags"] = GTagBar(self)
-        self._items["tags"].setToolTip("List of tags used by the question.")
-        self._items["question"] = GTextEditor(self.toolbar, "question")
-        self._items["question"].setMinimumHeight(100)
-        self._items["question"].setToolTip("Tags used to ")
-        grid = QGridLayout()
-        grid.addWidget(QLabel("Tags"), 0, 0)
-        grid.addWidget(self._items["tags"], 0, 1)
-        grid.setColumnStretch(1, 1)
-        tmp = QLabel("Default grade")
-        tmp.setContentsMargins(10, 0, 0, 0)
-        grid.addWidget(tmp, 0, 2)
-        grid.addWidget(self._items["default_grade"], 0, 3)
-        tmp = QLabel("ID")
-        tmp.setContentsMargins(10, 0, 0, 0)
-        grid.addWidget(tmp, 0, 4)
-        grid.addWidget(self._items["id_number"], 0, 5)
-        grid.addWidget(self._items["question"], 1, 0, 1, 6)
-        frame.setLayout(grid)
-        frame.toggle_collapsed()
-
     def _add_menu_bars(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
         new_file = QAction("New file", self)
@@ -230,26 +149,6 @@ class Editor(QMainWindow):
         self.toolbar = GTextToolbar()
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
-    def _add_multiple_tries_block(self) -> None:
-        frame = GFrameLayout(self, title="Multiple Tries")
-        self.cframe_vbox.addLayout(frame)
-        self._items["multiple_tries"] = GMultipleTries(self, self.toolbar)
-        frame.setLayout(self._items["multiple_tries"])
-
-    def _add_solution_block(self) -> None:
-        frame = GFrameLayout(title="Solution and Feedback")
-        self.cframe_vbox.addLayout(frame)
-        self._items["general_feedback"] = GTextEditor(self.toolbar,
-                                                      "general_feedback")
-        self._items["general_feedback"].setFixedHeight(50)
-        self._items["combined_feedback"] = GCFeedback(self.toolbar)
-        self._items["combined_feedback"].setFixedHeight(110)
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("General feedback"))
-        layout.addWidget(self._items["general_feedback"])
-        layout.addWidget(self._items["combined_feedback"])
-        frame.setLayout(layout)
-
     def _add_new_category(self):
         popup = NamePopup(True)
         popup.show()
@@ -274,6 +173,164 @@ class Editor(QMainWindow):
         quiz = Category.read_files([path], path.rsplit("/", 1)[-1])
         self.cxt_data[quiz.name] = quiz
         self._update_tree_item(quiz, self.cxt_item)
+
+    def _block_answer(self) -> None:
+        frame = GFrameLayout(title="Answers")
+        self.cframe_vbox.addLayout(frame)
+        self._items["shuffle"] = GCheckBox(self, "Shuffle answers", "shuffle")
+        self._items["show_instruction"] = GCheckBox(self, "Show instructions",
+                                                    "show_instruction")
+        self._items["single"] = GCheckBox(self, "Single answer", "single")
+        self._items["single"].setContentsMargins(10, 0, 0, 0)
+        self._items["numbering"] = GDropbox(self, str, "numbering")
+        self._items["numbering"].addItems([c.value for c in Numbering])
+        self._items["numbering"].setToolTip("")
+        self._items["options"] = GOptions(self.toolbar)
+
+        group_box = QGroupBox("Unit Handling", self)
+        self._items["grading_type"] = GDropbox(self, Grading, "grading_type",
+                                               self.GRADE)
+        self._items["grading_type"].addItems(self.GRADE.__iter__())
+        self._items["penalty"] = GField(float, "penalty")
+        self._items["penalty"].setText("0")
+        self._items["show_units"] = GDropbox(self, ShowUnits, "show_units")
+        self._items["show_units"].addItems(self.SHOW_UNITS.__iter__())
+        self._items["left"] = GCheckBox(self, "Put units on the left", "left")
+        _content = QGridLayout(self)
+        group_box.setLayout(_content)
+        _content.addWidget(QLabel("Grading"), 0, 0,  Qt.AlignmentFlag.AlignRight)
+        _content.addWidget(self._items["grading_type"], 0, 1)
+        _content.addWidget(QLabel("Penalty"), 0, 2, Qt.AlignmentFlag.AlignLeft)
+        _content.addWidget(self._items["penalty"], 0, 3)
+        _content.addWidget(QLabel("Show units"), 1, 0)
+        _content.addWidget(self._items["show_units"], 1, 1)
+        _content.addWidget(self._items["left"], 1, 2, 1, 2)
+        _content.setContentsMargins(5, 3, 5, 3)
+        _content.setVerticalSpacing(0)
+
+        aabutton = QPushButton("Add Answer")
+        aabutton.clicked.connect(self._items["options"].add_default)
+        ppbutton = QPushButton("Pop Answer")
+        ppbutton.clicked.connect(self._items["options"].pop)
+
+        grid = QGridLayout()
+        grid.addWidget(self._items["numbering"], 0, 0)
+        grid.addWidget(self._items["show_instruction"], 1, 0)
+        grid.addWidget(self._items["single"], 0, 2)
+        grid.addWidget(self._items["shuffle"], 1, 2)
+        grid.addWidget(group_box, 0, 3, 2, 1)
+        grid.addWidget(aabutton, 0, 4)
+        grid.addWidget(ppbutton, 1, 4)
+        grid.addLayout(self._items["options"], 2, 0, 1, 5)
+        grid.setColumnStretch(4, 1)
+        grid.setVerticalSpacing(0)
+        frame.setLayout(grid)
+
+    def _block_database(self) -> None:
+        frame = GFrameLayout(title="Database")
+        self.cframe_vbox.addLayout(frame)
+
+    def _block_datatree(self) -> QVBoxLayout:
+        self.data_view.setStyleSheet("margin: 5px 5px 0px 5px")
+        self.data_view.setHeaderHidden(True)
+        self.data_view.doubleClicked.connect(self._update_item)
+        self.data_view.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.data_view.customContextMenuRequested.connect(self._data_view_cxt)
+        self.data_view.setDragEnabled(True)
+        self.data_view.setAcceptDrops(True)
+        self.data_view.setDropIndicatorShown(True)
+        self.data_view.setDragDropMode(QAbstractItemView.InternalMove)
+        self.data_view.original_dropEvent = self.data_view.dropEvent
+        self.data_view.dropEvent = self._dataview_dropevent
+        self.root_item = QStandardItemModel(0, 1)
+        self.root_item.setHeaderData(0, Qt.Horizontal, "Classification")
+        self.data_view.setModel(self.root_item)
+
+        xframe_vbox = QVBoxLayout()
+        xframe_vbox.addWidget(self.data_view)
+        return xframe_vbox
+
+    def _block_general_data(self) -> None:
+        frame = GFrameLayout(self, title="General Data")
+        self.cframe_vbox.addLayout(frame)
+
+        self._items["default_grade"] = GField(int, "default_grade")
+        self._items["default_grade"].setFixedWidth(30)
+        self._items["default_grade"].setToolTip("Default grade.")
+        self._items["dbid"] = GField(int, "dbid")
+        self._items["dbid"].setFixedWidth(40)
+        self._items["dbid"].setToolTip("Provides a second way of "
+                                       "finding a question.")
+        self._items["tags"] = GTagBar(self)
+        self._items["tags"].setToolTip("List of tags used by the question.")
+        self._items["question"] = GTextEditor(self.toolbar, "question")
+        self._items["question"].setMinimumHeight(100)
+        self._items["question"].setToolTip("Tags used to ")
+
+        grid = QGridLayout()
+        grid.addWidget(QLabel("Tags"), 0, 0)
+        grid.addWidget(self._items["tags"], 0, 1)
+        grid.setColumnStretch(1, 1)
+        tmp = QLabel("Default grade")
+        tmp.setContentsMargins(10, 0, 0, 0)
+        grid.addWidget(tmp, 0, 2)
+        grid.addWidget(self._items["default_grade"], 0, 3)
+        tmp = QLabel("ID")
+        tmp.setContentsMargins(10, 0, 0, 0)
+        grid.addWidget(tmp, 0, 4)
+        grid.addWidget(self._items["dbid"], 0, 5)
+        grid.addWidget(self._items["question"], 1, 0, 1, 6)
+        frame.setLayout(grid)
+        frame.toggle_collapsed()
+
+    def _block_multiple_tries(self) -> None:
+        frame = GFrameLayout(self, title="Multiple Tries")
+        self.cframe_vbox.addLayout(frame)
+        _header = QHBoxLayout()
+        self._items["penalty"] = GField(str, "penalty")
+        self._items["penalty"].setText("0")
+        _header.addWidget(QLabel("Penalty", self))
+        _header.addWidget(self._items["penalty"])
+        add = QPushButton("Add Hint", self)
+        # add.clicked.connect(self._add_hint)
+        _header.addWidget(add)
+        rem = QPushButton("Remove Last", self)
+        # rem.clicked.connect(self.pop)
+        _header.addWidget(rem)
+        _header.setStretch(1, 1)
+        frame.setLayout(_header)
+
+    def _block_solution(self) -> None:
+        collapsible = GFrameLayout(title="Solution and Feedback")
+        self.cframe_vbox.addLayout(collapsible)
+        layout = QVBoxLayout()
+        collapsible.setLayout(layout)
+        self._items["feedback"] = GTextEditor(self.toolbar, "feedback")
+        self._items["feedback"].setFixedHeight(50)
+        self._items["feedback"].setToolTip("General feedback for the question."
+                                           " May also be used to describe"
+                                           " solutions.")
+        layout.addWidget(self._items["feedback"])
+        sframe = QFrame(self)
+        sframe.setStyleSheet(".QFrame{border:1px solid rgb(41, 41, 41);"
+                             "background-color: #e4ebb7}")
+        layout.addWidget(sframe)
+        self._items["if_correct"] = GTextEditor(self.toolbar, "if_correct")
+        self._items["if_incomplete"] = GTextEditor(self.toolbar, "if_incomplete")
+        self._items["if_incorrect"] = GTextEditor(self.toolbar, "if_incorrect")
+        self._items["show_num"] = GCheckBox(self, "Show the number of correct "
+                                            "responses once the question has "
+                                            "finished", "show_num")
+        _content = QGridLayout(self)
+        _content.addWidget(QLabel("Feedback for correct answer"), 0, 0)
+        _content.addWidget(self._items["if_correct"], 1, 0)
+        _content.addWidget(QLabel("Feedback for incomplete answer"), 0, 1)
+        _content.addWidget(self._items["if_incomplete"], 1, 1)
+        _content.addWidget(QLabel("Feedback for incorrect answer"), 0, 2)
+        _content.addWidget(self._items["if_incorrect"], 1, 2)
+        _content.addWidget(self._items["show_num"], 2, 0, 1, 3)
+        _content.setColumnStretch(3, 1)
+        sframe.setLayout(_content)
 
     @action_handler
     def _create_file(self):
@@ -381,7 +438,7 @@ class Editor(QMainWindow):
         for folder in dialog.selectedFiles():
             cat = folder.rsplit("/", 1)[-1]
             quiz = Category.read_files(glob.glob(f"{folder}/*"), cat)
-            self.top_quiz[cat] = quiz
+            self.top_quiz.add_subcat(quiz)
         self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
