@@ -16,7 +16,7 @@
                         "formatting": "html",
                         "bfile": []
                     },
-                    "id_number": null,
+                    "dbid": null,
                     "shuffle": false,
                     "solution": null,
                     "tags": null,
@@ -52,7 +52,7 @@
                         "formatting": "html",
                         "bfile": []
                     },
-                    "id_number": null,
+                    "dbid": null,
                     "shuffle": true,
                     "solution": null,
                     "tags": null,
@@ -130,7 +130,7 @@
                         "formatting": "html",
                         "bfile": []
                     },
-                    "id_number": null,
+                    "dbid": null,
                     "shuffle": false,
                     "solution": null,
                     "tags": [
@@ -253,7 +253,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -300,7 +300,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": true,
                             "solution": null,
                             "tags": null,
@@ -396,7 +396,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": true,
                             "solution": null,
                             "tags": null,
@@ -472,7 +472,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": true,
                             "solution": null,
                             "tags": null,
@@ -538,7 +538,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -563,7 +563,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -597,7 +597,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -631,7 +631,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -676,7 +676,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -727,7 +727,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": true,
                             "solution": null,
                             "tags": null,
@@ -1110,7 +1110,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": true,
                             "solution": null,
                             "tags": null,
@@ -1215,7 +1215,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": true,
                             "solution": null,
                             "tags": null,
@@ -1329,7 +1329,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -1501,7 +1501,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -1527,7 +1527,7 @@
                                 "formatting": "moodle_auto_format",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": true,
                             "solution": null,
                             "tags": null,
@@ -1603,7 +1603,7 @@
                                 "formatting": "plain_text",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": true,
                             "solution": null,
                             "tags": null,
@@ -1679,7 +1679,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": true,
                             "solution": null,
                             "tags": null,
@@ -1738,7 +1738,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -1780,7 +1780,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -1867,7 +1867,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
@@ -1912,7 +1912,7 @@
                                 "formatting": "html",
                                 "bfile": []
                             },
-                            "id_number": null,
+                            "dbid": null,
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
