@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
-from .enums import Format, ShapeType, ClozeFormat, Direction
+from .enums import Format, ShapeType, ClozeFormat, Direction, ToleranceType
 from .utils import Serializable
 from .wrappers import B64File, FText
 if TYPE_CHECKING:
@@ -94,7 +94,7 @@ class CalculatedAnswer(NumericalAnswer):
     """[summary]
     """
 
-    def __init__(self, tolerance_type: int, answer_format: int,
+    def __init__(self, tolerance_type: ToleranceType, answer_format: int,
                  answer_length: int, **kwargs):
         super().__init__(**kwargs)
         self.tolerance_type = tolerance_type
@@ -103,14 +103,14 @@ class CalculatedAnswer(NumericalAnswer):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["tolerancetype"] = (int, "tolerance_type")
+        tags["tolerancetype"] = (ToleranceType, "tolerance_type")
         tags["correctanswerformat"] = (int, "answer_format")
         tags["correctanswerlength"] = (int, "answer_length")
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, strict: bool) -> et.Element:
         answer = super().to_xml(strict)
-        et.SubElement(answer, "tolerancetype").text = self.tolerance_type
+        et.SubElement(answer, "tolerancetype").text = self.tolerance_type.value
         et.SubElement(answer, "correctanswerformat").text = self.answer_format
         et.SubElement(answer, "correctanswerlength").text = self.answer_length
         return answer
@@ -124,7 +124,7 @@ class ClozeItem(Serializable):
 
     def __init__(self, start: int, grade: int, cformat: ClozeFormat,
                  opts: List[Answer] = None):
-        self.start: int = start
+        self.start = start
         self.cformat = cformat
         self.grade = grade
         self.opts = opts if opts else []
@@ -146,7 +146,7 @@ class ClozeItem(Serializable):
         Returns:
             ClozeItem: _description_
         """
-        options = []
+        opts = []
         for opt in regex[3].split("~"):
             if not opt:
                 continue
@@ -162,11 +162,9 @@ class ClozeItem(Serializable):
             elif tmp[0] == "%":
                 frac, tmp = tmp[1:].split("%")
                 frac = float(frac)
-            options.append(Answer(frac, tmp,
-                                  FText("feedback", fdb, Format.PLAIN),
-                                  Format.PLAIN))
-        return cls(regex.start(), int(regex[1]),
-                   ClozeFormat(regex[2]), options)
+            opts.append(Answer(frac, tmp, FText("feedback", fdb, Format.PLAIN),
+                               Format.PLAIN))
+        return cls(regex.start(), int(regex[1]), ClozeFormat(regex[2]), opts)
 
     def to_text(self) -> str:
         """A

@@ -36,7 +36,6 @@ def main():
     handler.setLevel(logging.DEBUG)
     log.addHandler(handler)
     app = QApplication(sys.argv)
-    app.setStyle('Breeze')
     Editor()
     sys.exit(app.exec_())
 

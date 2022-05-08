@@ -22,24 +22,26 @@ from enum import Enum
 class ClozeFormat(Enum):
     """Enumerates Cloze formats
     """
-    SHORTANSWER = "SA"
-    SA = "SA"
-    MW = "SA"
-    SHORTANSWER_C = "SAC"
-    SAC = "SAC"
-    MWC = "SAC"
-    NUMERICAL = "NM"
-    NM = "NM"
-    MULTICHOICE = "MULTICHOICE"
-    MC = "MC"
-    MULTICHOICE_V = "MULTICHOICE_V"
-    MVC = "MVC"
-    MULTICHOICE_H = "MULTICHOICE_H"
-    MCH = "MCH"
-    MULTIRESPONSE = "MR"
-    MR = "MR"
-    MULTIRESPONSE_H = "MRH"
-    MRH = "MRH"
+    SHORTANSWER = "SHORTANSWER", "SA", "MW", "SA"
+    SHORTANSWER_C = "SHORTANSWER_C", "SAC", "MWC"
+    NUMERICAL = "NUMERICAL", "NM"
+    MULTICHOICE = "MULTICHOICE", "MC"
+    MULTICHOICE_V = "MULTICHOICE_V", "MVC"
+    MULTICHOICE_H = "MULTICHOICE_H", "MCH"
+    MULTIRESPONSE = "MULTIRESPONSE", "MR"
+    MULTIRESPONSE_H = "MULTIRESPONSE_H", "MRH"
+
+    def __new__(cls, *values):
+        obj = object.__new__(cls)
+        obj._value_ = values[0]
+        for other_value in values[1:]:
+            cls._value2member_map_[other_value] = obj
+        obj._all_values = values
+        return obj
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}.{self._name_}: %s>" % (
+                ', '.join([repr(v) for v in self._all_values]))
 
 
 class Direction(Enum):
