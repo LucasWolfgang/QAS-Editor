@@ -20,8 +20,8 @@
                     "shuffle": false,
                     "solution": null,
                     "tags": null,
-                    "response_format": "editor",
-                    "response_required": true,
+                    "rsp_format": "editor",
+                    "rsp_required": true,
                     "responsefield_lines": 3,
                     "attachments": 0,
                     "attachments_required": false,
@@ -178,7 +178,7 @@
                             }
                         ]
                     },
-                    "highlight_empty": true,
+                    "highlight": true,
                     "_dragitems": [
                         {
                             "text": "Marker1",
@@ -257,8 +257,8 @@
                             "shuffle": false,
                             "solution": null,
                             "tags": null,
-                            "response_format": "editor",
-                            "response_required": true,
+                            "rsp_format": "editor",
+                            "rsp_required": true,
                             "responsefield_lines": 3,
                             "attachments": 0,
                             "attachments_required": false,
@@ -732,7 +732,6 @@
                             "solution": null,
                             "tags": null,
                             "synchronize": 0,
-                            "single": false,
                             "unit_handling": {
                                 "grading_type": "0",
                                 "penalty": "0.1000000",

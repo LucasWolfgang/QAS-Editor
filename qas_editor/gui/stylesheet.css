@@ -1,0 +1,49 @@
+GDropbox {
+    border-radius: 3px;
+    padding: 2 0 2 5;
+    background-color: #e3e3e3;
+}
+GDropbox::drop-down {
+    border: 1px sunken;
+    border-radius: 3px;
+    margin: 3px;
+    background-color: #ffffff;
+}
+GDropbox:enabled {
+    background-color: #ffffff;
+    selection-background-color: #ffffff;    /* Qt property */
+	selection-color: #000000;               /* Qt property */
+}
+GDropbox::drop-down:enabled {
+    border: 1px sunken;
+    border-radius: 3px;
+    margin: 3px;
+    background-color: #3091ff;
+}
+GHint {
+    border:1px solid rgb(41, 41, 41);
+    background-color: #e4ebb7
+}
+GCFeedback {
+    border:1px solid rgb(41, 41, 41);
+    background-color: #e4ebb7
+}
+_GTitleFrame {
+    border:1px solid rgb(41, 41, 41);
+    background-color: #acc5f2;
+}
+GTagBar {
+    border:1px sunken;
+    background-color: #d1d1d1;
+    padding:2px
+}
+GTagBar QPushButton {
+    border:0px sunken;
+    font-weight:bold
+}
+GTagBar QLabel {
+    background-color:#c4edc2;
+    font-size:12px;
+    border-radius:4px;
+    padding-left:2px
+} 
