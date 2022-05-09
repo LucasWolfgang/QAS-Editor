@@ -29,11 +29,13 @@ from PyQt5.QtGui import QFont, QImage, QTextDocument, QKeySequence, QIcon,\
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFrame,\
                             QTextEdit, QToolBar, QFontComboBox, QComboBox,\
                             QActionGroup, QAction, QLineEdit, QPushButton,\
-                            QLabel, QMessageBox, QCheckBox
+                            QLabel, QMessageBox, QCheckBox, QCompleter,\
+                            QListWidget
 from ..enums import Format
 if TYPE_CHECKING:
     from typing import List, Callable
     from PyQt5.QtGui import QKeyEvent
+    from ..enums import EnhancedEnum
 IMG_PATH = __file__.replace('\\', '/').rsplit('/', 2)[0] + "/images"
 LOG = logging.getLogger(__name__)
 
@@ -132,10 +134,19 @@ class GTextEditor(QTextEdit):
         """
         if not self.toolbar.hasFocus():
             self.toolbar.setDisabled(True)
+        if self.__obj.formatting == Format.MD:
+            self.__obj.text = self.toMarkdown()
+        elif self.__obj.formatting == Format.HTML:
+            self.__obj.text = self.toHtml()
+        else:
+            self.__obj.text = self.toPlainText()
         return super().focusOutEvent(event)
 
     def get_attr(self):
         return self.__attr
+
+    def get_formatting(self):
+        return self.__obj.formatting.name
 
     def insertFromMimeData(self, source):  # pylint: disable=C0103
         """[summary]
@@ -177,13 +188,15 @@ class GTextEditor(QTextEdit):
                 return None
         return super().keyPressEvent(event)
 
-    def from_obj(self, obj, standard=True) -> None:
+    def from_obj(self, obj, is_ftext=False) -> None:
         """_summary_
 
         Args:
-            text (FText): _description_
+            obj (FText): Object to get the data from
+            standard (bool): If the object passed is a FText (or has the FText
+                required data) or is a object that contains the FText
         """
-        self.__obj = getattr(obj, self.__attr)
+        self.__obj = obj if is_ftext else getattr(obj, self.__attr)
         if self.__obj.formatting == Format.MD:
             self.setMarkdown(self.__obj.text)
         elif self.__obj.formatting == Format.HTML:
@@ -280,6 +293,13 @@ class GTextToolbar(QToolBar):
         self._wrap.setCheckable(True)
         self._wrap.setChecked(True)
         self.addAction(self._wrap)
+        self.addSeparator()
+
+        self._html = QAction(QIcon(f"{IMG_PATH}/html.png"),
+                             "Wrap text to window", self)
+        self._html.setStatusTip("Toggle wrap text to window")
+        self._html.setCheckable(True)
+        self.addAction(self._html)
 
         # Format-related widgets/actions, used to disable/enable signals.
         self._format_actions = [self._fonts, self._fsize, self._bold,
@@ -346,7 +366,8 @@ class GTextToolbar(QToolBar):
             self._alignc.setChecked(self.editor.alignment() == Qt.AlignCenter)
             self._alignr.setChecked(self.editor.alignment() == Qt.AlignRight)
             self._alignj.setChecked(self.editor.alignment() == Qt.AlignJustify)
-            self._ttype.setCurrentText(self.editor.text_format.name)
+            self._ttype.setCurrentText(self.editor.get_formatting())
+            #self._mtype
             for _obj in self._format_actions:
                 _obj.blockSignals(False)
             self._ttype.currentIndexChanged.connect(self.editor._update_fmt)
@@ -364,7 +385,7 @@ class GTextToolbar(QToolBar):
             self._wrap.triggered.connect(self.__wrap_text)
 
 
-class GArrow(QFrame):
+class _GArrow(QFrame):
     """Arrow used in the TitleFrame class to represent open/close status
     """
 
@@ -399,26 +420,24 @@ class GArrow(QFrame):
         painter.end()
 
 
-class GTitleFrame(QFrame):
+class _GTitleFrame(QFrame):
     """Used as header in a GCollapsible class.
     """
 
     def __init__(self, parent, toogle_func, title=""):
         QFrame.__init__(self, parent=parent)
         self.setFrameShadow(QFrame.Sunken)
-        self.setStyleSheet("border:1px solid rgb(41, 41, 41); "
-                           "background-color: #acc5f2;")
-        self._hlayout = QHBoxLayout(self)
-        self._hlayout.setContentsMargins(0, 0, 0, 0)
-        self._hlayout.setSpacing(0)
-        self._arrow = GArrow(collapsed=True)
+        self._arrow = _GArrow(collapsed=True)
         self._arrow.setStyleSheet("border:0px")
-        self._title = QLabel(title)
-        self._title.setFixedHeight(24)
-        self._title.move(QPoint(24, 0))
-        self._title.setStyleSheet("border:0px")
-        self._hlayout.addWidget(self._arrow)
-        self._hlayout.addWidget(self._title)
+        _title = QLabel(title)
+        _title.setFixedHeight(24)
+        _title.move(QPoint(24, 0))
+        _title.setStyleSheet("border:0px")
+        _hlayout = QHBoxLayout(self)
+        _hlayout.setContentsMargins(0, 0, 0, 0)
+        _hlayout.setSpacing(0)
+        _hlayout.addWidget(self._arrow)
+        _hlayout.addWidget(_title)
         self.__toogle_func = toogle_func
 
     def mousePressEvent(self, a0) -> None:
@@ -436,7 +455,7 @@ class GCollapsible(QVBoxLayout):
     def __init__(self, parent=None, title="", content=None):
         QVBoxLayout.__init__(self)
         self._is_collasped = True
-        self._title_frame = GTitleFrame(parent, self.toggle_collapsed, title)
+        self._title_frame = _GTitleFrame(parent, self.toggle_collapsed, title)
         super().addWidget(self._title_frame)
         self._content = QWidget(parent) if content is None else content
         self._content.setStyleSheet(".QWidget{border:1px solid rgb(41, 41, 41)"
@@ -469,52 +488,58 @@ class GTagBar(QFrame):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.tags = []
-        self.setStyleSheet("QPushButton {border:0px sunken; font-weight:bold} "
-                           "QLabel {background:#c4edc2; font-size:12px; border"
-                           "-radius:4px; padding-left:2px} .GTagBar {border:"
-                           "1px sunken; background: #d1d1d1; padding:2px}")
-        self.h_layout = QHBoxLayout()
-        self.h_layout.setContentsMargins(0, 0, 0, 0)
-        self.setLayout(self.h_layout)
-        self.line_edit = QLineEdit()
-        self.refresh()
-        self.line_edit.returnPressed.connect(self.create_tags)
+        self._tags: list = None
+        self._cat_tags: dict = None
+        self._h_layout = QHBoxLayout(self)
+        self._h_layout.setContentsMargins(0, 0, 0, 0)
+        self._h_layout.setSpacing(1)
+        self._line_edit = QLineEdit(self)
+        self._line_edit.returnPressed.connect(self.__create_tags)
+        self._line_edit.textChanged.connect(self.__on_text_change)
+        self._h_layout.addWidget(self._line_edit, 1)
+        completer = QCompleter(["easy"], self)
+        self._line_edit.setCompleter(completer)
+        self._model_item = completer.model()
 
-    def add_tag_to_bar(self, text):
-        """_summary_
+    def __create_tags(self):
+        new_tags = self._line_edit.text().split(',')
+        self._line_edit.setText('')
+        for tag in new_tags:
+            if tag not in self._tags:
+                self._tags.append(tag)
+                self._cat_tags[tag] = self._cat_tags.setdefault(tag, 0) + 1
+        self._tags.sort(key=lambda x: x.lower())
+        self.__refresh()
 
-        Args:
-            text (_type_): _description_
-        """
-        tag = QLabel(text+"    ")
-        hbox = QHBoxLayout()
-        hbox.setContentsMargins(0, 0, 0, 5)
-        x_button = QPushButton('x')
-        x_button.setFixedSize(16, 16)
-        x_button.clicked.connect(lambda: self.delete_tag(text))
-        hbox.addWidget(x_button, 0, Qt.AlignRight)
-        tag.setLayout(hbox)
-        self.h_layout.addWidget(tag)
+    def __on_text_change(self):
+        if self._cat_tags is None:
+            return
+        tmp = []
+        for item in self._cat_tags:
+            if self._line_edit.text().lower() in item.lower():
+                tmp.append(item)
+        self._model_item.setStringList(tmp)
 
-    def delete_tag(self, tag_name):
-        """_summary_
+    def __delete(self, tag_name):
+        index = self._tags.index(tag_name)
+        self._tags.remove(tag_name)
+        self._h_layout.itemAt(index + 1).widget().setParent(None)
+        self._line_edit.setFocus()
 
-        Args:
-            tag_name (_type_): _description_
-        """
-        self.tags.remove(tag_name)
-        self.refresh()
-
-    def create_tags(self):
-        """_summary_
-        """
-        new_tags = self.line_edit.text().split(',')
-        self.line_edit.setText('')
-        self.tags.extend(new_tags)
-        self.tags = list(set(self.tags))
-        self.tags.sort(key=lambda x: x.lower())
-        self.refresh()
+    def __refresh(self):
+        for i in reversed(range(self._h_layout.count() - 1)):
+            self._h_layout.itemAt(i).widget().setParent(None)
+        if self._tags:
+            for tag in self._tags:
+                label = QLabel(tag + "    ", self)
+                hbox = QHBoxLayout(label)
+                hbox.setContentsMargins(0, 0, 0, 5)
+                x_button = QPushButton('x', label)
+                x_button.setFixedSize(16, 16)
+                x_button.clicked.connect(lambda _, _tg=tag: self.__delete(_tg))
+                hbox.addWidget(x_button, 0, Qt.AlignRight)
+                self._h_layout.addWidget(label)
+        self._line_edit.setFocus()
 
     def from_obj(self, obj) -> None:
         """_summary_
@@ -522,42 +547,39 @@ class GTagBar(QFrame):
         Args:
             obj (Tags): _description_
         """
-        self.tags = obj.tags
+        self._tags: list = obj.tags
+        self.__refresh()
 
     def get_attr(self):
         return "tags"
 
-    def refresh(self):
-        """_summary_
+    def set_gtags(self, tags: dict):
+        """Set the complete list of tags using in the project. Tags may be
+        duplicate, so a dict is used to count how many times it is used.
         """
-        for i in reversed(range(self.h_layout.count())):
-            self.h_layout.itemAt(i).widget().setParent(None)
-        for tag in self.tags:
-            self.add_tag_to_bar(tag)
-        self.h_layout.addWidget(self.line_edit)
-        self.line_edit.setFocus()
+        self._model_item.setStringList(set(tags))
+        self._cat_tags = tags
 
 
 class GDropbox(QComboBox):
 
-    def __init__(self, parent, cast_type, attribute, map=None) -> None:
+    def __init__(self, parent: QWidget, attribute: str, group: EnhancedEnum):
         super().__init__(parent)
         self.__attr = attribute
-        self._cast = cast_type
-        self.__map = map
         self.__obj = None
+        self.setMinimumWidth(80)
+        for item in group:
+            self.addItem(item.comment, item)
 
     def focusOutEvent(self, e) -> None:
         if self.__obj is not None:
-            value = self.currentText()
-            if self.__map is not None:
-                value = self.__map[value]
-            setattr(self.__obj, self.__attr, value)
+            setattr(self.__obj, self.__attr, self.currentData())
         return super().focusOutEvent(e)
 
     def from_obj(self, obj):
         self.__obj = obj
-        self.setCurrentText(str(getattr(obj, self.__attr)))
+        data = getattr(obj, self.__attr)
+        self.setCurrentText(data.comment)
 
     def get_attr(self):
         return self.__attr
@@ -565,8 +587,8 @@ class GDropbox(QComboBox):
 
 class GField(QLineEdit):
 
-    def __init__(self, cast_type, attribute) -> None:
-        super().__init__()
+    def __init__(self, parent, cast_type, attribute) -> None:
+        super().__init__(parent)
         self.__attr = attribute
         self._cast = cast_type
         self.__obj = None
@@ -597,8 +619,36 @@ class GCheckBox(QCheckBox):
         return super().focusOutEvent(e)
 
     def from_obj(self, obj):
+        """_summary_
+
+        Args:
+            obj (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
         self.__obj = obj
         self.setChecked(bool(getattr(obj, self.__attr)))
+
+    def get_attr(self):
+        return self.__attr
+
+
+class GList(QListWidget):
+
+    def __init__(self, parent, attribute) -> None:
+        super().__init__(parent)
+        self.__obj = None
+        self.__attr = attribute
+
+    def from_obj(self, obj):
+        """_summary_
+
+        Args:
+            obj (_type_): _description_
+        """        
+        self.__obj: list = getattr(obj, self.__attr)
+        self.addActions(self.__obj)
 
     def get_attr(self):
         return self.__attr
