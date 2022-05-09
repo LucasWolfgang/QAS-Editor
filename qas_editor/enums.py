@@ -17,24 +17,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from enum import Enum
+from types import DynamicClassAttribute
 
 
-class ClozeFormat(Enum):
-    """Enumerates Cloze formats
+class EnhancedEnum(Enum):
     """
-    SHORTANSWER = "SHORTANSWER", "SA", "MW", "SA"
-    SHORTANSWER_C = "SHORTANSWER_C", "SAC", "MWC"
-    NUMERICAL = "NUMERICAL", "NM"
-    MULTICHOICE = "MULTICHOICE", "MC"
-    MULTICHOICE_V = "MULTICHOICE_V", "MVC"
-    MULTICHOICE_H = "MULTICHOICE_H", "MCH"
-    MULTIRESPONSE = "MULTIRESPONSE", "MR"
-    MULTIRESPONSE_H = "MULTIRESPONSE_H", "MRH"
-
+    """
     def __new__(cls, *values):
         obj = object.__new__(cls)
         obj._value_ = values[0]
-        for other_value in values[1:]:
+        obj._comment_ = values[-1]
+        for other_value in values[1:-1]:
             cls._value2member_map_[other_value] = obj
         obj._all_values = values
         return obj
@@ -43,8 +36,25 @@ class ClozeFormat(Enum):
         return f"<{self.__class__.__name__}.{self._name_}: %s>" % (
                 ', '.join([repr(v) for v in self._all_values]))
 
+    @DynamicClassAttribute
+    def comment(self):
+        return self._comment_
 
-class Direction(Enum):
+
+class ClozeFormat(EnhancedEnum):
+    """Enumerates Cloze formats
+    """
+    SA = "SHORTANSWER", "MW", "SA" 
+    SAC = "SHORTANSWER_C", "MWC", "SAC"
+    NUM = "NUMERICAL", "NM"
+    MC = "MULTICHOICE", "MC"
+    MVC = "MULTICHOICE_V", "MVC"
+    MCH = "MULTICHOICE_H", "MCH"
+    MR = "MULTIRESPONSE", "MR"
+    MRH = "MULTIRESPONSE_H", "MRH"
+
+
+class Direction(EnhancedEnum):
     """Enumerates the four directions
     """
     UP = 1
@@ -53,14 +63,14 @@ class Direction(Enum):
     LEFT = 4
 
 
-class Distribution(Enum):
+class Distribution(EnhancedEnum):
     """Enumerates dataset distribution types.
     """
     UNI = "uniform"
     LOG = "loguniform"
 
 
-class Format(Enum):
+class Format(EnhancedEnum):
     """Enumerates text format types
     """
     HTML = "html"
@@ -69,15 +79,15 @@ class Format(Enum):
     MD = "markdown"
 
 
-class Grading(Enum):
+class Grading(EnhancedEnum):
     """Enumerates Grading patterns
     """
-    IGNORE = "0"        # Ignore
-    RESPONSE = "1"      # Fraction of reponse grade
-    QUESTION = "2"      # Fraction of question grade
+    IGNORE = "0", "Ignore"
+    RESPONSE = "1", "Fraction (reponse)"
+    QUESTION = "2", "Fraction (question)"
 
 
-class Numbering(Enum):
+class Numbering(EnhancedEnum):
     """Enumerates Numbering patterns
     """
     NONE = "none"
@@ -88,7 +98,7 @@ class Numbering(Enum):
     ROM_UR = "IIII"
 
 
-class MathType(Enum):
+class MathType(EnhancedEnum):
     """Enumerates ways to represent math function in questions' test
     """
     IGNORE = "Ignore"
@@ -96,7 +106,7 @@ class MathType(Enum):
     LATEX = "LaTex"
 
 
-class ShapeType(Enum):
+class ShapeType(EnhancedEnum):
     """Enumerates Shape Types
     """
     CIRCLE = "circle"
@@ -104,23 +114,31 @@ class ShapeType(Enum):
     POLY = "polygon"
 
 
-class ShowUnits(Enum):
+class ShowUnits(EnhancedEnum):
     """Enumerates way to show Units
     """
-    TEXT = "0"          # Text input
-    MC = "1"            # Multiple choice
-    DROP_DOWN = "2"     # Drop-down
-    NONE = "3"          # Not visible
+    TEXT = "0", "Text input"
+    MC = "1", "Multiple choice"
+    DROP_DOWN = "2", "Drop-down"
+    NONE = "3", "Not visible"
 
 
-class Status(Enum):
+class Status(EnhancedEnum):
     """Enumerates Status for Datasets
     """
     PRV = "private"
     SHR = "shared"
 
 
-class ResponseFormat(Enum):
+class Synchronise(EnhancedEnum):
+    """
+    """
+    NO_SYNC = "0", "Do not synchronise"
+    SYNC = "1", "Synchronise"
+    SYNC_NAME = "2", "Synchronise and add as prefix"
+
+
+class ResponseFormat(EnhancedEnum):
     """Enumerates Response Formats
     """
     HTML = "editor"
@@ -130,16 +148,16 @@ class ResponseFormat(Enum):
     ATCH = "noinline"
 
 
-class ToleranceFormat(Enum):
+class ToleranceFormat(EnhancedEnum):
     """Enumerates Tolerance Formats
     """
-    DEC = "1"           # Decimals
-    SIG = "2"           # Significant Figures
+    DEC = "1", "Decimals"
+    SIG = "2", "Significant Figures"
 
 
-class ToleranceType(Enum):
+class ToleranceType(EnhancedEnum):
     """Enumerates Tolerance Types
     """
-    REL = "1"           # Relative
-    NOM = "2"           # Nominal
-    GEO = "3"           # Geometric
+    REL = "1", "Relative"
+    NOM = "2", "Nominal"
+    GEO = "3", "Geometric"

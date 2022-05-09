@@ -25,7 +25,7 @@ from .wrappers import B64File, Dataset, FText, Hint, Tags, SelectOption,\
                       Subquestion, Unit
 from .utils import Serializable
 from .enums import Format, Grading, ResponseFormat, ShowUnits, Status,\
-                   Distribution, Numbering
+                   Distribution, Numbering, Synchronise
 from .answer import Answer, ClozeItem, NumericalAnswer, DragText, \
                     CrossWord, CalculatedAnswer, DropZone, DragItem
 # import markdown
@@ -256,29 +256,31 @@ class _QuestionMTUH(_QuestionMT):
 
 class QCalculated(_QuestionMTUH):
     """Represents a "Calculated"q question, in which a numberical result should
-    be provided.
+    be provided. Note that <code>single</code> tag may show up in Moodle
+    xml document but this seems to be just a bug. Th class don't use it.
     """
     MOODLE = "calculated"
     QNAME = "Calculated"
 
-    def __init__(self, synchronize=0, single=False, units: List[Unit] = None,
+    def __init__(self, synchronize: Synchronise = None, units: List[Unit] = None,
                  datasets: List[Dataset] = None, **kwargs):
         """[summary]
 
         Args:
             synchronize (int): [description]
-            single (bool, optional): [description].
             units (List[Unit], optional): [description].
-            datasets (List[Dataset], optional): [description].
+            datasets (List[Dataset], optional): Data set of variables to be
+                used during question in equations.
         """
         super().__init__(**kwargs)
-        self.synchronize = synchronize
-        self.single = single
+        self.synchronize = Synchronise.NO_SYNC if synchronize is None \
+            else synchronize
         self.units = [] if units is None else units
         self.datasets = [] if datasets is None else datasets
 
     @classmethod
     def from_json(cls, data) -> "QCalculated":
+        data["synchronize"] = Synchronise(data["synchronize"])
         for i in range(len(data["units"])):
             data["units"][i] = Unit.from_json(data["units"][i])
         for i in range(len(data["datasets"])):
@@ -289,8 +291,7 @@ class QCalculated(_QuestionMTUH):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["synchronize"] = (bool, "synchronize")
-        tags["single"] = (bool, "single")
+        tags["synchronize"] = (Synchronise, "synchronize")
         tags["units"] = (Unit.from_xml, "units", True)
         tags["dataset_definitions"] = (Dataset.from_xml_list, "datasets")
         tags["answer"] = (CalculatedAnswer.from_xml, "options", True)
@@ -298,10 +299,7 @@ class QCalculated(_QuestionMTUH):
 
     def to_xml(self, strict: bool) -> et.Element:
         question = super().to_xml(strict)
-        if self.synchronize:
-            et.SubElement(question, "synchronize")
-        if self.single:
-            et.SubElement(question, "single")
+        et.SubElement(question, "synchronize").text = self.synchronize.value
         if self.units:
             units = et.SubElement(question, "units")
             for unit in self.units:
@@ -329,13 +327,12 @@ class QCalculatedMultichoice(_QuestionMTCS):
     MOODLE = "calculatedmulti"
     QNAME = "Calculated Multichoice"
 
-    def __init__(self, synchronize: int = 0, single: bool = False,
-                 numbering: Numbering = Numbering.ALF_LR,
-                 datasets: List[Dataset] = None, **kwargs):
+    def __init__(self, synchronize: Synchronise, numbering: Numbering = None,
+                 single = False, datasets: List[Dataset] = None, **kwargs):
         super().__init__(**kwargs)
         self.synchronize = synchronize
         self.single = single
-        self.numbering = numbering
+        self.numbering = Numbering.ALF_LR if numbering is None else numbering
         self.datasets = [] if datasets is None else datasets
 
     def add_dataset(self, status: Status, name: str, dist: Distribution,
@@ -356,6 +353,7 @@ class QCalculatedMultichoice(_QuestionMTCS):
     @classmethod
     def from_json(cls, data: dict) -> QCalculatedMultichoice:
         data["numbering"] = Numbering(data["numbering"])
+        data["synchronize"] = Synchronise(data["synchronize"])
         for i in range(len(data["datasets"])):
             data["datasets"][i] = Dataset.from_json(data["datasets"][i])
         for i in range(len(data["options"])):
@@ -364,7 +362,7 @@ class QCalculatedMultichoice(_QuestionMTCS):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["synchronize"] = (bool, "synchronize")
+        tags["synchronize"] = (Synchronise, "synchronize")
         tags["single"] = (bool, "single")
         tags["answernumbering"] = (Numbering, "numbering")
         tags["dataset_definitions"] = (Dataset.from_xml_list, "datasets")
@@ -373,8 +371,7 @@ class QCalculatedMultichoice(_QuestionMTCS):
 
     def to_xml(self, strict: bool) -> et.Element:
         question = super().to_xml(strict)
-        if self.synchronize:
-            et.SubElement(question, "synchronize")
+        et.SubElement(question, "synchronize").text = self.synchronize.value
         if self.single:
             et.SubElement(question, "single")
         et.SubElement(question, "answernumbering").text = self.numbering.value
@@ -548,7 +545,7 @@ class QDragAndDropMarker(_QuestionMTCS):
     MOODLE = "ddmarker"
     QNAME = "Drag and Drop Marker"
 
-    def __init__(self, highlight_empty=False, background: B64File = None,
+    def __init__(self, highlight=False, background: B64File = None,
                  zones: List[DropZone] = None,  **kwargs):
         """Creates an drag and drop onto image type of question.
 
@@ -557,7 +554,7 @@ class QDragAndDropMarker(_QuestionMTCS):
         """
         super().__init__(**kwargs)
         self.background = background
-        self.highlight_empty = highlight_empty
+        self.highlight = highlight
         self.zones = [] if zones is None else zones
 
     def add_option(self, text: str, no_of_drags: str, unlimited: bool = False):
@@ -584,14 +581,14 @@ class QDragAndDropMarker(_QuestionMTCS):
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["file"] = (B64File.from_xml, "background")
-        tags["showmisplaced"] = (bool, "highlight_empty")
+        tags["showmisplaced"] = (bool, "highlight")
         tags["drag"] = (DragItem.from_xml, "options", True)
         tags["drop"] = (DropZone.from_xml, "zones", True)
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, strict: bool):
         question = super().to_xml(strict)
-        if self.highlight_empty:
+        if self.highlight:
             et.SubElement(question, "showmisplaced")
         for dropzone in self.zones:
             question.append(dropzone.to_xml(strict))
@@ -608,14 +605,18 @@ class QEssay(_Question):
     MOODLE = "essay"
     QNAME = "Essay"
 
-    def __init__(self, grader_info: FText = None, response_required=True,
-                 template: FText = None, response_format=ResponseFormat.HTML,
-                 lines=10, attachments=0, atts_required=False,
-                 max_bytes=0, file_types="", **kwargs):
+    def __init__(self, lines=10, attachments=0, max_bytes=0, file_types="", 
+                 rsp_required=True, atts_required=False,
+                 min_words: int = None, max_words: int = None,
+                 grader_info: FText = None,
+                 template: FText = None, rsp_format=ResponseFormat.HTML,
+                 **kwargs):
         super().__init__(**kwargs)
-        self.response_format = response_format
-        self.response_required = response_required
+        self.rsp_format = rsp_format
+        self.rsp_required = rsp_required
         self.lines = lines
+        self.min_words = min_words
+        self.max_words = max_words
         self.attachments = attachments
         self.atts_required = atts_required
         self.max_bytes = max_bytes
@@ -633,16 +634,18 @@ class QEssay(_Question):
 
     @classmethod
     def from_json(cls, data):
-        data["response_format"] = ResponseFormat(data["response_format"])
+        data["rsp_format"] = ResponseFormat(data["rsp_format"])
         data["grader_info"] = FText.from_json(data["grader_info"])
         data["template"] = FText.from_json(data["template"])
         return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["responseformat"] = (ResponseFormat, "response_format")
-        tags["responserequired"] = (bool, "response_required")
+        tags["responseformat"] = (ResponseFormat, "rsp_format")
+        tags["responserequired"] = (bool, "rsp_required")
         tags["responsefieldlines"] = (int, "lines")
+        tags["minwordlimit"] = (int, "min_words")
+        tags["minwordlimit"] = (int, "max_words")
         tags["attachments"] = (int, "attachments")
         tags["attachmentsrequired"] = (bool, "atts_required")
         tags["maxbytes"] = (int, "max_bytes")
@@ -653,8 +656,8 @@ class QEssay(_Question):
 
     def to_xml(self, strict: bool) -> et.Element:
         question = super().to_xml(strict)
-        et.SubElement(question, "responseformat").text = self.response_format.value
-        if self.response_required:
+        et.SubElement(question, "responseformat").text = self.rsp_format.value
+        if self.rsp_required:
             et.SubElement(question, "responserequired")
         et.SubElement(question, "responsefieldlines").text = self.lines
         et.SubElement(question, "attachments").text = self.attachments
@@ -974,7 +977,15 @@ class QShortAnswer(_QuestionMT):
     MOODLE = "shortanswer"
     QNAME = "Short Answer"
 
-    def __init__(self, use_case: bool = False, **kwargs):
+    def __init__(self, use_case = False, **kwargs):
+        """_summary_
+
+        Args:
+            use_case (bool): If answer is case sensitive. Defaults to False.
+
+        Returns:
+            _type_: _description_
+        """
         super().__init__(**kwargs)
         self.use_case = use_case
 
