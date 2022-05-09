@@ -296,14 +296,23 @@ class Tags(Serializable):
     def __iter__(self):
         return self.__tags.__iter__()
 
-    def append(self, __object: str) -> None:
+    def append(self, __obj: str) -> None:
         """_summary_
 
         Args:
             __object (str): _description_
         """
-        if isinstance(__object, str):
-            self.__tags = __object
+        if isinstance(__obj, str) and __obj not in self.__tags:
+            self.__tags = __obj
+
+    def extend(self, __obj: list):
+        self.__tags.extend(__obj)
+
+    def index(self, __obj: str):
+        return self.__tags.index(__obj)
+
+    def remove(self, __obj):
+        return self.__tags.remove(__obj)
 
     @classmethod
     def from_json(cls, data: dict) -> "Serializable":

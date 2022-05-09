@@ -102,6 +102,11 @@ class CalculatedAnswer(NumericalAnswer):
         self.answer_length = answer_length
 
     @classmethod
+    def from_json(cls, data: dict):
+        data["tolerance_type"] = ToleranceType(data["tolerance_type"])
+        return super().from_json(data)
+
+    @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["tolerancetype"] = (ToleranceType, "tolerance_type")
         tags["correctanswerformat"] = (int, "answer_format")

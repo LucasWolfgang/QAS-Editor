@@ -31,7 +31,7 @@ from .questions import QTYPE, QMultichoice, QCloze, QDescription,\
                        QEssay, QNumerical, QMissingWord, QTrueFalse,\
                        QMatching, QShortAnswer, _Question
 if TYPE_CHECKING:
-    from typing import Dict   # pylint: disable=C0412
+    from typing import Dict, List   # pylint: disable=C0412
 LOG = logging.getLogger(__name__)
 
 # from PIL import Image
@@ -45,7 +45,7 @@ class Category(Serializable):  # pylint: disable=R0904
     """
 
     def __init__(self, name: str = "$course$"):
-        self.__questions: list = []
+        self.__questions: List[_Question] = []
         self.__categories: Dict[str, Category] = {}
         self.__name = name
         self.__parent = None
@@ -205,6 +205,15 @@ class Category(Serializable):  # pylint: disable=R0904
         question.parent = self
         return True
 
+    def get_datasets(self) -> list:
+        datasets = []
+        for question in self.__questions:
+            if hasattr(question, "datasets"):
+                datasets.extend(question.datasets)
+        for cat in self.__categories.values():
+            datasets.extend(cat.get_datasets())
+        return datasets
+
     def get_hier(self) -> dict:
         """[summary]
 
@@ -216,6 +225,24 @@ class Category(Serializable):  # pylint: disable=R0904
         for name, quiz in self.__categories.values():
             data[name] = quiz.get_hier()
         return data
+
+    def get_size(self):
+        """Total number of questions in this category, including subcategories.
+        """
+        total = len(self.__questions)
+        for cat in self.__categories.values():
+            total += len(cat)
+        return total
+
+    def get_tags(self, tags: dict):
+        """
+        """
+        for question in self.__questions:
+            for name in question.tags:
+                tags[name] = tags.setdefault(name, 0) + 1
+        for cat in self.__categories.values():
+            cat.get_tags(tags)
+        return tags
 
     def pop_question(self, question) -> bool:
         """_summary_
@@ -528,14 +555,6 @@ class Category(Serializable):  # pylint: disable=R0904
                 question = QTYPE[elem.get("type")].from_xml(elem, {}, {})
                 quiz.add_question(question)
         return top_quiz
-
-    def size(self):
-        """Total number of questions in this category, including subcategories.
-        """
-        total = len(self.__questions)
-        for cat in self.__categories.values():
-            total += len(cat)
-        return total
 
     def write_aiken(self, file_path: str) -> None:
         """_summary_
