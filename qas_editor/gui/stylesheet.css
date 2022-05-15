@@ -46,4 +46,18 @@ GTagBar QLabel {
     font-size:12px;
     border-radius:4px;
     padding-left:2px
-} 
+}
+GCloze {
+    border:1px solid rgb(41, 41, 41);
+    background-color:#60cd5a;
+    margin: 0px;
+}
+
+/* Generic CSS styles */
+QPushButton {
+    border:1px solid rgb(41, 41, 41);
+    background-color: #d2d2d2;
+    border-radius: 2px;
+    margin: 0px;
+    padding: 1px;
+}

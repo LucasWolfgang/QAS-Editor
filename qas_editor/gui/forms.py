@@ -27,7 +27,7 @@ from ..wrappers import FText, Hint, Subquestion, SelectOption
 from ..questions import QCalculatedMultichoice, QCalculatedSimple, QCloze,\
                         QDragAndDropImage, QDragAndDropText, QMatching, \
                         QMissingWord, QMultichoice, QCalculated, QNumerical,\
-                        QRandomMatching, QDragAndDropMarker
+                        QDragAndDropMarker
 from .utils import GCheckBox, GDropbox, GField, GTextEditor, action_handler
 if TYPE_CHECKING:
     from .utils import GTextToolbar
@@ -38,7 +38,7 @@ class GAnswer(QWidget):
     """GUI for QAnswer class.
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, question: list, toolbar, option = None, **kwargs):
         super().__init__()
         _layout = QHBoxLayout(self)
         self._text = GTextEditor(kwargs.get("toolbar"), "text")
@@ -54,6 +54,10 @@ class GAnswer(QWidget):
         _layout.setStretch(0, 0)
         _layout.setStretch(0, 1)
         _layout.setContentsMargins(0,0,0,0)
+        if option is None:
+            option = Answer(0.0, "")
+            question.append(option)
+        self.from_obj(option)
 
     def from_obj(self, obj: Answer) -> None:
         """_summary_
@@ -61,6 +65,7 @@ class GAnswer(QWidget):
         Args:
             obj (Answer): _description_
         """
+        self.option = obj
         self._text.from_obj(obj, True)
         self._grade.from_obj(obj)
         self._feedback.from_obj(obj)
@@ -100,55 +105,57 @@ class GCalculated(QWidget):
         self._answer_len.from_obj(obj)
 
 
-class GCloze(QWidget):
+class GCloze(QFrame):
     """GUI for QCloze class.
     """
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, question: list, option=None,**kwargs) -> None:
+        super().__init__()
         _layout = QHBoxLayout(self)
-        _layout.setSpacing(3)
+        _layout.setSpacing(2)
         self.__obj: ClozeItem = None
         self._pos = GField(self, int , "start")
         self._pos.setFixedWidth(40)
         self._pos.setToolTip("Position in the plain text")
-        _layout.addWidget(self._pos)
+        _layout.addWidget(self._pos, 0)
         self._grade = GField(self, int, "grade")
         self._grade.setFixedWidth(20)
         self._grade.setToolTip("Grade for the given answer")
-        _layout.addWidget(self._grade)
+        _layout.addWidget(self._grade, 0)
         self._form = GDropbox(self, "cformat", ClozeFormat)
         self._form.setToolTip("Cloze format")
-        _layout.addWidget(self._form)
+        _layout.addWidget(self._form, 1)
         _layout.addSpacing(25)
-        self._opts = GDropbox(self, "opts", Answer)
-        self._opts.setFixedWidth(140)
+        self._opts = GDropbox(self, "opts", None)
         self._opts.currentIndexChanged.connect(self.__changed_opt)
-        _layout.addWidget(self._opts)
+        _layout.addWidget(self._opts, 0)
         self._frac = GField(self, int, "fraction")
         self._frac.setFixedWidth(35)
         self._frac.setToolTip("Fraction of the total grade (in percents)")
-        _layout.addWidget(self._frac)
-        self._text = GTextEditor(self, str, "text")
+        _layout.addWidget(self._frac, 0)
+        self._text = GField(self, str, "text")
         self._text.setToolTip("Answer text")
-        _layout.addWidget(self._text)
-        self._fdbk = GTextEditor(self, str, "feedback")
+        _layout.addWidget(self._text, 1)
+        self._fdbk = GField(self, str, "text")
         self._fdbk.setToolTip("Answer feedback")
-        _layout.addWidget(self._fdbk)
+        _layout.addWidget(self._fdbk, 1)
         _layout.addSpacing(20)
         self._add = QPushButton("Add")
-        self._add.setMinimumWidth(20)
         self._add.clicked.connect(self.add_opts)
-        _layout.addWidget(self._add)
+        _layout.addWidget(self._add, 0)
         self._pop = QPushButton("Pop")
-        self._pop.setMinimumWidth(20)
         self._pop.clicked.connect(self.pop_opts)
-        _layout.addWidget(self._pop)
+        _layout.addWidget(self._pop, 0)
+        _layout.setContentsMargins(2, 2, 2, 2)
+        if option is None:
+            option = ClozeItem(0.0, "")
+            question.append(option)
+        self.from_obj(option)
 
     def __changed_opt(self, index):
-        self._frac.from_obj(self.opts[index])
-        self._text.from_obj(self.opts[index], False)
-        self._fdbk.from_obj(self.opts[index], True)
+        self._frac.from_obj(self.__obj.opts[index])
+        self._text.from_obj(self.__obj.opts[index])
+        self._fdbk.from_obj(self.__obj.opts[index].feedback)
 
     @action_handler
     def add_opts(self, stat: bool):
@@ -162,6 +169,8 @@ class GCloze(QWidget):
         text = self._text.text()
         frac = float(self._frac.text())
         fdbk = FText(self._fdbk.text(), Format.PLAIN)
+        # frmt = self._TYPES[self._form.currentData()]
+        # print(frmt)
         self.__obj.opts.append(Answer(frac, text, fdbk, Format.PLAIN))
         self._opts.addItem(text)
 
@@ -330,7 +339,6 @@ class GOptions(QVBoxLayout):
         QDragAndDropMarker: (GDrag, False),
         QDragAndDropImage: (GDrag, False),
         QMatching: (Subquestion, False),
-        QRandomMatching: (),
         QMultichoice: (GAnswer, False),
         QNumerical: (GAnswer, False),
         QMissingWord: (SelectOption, False)
@@ -342,8 +350,9 @@ class GOptions(QVBoxLayout):
         self.toolbar = toolbar
         self.__ctype = None
         self.__obj: list = None
+        self.setSpacing(4)
 
-    def add(self):
+    def add(self, object=None):
         """_summary_
 
         Raises:
@@ -353,7 +362,7 @@ class GOptions(QVBoxLayout):
             _type_: _description_
         """
         cls, only_text = self._TYPES[self.__ctype]
-        item = cls(toolbar=self.toolbar, only_text=only_text)
+        item = cls(self.__obj, object, toolbar=self.toolbar, only_text=only_text)
         self.addWidget(item)
         return item
 
@@ -367,20 +376,19 @@ class GOptions(QVBoxLayout):
         self.__ctype = type(obj)
         self.__obj = obj.options
         new_size = len(self.__obj)
-        if len(self.children()) != 0:
+        if self.count() != 0:
             to_rem = 0
             if self._TYPES[ctype][0] != self._TYPES[self.__ctype][0]:
                 to_rem = self.count()
             elif self.count() > new_size:
                 to_rem = self.count() - new_size
             for i in reversed(range(to_rem)):
-                self.itemAt(i).layout().deleteLater()
+                self.itemAt(i).widget().deleteLater()
             for obj, child in zip(self.__obj, self.children()):
                 child.from_obj(obj)
         if self.count() < new_size:
             for obj in self.__obj[self.count():]:
-                item = self.add()
-                item.from_obj(obj)
+                item = self.add(obj)
 
     def get_attr(self):
         return "options"

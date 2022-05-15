@@ -67,15 +67,18 @@ class QuestionPopup(QDialog):
         question_create.clicked.connect(self._create_question)
         self.__type = QComboBox()
         self.__type.addItems(QNAME)
+        self.__name = QLineEdit()
         vbox = QVBoxLayout()
         vbox.addWidget(self.__type)
+        vbox.addWidget(self.__name)
         vbox.addWidget(question_create)
         self.setLayout(vbox)
         self.question = None
 
     @action_handler
     def _create_question(self, status) -> None:
-        self.question = QNAME[self.__type.currentText()](name="New Question")
+        name = self.__name.text()
+        self.question = QNAME[self.__type.currentText()](name=name)
         if self.__quiz.add_question(self.question):
             self.accept()
         else:

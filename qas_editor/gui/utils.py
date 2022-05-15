@@ -512,11 +512,12 @@ class GTagBar(QFrame):
         self.__refresh()
 
     def __on_text_change(self):
-        if self._cat_tags is None:
+        text = self._line_edit.text().lower()
+        if self._cat_tags is None or not text:
             return
         tmp = []
         for item in self._cat_tags:
-            if self._line_edit.text().lower() in item.lower():
+            if text in item.lower():
                 tmp.append(item)
         self._model_item.setStringList(tmp)
 
@@ -527,7 +528,7 @@ class GTagBar(QFrame):
         self._line_edit.setFocus()
 
     def __refresh(self):
-        for i in reversed(range(self._h_layout.count() - 1)):
+        for i in reversed(range(1, self._h_layout.count())):
             self._h_layout.itemAt(i).widget().setParent(None)
         if self._tags:
             for tag in self._tags:
@@ -568,8 +569,9 @@ class GDropbox(QComboBox):
         self.__attr = attribute
         self.__obj = None
         self.setMinimumWidth(80)
-        for item in group:
-            self.addItem(item.comment, item)
+        if group is not None:
+            for item in group:
+                self.addItem(item.comment, item)
 
     def focusOutEvent(self, e) -> None:
         if self.__obj is not None:
@@ -579,7 +581,11 @@ class GDropbox(QComboBox):
     def from_obj(self, obj):
         self.__obj = obj
         data = getattr(obj, self.__attr)
-        self.setCurrentText(data.comment)
+        if isinstance(data, list):
+            for num, item in enumerate(data):
+                self.addItem(f"item {num}", item)
+        else:
+            self.setCurrentText(data.comment)
 
     def get_attr(self):
         return self.__attr
@@ -600,7 +606,8 @@ class GField(QLineEdit):
 
     def from_obj(self, obj):
         self.__obj = obj
-        self.setText(str(getattr(obj, self.__attr)))
+        if getattr(obj, self.__attr) is not None:
+            self.setText(str(getattr(obj, self.__attr)))
 
     def get_attr(self):
         return self.__attr
