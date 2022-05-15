@@ -44,6 +44,15 @@ class Category(Serializable):  # pylint: disable=R0904
     This class represents Quiz as a set of Questions.
     """
 
+    SERIALIZERS = { "cloze": ("read_cloze", "write_cloze"),
+                    "gift": ("read_gift", "write_gift"),
+                    "json": ("read_json", "write_json"),
+                    "md": ("read_markdown", "write_markdown"),
+                    "pdf": ("read_pdf", "write_pdf"),
+                    "tex": ("read_latex", "write_latex"),
+                    "txt": ("read_aiken", "write_aiken"),
+                    "xml": ("read_xml", "write_xml") }
+
     def __init__(self, name: str = "$course$"):
         self.__questions: List[_Question] = []
         self.__categories: Dict[str, Category] = {}
@@ -322,27 +331,16 @@ class Category(Serializable):  # pylint: disable=R0904
         Returns:
             list: _description_
         """
-        _read_methods = {
-            "txt": cls.read_aiken,
-            "cloze": cls.read_cloze,
-            "gift": cls.read_gift,
-            "json": cls.read_json,
-            "latex": cls.read_latex,
-            "md": cls.read_markdown,
-            "pdf": cls.read_pdf,
-            "xml": cls.read_xml
-        }
         top_quiz = cls(category)
         for _path in files:
             try:
                 ext = _path.rsplit(".", 1)[-1]
-                if ext in _read_methods:
-                    quiz = _read_methods[ext](_path)
-                    for cat in quiz:
-                        top_quiz[cat] = quiz[cat]
-                    for question in quiz.questions:
-                        top_quiz.add_question(question)
-            except ValueError:
+                quiz = getattr(cls, cls.SERIALIZERS[ext][0])(_path)
+                for cat in quiz:
+                    top_quiz[cat] = quiz[cat]
+                for question in quiz.questions:
+                    top_quiz.add_question(question)
+            except (ValueError, KeyError):
                 LOG.exception(f"Failed to parse file {_path}.")
         return top_quiz
 

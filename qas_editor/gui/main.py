@@ -51,15 +51,6 @@ class Editor(QMainWindow):
     FORMATS = ("Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;JSON (*.json)"
                ";;LaTex (*.tex);;Markdown (*.md);;PDF (*.pdf);;XML (*.xml)")
 
-    SERIALIZER = {"cloze":  ("write_cloze"),
-                  "json":   ("write_json"),
-                  "gift":   ("write_gift"),
-                  "md":     ("write_markdown"),
-                  "pdf":    ("write_pdf"),
-                  "tex":    ("write_latex"),
-                  "txt":    ("write_aiken"),
-                  "xml":    ("write_xml")}
-
     SHORTCUTS = {
         "Create file": Qt.CTRL + Qt.Key_N,
         "Read file": Qt.CTRL + Qt.Key_O,
@@ -134,7 +125,7 @@ class Editor(QMainWindow):
 
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
-        self.setGeometry(300, 300, 1000, 600)
+        self.setGeometry(50, 50, 1150, 600)
         self.show()
 
     def _add_menu_bars(self) -> None:
@@ -197,9 +188,9 @@ class Editor(QMainWindow):
         self.cframe_vbox.addLayout(frame)
         self._items.append(GOptions(self.toolbar))
         _shortcut = QShortcut(self.SHORTCUTS["Add answer"], self)
-        _shortcut.activated.connect(self._items[-1].pop)
-        _shortcut = QShortcut(self.SHORTCUTS["Remove answer"], self)
         _shortcut.activated.connect(self._items[-1].add)
+        _shortcut = QShortcut(self.SHORTCUTS["Remove answer"], self)
+        _shortcut.activated.connect(self._items[-1].pop)
         frame.setLayout(self._items[-1])
 
     def _block_datatree(self) -> QVBoxLayout:
@@ -277,7 +268,7 @@ class Editor(QMainWindow):
         self._items[-1].setToolTip("Unit Penalty")
         self._items[-1].setText("0.0")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GCheckBox(self, "Put units on the left", "left"))
+        self._items.append(GCheckBox(self, "Units on the left", "left"))
         _content.addWidget(self._items[-1], 0)
         others.addWidget(group_box, 1)
 
@@ -288,15 +279,15 @@ class Editor(QMainWindow):
         self._items.append(GDropbox(self, "numbering", Numbering))
         self._items[-1].setToolTip("How options will be enumerated")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GCheckBox(self, "Show instructions", "show_instr"))
+        self._items.append(GCheckBox(self, "Instructions", "show_instr"))
         self._items[-1].setToolTip("If the structions 'select one (or more "
                                    " options)' should be shown")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GCheckBox(self, "Allow multiple", "single"))
+        self._items.append(GCheckBox(self, "Multi answer", "single"))
         self._items[-1].setToolTip("If there is just a single or multiple "
                                    "valid answers")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GCheckBox(self, "Shuffle answers", "shuffle"))
+        self._items.append(GCheckBox(self, "Shuffle", "shuffle"))
         self._items[-1].setToolTip("If answers should be shuffled (e.g. order "
                                    "of options will change each time)")
         _content.addWidget(self._items[-1], 0)
@@ -457,6 +448,7 @@ class Editor(QMainWindow):
     def _create_file(self, *_):
         self.top_quiz = Category()
         self.path = None
+        self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
 
     @action_handler
@@ -571,7 +563,7 @@ class Editor(QMainWindow):
         self.data_view.expandAll()
 
     @action_handler
-    def _rename_category(self):
+    def _rename_category(self, *_):
         popup = NamePopup(False)
         popup.show()
         if not popup.exec():
@@ -607,7 +599,7 @@ class Editor(QMainWindow):
             self._update_tree_item(data[k], item)
 
     def _write_quiz(self, quiz: Category, save_as: bool):
-        if save_as or path is None:
+        if save_as or self.path is None:
             path, _ = QFileDialog.getSaveFileName(self, "Save file", "",
                                                   self.FORMATS)
             if not path:
@@ -615,7 +607,7 @@ class Editor(QMainWindow):
         else:
             path = self.path
         ext = path.rsplit('.', 1)[-1]
-        quiz.__getattribute__(self.SERIALIZER[ext][0])(path)
+        getattr(quiz, quiz.SERIALIZERS[ext][1])(path)
         return path
 
     @action_handler
