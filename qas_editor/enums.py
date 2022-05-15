@@ -44,39 +44,39 @@ class EnhancedEnum(Enum):
 class ClozeFormat(EnhancedEnum):
     """Enumerates Cloze formats
     """
-    SA = "SHORTANSWER", "MW", "SA" 
-    SAC = "SHORTANSWER_C", "MWC", "SAC"
-    NUM = "NUMERICAL", "NM"
-    MC = "MULTICHOICE", "MC"
-    MVC = "MULTICHOICE_V", "MVC"
-    MCH = "MULTICHOICE_H", "MCH"
-    MR = "MULTIRESPONSE", "MR"
-    MRH = "MULTIRESPONSE_H", "MRH"
+    SA = "SHORTANSWER", "MW", "SA", "Short, Case Insensitive" 
+    SAC = "SHORTANSWER_C", "MWC", "SAC", "Short, Case Sensitive"
+    NUM = "NUMERICAL", "NM", "Numerical"
+    MC = "MULTICHOICE", "MC", "Multichoice, dropdown"
+    MVC = "MULTICHOICE_V", "MVC", "Multichoice, vertical column"
+    MCH = "MULTICHOICE_H", "MCH", "Multichoice, horizontal row"
+    MR = "MULTIRESPONSE", "MR", "Multichoice, vertical row"
+    MRH = "MULTIRESPONSE_H", "MRH", "Multichoice, horizontal row"
 
 
 class Direction(EnhancedEnum):
     """Enumerates the four directions
     """
-    UP = 1
-    DOWN = 2
-    RIGHT = 3
-    LEFT = 4
+    UP = 1, "Up"
+    DOWN = 2, "Down"
+    RIGHT = 3, "Right"
+    LEFT = 4, "Left"
 
 
 class Distribution(EnhancedEnum):
     """Enumerates dataset distribution types.
     """
-    UNI = "uniform"
-    LOG = "loguniform"
+    UNI = "uniform", "Uniform"
+    LOG = "loguniform", "Log"
 
 
 class Format(EnhancedEnum):
     """Enumerates text format types
     """
-    HTML = "html"
-    AUTO = "moodle_auto_format"
-    PLAIN = "plain_text"
-    MD = "markdown"
+    HTML = "html", "HTML"
+    AUTO = "moodle_auto_format", "Auto"
+    PLAIN = "plain_text", "Plain"
+    MD = "markdown", "Markdown"
 
 
 class Grading(EnhancedEnum):
@@ -90,15 +90,15 @@ class Grading(EnhancedEnum):
 class Numbering(EnhancedEnum):
     """Enumerates Numbering patterns
     """
-    NONE = "none"
-    ALF_LR = "abc"
-    ALF_UR = "ABCD"
-    NUMERIC = "123"
-    ROM_LR = "iii"
-    ROM_UR = "IIII"
+    NONE = "none", "None"
+    ALF_LR = "abc", "abc"
+    ALF_UR = "ABCD", "ABCD"
+    NUMERIC = "123", "123"
+    ROM_LR = "iii", "iii"
+    ROM_UR = "IIII", "IIII"
 
 
-class MathType(EnhancedEnum):
+class MathType(Enum):
     """Enumerates ways to represent math function in questions' test
     """
     IGNORE = "Ignore"
@@ -106,7 +106,7 @@ class MathType(EnhancedEnum):
     LATEX = "LaTex"
 
 
-class ShapeType(EnhancedEnum):
+class ShapeType(Enum):
     """Enumerates Shape Types
     """
     CIRCLE = "circle"
@@ -123,7 +123,7 @@ class ShowUnits(EnhancedEnum):
     NONE = "3", "Not visible"
 
 
-class Status(EnhancedEnum):
+class Status(Enum):
     """Enumerates Status for Datasets
     """
     PRV = "private"
@@ -141,11 +141,11 @@ class Synchronise(EnhancedEnum):
 class ResponseFormat(EnhancedEnum):
     """Enumerates Response Formats
     """
-    HTML = "editor"
-    WFILE = "editorfilepicker"
-    PLAIN = "plain"
-    MONO = "monospaced"
-    ATCH = "noinline"
+    HTML = "editor", "HTML"
+    WFILE = "editorfilepicker", "HTML w/ file"
+    PLAIN = "plain", "Plain text"
+    MONO = "monospaced", "Mono spaced"
+    ATCH = "noinline", "No inline"
 
 
 class ToleranceFormat(EnhancedEnum):
