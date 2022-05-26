@@ -39,7 +39,8 @@ LOG = logging.getLogger(__name__)
 
 QNAME: Dict[str, _Question] = {}
 QTYPE: Dict[str, _Question] = {}
-
+MARKER_STR = ""
+MARKER_INT = 0
 
 class _Question(Serializable):
     """
@@ -390,7 +391,8 @@ class QCloze(_QuestionMT):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._update_text()
+        self._cloze_text = self.question.text
+        self.update()
 
     @classmethod
     def from_json(cls, data: dict):
@@ -413,12 +415,25 @@ class QCloze(_QuestionMT):
         ftext = FText("questiontext", text, Format.HTML, None)
         return cls(name=name, question=ftext)
 
-    def _update_text(self):
+    def to_xml(self, strict: bool) -> et.Element:
+        tmp = self.question.text
+        self.question.text = self._cloze_text
+        question = super().to_xml(strict)
+        self.question.text = tmp
+        return question
+
+    def update(self):
         self.options.clear()
         pattern = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
-        for match in pattern.finditer(self.question.text):
+        gui_text = []
+        start = 0
+        for match in pattern.finditer(self._cloze_text):
             item = ClozeItem.from_cloze(match)
             self.options.append(item)
+            gui_text.append(self._cloze_text[start: match.start()-1])
+            start =  match.end()+1 
+        gui_text.append(self._cloze_text[start:])
+        self.question.text = " &#9635; ".join(gui_text)
 
 
 class QDescription(_Question):
@@ -775,6 +790,10 @@ class QMissingWord(_QuestionMTCS):
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["selectoption"] = (SelectOption.from_xml, "options", True)
         return super().from_xml(root, tags, attrs)
+
+    # def update(self):
+    #     for i in re.finditer(r"\[\[[0-9]+\]\]", self.toPlainText()):
+    #         self.__tags.append(i.span())
 
 
 class QMultichoice(_QuestionMTCS):

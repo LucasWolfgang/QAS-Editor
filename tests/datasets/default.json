@@ -1089,9 +1089,9 @@
                                         "bfile": []
                                     },
                                     "tolerance": "0.05",
-                                    "tolerance_type": "1",
-                                    "correct_answer_format": "1",
-                                    "correct_answer_length": "2"
+                                    "ttype": "1",
+                                    "correct_aformat": "1",
+                                    "correct_alength": "2"
                                 }
                             ],
                             "MOODLE": "calculated"
@@ -1180,9 +1180,9 @@
                                         "bfile": []
                                     },
                                     "tolerance": "0.01",
-                                    "tolerance_type": "1",
-                                    "correct_answer_format": "1",
-                                    "correct_answer_length": "2"
+                                    "ttype": "1",
+                                    "correct_aformat": "1",
+                                    "correct_alength": "2"
                                 },
                                 {
                                     "fraction": "0",
@@ -1194,9 +1194,9 @@
                                         "bfile": []
                                     },
                                     "tolerance": "0.01",
-                                    "tolerance_type": "1",
-                                    "correct_answer_format": "1",
-                                    "correct_answer_length": "2"
+                                    "ttype": "1",
+                                    "correct_aformat": "1",
+                                    "correct_alength": "2"
                                 }
                             ],
                             "MOODLE": "calculatedmulti"
@@ -1280,9 +1280,9 @@
                                         "bfile": []
                                     },
                                     "tolerance": "0.01",
-                                    "tolerance_type": "1",
-                                    "correct_answer_format": "1",
-                                    "correct_answer_length": "2"
+                                    "ttype": "1",
+                                    "correct_aformat": "1",
+                                    "correct_alength": "2"
                                 },
                                 {
                                     "fraction": "0",
@@ -1294,9 +1294,9 @@
                                         "bfile": []
                                     },
                                     "tolerance": "0.01",
-                                    "tolerance_type": "1",
-                                    "correct_answer_format": "1",
-                                    "correct_answer_length": "2"
+                                    "ttype": "1",
+                                    "correct_aformat": "1",
+                                    "correct_alength": "2"
                                 },
                                 {
                                     "fraction": "0",
@@ -1308,9 +1308,9 @@
                                         "bfile": []
                                     },
                                     "tolerance": "0.01",
-                                    "tolerance_type": "1",
-                                    "correct_answer_format": "1",
-                                    "correct_answer_length": "2"
+                                    "ttype": "1",
+                                    "correct_aformat": "1",
+                                    "correct_alength": "2"
                                 }
                             ],
                             "MOODLE": "calculatedmulti"
@@ -1466,9 +1466,9 @@
                                         "bfile": []
                                     },
                                     "tolerance": "0",
-                                    "tolerance_type": "1",
-                                    "correct_answer_format": "1",
-                                    "correct_answer_length": "0"
+                                    "ttype": "1",
+                                    "correct_aformat": "1",
+                                    "correct_alength": "0"
                                 },
                                 {
                                     "fraction": "0",
@@ -1480,9 +1480,9 @@
                                         "bfile": []
                                     },
                                     "tolerance": "0",
-                                    "tolerance_type": "1",
-                                    "correct_answer_format": "1",
-                                    "correct_answer_length": "0"
+                                    "ttype": "1",
+                                    "correct_aformat": "1",
+                                    "correct_alength": "0"
                                 }
                             ],
                             "MOODLE": "calculatedsimple"

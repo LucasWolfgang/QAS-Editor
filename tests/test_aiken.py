@@ -32,3 +32,6 @@ def test_aikien() -> None:
     new_data = quiz.Category.read_aiken(XML_TEST)
     os.remove(XML_TEST)
     assert control.compare(new_data, [])
+
+def test_aiken_2():
+    pass

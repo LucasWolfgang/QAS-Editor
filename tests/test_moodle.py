@@ -51,3 +51,6 @@ def test_xml_calculated():
     new_data = quiz.Category.read_xml(XML_TEST)
     os.remove(XML_TEST)
     assert control.compare(new_data, [])
+
+def test_xml_hello():
+    pass

@@ -14,3 +14,4 @@ disable = C0302,    # Too many lines in module
 max-attributes=15
 max-args=10
 max-bool-expr=8
+extension-pkg-whitelist=PyQt5

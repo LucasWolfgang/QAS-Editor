@@ -23,6 +23,7 @@ from types import DynamicClassAttribute
 class EnhancedEnum(Enum):
     """
     """
+    
     def __new__(cls, *values):
         obj = object.__new__(cls)
         obj._value_ = values[0]
@@ -161,3 +162,11 @@ class ToleranceType(EnhancedEnum):
     REL = "1", "Relative"
     NOM = "2", "Nominal"
     GEO = "3", "Geometric"
+
+
+class CalculatedFormat(EnhancedEnum):
+    """
+    """
+
+    DEC = "1", "Decimals"
+    FIG = "2", "Significant figures"

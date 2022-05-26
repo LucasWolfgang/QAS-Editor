@@ -24,11 +24,7 @@ GHint {
     border:1px solid rgb(41, 41, 41);
     background-color: #e4ebb7
 }
-GCFeedback {
-    border:1px solid rgb(41, 41, 41);
-    background-color: #e4ebb7
-}
-_GTitleFrame {
+_GTitle {
     border:1px solid rgb(41, 41, 41);
     background-color: #acc5f2;
 }

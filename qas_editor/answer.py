@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
-from .enums import Format, ShapeType, ClozeFormat, Direction, ToleranceType
+from .enums import CalculatedFormat, Format, ShapeType, ClozeFormat, Direction, ToleranceType
 from .utils import Serializable
 from .wrappers import B64File, FText
 if TYPE_CHECKING:
@@ -33,7 +33,7 @@ class Answer(Serializable):
     This is the basic class used to hold possible answers
     """
 
-    def __init__(self, fraction: float, text: str, feedback: FText = None,
+    def __init__(self, fraction=0.0, text="", feedback: FText = None,
                  formatting: Format = None):
         self.fraction = fraction
         self.formatting = Format.AUTO if formatting is None else formatting
@@ -94,30 +94,31 @@ class CalculatedAnswer(NumericalAnswer):
     """[summary]
     """
 
-    def __init__(self, tolerance_type: ToleranceType, answer_format: int,
-                 answer_length: int, **kwargs):
+    def __init__(self, alength=2, ttype: ToleranceType = None,
+                 aformat: CalculatedFormat = None, **kwargs):
         super().__init__(**kwargs)
-        self.tolerance_type = tolerance_type
-        self.answer_format = answer_format
-        self.answer_length = answer_length
+        self.ttype = ToleranceType.NOM if ttype is None else ttype
+        self.aformat = CalculatedFormat.DEC if aformat is None else aformat
+        self.alength = alength
 
     @classmethod
     def from_json(cls, data: dict):
-        data["tolerance_type"] = ToleranceType(data["tolerance_type"])
+        data["ttype"] = ToleranceType(data["ttype"])
+        data["aformat"] = CalculatedFormat(data["aformat"])
         return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["tolerancetype"] = (ToleranceType, "tolerance_type")
-        tags["correctanswerformat"] = (int, "answer_format")
-        tags["correctanswerlength"] = (int, "answer_length")
+        tags["tolerancetype"] = (ToleranceType, "ttype")
+        tags["correctanswerformat"] = (CalculatedFormat, "aformat")
+        tags["correctanswerlength"] = (int, "alength")
         return super().from_xml(root, tags, attrs)
 
     def to_xml(self, strict: bool) -> et.Element:
         answer = super().to_xml(strict)
-        et.SubElement(answer, "tolerancetype").text = self.tolerance_type.value
-        et.SubElement(answer, "correctanswerformat").text = self.answer_format
-        et.SubElement(answer, "correctanswerlength").text = self.answer_length
+        et.SubElement(answer, "tolerancetype").text = self.ttype.value
+        et.SubElement(answer, "correctanswerformat").text = self.aformat.value
+        et.SubElement(answer, "correctanswerlength").text = self.alength
         return answer
 
 
@@ -127,9 +128,8 @@ class ClozeItem(Serializable):
     questions is held within the question text in this format.
     """
 
-    def __init__(self, start: int, grade: int, cformat: ClozeFormat,
+    def __init__(self, grade: int, cformat: ClozeFormat,
                  opts: List[Answer] = None):
-        self.start = start
         self.cformat = cformat
         self.grade = grade
         self.opts = opts if opts else []
@@ -169,7 +169,7 @@ class ClozeItem(Serializable):
                 frac = float(frac)
             opts.append(Answer(frac, tmp, FText("feedback", fdb, Format.PLAIN),
                                Format.PLAIN))
-        return cls(regex.start(), int(regex[1]), ClozeFormat(regex[2]), opts)
+        return cls(int(regex[1]), ClozeFormat(regex[2]), opts)
 
     def to_text(self) -> str:
         """A

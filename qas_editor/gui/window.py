@@ -20,7 +20,7 @@ from __future__ import annotations
 import glob
 import logging
 import copy
-import os
+import traceback
 from importlib import resources
 from typing import TYPE_CHECKING
 from PyQt5.QtCore import Qt, QVariant, QSize
@@ -28,20 +28,45 @@ from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QSplitter, QTreeView, QMainWindow, QStatusBar,\
                             QFileDialog, QMenu, QAction, QAbstractItemView,\
-                            QScrollArea, QHBoxLayout, QGroupBox, QShortcut
+                            QScrollArea, QHBoxLayout, QGroupBox, QShortcut,\
+                            QPushButton, QLineEdit, QComboBox, QDialog,\
+                            QMessageBox
 
-from .popups import NamePopup, QuestionPopup
 from ..quiz import Category
-from ..questions import _Question
+from ..questions import _Question, QNAME
 from ..enums import Numbering, Grading, ShowUnits, ResponseFormat, Synchronise
-from .utils import GCollapsible, GTextToolbar, GTextEditor, GTagBar, IMG_PATH,\
-                   GField, GCheckBox, GDropbox, GList, action_handler
-from .forms import GOptions, GHintsList
+from .widget import GTextToolbar, GTextEditor, GTagBar, GField, GCheckBox,\
+                    GDropbox, GList
+from .layout import GCollapsible, GOptions, GHintsList
 if TYPE_CHECKING:
     from typing import List, Callable
     from PyQt5.QtGui import QDropEvent
     from PyQt5.QtCore import QModelIndex
 LOG = logging.getLogger(__name__)
+
+
+def action_handler(function: Callable) -> Callable:
+    """_summary_
+
+    Args:
+        function (Callable): _description_
+
+    Returns:
+        Callable: _description_
+    """
+    def wrapper(*args, **kwargs):
+        try:
+            function(*args, **kwargs)
+        except Exception:   # pylint: disable=W0703
+            LOG.exception(f"Error calling function {function.__name__}")
+            self_arg = args[0]
+            while not isinstance(self_arg, QWidget):
+                self_arg = self_arg()
+            dlg = QMessageBox(self_arg)
+            dlg.setText(traceback.format_exc())
+            dlg.setIcon(QMessageBox.Critical)
+            dlg.show()
+    return wrapper
 
 
 class Editor(QMainWindow):
@@ -64,10 +89,11 @@ class Editor(QMainWindow):
     }
 
     def __init__(self, *args, **kwargs):
-        super(Editor, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.setWindowTitle("QAS Editor GUI")
 
         self._items: List[QWidget] = []
+        self._main_editor = None
         self.path: str = None
         self.top_quiz = Category()
         self.cxt_menu = QMenu(self)
@@ -76,8 +102,8 @@ class Editor(QMainWindow):
         self.cur_question: _Question = None
         self.set_gtags: Callable = None
 
-        with resources.open_text("qas_editor.gui", "stylesheet.css") as fh:
-            self.setStyleSheet(fh.read())
+        with resources.open_text("qas_editor.gui", "stylesheet.css") as ifile:
+            self.setStyleSheet(ifile.read())
 
         self._add_menu_bars()
 
@@ -125,7 +151,7 @@ class Editor(QMainWindow):
 
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
-        self.setGeometry(50, 50, 1150, 600)
+        self.setGeometry(50, 50, 1150, 650)
         self.show()
 
     def _add_menu_bars(self) -> None:
@@ -155,7 +181,7 @@ class Editor(QMainWindow):
         saveas_file.triggered.connect(lambda: self._write_file(True))
         saveas_file.setShortcut(self.SHORTCUTS["Save as"])
         file_menu.addAction(saveas_file)
-        self.toolbar = GTextToolbar()
+        self.toolbar = GTextToolbar(self)
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
     def _add_new_category(self):
@@ -178,7 +204,7 @@ class Editor(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(self, "Open file", "",
                                               self.FORMATS)
         if not path:
-            return None
+            return
         quiz = Category.read_files([path], path.rsplit("/", 1)[-1])
         self.cxt_data[quiz.name] = quiz
         self._update_tree_item(quiz, self.cxt_item)
@@ -228,7 +254,7 @@ class Editor(QMainWindow):
         self._items[-1].setToolTip("List of tags used by the question.")
         self.set_gtags = self._items[-1].set_gtags
         grid.addWidget(self._items[-1], 1)
-        
+
         others = QHBoxLayout()  # No need of parent. It's inside GCollapsible
         grid.addLayout(others, 0)
 
@@ -236,16 +262,16 @@ class Editor(QMainWindow):
         _content = QVBoxLayout(group_box)
         _content.setSpacing(5)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GField(self, int, "dbid"))
+        self._items.append(GField("dbid", self, int))
         self._items[-1].setToolTip("Optional ID for the question.")
         self._items[-1].setFixedWidth(50)
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GField(self, int, "default_grade"))
+        self._items.append(GField("default_grade", self, int))
         self._items[-1].setToolTip("Default grade.")
         self._items[-1].setFixedWidth(50)
         self._items[-1].setText("1.0")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GField(self, str, "penalty"))
+        self._items.append(GField("penalty", self, str))
         self._items[-1].setToolTip("Penalty")
         self._items[-1].setFixedWidth(50)
         self._items[-1].setText("0.0")
@@ -258,17 +284,17 @@ class Editor(QMainWindow):
         _content = QVBoxLayout(group_box)
         _content.setSpacing(5)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GDropbox(self, "grading_type", Grading))
+        self._items.append(GDropbox("grading_type", self, Grading))
         self._items[-1].setToolTip("Grading")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GDropbox(self, "show_units", ShowUnits))
+        self._items.append(GDropbox("show_units", self, ShowUnits))
         self._items[-1].setToolTip("Show units")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GField(self, float, "unit_penalty"))
+        self._items.append(GField("unit_penalty", self, float))
         self._items[-1].setToolTip("Unit Penalty")
         self._items[-1].setText("0.0")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GCheckBox(self, "Units on the left", "left"))
+        self._items.append(GCheckBox("left", "Units on the left", self))
         _content.addWidget(self._items[-1], 0)
         others.addWidget(group_box, 1)
 
@@ -276,18 +302,18 @@ class Editor(QMainWindow):
         _content = QVBoxLayout(group_box)
         _content.setSpacing(5)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GDropbox(self, "numbering", Numbering))
+        self._items.append(GDropbox("numbering", self, Numbering))
         self._items[-1].setToolTip("How options will be enumerated")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GCheckBox(self, "Instructions", "show_instr"))
+        self._items.append(GCheckBox("show_instr", "Instructions", self))
         self._items[-1].setToolTip("If the structions 'select one (or more "
                                    " options)' should be shown")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GCheckBox(self, "Multi answer", "single"))
+        self._items.append(GCheckBox("single", "Multi answer", self))
         self._items[-1].setToolTip("If there is just a single or multiple "
                                    "valid answers")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GCheckBox(self, "Shuffle", "shuffle"))
+        self._items.append(GCheckBox("shuffle", "Shuffle", self))
         self._items[-1].setToolTip("If answers should be shuffled (e.g. order "
                                    "of options will change each time)")
         _content.addWidget(self._items[-1], 0)
@@ -297,42 +323,42 @@ class Editor(QMainWindow):
         _content = QGridLayout(group_box)
         _content.setSpacing(5)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GDropbox(self, "rsp_format", ResponseFormat))
+        self._items.append(GDropbox("rsp_format", self, ResponseFormat))
         self._items[-1].setToolTip("The format to be used in the reponse.")
         _content.addWidget(self._items[-1], 0, 0)
-        self._items.append(GCheckBox(self, "Response required",
-                           "rsp_required"))
+        self._items.append(GCheckBox("rsp_required",
+                                     "Response required", self))
         self._items[-1].setToolTip("Require the student to enter text.")
         _content.addWidget(self._items[-1], 0, 1, 1, 2)
-        self._items.append(GField(self, int, "min_words"))
+        self._items.append(GField("min_words", self, int))
         self._items[-1].setToolTip("Minimum word limit")
         self._items[-1].setText("0")
         _content.addWidget(self._items[-1], 1, 0)
-        self._items.append(GField(self, int, "max_words"))
+        self._items.append(GField("max_words", self, int))
         self._items[-1].setToolTip("Maximum word limit")
         self._items[-1].setText("10000")
         _content.addWidget(self._items[-1], 2, 0)
-        self._items.append(GField(self, int, "attachments"))
+        self._items.append(GField("attachments", self, int))
         self._items[-1].setToolTip("Number of attachments allowed. 0 is none."
                                    " -1 is unlimited. Should be bigger than "
                                    "field below.")
         self._items[-1].setText("-1")
         _content.addWidget(self._items[-1], 1, 1)
-        self._items.append(GField(self, int, "atts_required"))
+        self._items.append(GField("atts_required", self, int))
         self._items[-1].setToolTip("Number of attachments required. 0 is none."
                                    " -1 is unlimited. Should be smaller than "
                                    "field above.")
         self._items[-1].setText("0")
         _content.addWidget(self._items[-1], 2, 1)
-        self._items.append(GField(self, int, "lines"))
+        self._items.append(GField("lines", self, int))
         self._items[-1].setToolTip("Input box size.")
         self._items[-1].setText("15")
         _content.addWidget(self._items[-1], 1, 2)
-        self._items.append(GField(self, int, "max_bytes"))
+        self._items.append(GField("max_bytes", self, int))
         self._items[-1].setToolTip("Maximum file size.")
         self._items[-1].setText("1Mb")
         _content.addWidget(self._items[-1], 2, 2)
-        self._items.append(GField(self, str, "file_types"))
+        self._items.append(GField("file_types", self, str))
         self._items[-1].setToolTip("Accepted file types (comma separeted).")
         self._items[-1].setText(".txt, .pdf")
         _content.addWidget(self._items[-1], 3, 0, 1, 3)
@@ -344,11 +370,11 @@ class Editor(QMainWindow):
         _content = QVBoxLayout(group_box)
         _content.setSpacing(5)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GCheckBox(self, "Include subcats", "subcats"))
+        self._items.append(GCheckBox("subcats", "Include subcats", self))
         self._items[-1].setToolTip("If questions wshould be choosen from "
                                    "subcategories too.")
         _content.addWidget(self._items[-1])
-        self._items.append(GField(self, int, "choose"))
+        self._items.append(GField("choose", self, int))
         self._items[-1].setToolTip("Number of questions to select.")
         self._items[-1].setText("5")
         _content.addWidget(self._items[-1])
@@ -357,7 +383,7 @@ class Editor(QMainWindow):
         _wrapper.addWidget(group_box)
         _content = QVBoxLayout(group_box)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GCheckBox(self, "Case sensitive", "use_case"))
+        self._items.append(GCheckBox("use_case", "Case sensitive", self))
         self._items[-1].setToolTip("If text is case sensitive.")
         _content.addWidget(self._items[-1])
 
@@ -367,11 +393,11 @@ class Editor(QMainWindow):
         _content = QVBoxLayout(group_box)
         _content.setSpacing(5)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GList(self, "datasets"))
+        self._items.append(GList("datasets", self))
         self._items[-1].setFixedHeight(70)
         self._items[-1].setToolTip("List of datasets used by this question.")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GDropbox(self, "synchronize", Synchronise))
+        self._items.append(GDropbox("synchronize", self, Synchronise))
         self._items[-1].setToolTip("How should the databases be synchronized.")
         self._items[-1].setMinimumWidth(50)
         _content.addWidget(self._items[-1], 0)
@@ -379,7 +405,7 @@ class Editor(QMainWindow):
 
         others.addStretch()
         frame.setLayout(grid)
-        frame.toggle_collapsed()
+        frame._toggle()
 
     def _block_hints(self) -> None:
         frame = GCollapsible(self, title="Hints")
@@ -415,9 +441,9 @@ class Editor(QMainWindow):
         self._items.append(GTextEditor(self.toolbar, "if_incorrect"))
         self._items[-1].setToolTip("Feedback for incorrect answer")
         _content.addWidget(self._items[-1], 0, 2)
-        self._items.append(GCheckBox(self, "Show the number of correct "
+        self._items.append(GCheckBox("show_num", "Show the number of correct "
                                      "responses once the question has finished"
-                                     , "show_num"))
+                                     , self))
         _content.addWidget(self._items[-1], 2, 0, 1, 3)
         _content.setColumnStretch(3, 1)
 
@@ -518,21 +544,22 @@ class Editor(QMainWindow):
         self._new_item(new_data, self.cxt_itemparent(), "question")
 
     def _new_item(self, data: Category, parent: QStandardItem, title: str):
-        path = f"{IMG_PATH}/{data.__class__.__name__}_icon.png".lower()
-        if not os.path.isfile(path):
-            path = f"{IMG_PATH}/{title}_icon.png"
-        item = QStandardItem(QIcon(path), data.name)
-        item.setEditable(False)
-        item.setData(QVariant(data))
-        parent.appendRow(item)
+
+        name = f"{data.__class__.__name__}_icon.png".lower()
+        item = None
+        with resources.path("qas_editor.images", name) as path:
+            item = QStandardItem(QIcon(path.as_posix()), data.name)
+            item.setEditable(False)
+            item.setData(QVariant(data))
+            parent.appendRow(item)
         return item
 
     @action_handler
-    def _read_file(self, *args):
+    def _read_file(self, _):
         files, _ = QFileDialog.getOpenFileNames(self, "Open file", "",
                                                 self.FORMATS)
         if not files:
-            return None
+            return
         if len(files) == 1:
             self.path = files[0]
         self.top_quiz = Category.read_files(files)
@@ -544,11 +571,11 @@ class Editor(QMainWindow):
         self.data_view.expandAll()
 
     @action_handler
-    def _read_folder(self, *args):
+    def _read_folder(self, _):
         dialog = QFileDialog(self)
         dialog.setFileMode(QFileDialog.FileMode.Directory)
         if not dialog.exec():
-            return None
+            return
         self.top_quiz = Category()
         self.path = None
         for folder in dialog.selectedFiles():
@@ -615,3 +642,69 @@ class Editor(QMainWindow):
         path = self._write_quiz(self.top_quiz, save_as)
         if path:
             self.path = path
+
+
+class NamePopup(QDialog):
+    """ Popup to name or rename instances, eiter Category or Question.
+    """
+
+    def __init__(self, new_cat, suggestion="") -> None:
+        super().__init__()
+        self.setWindowTitle("Create" if new_cat else "Rename")
+        category_create = QPushButton("Ok")
+        action = self._create_category if new_cat else self._update_name
+        category_create.clicked.connect(action)
+        self._category_name = QLineEdit()
+        self._category_name.setFocus()
+        self._category_name.setText(suggestion)
+        vbox = QVBoxLayout()
+        vbox.addWidget(self._category_name)
+        vbox.addWidget(category_create)
+        self.setLayout(vbox)
+        self.data = None
+
+    @action_handler
+    def _create_category(self, _) -> None:
+        name = self._category_name.text()
+        if not name:
+            self.reject()
+        self.data = Category(name)
+        self.accept()
+
+    @action_handler
+    def _update_name(self, _) -> None:
+        name = self._category_name.text()
+        if not name:
+            self.reject()
+        self.data = name
+        self.accept()
+
+
+class QuestionPopup(QDialog):
+    """ Popup to create a new Question instance.
+    """
+
+    def __init__(self, quiz: Category) -> None:
+        super().__init__()
+        self.setWindowTitle("Create Question")
+        self.__quiz = quiz
+        question_create = QPushButton("Create")
+        question_create.clicked.connect(self._create_question)
+        self.__type = QComboBox()
+        self.__type.addItems(QNAME)
+        self.__name = QLineEdit()
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.__type)
+        vbox.addWidget(self.__name)
+        vbox.addWidget(question_create)
+        self.setLayout(vbox)
+        self.question = None
+
+    @action_handler
+    def _create_question(self, _) -> None:
+        name = self.__name.text()
+        self.question = QNAME[self.__type.currentText()](name=name)
+        if self.__quiz.add_question(self.question):
+            self.accept()
+        else:
+            self.reject()

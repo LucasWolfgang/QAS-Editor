@@ -20,7 +20,7 @@ import sys
 import os
 import logging
 from PyQt5.QtWidgets import QApplication  # pylint: disable=E0611,E0401
-from .gui.main import Editor
+from .gui.window import Editor
 
 
 def main():

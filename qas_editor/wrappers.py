@@ -333,7 +333,8 @@ class Tags(Serializable):
 
 
 class Hint(Serializable):
-    """A
+    """Represents a hint to be displayed when a wrong answer is provided
+    to a "multiple tries" question. The hints are give in the listed order.
     """
 
     def __init__(self, formatting: Format, text: str, show_correct: bool,
