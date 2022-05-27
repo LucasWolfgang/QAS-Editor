@@ -33,7 +33,7 @@ from .answer import Answer, ClozeItem, NumericalAnswer, DragText, \
 if TYPE_CHECKING:
     from typing import List, Dict
     from .enums import Direction
-    from .quiz import Category
+    from .category import Category
 LOG = logging.getLogger(__name__)
 
 

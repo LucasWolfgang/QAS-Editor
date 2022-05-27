@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QPushButton, QLineEdit, QComboBox, QDialog,\
                             QMessageBox
 
-from ..quiz import Category
+from ..category import Category
 from ..questions import _Question, QNAME
 from ..enums import Numbering, Grading, ShowUnits, ResponseFormat, Synchronise
 from .widget import GTextToolbar, GTextEditor, GTagBar, GField, GCheckBox,\
@@ -155,6 +155,16 @@ class Editor(QMainWindow):
         self.setGeometry(50, 50, 1150, 650)
         self.show()
 
+    def _debug_me(self):
+        self.path = "./tests/datasets/moodle/all.xml"
+        self.top_quiz = Category.read_files(["./tests/datasets/moodle/all.xml"])
+        gtags = {}
+        self.top_quiz.get_tags(gtags)
+        self.set_gtags(gtags)
+        self.root_item.clear()
+        self._update_tree_item(self.top_quiz, self.root_item)
+        self.data_view.expandAll()
+
     def _add_menu_bars(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
         new_file = QAction("New file", self)
@@ -241,8 +251,8 @@ class Editor(QMainWindow):
         return xframe_vbox
 
     def _block_general_data(self) -> None:
-        frame = GCollapsible(self, "Question Header")
-        self.cframe_vbox.addLayout(frame, 0)
+        clayout = GCollapsible(self, "Question Header")
+        self.cframe_vbox.addLayout(clayout, 1)
 
         grid = QVBoxLayout()    # No need of parent. It's inside GCollapsible
         grid.setSpacing(2)
@@ -251,11 +261,11 @@ class Editor(QMainWindow):
         self._items.append(self.main_editor)
         self._items[-1].setToolTip("Question's description text")
         self._items[-1].setMinimumHeight(200)
-        grid.addWidget(self._items[-1], 0)
+        grid.addWidget(self._items[-1], 1)
         self._items.append(GTagBar(self))
         self._items[-1].setToolTip("List of tags used by the question.")
         self.set_gtags = self._items[-1].set_gtags
-        grid.addWidget(self._items[-1], 1)
+        grid.addWidget(self._items[-1], 0)
 
         others = QHBoxLayout()  # No need of parent. It's inside GCollapsible
         grid.addLayout(others, 0)
@@ -406,18 +416,18 @@ class Editor(QMainWindow):
         others.addWidget(group_box, 1)
 
         others.addStretch()
-        frame.setLayout(grid)
-        frame._toggle()
+        clayout.setLayout(grid)
+        clayout._toggle()
 
     def _block_hints(self) -> None:
-        frame = GCollapsible(self, "Hints")
-        self.cframe_vbox.addLayout(frame)
+        clayout = GCollapsible(self, "Hints")
+        self.cframe_vbox.addLayout(clayout)
         self._items.append(GHintsList(None, self.toolbar))
         _shortcut = QShortcut(self.SHORTCUTS["Add hint in the end"], self)
         _shortcut.activated.connect(self._items[-1].add)
         _shortcut = QShortcut(self.SHORTCUTS["Remove selected hint"], self)
         _shortcut.activated.connect(self._items[-1].pop)
-        frame.setLayout(self._items[-1])
+        clayout.setLayout(self._items[-1])
 
     def _block_solution(self) -> None:
         collapsible = GCollapsible(self, "Solution and Feedback")

@@ -1,3 +1,4 @@
+/* --------------  GDropbox -------------- */
 GDropbox {
     border-style: solid;
     border-width: 1px;
@@ -21,6 +22,8 @@ GDropbox::drop-down {
 GDropbox::drop-down:enabled {   
     background-color: #3091ff;
 }
+
+/* ----------------  Other --------------- */
 GHint {
     border:1px solid rgb(41, 41, 41);
     background-color: #e4ebb7
@@ -46,11 +49,18 @@ GTagBar QLabel {
 }
 GCloze {
     border:1px solid rgb(41, 41, 41);
+    border-radius: 3px;
+    background-color:#60cd5a;
+    margin: 0px;
+}
+GAnswer {
+    border:1px solid rgb(41, 41, 41);
+    border-radius: 3px;
     background-color:#60cd5a;
     margin: 0px;
 }
 
-/* Generic CSS styles */
+/* -------------  Generic  -------------- */
 QPushButton {
     border:1px solid rgb(41, 41, 41);
     background-color: #d2d2d2;

@@ -21,34 +21,34 @@ import os
 test_path = os.path.dirname(__file__)
 src_path = os.path.abspath(os.path.join(test_path, '..'))
 sys.path.append(src_path)
-from qas_editor import quiz
+from qas_editor import category
 
 
 def test_xml_all():
     EXAMPLE = f"{test_path}/datasets/moodle/all.xml"
-    control = quiz.Category.read_xml(EXAMPLE)
+    control = category.Category.read_xml(EXAMPLE)
     XML_TEST = f"{EXAMPLE}.tmp"
     control.write_xml(XML_TEST, True)
-    new_data = quiz.Category.read_xml(XML_TEST)
+    new_data = category.Category.read_xml(XML_TEST)
     os.remove(XML_TEST)
     assert control.compare(new_data, [])
 
 
 def test_xml_vs_json():
     EXAMPLE = f"{test_path}/datasets/moodle/all.xml"
-    data = quiz.Category.read_xml(EXAMPLE)
+    data = category.Category.read_xml(EXAMPLE)
     XML_TEST = f"{test_path}/datasets/moodle/all.json"
     # data.write_json(XML_TEST)
-    control = quiz.Category.read_json(XML_TEST)
+    control = category.Category.read_json(XML_TEST)
     assert control.compare(data, [])
 
 
 def test_xml_calculated():
     EXAMPLE = f"{test_path}/datasets/moodle/calculated.xml"
-    control = quiz.Category.read_xml(EXAMPLE)
+    control = category.Category.read_xml(EXAMPLE)
     XML_TEST = f"{EXAMPLE}.tmp"
     control.write_xml(XML_TEST, True)
-    new_data = quiz.Category.read_xml(XML_TEST)
+    new_data = category.Category.read_xml(XML_TEST)
     os.remove(XML_TEST)
     assert control.compare(new_data, [])
 

@@ -50,7 +50,7 @@ class GOptions(QVBoxLayout):
         self.__obj: list = None
         self.add_marker_to_text = editor.add_marker
         self.pop_marker_from_text = editor.pop_marker
-        self.setSpacing(4)
+        self.setSpacing(5)
 
     def add(self, child=None):
         """_summary_
@@ -207,7 +207,7 @@ class GZones(QVBoxLayout):
 
 
 class GCollapsible(QVBoxLayout):
-    """Custom widget that gives a collapsable (dropdown style) window that
+    """Custom QLayout that gives a collapsable (dropdown style) window that
     contains other QWidgets.
     """
     addWidget = property(doc='(!) Disallowed inherited')

@@ -451,7 +451,7 @@ class GTextToolbar(QToolBar):
             self._wrap.triggered.connect(self.__wrap_text)
 
 
-class GAnswer(QWidget):
+class GAnswer(QFrame):
     """GUI for QAnswer class.
     """
 
@@ -460,17 +460,18 @@ class GAnswer(QWidget):
         _layout = QHBoxLayout(self)
         self._text = GTextEditor(toolbar, "text", True)
         self._text.setToolTip("Answer's text")
-        _layout.addWidget(self._text, 0)
+        _layout.addWidget(self._text, 2)
         self._feedback = GTextEditor(toolbar, "feedback")
         self._feedback.setToolTip("Feedback for this answer")
         _layout.addWidget(self._feedback, 1)
         self._grade = GField("fraction", self, str)
         self._grade.setMaximumWidth(50)
         self._grade.setToolTip("Grade for this answer")
-        _layout.addWidget(self._grade, 2)
-        _layout.setStretch(0, 0)
-        _layout.setStretch(0, 1)
-        _layout.setContentsMargins(0,0,0,0)
+        self._grade.setFixedHeight(20)
+        self._text.setFixedHeight(42)
+        self._feedback.setFixedHeight(42)
+        _layout.addWidget(self._grade, 0)
+        _layout.setContentsMargins(5, 5, 5, 5)
         if option is None:
             option = Answer()
             question.append(option)

@@ -36,7 +36,12 @@ def main():
     handler.setLevel(logging.DEBUG)
     log.addHandler(handler)
     app = QApplication(sys.argv)
-    Editor()
+    edit = Editor()
+
+    # This is just for debug. If it is impacting you, remove this section
+    if __debug__:
+        edit._debug_me()
+
     sys.exit(app.exec_())
 
 

@@ -173,7 +173,7 @@ class Category(Serializable):  # pylint: disable=R0904
         return self.__parent
 
     @parent.setter
-    def parent(self, value: "Category"):
+    def parent(self, value: Category):
         if (value is not None and self.name not in value) or\
                 (self.__parent is not None and self.name in self.__parent):
             raise ValueError("This attribute can't be assigned directly. Use "
@@ -280,6 +280,21 @@ class Category(Serializable):  # pylint: disable=R0904
         subcat.parent = None
         return True
 
+    def merge(self, child: Category):
+        to_pop = []
+        for cat in child:
+            if child[cat].name in self.__categories:
+                return False
+            if child[cat].parent is not None:
+                to_pop.append(cat)
+            self.__categories[child[cat].name] = child[cat]
+            child[cat].parent = self
+        for question in child.questions:
+            self.add_question(question)
+        for cat in to_pop:
+            child[cat].parent.__categories.pop(child[cat].name)
+        del child
+
     @classmethod
     def read_aiken(cls, file_path: str, category: str = "$course$"):
         """_summary_
@@ -335,11 +350,7 @@ class Category(Serializable):  # pylint: disable=R0904
         for _path in files:
             try:
                 ext = _path.rsplit(".", 1)[-1]
-                quiz = getattr(cls, cls.SERIALIZERS[ext][0])(_path)
-                for cat in quiz:
-                    top_quiz[cat] = quiz[cat]
-                for question in quiz.questions:
-                    top_quiz.add_question(question)
+                top_quiz.merge(getattr(cls, cls.SERIALIZERS[ext][0])(_path))
             except (ValueError, KeyError):
                 LOG.exception(f"Failed to parse file {_path}.")
         return top_quiz
@@ -646,8 +657,6 @@ class Category(Serializable):  # pylint: disable=R0904
         """
         root = et.Element("quiz")
         self._to_xml_element(root, strict)
-        # quiz.write(file_path, encoding="utf-8", xml_declaration=True,
-        #            short_empty_elements=pretty_print, method = "fxml")
         with et._get_writer(file_path, "utf-8") as write:
             write("<?xml version='1.0' encoding='utf-8'?>\n")
             serialize_fxml(write, root, True, pretty)

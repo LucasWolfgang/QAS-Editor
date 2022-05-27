@@ -21,15 +21,15 @@ import os
 test_path = os.path.dirname(__file__)
 src_path = os.path.abspath(os.path.join(test_path, '..'))
 sys.path.append(src_path)
-from qas_editor import quiz
+from qas_editor import category
 
 
 def test_aikien() -> None:
     EXAMPLE = f"{test_path}/datasets/aiken/aiken_1.txt"
-    control = quiz.Category.read_aiken(EXAMPLE)
+    control = category.Category.read_aiken(EXAMPLE)
     XML_TEST = f"{EXAMPLE}_tmp"
     control.write_aiken(XML_TEST)
-    new_data = quiz.Category.read_aiken(XML_TEST)
+    new_data = category.Category.read_aiken(XML_TEST)
     os.remove(XML_TEST)
     assert control.compare(new_data, [])
 
