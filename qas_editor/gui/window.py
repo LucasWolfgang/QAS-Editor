@@ -101,6 +101,7 @@ class Editor(QMainWindow):
         self.cxt_data: _Question = None
         self.cur_question: _Question = None
         self.set_gtags: Callable = None
+        self.main_editor: GTextEditor = None
 
         with resources.open_text("qas_editor.gui", "stylesheet.css") as ifile:
             self.setStyleSheet(ifile.read())
@@ -210,9 +211,9 @@ class Editor(QMainWindow):
         self._update_tree_item(quiz, self.cxt_item)
 
     def _block_answer(self) -> None:
-        frame = GCollapsible(title="Answers")
+        frame = GCollapsible(self, "Answers")
         self.cframe_vbox.addLayout(frame)
-        self._items.append(GOptions(self.toolbar))
+        self._items.append(GOptions(self.toolbar, self.main_editor))
         _shortcut = QShortcut(self.SHORTCUTS["Add answer"], self)
         _shortcut.activated.connect(self._items[-1].add)
         _shortcut = QShortcut(self.SHORTCUTS["Remove answer"], self)
@@ -240,15 +241,16 @@ class Editor(QMainWindow):
         return xframe_vbox
 
     def _block_general_data(self) -> None:
-        frame = GCollapsible(self, title="Question Header")
+        frame = GCollapsible(self, "Question Header")
         self.cframe_vbox.addLayout(frame, 0)
 
         grid = QVBoxLayout()    # No need of parent. It's inside GCollapsible
         grid.setSpacing(2)
 
-        self._items.append(GTextEditor(self.toolbar, "question"))
+        self.main_editor = GTextEditor(self.toolbar, "question")
+        self._items.append(self.main_editor)
         self._items[-1].setToolTip("Question's description text")
-        self._items[-1].setMinimumHeight(100)
+        self._items[-1].setMinimumHeight(200)
         grid.addWidget(self._items[-1], 0)
         self._items.append(GTagBar(self))
         self._items[-1].setToolTip("List of tags used by the question.")
@@ -408,7 +410,7 @@ class Editor(QMainWindow):
         frame._toggle()
 
     def _block_hints(self) -> None:
-        frame = GCollapsible(self, title="Hints")
+        frame = GCollapsible(self, "Hints")
         self.cframe_vbox.addLayout(frame)
         self._items.append(GHintsList(None, self.toolbar))
         _shortcut = QShortcut(self.SHORTCUTS["Add hint in the end"], self)
@@ -418,7 +420,7 @@ class Editor(QMainWindow):
         frame.setLayout(self._items[-1])
 
     def _block_solution(self) -> None:
-        collapsible = GCollapsible(title="Solution and Feedback")
+        collapsible = GCollapsible(self, "Solution and Feedback")
         self.cframe_vbox.addLayout(collapsible)
         layout = QVBoxLayout()
         collapsible.setLayout(layout)
@@ -448,7 +450,7 @@ class Editor(QMainWindow):
         _content.setColumnStretch(3, 1)
 
     def _block_template(self) -> None:
-        collapsible = GCollapsible(title="Templates")
+        collapsible = GCollapsible(self, "Templates")
         self.cframe_vbox.addLayout(collapsible)
         layout = QVBoxLayout()
         collapsible.setLayout(layout)
@@ -463,11 +465,11 @@ class Editor(QMainWindow):
         layout.addWidget(self._items[-1])
 
     def _block_units(self):
-        collapsible = GCollapsible(title="Units")
+        collapsible = GCollapsible(self, "Units")
         self.cframe_vbox.addLayout(collapsible)
 
     def _block_zones(self):
-        collapsible = GCollapsible(title="Background and Zones")
+        collapsible = GCollapsible(self, "Background and Zones")
         self.cframe_vbox.addLayout(collapsible)
 
     @action_handler

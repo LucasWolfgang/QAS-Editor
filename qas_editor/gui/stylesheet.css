@@ -1,23 +1,24 @@
 GDropbox {
+    border-style: solid;
+    border-width: 1px;
     border-radius: 3px;
-    padding: 2 0 2 5;
+    border-color: grey;
+    padding-left: 15px;
     background-color: #e3e3e3;
-}
-GDropbox::drop-down {
-    border: 1px sunken;
-    border-radius: 3px;
-    margin: 3px;
-    background-color: #ffffff;
 }
 GDropbox:enabled {
     background-color: #ffffff;
-    selection-background-color: #ffffff;    /* Qt property */
-	selection-color: #000000;               /* Qt property */
+    selection-background-color: #ffffff;   
+	selection-color: #000000;            
 }
-GDropbox::drop-down:enabled {
+/* This it the selection button */
+GDropbox::drop-down { 
     border: 1px sunken;
     border-radius: 3px;
+    background-color: #ffffff;
     margin: 3px;
+}
+GDropbox::drop-down:enabled {   
     background-color: #3091ff;
 }
 GHint {

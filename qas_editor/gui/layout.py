@@ -42,13 +42,14 @@ class GOptions(QVBoxLayout):
         QMissingWord: None     #SelectOption
     }
 
-    def __init__(self, toolbar, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, toolbar, editor) -> None:
+        super().__init__()
         self.visible = True
         self.toolbar = toolbar
         self.__ctype = None
         self.__obj: list = None
-        self.__update_text = None
+        self.add_marker_to_text = editor.add_marker
+        self.pop_marker_from_text = editor.pop_marker
         self.setSpacing(4)
 
     def add(self, child=None):
@@ -63,8 +64,8 @@ class GOptions(QVBoxLayout):
         cls = self._TYPES[self.__ctype]
         item = cls(self.toolbar, self.__obj, child)
         self.addWidget(item)
-        if callable(self.__update_text):
-            self.__update_text()
+        if child is None:
+            self.add_marker_to_text()
         return item
 
     def from_obj(self, obj) -> None:
@@ -79,19 +80,19 @@ class GOptions(QVBoxLayout):
         new_size = len(self.__obj)
         if self.count() != 0:
             to_rem = 0
-            if self._TYPES[ctype][0] != self._TYPES[self.__ctype][0]:
+            if self._TYPES[ctype] != self._TYPES[self.__ctype]:
                 to_rem = self.count()
             elif self.count() > new_size:
                 to_rem = self.count() - new_size
-            for i in reversed(range(to_rem)):
-                self.itemAt(i).widget().deleteLater()
-            for obj, child in zip(self.__obj, self.children()):
-                child.from_obj(obj)
+            for _ in range(to_rem):
+                item = self.takeAt(0)
+                item.widget().deleteLater()
+                del item
+            for idx in range(self.count()):
+                self.itemAt(idx).widget().from_obj(self.__obj[idx])
         if self.count() < new_size:
-            for obj in self.__obj[self.count():]:
-                self.add(obj)
-        if hasattr(obj, "update_text"):
-            self.__update_text = getattr(obj, "update_text")
+            for cloze_item in self.__obj[self.count():]:
+                self.add(cloze_item)
 
     def get_attr(self):
         return "options"
@@ -104,19 +105,8 @@ class GOptions(QVBoxLayout):
             if self.itemAt(idx).widget() == widget:
                 self.removeWidget(widget)
                 widget.deleteLater()
-        if callable(self.__update_text):
-            self.__update_text()
-
-    def setVisible(self, visible: bool):    # pylint: disable=C0103
-        """_summary_
-
-        Args:
-            visible (bool): _description_
-        """
-        if self.visible == visible:
-            return
-        for child in self.children():
-            child.setVisible(visible)
+                self.pop_marker_from_text(idx+1)
+                break
 
 
 class GHintsList(QVBoxLayout):
@@ -279,12 +269,12 @@ class GCollapsible(QVBoxLayout):
             return super().mousePressEvent(event)
 
 
-    def __init__(self, parent=None, title="", content=None):
+    def __init__(self, parent, title):
         QVBoxLayout.__init__(self)
         self._is_collasped = True
         self._title_frame = GCollapsible._GTitle(parent, self._toggle, title)
         super().addWidget(self._title_frame)
-        self._content = QFrame(parent) if content is None else content
+        self._content = QFrame(parent)
         self._content.setStyleSheet(".QFrame{border:1px solid rgb(41, 41, 41)"
                                     "; background-color: #f0f6ff}")
         self._content.setVisible(not self._is_collasped)

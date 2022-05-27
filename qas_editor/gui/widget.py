@@ -28,12 +28,11 @@ from PyQt5.QtWidgets import QWidget, QActionGroup, QAction, QTextEdit, \
                             QToolBar, QFontComboBox, QComboBox, QHBoxLayout,\
                             QFrame,QPushButton,QLabel, QGridLayout, QLineEdit,\
                             QCheckBox, QListWidget, QCompleter
-from ..questions import MARKER_INT, MARKER_STR
+from ..questions import MARKER_INT
 from ..answer import Answer, CalculatedAnswer, DragItem, ClozeItem
 from ..enums import ClozeFormat, Format, ToleranceType
 from ..wrappers import FText, Hint, SelectOption
 if TYPE_CHECKING:
-    from typing import List
     from ..enums import EnhancedEnum
     from PyQt5.QtGui import QKeyEvent
 IMG_PATH = __file__.replace('\\', '/').rsplit('/', 2)[0] + "/images"
@@ -81,7 +80,6 @@ class GDropbox(_AutoUpdate, QComboBox):
 
     def __init__(self, attribute: str, parent: QWidget,  group: EnhancedEnum):
         super().__init__(attribute, parent)
-        self.setMinimumWidth(80)
         if group is not None:
             for item in group:
                 self.addItem(item.comment, item)
@@ -89,6 +87,7 @@ class GDropbox(_AutoUpdate, QComboBox):
     def from_obj(self, obj):
         data =  super().from_obj(obj)
         if isinstance(data, list):
+            self.clear()
             for num, item in enumerate(data):
                 self.addItem(f"item {num}", item)
         else:
@@ -134,21 +133,24 @@ class GTextEditor(QTextEdit):
     """ Widget for Plain and formatted text.
     """
 
-    def __init__(self, toolbar: "GTextToolbar", attribute: str) -> None:
+    def __init__(self, toolbar: "GTextToolbar", attribute: str, is_ftext=False):
         super().__init__()
         self.toolbar = toolbar
+        self.is_ftext = is_ftext
         self.__obj = None
         self.__attr = attribute
-        self.__update_callback = None
+        self.__from_drag = False
 
-    def __has_marker(self):
-        for char in self.textCursor().selectedText():
+    @staticmethod
+    def __has_marker(text):
+        for char in text:
             if ord(char) == MARKER_INT:
                 return True
         return False
 
-    def _update_fmt(self, index):
-        self.__obj.formatting = list(GTextToolbar.FORMATS.values())[index]
+    def add_marker(self):
+        cur = self.textCursor()
+        cur.insertText(chr(MARKER_INT))
 
     def canInsertFromMimeData(self, source) -> bool:  # pylint: disable=C0103
         """[summary]
@@ -159,11 +161,14 @@ class GTextEditor(QTextEdit):
         Returns:
             bool: [description]
         """
-        return not GTextEditor.__has_marker(source.text()) and \
-            (source.hasImage() or super().canInsertFromMimeData(source))
+        return source.hasImage() or super().canInsertFromMimeData(source)
 
     def contextMenuEvent(self, _):          # pylint: disable=C0103
         return None                         # Disables completely ctx menu
+
+    def dragEnterEvent(self, event):        # pylint: disable=C0103
+        self.__from_drag = True             # Allow moving markers arround
+        return super().dragEnterEvent(event)
 
     def focusInEvent(self, event) -> None:  # pylint: disable=C0103
         """_summary_
@@ -183,8 +188,6 @@ class GTextEditor(QTextEdit):
             self.__obj.text = self.toHtml()
         else:
             self.__obj.text = self.toPlainText()
-        if self.__update_callback:
-            print("updated")
         return super().focusOutEvent(event)
 
     def get_attr(self):
@@ -193,7 +196,7 @@ class GTextEditor(QTextEdit):
     def get_formatting(self):
         return self.__obj.formatting.name
 
-    def insertFromMimeData(self, source):  # pylint: disable=C0103
+    def insertFromMimeData(self, source):   # pylint: disable=C0103
         """[summary]
 
         Args:
@@ -201,6 +204,7 @@ class GTextEditor(QTextEdit):
         """
         cursor = self.textCursor()
         doc = self.document()
+        print(source.event)
         if source.hasUrls():
             for url in source.urls():
                 file_ext = splitext(str(url.toLocalFile()))[1].lower()
@@ -218,8 +222,10 @@ class GTextEditor(QTextEdit):
             doc.addResource(QTextDocument.ImageResource, uuid, image)
             cursor.insertImage(uuid)
             return
-        elif source.hasText() and GTextEditor.__has_marker(source.text()):
+        elif source.hasText() and not self.__from_drag and \
+                GTextEditor.__has_marker(source.text()):
             return
+        self.__from_drag = False
         super().insertFromMimeData(source)
 
     def keyPressEvent(self, event: QKeyEvent):  # pylint: disable=C0103
@@ -231,12 +237,14 @@ class GTextEditor(QTextEdit):
         if event.key() == Qt.Key_Backspace:
             cur = self.textCursor()
             cur.setPosition(cur.position() - event.count(), QTextCursor.KeepAnchor)
-        if self.__has_marker():
+        if not (event.key() in [Qt.Key_C, Qt.Key_Z] and \
+                event.modifiers() & Qt.ControlModifier) and \
+                GTextEditor.__has_marker(self.textCursor().selectedText()):
             event.ignore()
             return None
         return super().keyPressEvent(event)
 
-    def from_obj(self, obj, is_ftext=False) -> None:
+    def from_obj(self, obj) -> None:
         """_summary_
 
         Args:
@@ -244,13 +252,27 @@ class GTextEditor(QTextEdit):
             standard (bool): If the object passed is a FText (or has the FText
                 required data) or is a object that contains the FText
         """
-        self.__obj = obj if is_ftext else getattr(obj, self.__attr)
+        self.__obj = obj if self.is_ftext else getattr(obj, self.__attr)
         if self.__obj.formatting == Format.MD:
             self.setMarkdown(self.__obj.text)
         elif self.__obj.formatting == Format.HTML:
             self.setHtml(self.__obj.text)
         else:
             self.setPlainText(self.__obj.text)
+
+    def pop_marker(self, index):
+        txt = self.toHtml()
+        char = chr(MARKER_INT)
+        find = txt.find(char)
+        i = find != -1
+        while find != -1 and i != index:
+            find = txt.find(char, find + 1)
+            i += 1
+        if i == index:
+            self.setHtml(txt[:find] + txt[find+len(char):])
+
+    def update_fmt(self, index):
+        self.__obj.formatting = list(GTextToolbar.FORMATS.values())[index]
 
 
 class GTextToolbar(QToolBar):
@@ -414,7 +436,7 @@ class GTextToolbar(QToolBar):
             #self._mtype
             for _obj in self._format_actions:
                 _obj.blockSignals(False)
-            self._ttype.currentIndexChanged.connect(self.editor._update_fmt)
+            self._ttype.currentIndexChanged.connect(self.editor.update_fmt)
             self._fonts.currentFontChanged.connect(self.editor.setCurrentFont)
             self._underline.toggled.connect(self.editor.setFontUnderline)
             self._italic.toggled.connect(self.editor.setFontItalic)
@@ -436,7 +458,7 @@ class GAnswer(QWidget):
     def __init__(self, toolbar: GTextToolbar, question: list, option = None):
         super().__init__()
         _layout = QHBoxLayout(self)
-        self._text = GTextEditor(toolbar, "text")
+        self._text = GTextEditor(toolbar, "text", True)
         self._text.setToolTip("Answer's text")
         _layout.addWidget(self._text, 0)
         self._feedback = GTextEditor(toolbar, "feedback")
@@ -461,7 +483,7 @@ class GAnswer(QWidget):
             obj (Answer): _description_
         """
         self.option = obj
-        self._text.from_obj(obj, True)
+        self._text.from_obj(obj)
         self._grade.from_obj(obj)
         self._feedback.from_obj(obj)
 
@@ -473,7 +495,7 @@ class GCalculated(QWidget):
     def __init__(self, toolbar: GTextToolbar, question: list, option = None):
         super().__init__()
         _layout = QGridLayout(self)
-        self._text = GTextEditor(toolbar, "text", parent=self)
+        self._text = GTextEditor(toolbar, "text", False, parent=self)
         self._text.setToolTip("Answer's formula")
         _layout.addWidget(self._text, 0, 0)
         self._grade = GField("fraction", self, int)
@@ -497,7 +519,7 @@ class GCalculated(QWidget):
         self.from_obj(option)
 
     def from_obj(self, obj: CalculatedAnswer) -> None:
-        self._text.from_obj(obj, False)
+        self._text.from_obj(obj)
         self._grade.from_obj(obj)
         self._feedback.from_obj(obj)
         self._tol_type.from_obj(obj)
@@ -516,13 +538,14 @@ class GCloze(QFrame):
         _layout.setSpacing(2)
         self.__obj: ClozeItem = None
         self._grade = GField("grade", self, int)
-        self._grade.setFixedWidth(20)
+        self._grade.setFixedWidth(30)
         self._grade.setToolTip("Grade for the given answer")
         _layout.addWidget(self._grade, 0)
         self._form = GDropbox("cformat", self, ClozeFormat)
         self._form.setToolTip("Cloze format")
+        self._form.setMinimumWidth(160)
         _layout.addWidget(self._form, 1)
-        _layout.addSpacing(25)
+        _layout.addSpacing(20)
         self._opts = GDropbox("opts", self, None)
         self._opts.currentIndexChanged.connect(self.__changed_opt)
         _layout.addWidget(self._opts, 0)
@@ -545,7 +568,7 @@ class GCloze(QFrame):
         _layout.addWidget(self._pop, 0)
         _layout.setContentsMargins(2, 2, 2, 2)
         if option is None:
-            option = ClozeItem(0.0, "")
+            option = ClozeItem(0.0, ClozeFormat.MC)
             question.append(option)
         self.from_obj(option)
 
@@ -568,16 +591,15 @@ class GCloze(QFrame):
         self.__obj.opts.append(Answer(frac, text, fdbk, Format.PLAIN))
         self._opts.addItem(text)
 
-    def pop_opts(self, stat: bool):
+    def pop_opts(self, _):
         """_summary_
 
         Args:
             stat (bool): _description_
         """
-        if not stat:
-            LOG.debug("Button clicked is not receiving stat False")
-        self.__obj.opts.pop()
-        self._opts.removeItem(self._opts.count()-1)
+        if len(self.__obj.opts) > 1:
+            self.__obj.opts.pop()
+            self._opts.removeItem(self._opts.count()-1)
 
     def from_obj(self, obj: ClozeItem) -> None:
         """_summary_
