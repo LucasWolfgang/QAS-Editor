@@ -6,68 +6,54 @@
 </div>
 
 <div align="center">
-:exclamation: There is NO stable release so far. The frontend (UI) changes daily, and although the backend is more stable, it is still incomplete! :exclamation:
-</div>
+:exclamation: There is NO stable release so far. The frontend (UI) changes daily, and the backend, montly. :exclamation:
+</div><br/>
 
 # QAS-Editor
- Question and Answer Sheet Editor for importing, editing and exporting different extensions.  
+Question and Answer Sheet Editor is both a Library to automate tasks related to the creation, deletion, update and organization of questions, and a utility to help doing the same using a UI, in the case you don't have access to another tool, or the tool is not optimized fro your usage (which is my case for the [Free Moodle website](https://school.moodledemo.net))
  
- The goal of this repository is to create a tool that can be used both for automate and manually edit questions and answers. The extracture of the class is based on the Moodle XML format since this is the most complete file extension imported and exported so far in the tool. The initial sorce code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle).  
+The structure of the class is based on the Moodle XML. The initial sorce code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle)
 
- So why is necessary one more Moodle import/export tool? Well, I think that is just because the current implementation are just not generic enought and I need something that was basicalle [moodle-questions](https://github.com/gethvi/moodle-questions) but could do all the other flows. 
-
-The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/) (great editor by the way), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) (very organized) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/) (great idea). All these coded were modified a lot, but even so, thank a lot for those who coded them.
-
+The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/). All these coded were modified a lot, but even so, thank a lot for those who coded them.
 
 ## Requirements
- - Requires at least Python 3. If using all dependencies, at least Python 3.6.
- - Use the requirements.txt file to get all the required dependencies installed to be able to fully use the library. 
+- Requires at least Python 3. If using all dependencies, at least Python 3.6.
+- Use the requirements.txt file to get all the required dependencies installed to be able to fully use the library. All the library but [Latex2MathML](https://pypi.org/project/latex2mathml/) are only used in specific flows, so you can just don't install it.
 
     ```python -pip install -r requirements.txt```
-  
-  - <i>PyQt</i> is only necessary to use the GUI, of course.
-  - <i>PyPDF2</i> and <i>Pillow</i> may be replaced by <i>PikePDF</i> in the future.
 
 ## Features
-  - Hierarchical structures to more easily use and extend module. All moodle objects implemented:
+  - Hierarchical structures to more easily use and extend module.
  <center>
+ 
+ |  Type                  | Class |  GUI  | Test | Type             | Class |  GUI  | Test |
+ | ---------------------- | :---: | :---: | :--: | ---------------- | :---: | :---: | :--: |
+ | Calculated             |  :o:  |  :x:  |  :x: | Matching         |  :o:  |  :x:  |  :x: |
+ | Calculated multichoice |  :o:  |  :x:  |  :x: | Cloze (Gap Fill) |  :o:  |  :o:  |  :x: |
+ | Calculated simple      |  :o:  |  :x:  |  :x: | Multiple choice  |  :o:  |  :o:  |  :x: |
+ | Drag and drop text     |  :o:  |  :x:  |  :x: | Short Answer     |  :o:  |  :x:  |  :x: |
+ | Drag and drop markers  |  :o:  |  :x:  |  :x: | Numerical        |  :o:  |  :x:  |  :x: |
+ | Drag and drop image    |  :o:  |  :x:  |  :x: | Random matching  |  :o:  |  :x:  |  :x: |
+ | Description            |  :o:  |  :o:  |  :x: | Missing word     |  :o:  |  :x:  |  :x: |
+ | Essay                  |  :o:  |  :x:  |  :x: | True/False       |  :o:  |  :x:  |  :x: | 
+ </center ><br/
 
- |  Type                   |  Available         | Type             |  Available         |
- | ----------------------- |  :---------------: | ---------------- |  :---------------: |
- | Calculated              | :heavy_check_mark: | Matching         | :heavy_check_mark: |
- | Calculated multi-choice | :heavy_check_mark: | Cloze (Gap Fill) | :heavy_check_mark: |
- | Calculated simple       | :heavy_check_mark: | Multiple choice  | :heavy_check_mark: |
- | Drag and drop text      | :heavy_check_mark: | Short Answer     | :heavy_check_mark: |
- | Drag and drop markers   | :heavy_check_mark: | Numerical        | :heavy_check_mark: |
- | Drag and drop image     | :heavy_check_mark: | Random matching  | :heavy_check_mark: |
- | Description             | :heavy_check_mark: | Missing word     | :heavy_check_mark: |
- | Essay                   | :heavy_check_mark: | True/False       | :heavy_check_mark: | 
- </center>
+ - A GUI to create, delete, modify and organize questions
+ <center >
+  
+ ![QAS editor GUI](https://user-images.githubusercontent.com/39681420/170771346-1e1d532b-6745-4125-b647-d704d645e5c4.png)
+ </center ><br/>
 
- <sup><sup>1</sup> Original table from [moodle-questions](https://github.com/gethvi/moodle-questions)</sup>
-  - Import
-    - Aiken file
-    - Cloze file
-    - GIFT file
-    - JSON
-    - Markdown files 
-    - Moodle XML file
-  - Export
-    - Aiken file
-    - Moodle XML file
-    - JSON
-  - GUI to create and update questions manually
-<img src="https://user-images.githubusercontent.com/39681420/154966147-ed3b0661-5709-4942-97b5-dcdc33c88f29.png" alt="drawing" width="600" height="420"/>
-
-## Next features
-  - Import
-    - LaTex (as MCQ)
-  - Export 
-    - Cloze file 
-    - GIFT file 
-    - LaTex (as MCQ) 
-    - Markdown files 
-  - Complete GUI
+ - Many different import and export formats
+ <center>
+  
+ |  Type      | Import | Export | Test | Type         | Import | Export | Test |
+ | ---------- | :----: | :----: | :--: | ------------ | :----: | :----: | :--: |
+ | Aiken      |   :o:  |   :o:  |  :o: | LaTex (MCQ)  |   :x:  |   :x:  |  :x: |
+ | Json (QAS) |   :o:  |   :o:  |  :x: | Markdown     |   :o:  |   :x:  |  :x: |
+ | Cloze      |   :o:  |   :x:  |  :x: | PDF          |   :x:  |   :x:  |  :x: |
+ | GIFT       |   :o:  |   :x:  |  :x: | XML (Moodle) |   :o:  |   :o:  |  :o: |
+</center ><br/>
 
 # Open to ideas
   - Have any format that you want to see the tool able to import or export?
