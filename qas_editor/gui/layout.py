@@ -48,6 +48,7 @@ class GOptions(QVBoxLayout):
         self.toolbar = toolbar
         self.__ctype = None
         self.__obj: list = None
+        self.__update_text = None
         self.setSpacing(4)
 
     def add(self, child=None):
@@ -62,6 +63,8 @@ class GOptions(QVBoxLayout):
         cls = self._TYPES[self.__ctype]
         item = cls(self.toolbar, self.__obj, child)
         self.addWidget(item)
+        if callable(self.__update_text):
+            self.__update_text()
         return item
 
     def from_obj(self, obj) -> None:
@@ -87,6 +90,8 @@ class GOptions(QVBoxLayout):
         if self.count() < new_size:
             for obj in self.__obj[self.count():]:
                 self.add(obj)
+        if hasattr(obj, "update_text"):
+            self.__update_text = getattr(obj, "update_text")
 
     def get_attr(self):
         return "options"
@@ -99,6 +104,8 @@ class GOptions(QVBoxLayout):
             if self.itemAt(idx).widget() == widget:
                 self.removeWidget(widget)
                 widget.deleteLater()
+        if callable(self.__update_text):
+            self.__update_text()
 
     def setVisible(self, visible: bool):    # pylint: disable=C0103
         """_summary_

@@ -39,8 +39,8 @@ LOG = logging.getLogger(__name__)
 
 QNAME: Dict[str, _Question] = {}
 QTYPE: Dict[str, _Question] = {}
-MARKER_STR = ""
-MARKER_INT = 0
+MARKER_STR = " &#9635; "
+MARKER_INT = 9635
 
 class _Question(Serializable):
     """
@@ -433,7 +433,7 @@ class QCloze(_QuestionMT):
             gui_text.append(self._cloze_text[start: match.start()-1])
             start =  match.end()+1 
         gui_text.append(self._cloze_text[start:])
-        self.question.text = " &#9635; ".join(gui_text)
+        self.question.text = MARKER_STR.join(gui_text)
 
 
 class QDescription(_Question):

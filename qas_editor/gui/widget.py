@@ -28,6 +28,7 @@ from PyQt5.QtWidgets import QWidget, QActionGroup, QAction, QTextEdit, \
                             QToolBar, QFontComboBox, QComboBox, QHBoxLayout,\
                             QFrame,QPushButton,QLabel, QGridLayout, QLineEdit,\
                             QCheckBox, QListWidget, QCompleter
+from ..questions import MARKER_INT, MARKER_STR
 from ..answer import Answer, CalculatedAnswer, DragItem, ClozeItem
 from ..enums import ClozeFormat, Format, ToleranceType
 from ..wrappers import FText, Hint, SelectOption
@@ -140,6 +141,12 @@ class GTextEditor(QTextEdit):
         self.__attr = attribute
         self.__update_callback = None
 
+    def __has_marker(self):
+        for char in self.textCursor().selectedText():
+            if ord(char) == MARKER_INT:
+                return True
+        return False
+
     def _update_fmt(self, index):
         self.__obj.formatting = list(GTextToolbar.FORMATS.values())[index]
 
@@ -152,7 +159,11 @@ class GTextEditor(QTextEdit):
         Returns:
             bool: [description]
         """
-        return source.hasImage() or super().canInsertFromMimeData(source)
+        return not GTextEditor.__has_marker(source.text()) and \
+            (source.hasImage() or super().canInsertFromMimeData(source))
+
+    def contextMenuEvent(self, _):          # pylint: disable=C0103
+        return None                         # Disables completely ctx menu
 
     def focusInEvent(self, event) -> None:  # pylint: disable=C0103
         """_summary_
@@ -190,7 +201,6 @@ class GTextEditor(QTextEdit):
         """
         cursor = self.textCursor()
         doc = self.document()
-
         if source.hasUrls():
             for url in source.urls():
                 file_ext = splitext(str(url.toLocalFile()))[1].lower()
@@ -208,6 +218,8 @@ class GTextEditor(QTextEdit):
             doc.addResource(QTextDocument.ImageResource, uuid, image)
             cursor.insertImage(uuid)
             return
+        elif source.hasText() and GTextEditor.__has_marker(source.text()):
+            return
         super().insertFromMimeData(source)
 
     def keyPressEvent(self, event: QKeyEvent):  # pylint: disable=C0103
@@ -219,11 +231,9 @@ class GTextEditor(QTextEdit):
         if event.key() == Qt.Key_Backspace:
             cur = self.textCursor()
             cur.setPosition(cur.position() - event.count(), QTextCursor.KeepAnchor)
-            txt = cur.selectedText()
-            for char in txt:
-                if ord(char) == 9635:
-                    event.ignore()
-                    return None
+        if self.__has_marker():
+            event.ignore()
+            return None
         return super().keyPressEvent(event)
 
     def from_obj(self, obj, is_ftext=False) -> None:
