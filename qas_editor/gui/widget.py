@@ -30,7 +30,7 @@ from PyQt5.QtWidgets import QWidget, QActionGroup, QAction, QTextEdit, \
                             QCheckBox, QListWidget, QCompleter
 from ..questions import MARKER_INT
 from ..answer import Answer, CalculatedAnswer, DragItem, ClozeItem
-from ..enums import ClozeFormat, Format, ToleranceType
+from ..enums import ClozeFormat, Format, ToleranceType, ToleranceFormat
 from ..wrappers import FText, Hint, SelectOption
 if TYPE_CHECKING:
     from ..enums import EnhancedEnum
@@ -78,11 +78,12 @@ class GDropbox(_AutoUpdate, QComboBox):
 
     _get_data = QComboBox.currentData
 
-    def __init__(self, attribute: str, parent: QWidget,  group: EnhancedEnum):
+    def __init__(self, attribute: str, parent: QWidget, group: EnhancedEnum):
         super().__init__(attribute, parent)
         if group is not None:
             for item in group:
                 self.addItem(item.comment, item)
+        self.setFixedHeight(24)
 
     def from_obj(self, obj):
         data =  super().from_obj(obj)
@@ -126,15 +127,23 @@ class GList(_AutoUpdate, QListWidget):
     """
 
     def from_obj(self, obj):
-        self.addActions(super().from_obj(obj))
+        self.clear()
+        items = super().from_obj(obj)
+        if isinstance(items, list):
+            for dataset in items:
+                self.addItem(str(dataset))
+        else:
+            for key, value in items.items():
+                self.addItem(f"{key}: {value}")
 
 
 class GTextEditor(QTextEdit):
     """ Widget for Plain and formatted text.
     """
 
-    def __init__(self, toolbar: "GTextToolbar", attribute: str, is_ftext=False):
-        super().__init__()
+    def __init__(self, toolbar: "GTextToolbar", attribute: str, is_ftext=False,
+                parent: QWidget = None):
+        super().__init__(parent)
         self.toolbar = toolbar
         self.is_ftext = is_ftext
         self.__obj = None
@@ -303,20 +312,17 @@ class GTextToolbar(QToolBar):
         self.addSeparator()
 
         self._bold = QAction(QIcon(f"{IMG_PATH}/bold.png"), "Bold", self)
-        self._bold.setStatusTip("Bold")
         self._bold.setShortcut(QKeySequence.Bold)
         self._bold.setCheckable(True)
         self.addAction(self._bold)
 
         self._italic = QAction(QIcon(f"{IMG_PATH}/italic.png"), "Italic", self)
-        self._italic.setStatusTip("Italic")
         self._italic.setShortcut(QKeySequence.Italic)
         self._italic.setCheckable(True)
         self.addAction(self._italic)
 
         self._underline = QAction(QIcon(f"{IMG_PATH}/underline.png"),
                                   "Underline", self)
-        self._underline.setStatusTip("Underline")
         self._underline.setShortcut(QKeySequence.Underline)
         self._underline.setCheckable(True)
         self.addAction(self._underline)
@@ -324,25 +330,21 @@ class GTextToolbar(QToolBar):
 
         self._alignl = QAction(QIcon(f"{IMG_PATH}/alignment.png"),
                                "Align left", self)
-        self._alignl.setStatusTip("Align text left")
         self._alignl.setCheckable(True)
         self.addAction(self._alignl)
 
         self._alignc = QAction(QIcon(f"{IMG_PATH}/align_center.png"),
                                "Align center", self)
-        self._alignc.setStatusTip("Align text center")
         self._alignc.setCheckable(True)
         self.addAction(self._alignc)
 
         self._alignr = QAction(QIcon(f"{IMG_PATH}/align_right.png"),
                                "Align right", self)
-        self._alignr.setStatusTip("Align text right")
         self._alignr.setCheckable(True)
         self.addAction(self._alignr)
 
         self._alignj = QAction(QIcon(f"{IMG_PATH}/align_justify.png"),
                                "Justify", self)
-        self._alignj.setStatusTip("Justify text")
         self._alignj.setCheckable(True)
         self.addAction(self._alignj)
 
@@ -362,9 +364,9 @@ class GTextToolbar(QToolBar):
         self.addSeparator()
 
         self._html = QAction(QIcon(f"{IMG_PATH}/html.png"),
-                             "Wrap text to window", self)
-        self._html.setStatusTip("Toggle wrap text to window")
-        self._html.setCheckable(True)
+                             "Selected text as HTML", self)
+        self._html.setCheckable(False)
+        self._html.triggered.connect(self.__to_html)
         self.addAction(self._html)
 
         # Format-related widgets/actions, used to disable/enable signals.
@@ -388,6 +390,10 @@ class GTextToolbar(QToolBar):
 
     def __wrap_text(self):
         self.editor.setLineWrapMode(int(self.editor.lineWrapMode() == 0))
+
+    def __to_html(self):
+        text = self.editor.textCursor().selectedText()
+        self.editor.textCursor().insertHtml(text)
 
     def hasFocus(self) -> bool:  # pylint: disable=C0103
         """_summary_
@@ -457,25 +463,26 @@ class GAnswer(QFrame):
 
     def __init__(self, toolbar: GTextToolbar, question: list, option = None):
         super().__init__()
-        _layout = QHBoxLayout(self)
+        self._layout = QHBoxLayout(self)
         self._text = GTextEditor(toolbar, "text", True)
         self._text.setToolTip("Answer's text")
-        _layout.addWidget(self._text, 2)
+        self._text.setFixedHeight(42)
+        self._layout.addWidget(self._text, 2)
         self._feedback = GTextEditor(toolbar, "feedback")
         self._feedback.setToolTip("Feedback for this answer")
-        _layout.addWidget(self._feedback, 1)
+        self._feedback.setFixedHeight(42)
+        self._layout.addWidget(self._feedback, 1)
         self._grade = GField("fraction", self, str)
         self._grade.setMaximumWidth(50)
         self._grade.setToolTip("Grade for this answer")
-        self._grade.setFixedHeight(20)
-        self._text.setFixedHeight(42)
-        self._feedback.setFixedHeight(42)
-        _layout.addWidget(self._grade, 0)
-        _layout.setContentsMargins(5, 5, 5, 5)
-        if option is None:
-            option = Answer()
-            question.append(option)
-        self.from_obj(option)
+        self._layout.addWidget(self._grade, 0)
+        self._layout.setContentsMargins(5, 5, 5, 5)
+        self._layout.setSpacing(2)
+        if question is not None:
+            if option is None:
+                option = Answer()
+                question.append(option)
+            self.from_obj(option)
 
     def from_obj(self, obj: Answer) -> None:
         """_summary_
@@ -489,40 +496,37 @@ class GAnswer(QFrame):
         self._feedback.from_obj(obj)
 
 
-class GCalculated(QWidget):
+class GCalculated(GAnswer):
     """
     """
 
     def __init__(self, toolbar: GTextToolbar, question: list, option = None):
-        super().__init__()
-        _layout = QGridLayout(self)
-        self._text = GTextEditor(toolbar, "text", False, parent=self)
-        self._text.setToolTip("Answer's formula")
-        _layout.addWidget(self._text, 0, 0)
-        self._grade = GField("fraction", self, int)
-        self._grade.setMaximumWidth(50)
-        self._grade.setToolTip("Grade for this answer")
-        _layout.addWidget(self._grade, 0, 1)
-        self._feedback = GTextEditor(toolbar, "feedback", parent=self)
-        self._feedback.setToolTip("Feedback for this answer")
-        _layout.addWidget(self._feedback, 0, 2, 1, 3)
+        super().__init__(toolbar, None)
+        self._text.setFixedHeight(30)
+        self._feedback.setFixedHeight(30)   
         self._tol_type = GDropbox("ttype", self, ToleranceType)
-        _layout.addWidget(self._tol_type, 1, 0)
+        self._tol_type.setToolTip("The tolerance type")
+        self._tol_type.setFixedWidth(105)
+        self._layout.addWidget(self._tol_type)
+        self._ans_type = GDropbox("aformat", self, ToleranceFormat)
+        self._ans_type.setToolTip("Tolerance format")
+        self._ans_type.setFixedWidth(110)
+        self._layout.addWidget(self._ans_type)
         self._tolerance = GField("tolerance", self, int)
-        _layout.addWidget(self._tolerance, 1, 1)
-        self._ans_type = GCheckBox("aformat", "Test123", self)
-        _layout.addWidget(self._ans_type, 2, 0)
+        self._tolerance.setToolTip("The tolerance value")
+        self._tolerance.setFixedWidth(45)
+        self._layout.addWidget(self._tolerance)
         self._answer_len = GField("alength", self,  int)
-        _layout.addWidget(self._answer_len, 2, 1)
+        self._answer_len.setToolTip("Number of significant figures or decimals")
+        self._answer_len.setFixedWidth(30)
+        self._layout.addWidget(self._answer_len)
         if option is None:
             option = CalculatedAnswer()
             question.append(option)
         self.from_obj(option)
 
     def from_obj(self, obj: CalculatedAnswer) -> None:
-        self._text.from_obj(obj)
-        self._grade.from_obj(obj)
-        self._feedback.from_obj(obj)
+        super().from_obj(obj)
         self._tol_type.from_obj(obj)
         self._tolerance.from_obj(obj)
         self._ans_type.from_obj(obj)

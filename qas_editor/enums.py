@@ -124,7 +124,7 @@ class ShowUnits(EnhancedEnum):
     NONE = "3", "Not visible"
 
 
-class Status(Enum):
+class Status(EnhancedEnum):
     """Enumerates Status for Datasets
     """
     PRV = "private"
@@ -149,13 +149,6 @@ class ResponseFormat(EnhancedEnum):
     ATCH = "noinline", "No inline"
 
 
-class ToleranceFormat(EnhancedEnum):
-    """Enumerates Tolerance Formats
-    """
-    DEC = "1", "Decimals"
-    SIG = "2", "Significant Figures"
-
-
 class ToleranceType(EnhancedEnum):
     """Enumerates Tolerance Types
     """
@@ -164,7 +157,7 @@ class ToleranceType(EnhancedEnum):
     GEO = "3", "Geometric"
 
 
-class CalculatedFormat(EnhancedEnum):
+class ToleranceFormat(EnhancedEnum):
     """
     """
 

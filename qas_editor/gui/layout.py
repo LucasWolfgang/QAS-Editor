@@ -215,8 +215,8 @@ class GCollapsible(QVBoxLayout):
 
     class _GArrow(QFrame):
 
-        def __init__(self, parent=None, collapsed=False):
-            QFrame.__init__(self, parent=parent)
+        def __init__(self, parent, collapsed):
+            QFrame.__init__(self, parent)
             self.setMaximumSize(24, 24)
             self.__hori = (QPointF(7, 8), QPointF(17, 8), QPointF(12, 13))
             self.__vert = (QPointF(8, 7), QPointF(13, 12), QPointF(8, 17))
@@ -249,19 +249,16 @@ class GCollapsible(QVBoxLayout):
     class _GTitle(QFrame):
 
         def __init__(self, parent, toogle_func, title=""):
-            QFrame.__init__(self, parent=parent)
-            self.setFrameShadow(QFrame.Sunken)
-            self._arrow = GCollapsible._GArrow(collapsed=True)
-            self._arrow.setStyleSheet("border:0px")
+            QFrame.__init__(self, parent)
+            self._arrow = GCollapsible._GArrow(parent, True)
             _title = QLabel(title)
-            _title.setFixedHeight(24)
             _title.move(QPoint(24, 0))
-            _title.setStyleSheet("border:0px")
             _hlayout = QHBoxLayout(self)
             _hlayout.setContentsMargins(0, 0, 0, 0)
             _hlayout.setSpacing(0)
             _hlayout.addWidget(self._arrow)
             _hlayout.addWidget(_title)
+            self.setFixedHeight(24)
             self.__toogle_func = toogle_func
 
         def mousePressEvent(self, event):  # pylint: disable=C0103

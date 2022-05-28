@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
-from .enums import CalculatedFormat, Format, ShapeType, ClozeFormat, Direction, ToleranceType
+from .enums import ToleranceFormat, Format, ShapeType, ClozeFormat, Direction, ToleranceType
 from .utils import Serializable
 from .wrappers import B64File, FText
 if TYPE_CHECKING:
@@ -95,22 +95,22 @@ class CalculatedAnswer(NumericalAnswer):
     """
 
     def __init__(self, alength=2, ttype: ToleranceType = None,
-                 aformat: CalculatedFormat = None, **kwargs):
+                 aformat: ToleranceFormat = None, **kwargs):
         super().__init__(**kwargs)
         self.ttype = ToleranceType.NOM if ttype is None else ttype
-        self.aformat = CalculatedFormat.DEC if aformat is None else aformat
+        self.aformat = ToleranceFormat.DEC if aformat is None else aformat
         self.alength = alength
 
     @classmethod
     def from_json(cls, data: dict):
         data["ttype"] = ToleranceType(data["ttype"])
-        data["aformat"] = CalculatedFormat(data["aformat"])
+        data["aformat"] = ToleranceFormat(data["aformat"])
         return super().from_json(data)
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
         tags["tolerancetype"] = (ToleranceType, "ttype")
-        tags["correctanswerformat"] = (CalculatedFormat, "aformat")
+        tags["correctanswerformat"] = (ToleranceFormat, "aformat")
         tags["correctanswerlength"] = (int, "alength")
         return super().from_xml(root, tags, attrs)
 

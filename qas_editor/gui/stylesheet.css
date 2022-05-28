@@ -1,32 +1,12 @@
-/* --------------  GDropbox -------------- */
-GDropbox {
-    border-style: solid;
-    border-width: 1px;
-    border-radius: 3px;
-    border-color: grey;
-    padding-left: 15px;
-    background-color: #e3e3e3;
-}
-GDropbox:enabled {
-    background-color: #ffffff;
-    selection-background-color: #ffffff;   
-	selection-color: #000000;            
-}
-/* This it the selection button */
-GDropbox::drop-down { 
-    border: 1px sunken;
-    border-radius: 3px;
-    background-color: #ffffff;
-    margin: 3px;
-}
-GDropbox::drop-down:enabled {   
-    background-color: #3091ff;
-}
-
-/* ----------------  Other --------------- */
 GHint {
     border:1px solid rgb(41, 41, 41);
     background-color: #e4ebb7
+}
+_GArrow {
+    border:0px;
+}
+_GArrow QPoint {
+    border:0px;
 }
 _GTitle {
     border:1px solid rgb(41, 41, 41);

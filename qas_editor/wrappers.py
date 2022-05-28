@@ -179,19 +179,9 @@ class FText(Serializable):
         return elem
 
 
-class DatasetItems(Serializable):
+class DatasetItems(Serializable, dict):
     """A
     """
-
-    def __init__(self, items: dict = None) -> None:
-        super().__init__()
-        self.__items = {} if items is None else items
-
-    def __len__(self):
-        return self.__items.__len__()
-
-    def __iter__(self):
-        return self.__items.__iter__()
 
     @classmethod
     def from_json(cls, data: dict) -> "Serializable":
@@ -203,16 +193,16 @@ class DatasetItems(Serializable):
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        data = {}
+        data = cls()
         for item in root:
             number = int(item.find("number").text)
             value = float(item.find("value").text)
             data[number] = value
-        return cls(data)
+        return data
 
     def to_xml(self, strict: bool) -> et.Element:
         dataset_items = et.Element("dataset_items")
-        for key, val in self.__items.items():
+        for key, val in self.items():
             item = et.Element("dataset_item")
             number = et.Element("number")
             number.text = key
@@ -240,6 +230,17 @@ class Dataset(Serializable):
         self.maximum = maximum
         self.decimals = decimals
         self.items = items if items else DatasetItems()
+
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, self.__class__):
+            return False
+        if self.status == Status.PRV or __o.status == Status.PRV:
+            return False
+        return self.__dict__ == __o.__dict__
+
+    def __str__(self) -> str:
+        return f"{self.status.name} > {self.name} ({hex(id(self))})"
+
 
     @classmethod
     def from_json(cls, data: dict) -> "Dataset":

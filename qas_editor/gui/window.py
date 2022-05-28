@@ -30,11 +30,11 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QFileDialog, QMenu, QAction, QAbstractItemView,\
                             QScrollArea, QHBoxLayout, QGroupBox, QShortcut,\
                             QPushButton, QLineEdit, QComboBox, QDialog,\
-                            QMessageBox
-
+                            QMessageBox, QListWidget
 from ..category import Category
 from ..questions import _Question, QNAME
-from ..enums import Numbering, Grading, ShowUnits, ResponseFormat, Synchronise
+from ..enums import Numbering, Grading, ShowUnits, ResponseFormat, Synchronise,\
+                    Status, Distribution
 from .widget import GTextToolbar, GTextEditor, GTagBar, GField, GCheckBox,\
                     GDropbox, GList
 from .layout import GCollapsible, GOptions, GHintsList
@@ -82,10 +82,11 @@ class Editor(QMainWindow):
         "Read folder": Qt.CTRL + Qt.SHIFT + Qt.Key_O,
         "Save": Qt.CTRL + Qt.Key_S,
         "Save as": Qt.CTRL + Qt.SHIFT + Qt.Key_S,
-        "Add hint in the end": Qt.CTRL + Qt.SHIFT + Qt.Key_H,
-        "Remove selected hint": Qt.CTRL + Qt.SHIFT + Qt.Key_J,
+        "Add hint": Qt.CTRL + Qt.SHIFT + Qt.Key_H,
+        "Remove hint": Qt.CTRL + Qt.SHIFT + Qt.Key_Y,
         "Add answer": Qt.CTRL + Qt.SHIFT + Qt.Key_A,
-        "Remove answer": Qt.CTRL + Qt.SHIFT + Qt.Key_D
+        "Remove answer": Qt.CTRL + Qt.SHIFT + Qt.Key_Q,
+        "Open Datasets": Qt.CTRL + Qt.SHIFT + Qt.Key_D
     }
 
     def __init__(self, *args, **kwargs):
@@ -98,7 +99,7 @@ class Editor(QMainWindow):
         self.top_quiz = Category()
         self.cxt_menu = QMenu(self)
         self.cxt_item: QStandardItem = None
-        self.cxt_data: _Question = None
+        self.cxt_data: _Question | Category= None
         self.cur_question: _Question = None
         self.set_gtags: Callable = None
         self.main_editor: GTextEditor = None
@@ -128,6 +129,8 @@ class Editor(QMainWindow):
         self.cframe_vbox.setSpacing(5)
         for value in self._items:
             value.setEnabled(False)
+        _shortcut = QShortcut(self.SHORTCUTS["Open Datasets"], self)
+        _shortcut.activated.connect(self._open_dataset_popup)
 
         frame = QFrame()
         frame.setLineWidth(2)
@@ -152,7 +155,7 @@ class Editor(QMainWindow):
 
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
-        self.setGeometry(50, 50, 1150, 650)
+        self.setGeometry(50, 50, 1200, 650)
         self.show()
 
     def _debug_me(self):
@@ -165,7 +168,7 @@ class Editor(QMainWindow):
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
 
-    def _add_menu_bars(self) -> None:
+    def _add_menu_bars(self):
         file_menu = self.menuBar().addMenu("&File")
         new_file = QAction("New file", self)
         new_file.setStatusTip("New file")
@@ -196,15 +199,15 @@ class Editor(QMainWindow):
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
     def _add_new_category(self):
-        popup = NamePopup(True)
+        popup = PopupName(self, True)
         popup.show()
         if not popup.exec():
             return
-        self.cxt_data[popup.data.name] = popup.data
+        self.cxt_data.add_subcat(popup.data)
         self._new_item(popup.data, self.cxt_item, "question")
 
     def _add_new_question(self):
-        popup = QuestionPopup(self.cxt_data)
+        popup = PopupQuestion(self, self.cxt_data)
         popup.show()
         if not popup.exec():
             return
@@ -298,6 +301,7 @@ class Editor(QMainWindow):
         _content.setContentsMargins(5, 3, 5, 3)
         self._items.append(GDropbox("grading_type", self, Grading))
         self._items[-1].setToolTip("Grading")
+        self._items[-1].setMinimumWidth(80)
         _content.addWidget(self._items[-1], 0)
         self._items.append(GDropbox("show_units", self, ShowUnits))
         self._items[-1].setToolTip("Show units")
@@ -306,7 +310,7 @@ class Editor(QMainWindow):
         self._items[-1].setToolTip("Unit Penalty")
         self._items[-1].setText("0.0")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GCheckBox("left", "Units on the left", self))
+        self._items.append(GCheckBox("left", "Left side", self))
         _content.addWidget(self._items[-1], 0)
         others.addWidget(group_box, 1)
 
@@ -337,11 +341,11 @@ class Editor(QMainWindow):
         _content.setContentsMargins(5, 3, 5, 3)
         self._items.append(GDropbox("rsp_format", self, ResponseFormat))
         self._items[-1].setToolTip("The format to be used in the reponse.")
-        _content.addWidget(self._items[-1], 0, 0)
+        _content.addWidget(self._items[-1], 0, 0, 1, 2)
         self._items.append(GCheckBox("rsp_required",
-                                     "Response required", self))
-        self._items[-1].setToolTip("Require the student to enter text.")
-        _content.addWidget(self._items[-1], 0, 1, 1, 2)
+                                     "Required", self))
+        self._items[-1].setToolTip("Require the student to enter some text.")
+        _content.addWidget(self._items[-1], 0, 2)
         self._items.append(GField("min_words", self, int))
         self._items[-1].setToolTip("Minimum word limit")
         self._items[-1].setText("0")
@@ -382,38 +386,44 @@ class Editor(QMainWindow):
         _content = QVBoxLayout(group_box)
         _content.setSpacing(5)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GCheckBox("subcats", "Include subcats", self))
+        self._items.append(GCheckBox("subcats", "Subcats", self))
         self._items[-1].setToolTip("If questions wshould be choosen from "
                                    "subcategories too.")
         _content.addWidget(self._items[-1])
         self._items.append(GField("choose", self, int))
         self._items[-1].setToolTip("Number of questions to select.")
         self._items[-1].setText("5")
+        self._items[-1].setFixedWidth(85)
         _content.addWidget(self._items[-1])
 
         group_box = QGroupBox("Fill-in", self)
         _wrapper.addWidget(group_box)
         _content = QVBoxLayout(group_box)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GCheckBox("use_case", "Case sensitive", self))
+        self._items.append(GCheckBox("use_case", "Match case", self))
         self._items[-1].setToolTip("If text is case sensitive.")
         _content.addWidget(self._items[-1])
 
         others.addLayout(_wrapper, 0)
 
         group_box = QGroupBox("Datasets", self)
-        _content = QVBoxLayout(group_box)
+        _content = QGridLayout(group_box)
         _content.setSpacing(5)
         _content.setContentsMargins(5, 3, 5, 3)
         self._items.append(GList("datasets", self))
         self._items[-1].setFixedHeight(70)
         self._items[-1].setToolTip("List of datasets used by this question.")
-        _content.addWidget(self._items[-1], 0)
+        _content.addWidget(self._items[-1], 0, 0, 1, 2)
         self._items.append(GDropbox("synchronize", self, Synchronise))
         self._items[-1].setToolTip("How should the databases be synchronized.")
-        self._items[-1].setMinimumWidth(50)
-        _content.addWidget(self._items[-1], 0)
-        others.addWidget(group_box, 1)
+        self._items[-1].setMinimumWidth(70)
+        _content.addWidget(self._items[-1], 1, 0)
+        _gen = QPushButton("Gen", self)
+        _gen.setToolTip("Generate new items based on the max, min and decimal "
+                        "values of the datasets, and the current solution.")
+        _gen.clicked.connect(self._gen_items)
+        _content.addWidget(_gen, 1, 1)
+        others.addWidget(group_box, 2)
 
         others.addStretch()
         clayout.setLayout(grid)
@@ -423,9 +433,9 @@ class Editor(QMainWindow):
         clayout = GCollapsible(self, "Hints")
         self.cframe_vbox.addLayout(clayout)
         self._items.append(GHintsList(None, self.toolbar))
-        _shortcut = QShortcut(self.SHORTCUTS["Add hint in the end"], self)
+        _shortcut = QShortcut(self.SHORTCUTS["Add hint"], self)
         _shortcut.activated.connect(self._items[-1].add)
-        _shortcut = QShortcut(self.SHORTCUTS["Remove selected hint"], self)
+        _shortcut = QShortcut(self.SHORTCUTS["Remove hint"], self)
         _shortcut.activated.connect(self._items[-1].pop)
         clayout.setLayout(self._items[-1])
 
@@ -481,6 +491,16 @@ class Editor(QMainWindow):
     def _block_zones(self):
         collapsible = GCollapsible(self, "Background and Zones")
         self.cframe_vbox.addLayout(collapsible)
+
+    @action_handler
+    def _clone_shallow(self) -> None:
+        new_data = copy.copy(self.cxt_data)
+        self._new_item(new_data, self.cxt_item.parent(), "question")
+
+    @action_handler
+    def _clone_deep(self) -> None:
+        new_data = copy.deepcopy(self.cxt_data)
+        self._new_item(new_data, self.cxt_itemparent(), "question")
 
     @action_handler
     def _create_file(self, *_):
@@ -546,14 +566,8 @@ class Editor(QMainWindow):
             cat.pop_subcat(self.cxt_data)
 
     @action_handler
-    def _clone_shallow(self) -> None:
-        new_data = copy.copy(self.cxt_data)
-        self._new_item(new_data, self.cxt_item.parent(), "question")
-
-    @action_handler
-    def _clone_deep(self) -> None:
-        new_data = copy.deepcopy(self.cxt_data)
-        self._new_item(new_data, self.cxt_itemparent(), "question")
+    def _gen_items(self, _):
+        pass
 
     def _new_item(self, data: Category, parent: QStandardItem, title: str):
 
@@ -565,6 +579,12 @@ class Editor(QMainWindow):
             item.setData(QVariant(data))
             parent.appendRow(item)
         return item
+
+    def _open_dataset_popup(self):
+        datasets = {}
+        self.top_quiz.get_datasets(datasets)
+        popup = PopupDataset(self, datasets)
+        popup.show()
 
     @action_handler
     def _read_file(self, _):
@@ -603,7 +623,7 @@ class Editor(QMainWindow):
 
     @action_handler
     def _rename_category(self, *_):
-        popup = NamePopup(False)
+        popup = PopupName(self, False)
         popup.show()
         if not popup.exec():
             return
@@ -656,12 +676,13 @@ class Editor(QMainWindow):
             self.path = path
 
 
-class NamePopup(QDialog):
+class PopupName(QDialog):
     """ Popup to name or rename instances, eiter Category or Question.
     """
 
-    def __init__(self, new_cat, suggestion="") -> None:
-        super().__init__()
+    def __init__(self, parent, new_cat, suggestion="") -> None:
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Create" if new_cat else "Rename")
         category_create = QPushButton("Ok")
         action = self._create_category if new_cat else self._update_name
@@ -692,12 +713,13 @@ class NamePopup(QDialog):
         self.accept()
 
 
-class QuestionPopup(QDialog):
+class PopupQuestion(QDialog):
     """ Popup to create a new Question instance.
     """
 
-    def __init__(self, quiz: Category) -> None:
-        super().__init__()
+    def __init__(self, parent, quiz: Category) -> None:
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Create Question")
         self.__quiz = quiz
         question_create = QPushButton("Create")
@@ -720,3 +742,89 @@ class QuestionPopup(QDialog):
             self.accept()
         else:
             self.reject()
+
+
+class PopupDataset(QWidget):
+
+    def __init__(self, parent, datasets: dict):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+        self.setWindowTitle("Datasets")
+        self.__datasets = datasets
+        self.__cur_data = None
+        _content = QGridLayout(self)
+        self._list = QListWidget(self)
+        self._list.addItems(datasets)
+        self._list.blockSignals(True)
+        self._list.currentItemChanged.connect(self.__changed_dataset)
+        self._list.blockSignals(False)
+        _content.addWidget(self._list, 0, 0, 4, 2)
+        self._add = QPushButton("Add", self)
+        self._add.setToolTip("")
+        _content.addWidget(self._add, 4, 0)
+        self._new = QPushButton("New", self)
+        self._new.setToolTip("If the dataset if private or public")
+        _content.addWidget(self._new, 4, 1)
+        self._status = GDropbox("status", self, Status)
+        self._status.setToolTip("")
+        self._status.setFixedWidth(120)
+        _content.addWidget(self._status, 0, 2)
+        self._name = GField("name", self, str)
+        self._name.setToolTip("Name of the dataset")
+        _content.addWidget(self._name, 0, 3)
+        self._ctype = GField("ctype", self, str)
+        self._ctype.setToolTip("")
+        _content.addWidget(self._ctype, 0, 4, 1, 2)
+        self._dist = GDropbox("distribution", self, Distribution)
+        self._dist.setToolTip("How the values are distributed in the dataset")
+        self._dist.setFixedWidth(120)
+        _content.addWidget(self._dist, 1, 2)
+        self._min = GField("minimum", self, float)
+        self._min.setToolTip("Minimum value in the dataset")
+        _content.addWidget(self._min, 1, 3)
+        self._max = GField("maximum", self, float)
+        self._max.setToolTip("Maximum value in the dataset")
+        _content.addWidget(self._max, 1, 4)
+        self._dec = GField("decimals", self, int)
+        self._dec.setToolTip("Number of decimals used in the dataset items")
+        _content.addWidget(self._dec, 1, 5)
+        self._items = GList("items", self)
+        self._items.setToolTip("Dataset items")
+        self._items.setFixedWidth(110)
+        _content.addWidget(self._items, 2, 2, 3, 1)
+        self._classes = QListWidget(self)
+        self._classes.setToolTip("Instances that uses the current dataset")
+        _content.addWidget(self._classes, 2, 3, 2, 3)
+        self._key = QLineEdit(self)
+        self._key.setToolTip("Item that will be updated (key value)")
+        _content.addWidget(self._key, 4, 3)
+        self._value = QLineEdit(self)
+        self._value.setToolTip("Value to be used in the dataset's item update")
+        _content.addWidget(self._value, 4, 4)
+        self._update = QPushButton("Update", self)
+        self._update.setToolTip("Update one item in the dataset using the "
+                                "values provided in the field on the left")
+        self._update.clicked.connect(self.__update_items)
+        _content.addWidget(self._update, 4, 5)
+        self.setGeometry(100, 100, 600, 400)
+
+    def __changed_dataset(self, current, _):
+        self.__cur_data, classes = self.__datasets[current.text()]
+        self._status.from_obj(self.__cur_data)
+        self._name.from_obj(self.__cur_data)
+        self._ctype.from_obj(self.__cur_data)
+        self._dec.from_obj(self.__cur_data)
+        self._dist.from_obj(self.__cur_data)
+        self._min .from_obj(self.__cur_data)
+        self._max.from_obj(self.__cur_data)
+        self._items.from_obj(self.__cur_data)
+        self._classes.clear()
+        for _cls in classes:
+            self._classes.addItem(str(_cls))
+
+    @action_handler
+    def __update_items(self, _):
+        key = int(self._key.text())
+        value = float(self._value.text())
+        self.__cur_data.items[key] = value
+        self._items.from_obj(self.__cur_data)

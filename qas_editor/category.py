@@ -27,9 +27,10 @@ from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
 
 from .utils import Serializable, LineBuffer, serialize_fxml
-from .questions import QTYPE, QMultichoice, QCloze, QDescription,\
+from .questions import QTYPE,  _Question, QMultichoice, QCloze, QDescription,\
                        QEssay, QNumerical, QMissingWord, QTrueFalse,\
-                       QMatching, QShortAnswer, _Question
+                       QMatching, QShortAnswer
+from .enums import Status
 if TYPE_CHECKING:
     from typing import Dict, List   # pylint: disable=C0412
 LOG = logging.getLogger(__name__)
@@ -214,14 +215,20 @@ class Category(Serializable):  # pylint: disable=R0904
         question.parent = self
         return True
 
-    def get_datasets(self) -> list:
-        datasets = []
+    def get_datasets(self, datasets: dict):
         for question in self.__questions:
             if hasattr(question, "datasets"):
-                datasets.extend(question.datasets)
+                for data in question.datasets:
+                    key = f"{data.status.name}> {data.name}"
+                    if data.status == Status.PRV:
+                        key += f" ({hex(id(data))})"
+                    if key in datasets and datasets[key] != data:
+                        LOG.error("Public dataset %s has different instances."
+                                  "New found in %s.", data.name, self)
+                    classes = datasets.setdefault(key, (data, []))[1]
+                    classes.append(question)
         for cat in self.__categories.values():
-            datasets.extend(cat.get_datasets())
-        return datasets
+            cat.get_datasets(datasets)
 
     def get_hier(self) -> dict:
         """[summary]
@@ -251,7 +258,6 @@ class Category(Serializable):  # pylint: disable=R0904
                 tags[name] = tags.setdefault(name, 0) + 1
         for cat in self.__categories.values():
             cat.get_tags(tags)
-        return tags
 
     def pop_question(self, question) -> bool:
         """_summary_
