@@ -213,7 +213,6 @@ class GTextEditor(QTextEdit):
         """
         cursor = self.textCursor()
         doc = self.document()
-        print(source.event)
         if source.hasUrls():
             for url in source.urls():
                 file_ext = splitext(str(url.toLocalFile()))[1].lower()
@@ -807,7 +806,7 @@ class GTagBar(QFrame):
     def __init__(self, parent):
         super().__init__(parent)
         self._tags: list = None
-        self._cat_tags: dict = None
+        self.cat_tags: dict = None
         self._h_layout = QHBoxLayout(self)
         self._h_layout.setContentsMargins(0, 0, 0, 0)
         self._h_layout.setSpacing(1)
@@ -825,16 +824,16 @@ class GTagBar(QFrame):
         for tag in new_tags:
             if tag not in self._tags:
                 self._tags.append(tag)
-                self._cat_tags[tag] = self._cat_tags.setdefault(tag, 0) + 1
+                self.cat_tags[tag] = self.cat_tags.setdefault(tag, 0) + 1
         self._tags.sort(key=lambda x: x.lower())
         self.__refresh()
 
     def __on_text_change(self):
         text = self._line_edit.text().lower()
-        if self._cat_tags is None or not text:
+        if self.cat_tags is None or not text:
             return
         tmp = []
-        for item in self._cat_tags:
+        for item in self.cat_tags:
             if text in item.lower():
                 tmp.append(item)
         self._model_item.setStringList(tmp)
@@ -860,14 +859,19 @@ class GTagBar(QFrame):
                 self._h_layout.addWidget(label)
         self._line_edit.setFocus()
 
-    def from_obj(self, obj) -> None:
+    def from_list(self, obj):
+        """
+        """
+        self._tags = obj
+        self.__refresh()
+    
+    def from_obj(self, obj):
         """_summary_
 
         Args:
             obj (Tags): _description_
         """
-        self._tags: list = obj.tags
-        self.__refresh()
+        self.from_list(obj.tags)
 
     def get_attr(self):  # pylint: disable=R0201
         """ Return attribute updated when new tag is added.
@@ -879,4 +883,4 @@ class GTagBar(QFrame):
         duplicate, so a dict is used to count how many times it is used.
         """
         self._model_item.setStringList(set(tags))
-        self._cat_tags = tags
+        self.cat_tags = tags

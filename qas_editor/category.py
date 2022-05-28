@@ -24,6 +24,7 @@ import logging
 import re
 from enum import Enum
 from typing import TYPE_CHECKING
+from xml.dom.expatbuilder import parseString
 from xml.etree import ElementTree as et
 
 from .utils import Serializable, LineBuffer, serialize_fxml
@@ -215,6 +216,18 @@ class Category(Serializable):  # pylint: disable=R0904
         question.parent = self
         return True
 
+    def find(self, results: list, title: str = None, tags: list = None, 
+             text: str = None, qtype: _Question = None, dbid: int = None):
+        for question in self.__questions:
+            if (title is None or re.search(title, question.name)) and \
+                 (tags is None or set(tags).issubset(set(question.tags))) and \
+                 (text is None or re.search(text, question.question.text)) and \
+                 (qtype is None or isinstance(question, qtype)) and \
+                 (dbid is None or dbid == question.dbid):
+                results.append(question)       
+        for cat in self.__categories.values():
+            cat.find(results, title, tags, text, qtype, dbid)
+
     def get_datasets(self, datasets: dict):
         for question in self.__questions:
             if hasattr(question, "datasets"):
@@ -229,18 +242,6 @@ class Category(Serializable):  # pylint: disable=R0904
                     classes.append(question)
         for cat in self.__categories.values():
             cat.get_datasets(datasets)
-
-    def get_hier(self) -> dict:
-        """[summary]
-
-        Args:
-            root (dict): [description]
-        """
-        data = {}
-        data["__questions__"] = self.__questions
-        for name, quiz in self.__categories.values():
-            data[name] = quiz.get_hier()
-        return data
 
     def get_size(self):
         """Total number of questions in this category, including subcategories.
@@ -258,6 +259,21 @@ class Category(Serializable):  # pylint: disable=R0904
                 tags[name] = tags.setdefault(name, 0) + 1
         for cat in self.__categories.values():
             cat.get_tags(tags)
+
+    def merge(self, child: Category):
+        to_pop = []
+        for cat in child:
+            if child[cat].name in self.__categories:
+                return False
+            if child[cat].parent is not None:
+                to_pop.append(cat)
+            self.__categories[child[cat].name] = child[cat]
+            child[cat].parent = self
+        for question in child.questions:
+            self.add_question(question)
+        for cat in to_pop:
+            child[cat].parent.__categories.pop(child[cat].name)
+        del child
 
     def pop_question(self, question) -> bool:
         """_summary_
@@ -286,20 +302,22 @@ class Category(Serializable):  # pylint: disable=R0904
         subcat.parent = None
         return True
 
-    def merge(self, child: Category):
-        to_pop = []
-        for cat in child:
-            if child[cat].name in self.__categories:
-                return False
-            if child[cat].parent is not None:
-                to_pop.append(cat)
-            self.__categories[child[cat].name] = child[cat]
-            child[cat].parent = self
-        for question in child.questions:
-            self.add_question(question)
-        for cat in to_pop:
-            child[cat].parent.__categories.pop(child[cat].name)
-        del child
+    def sort_questions(self, recursive: bool):
+        """
+        """
+        self.__questions = sorted(self.__questions, key = lambda qst: qst.name)
+        if recursive:
+            for cat in self.__categories.values():
+                cat.sort_questions(recursive)
+
+    def sort_subcats(self, recursive: bool):
+        """
+        """
+        self.__categories = { key: val for key, val in 
+                sorted(self.__categories.items(), key = lambda elem: elem[0]) }
+        if recursive:
+            for cat in self.__categories.values():
+                cat.sort_subcats(recursive)
 
     @classmethod
     def read_aiken(cls, file_path: str, category: str = "$course$"):

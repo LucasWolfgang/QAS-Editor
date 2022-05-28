@@ -288,37 +288,16 @@ class Dataset(Serializable):
         return dataset_def
 
 
-class Tags(Serializable):
+class Tags(Serializable, list):
     """A
     """
-    def __init__(self, tags: List[str] = None):
-        self.__tags = tags if tags is not None else []
 
-    def __iter__(self):
-        return self.__tags.__iter__()
-
-    def append(self, __obj: str) -> None:
-        """_summary_
-
-        Args:
-            __object (str): _description_
-        """
-        if isinstance(__obj, str) and __obj not in self.__tags:
-            self.__tags = __obj
-
-    def extend(self, __obj: list):
-        self.__tags.extend(__obj)
-
-    def index(self, __obj: str):
-        return self.__tags.index(__obj)
-
-    def remove(self, __obj):
-        return self.__tags.remove(__obj)
+    def __init__(self, tags=None) -> None:
+        super().__init__(tags) if tags is not None else super().__init__()
 
     @classmethod
-    def from_json(cls, data: dict) -> "Serializable":
-        data["tags"] = data.pop("_Tags__tags")
-        return super().from_json(data)
+    def from_json(cls, data: list) -> "Serializable":
+        return cls(data)
 
     @classmethod
     def from_xml(cls, root: et.Element, tags: dict, attrs: dict) -> "Tags":

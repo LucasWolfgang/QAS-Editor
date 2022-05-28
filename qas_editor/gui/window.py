@@ -30,9 +30,10 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QFileDialog, QMenu, QAction, QAbstractItemView,\
                             QScrollArea, QHBoxLayout, QGroupBox, QShortcut,\
                             QPushButton, QLineEdit, QComboBox, QDialog,\
-                            QMessageBox, QListWidget
+                            QMessageBox, QListWidget, QCheckBox
 from ..category import Category
 from ..questions import _Question, QNAME
+from ..wrappers import Tags
 from ..enums import Numbering, Grading, ShowUnits, ResponseFormat, Synchronise,\
                     Status, Distribution
 from .widget import GTextToolbar, GTextEditor, GTagBar, GField, GCheckBox,\
@@ -59,7 +60,7 @@ def action_handler(function: Callable) -> Callable:
             function(*args, **kwargs)
         except Exception:   # pylint: disable=W0703
             LOG.exception(f"Error calling function {function.__name__}")
-            self_arg = args[0]
+            self_arg = args[0]      # Needs to exists
             while not isinstance(self_arg, QWidget):
                 self_arg = self_arg()
             dlg = QMessageBox(self_arg)
@@ -78,6 +79,7 @@ class Editor(QMainWindow):
 
     SHORTCUTS = {
         "Create file": Qt.CTRL + Qt.Key_N,
+        "Find questions": Qt.CTRL + Qt.Key_F,
         "Read file": Qt.CTRL + Qt.Key_O,
         "Read folder": Qt.CTRL + Qt.SHIFT + Qt.Key_O,
         "Save": Qt.CTRL + Qt.Key_S,
@@ -86,7 +88,7 @@ class Editor(QMainWindow):
         "Remove hint": Qt.CTRL + Qt.SHIFT + Qt.Key_Y,
         "Add answer": Qt.CTRL + Qt.SHIFT + Qt.Key_A,
         "Remove answer": Qt.CTRL + Qt.SHIFT + Qt.Key_Q,
-        "Open Datasets": Qt.CTRL + Qt.SHIFT + Qt.Key_D
+        "Open datasets": Qt.CTRL + Qt.SHIFT + Qt.Key_D
     }
 
     def __init__(self, *args, **kwargs):
@@ -101,8 +103,9 @@ class Editor(QMainWindow):
         self.cxt_item: QStandardItem = None
         self.cxt_data: _Question | Category= None
         self.cur_question: _Question = None
-        self.set_gtags: Callable = None
+        self.tagbar: GTagBar = None
         self.main_editor: GTextEditor = None
+        self.is_open_find = self.is_open_dataset = False
 
         with resources.open_text("qas_editor.gui", "stylesheet.css") as ifile:
             self.setStyleSheet(ifile.read())
@@ -129,8 +132,6 @@ class Editor(QMainWindow):
         self.cframe_vbox.setSpacing(5)
         for value in self._items:
             value.setEnabled(False)
-        _shortcut = QShortcut(self.SHORTCUTS["Open Datasets"], self)
-        _shortcut.activated.connect(self._open_dataset_popup)
 
         frame = QFrame()
         frame.setLineWidth(2)
@@ -163,38 +164,52 @@ class Editor(QMainWindow):
         self.top_quiz = Category.read_files(["./tests/datasets/moodle/all.xml"])
         gtags = {}
         self.top_quiz.get_tags(gtags)
-        self.set_gtags(gtags)
+        self.tagbar.set_gtags(gtags)
         self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
 
     def _add_menu_bars(self):
         file_menu = self.menuBar().addMenu("&File")
-        new_file = QAction("New file", self)
-        new_file.setStatusTip("New file")
-        new_file.triggered.connect(self._create_file)
-        new_file.setShortcut(self.SHORTCUTS["Create file"])
-        file_menu.addAction(new_file)
-        open_file = QAction("Open file", self)
-        open_file.setStatusTip("Open file")
-        open_file.triggered.connect(self._read_file)
-        open_file.setShortcut(self.SHORTCUTS["Read file"])
-        file_menu.addAction(open_file)
-        open_folder = QAction("Open folder", self)
-        open_folder.setStatusTip("Open folder")
-        open_folder.triggered.connect(self._read_folder)
-        open_folder.setShortcut(self.SHORTCUTS["Read folder"])
-        file_menu.addAction(open_folder)
-        save_file = QAction("Save", self)
-        save_file.setStatusTip("Save top category to specified file on disk")
-        save_file.triggered.connect(lambda: self._write_file(False))
-        save_file.setShortcut(self.SHORTCUTS["Save"])
-        file_menu.addAction(save_file)
-        saveas_file = QAction("Save As...", self)
-        saveas_file.setStatusTip("Save top category to specified file on disk")
-        saveas_file.triggered.connect(lambda: self._write_file(True))
-        saveas_file.setShortcut(self.SHORTCUTS["Save as"])
-        file_menu.addAction(saveas_file)
+        tmp = QAction("New file", self)
+        tmp.setStatusTip("New file")
+        tmp.triggered.connect(self._create_file)
+        tmp.setShortcut(self.SHORTCUTS["Create file"])
+        file_menu.addAction(tmp)
+        tmp = QAction("Open file", self)
+        tmp.setStatusTip("Open file")
+        tmp.triggered.connect(self._read_file)
+        tmp.setShortcut(self.SHORTCUTS["Read file"])
+        file_menu.addAction(tmp)
+        tmp = QAction("Open folder", self)
+        tmp.setStatusTip("Open folder")
+        tmp.triggered.connect(self._read_folder)
+        tmp.setShortcut(self.SHORTCUTS["Read folder"])
+        file_menu.addAction(tmp)
+        tmp = QAction("Save", self)
+        tmp.setStatusTip("Save top category to specified file on disk")
+        tmp.triggered.connect(lambda: self._write_file(False))
+        tmp.setShortcut(self.SHORTCUTS["Save"])
+        file_menu.addAction(tmp)
+        tmp = QAction("Save As...", self)
+        tmp.setStatusTip("Save top category to specified file on disk")
+        tmp.triggered.connect(lambda: self._write_file(True))
+        tmp.setShortcut(self.SHORTCUTS["Save as"])
+        file_menu.addAction(tmp)
+
+        file_menu = self.menuBar().addMenu("&Edit")
+        tmp = QAction("Shortcuts", self)
+        #tmp.setShortcut(self.SHORTCUTS["Read file"])
+        file_menu.addAction(tmp)
+        tmp = QAction("Datasets", self)
+        tmp.triggered.connect(self._open_dataset_popup)
+        tmp.setShortcut(self.SHORTCUTS["Open datasets"])
+        file_menu.addAction(tmp)
+        tmp = QAction("Find Question", self)
+        tmp.triggered.connect(self._open_find_popup)
+        tmp.setShortcut(self.SHORTCUTS["Find questions"])
+        file_menu.addAction(tmp)
+        
         self.toolbar = GTextToolbar(self)
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
@@ -265,9 +280,9 @@ class Editor(QMainWindow):
         self._items[-1].setToolTip("Question's description text")
         self._items[-1].setMinimumHeight(200)
         grid.addWidget(self._items[-1], 1)
-        self._items.append(GTagBar(self))
-        self._items[-1].setToolTip("List of tags used by the question.")
-        self.set_gtags = self._items[-1].set_gtags
+        self.tagbar = GTagBar(self)
+        self.tagbar.setToolTip("List of tags used by the question.")
+        self._items.append(self.tagbar)
         grid.addWidget(self._items[-1], 0)
 
         others = QHBoxLayout()  # No need of parent. It's inside GCollapsible
@@ -531,29 +546,31 @@ class Editor(QMainWindow):
         rename.triggered.connect(self._rename_category)
         self.cxt_menu.addAction(rename)
         if self.cxt_item != self.root_item.item(0):
-            delete = QAction("Delete", self)
-            delete.triggered.connect(self._delete_item)
-            self.cxt_menu.addAction(delete)
-            clone = QAction("Clone (Shallow)", self)
-            clone.triggered.connect(self._clone_shallow)
-            self.cxt_menu.addAction(clone)
-            clone = QAction("Clone (Deep)", self)
-            clone.triggered.connect(self._clone_deep)
-            self.cxt_menu.addAction(clone)
+            tmp = QAction("Delete", self)
+            tmp.triggered.connect(self._delete_item)
+            self.cxt_menu.addAction(tmp)
+            tmp = QAction("Clone (Shallow)", self)
+            tmp.triggered.connect(self._clone_shallow)
+            self.cxt_menu.addAction(tmp)
+            tmp = QAction("Clone (Deep)", self)
+            tmp.triggered.connect(self._clone_deep)
+            self.cxt_menu.addAction(tmp)
         if isinstance(self.cxt_data, Category):
-            save_as = QAction("Save as", self)
-            save_as.triggered.connect(lambda: self._write_quiz(self.cxt_data,
-                                                               True))
-            self.cxt_menu.addAction(save_as)
-            append = QAction("Append", self)
-            append.triggered.connect(self._append_category)
-            self.cxt_menu.addAction(append)
-            rename = QAction("New Question", self)
-            rename.triggered.connect(self._add_new_question)
-            self.cxt_menu.addAction(rename)
-            append = QAction("New Category", self)
-            append.triggered.connect(self._add_new_category)
-            self.cxt_menu.addAction(append)
+            tmp = QAction("Save as", self)
+            tmp.triggered.connect(lambda: self._write_quiz(self.cxt_data, True))
+            self.cxt_menu.addAction(tmp)
+            tmp = QAction("Append", self)
+            tmp.triggered.connect(self._append_category)
+            self.cxt_menu.addAction(tmp)
+            tmp = QAction("Sort", self)
+            #tmp.triggered.connect(self._add_new_category)
+            self.cxt_menu.addAction(tmp)
+            tmp = QAction("New Question", self)
+            tmp.triggered.connect(self._add_new_question)
+            self.cxt_menu.addAction(tmp)
+            tmp = QAction("New Category", self)
+            tmp.triggered.connect(self._add_new_category)
+            self.cxt_menu.addAction(tmp)
         self.cxt_menu.popup(self.data_view.mapToGlobal(event))
 
     @action_handler
@@ -580,11 +597,19 @@ class Editor(QMainWindow):
             parent.appendRow(item)
         return item
 
-    def _open_dataset_popup(self):
-        datasets = {}
-        self.top_quiz.get_datasets(datasets)
-        popup = PopupDataset(self, datasets)
-        popup.show()
+    @action_handler
+    def _open_dataset_popup(self, _):
+        if not self.is_open_dataset:
+            popup = PopupDataset(self, self.top_quiz)
+            popup.show()
+            self.is_open_dataset = True
+
+    @action_handler
+    def _open_find_popup(self, _):
+        if not self.is_open_find:
+            popup = PopupFind(self, self.top_quiz, self.tagbar.cat_tags)
+            popup.show()
+            self.is_open_find = True
 
     @action_handler
     def _read_file(self, _):
@@ -597,7 +622,7 @@ class Editor(QMainWindow):
         self.top_quiz = Category.read_files(files)
         gtags = {}
         self.top_quiz.get_tags(gtags)
-        self.set_gtags(gtags)
+        self.tagbar.set_gtags(gtags)
         self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
@@ -616,7 +641,7 @@ class Editor(QMainWindow):
             self.top_quiz.add_subcat(quiz)
         gtags = {}
         self.top_quiz.get_tags(gtags)
-        self.set_gtags(gtags)
+        self.tagbar.set_gtags(gtags)
         self.root_item.clear()
         self._update_tree_item(self.top_quiz, self.root_item)
         self.data_view.expandAll()
@@ -657,6 +682,7 @@ class Editor(QMainWindow):
         for k in data:
             self._update_tree_item(data[k], item)
 
+    @action_handler
     def _write_quiz(self, quiz: Category, save_as: bool):
         if save_as or self.path is None:
             path, _ = QFileDialog.getSaveFileName(self, "Save file", "",
@@ -669,87 +695,20 @@ class Editor(QMainWindow):
         getattr(quiz, quiz.SERIALIZERS[ext][1])(path)
         return path
 
-    @action_handler
     def _write_file(self, save_as: bool) -> None:
         path = self._write_quiz(self.top_quiz, save_as)
         if path:
             self.path = path
 
 
-class PopupName(QDialog):
-    """ Popup to name or rename instances, eiter Category or Question.
-    """
-
-    def __init__(self, parent, new_cat, suggestion="") -> None:
-        super().__init__(parent)
-        self.setWindowFlags(Qt.WindowStaysOnTopHint)
-        self.setWindowTitle("Create" if new_cat else "Rename")
-        category_create = QPushButton("Ok")
-        action = self._create_category if new_cat else self._update_name
-        category_create.clicked.connect(action)
-        self._category_name = QLineEdit()
-        self._category_name.setFocus()
-        self._category_name.setText(suggestion)
-        vbox = QVBoxLayout()
-        vbox.addWidget(self._category_name)
-        vbox.addWidget(category_create)
-        self.setLayout(vbox)
-        self.data = None
-
-    @action_handler
-    def _create_category(self, _) -> None:
-        name = self._category_name.text()
-        if not name:
-            self.reject()
-        self.data = Category(name)
-        self.accept()
-
-    @action_handler
-    def _update_name(self, _) -> None:
-        name = self._category_name.text()
-        if not name:
-            self.reject()
-        self.data = name
-        self.accept()
-
-
-class PopupQuestion(QDialog):
-    """ Popup to create a new Question instance.
-    """
-
-    def __init__(self, parent, quiz: Category) -> None:
-        super().__init__(parent)
-        self.setWindowFlags(Qt.WindowStaysOnTopHint)
-        self.setWindowTitle("Create Question")
-        self.__quiz = quiz
-        question_create = QPushButton("Create")
-        question_create.clicked.connect(self._create_question)
-        self.__type = QComboBox()
-        self.__type.addItems(QNAME)
-        self.__name = QLineEdit()
-        vbox = QVBoxLayout()
-        vbox.addWidget(self.__type)
-        vbox.addWidget(self.__name)
-        vbox.addWidget(question_create)
-        self.setLayout(vbox)
-        self.question = None
-
-    @action_handler
-    def _create_question(self, _) -> None:
-        name = self.__name.text()
-        self.question = QNAME[self.__type.currentText()](name=name)
-        if self.__quiz.add_question(self.question):
-            self.accept()
-        else:
-            self.reject()
-
-
 class PopupDataset(QWidget):
 
-    def __init__(self, parent, datasets: dict):
+    def __init__(self, parent, top: Category):
         super().__init__(parent)
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Datasets")
+        datasets = {}
+        top.get_datasets(datasets)
         self.__datasets = datasets
         self.__cur_data = None
         _content = QGridLayout(self)
@@ -828,3 +787,143 @@ class PopupDataset(QWidget):
         value = float(self._value.text())
         self.__cur_data.items[key] = value
         self._items.from_obj(self.__cur_data)
+
+    def closeEvent(self, _):
+        self.parent().is_open_dataset = False
+
+
+class PopupFind(QWidget):
+
+    def __init__(self, parent, top: Category, gtags: dict):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+        self.setWindowTitle("Find")
+        _content = QGridLayout(self)
+        self._by_title = QCheckBox("By title", self)
+        _content.addWidget(self._by_title, 0, 0)
+        self._title = QLineEdit(self)
+        _content.addWidget(self._title, 0, 1)
+        self._by_tags = QCheckBox("By tags", self)
+        _content.addWidget(self._by_tags, 1, 0)
+        self._tags = Tags()
+        _tagbar = GTagBar(self)
+        _tagbar.from_list(self._tags)
+        _tagbar.set_gtags(gtags)
+        _content.addWidget(_tagbar, 1, 1)
+        self._by_text = QCheckBox("By text", self)
+        _content.addWidget(self._by_text, 2, 0)
+        self._text = QLineEdit(self)
+        _content.addWidget(self._text, 2, 1)
+        self._by_qtype = QCheckBox("By type", self)
+        _content.addWidget(self._by_qtype, 3, 0)
+        self._qtype = QComboBox(self)
+        self._qtype.addItems(QNAME)
+        _content.addWidget(self._qtype, 3, 1)
+        self._by_dbid = QCheckBox("By dbid", self)
+        _content.addWidget(self._by_dbid, 4, 0)
+        self._dbid = QLineEdit(self)
+        _content.addWidget(self._dbid, 4, 1)
+        _find = QPushButton("Find", self)
+        _find.clicked.connect(self._find_me)
+        _content.addWidget(_find, 5, 0, 1, 2)
+        self._reslist = QListWidget(self)
+        _content.addWidget(self._reslist, 0, 2, 7, 1)
+        _content.setVerticalSpacing(2)
+        _content.setColumnStretch(1, 1)
+        _content.setColumnStretch(2, 2)
+        self._res = []
+        self._category = top
+
+    @action_handler  
+    def _find_me(self, _):
+        title = self._title.text() if self._by_title.isChecked() else None
+        tags = list(self._tags) if self._by_tags.isChecked() else None
+        text = self._text.text() if self._by_text.isChecked() else None
+        qtype = QNAME[self._qtype.currentText()] if \
+                self._by_qtype.isChecked() else None
+        dbid = int(self._dbid.text()) if self._by_dbid.isChecked() else None
+        if all(item is None for item in [title, tags, text, qtype, dbid]):
+            return
+        self._res.clear()
+        self._reslist.clear()
+        self._category.find(self._res, title, tags, text, qtype, dbid)
+        name = []
+        for data in self._res:
+            name.clear()
+            parent = data
+            while parent.parent is not None:
+                name.append(parent.name)
+                parent = parent.parent
+            name.reverse()
+            print(name)
+            self._reslist.addItem(" > ".join(name))
+
+    def closeEvent(self, _):
+        self.parent().is_open_find = False
+
+
+class PopupQuestion(QDialog):
+    """ Popup to create a new Question instance.
+    """
+
+    def __init__(self, parent, quiz: Category):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        self.setWindowTitle("Create Question")
+        self.__quiz = quiz
+        question_create = QPushButton("Create", self)
+        question_create.clicked.connect(self._create_question)
+        self.__type = QComboBox(self)
+        self.__type.addItems(QNAME)
+        self.__name = QLineEdit(self)
+        vbox = QVBoxLayout(self)
+        vbox.addWidget(self.__type)
+        vbox.addWidget(self.__name)
+        vbox.addWidget(question_create)
+        self.question = None
+
+    @action_handler
+    def _create_question(self, _):
+        name = self.__name.text()
+        self.question = QNAME[self.__type.currentText()](name=name)
+        if self.__quiz.add_question(self.question):
+            self.accept()
+        else:
+            self.reject()
+
+
+class PopupName(QDialog):
+    """ Popup to name or rename instances, eiter Category or Question.
+    """
+
+    def __init__(self, parent, new_cat, suggestion=""):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        self.setWindowTitle("Create" if new_cat else "Rename")
+        category_create = QPushButton("Ok", self)
+        action = self._create_category if new_cat else self._update_name
+        category_create.clicked.connect(action)
+        self._category_name = QLineEdit(self)
+        self._category_name.setFocus()
+        self._category_name.setText(suggestion)
+        vbox = QVBoxLayout(self)
+        vbox.addWidget(self._category_name)
+        vbox.addWidget(category_create)
+        self.data = None
+
+    @action_handler
+    def _create_category(self, _) -> None:
+        name = self._category_name.text()
+        if not name:
+            self.reject()
+        self.data = Category(name)
+        self.accept()
+
+    @action_handler
+    def _update_name(self, _) -> None:
+        name = self._category_name.text()
+        if not name:
+            self.reject()
+        self.data = name
+        self.accept()
+    
