@@ -179,8 +179,14 @@ class ClozeItem(Serializable):
         text.append(f"{'=' if opt.fraction == 100 else ''}{opt.text}#"
                     f"{opt.feedback.text if opt.feedback else ''}")
         for opt in self.opts[1:]:
-            text.append(f"~{'=' if opt.fraction == 100 else ''}{opt.text}#"
-                        f"{opt.feedback.text if opt.feedback else ''}")
+            if opt.fraction == 100:
+                fraction = "="
+            elif opt.fraction == 0:
+                fraction = ""
+            else:
+                fraction = f"%{int(opt.fraction)}%"
+            feedback = opt.feedback.text if opt.feedback else ''
+            text.append(f"~{fraction}{opt.text}#{feedback}")
         text.append("}")
         return "".join(text)
 

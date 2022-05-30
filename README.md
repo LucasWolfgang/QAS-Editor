@@ -18,7 +18,7 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
 
 ## Requirements
 - Requires at least Python 3. If using all dependencies, at least Python 3.6.
-- Use the requirements.txt file to get all the required dependencies installed to be able to fully use the library. All the library but [Latex2MathML](https://pypi.org/project/latex2mathml/) are only used in specific flows, so you can just don't install it.
+- Use the requirements.txt file to get all the required dependencies installed to be able to fully use the library. All the library are only used in specific flows, so you can just don't install it.
 
     ```python -pip install -r requirements.txt```
 

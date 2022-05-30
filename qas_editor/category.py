@@ -17,14 +17,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from __future__ import annotations
-from asyncio import streams
 import glob
 import json
 import logging
 import re
 from enum import Enum
 from typing import TYPE_CHECKING
-from xml.dom.expatbuilder import parseString
 from xml.etree import ElementTree as et
 
 from .utils import Serializable, LineBuffer, serialize_fxml
@@ -35,10 +33,6 @@ from .enums import Status
 if TYPE_CHECKING:
     from typing import Dict, List   # pylint: disable=C0412
 LOG = logging.getLogger(__name__)
-
-# from PIL import Image
-# from PyPDF2 import PdfFileReader, pdf
-# import pikepdf
 
 
 class Category(Serializable):  # pylint: disable=R0904
@@ -55,10 +49,10 @@ class Category(Serializable):  # pylint: disable=R0904
                     "txt": ("read_aiken", "write_aiken"),
                     "xml": ("read_xml", "write_xml") }
 
-    def __init__(self, name: str = "$course$"):
+    def __init__(self, name: str = None):
         self.__questions: List[_Question] = []
         self.__categories: Dict[str, Category] = {}
-        self.__name = name
+        self.__name = name if name else "$course$"
         self.__parent = None
 
     def __iter__(self):
@@ -98,7 +92,17 @@ class Category(Serializable):  # pylint: disable=R0904
             data += child._to_aiken()
         return data
 
-    def _to_xml_element(self, root: et.Element, strict: bool) -> None:
+    def _to_cloze(self, path, counter=0):
+        for question in self.__questions:
+            if isinstance(question, QCloze):
+                name = f"{path}_{counter}.cloze"
+                with open(name, "w", encoding="utf-8") as ofile:
+                    ofile.write(f"{question.pure_text()}\n")
+                    counter += 1
+        for child in self.__categories.values():
+            child._to_cloze(f"{path}_{child.name}", counter)
+        
+    def _to_xml_element(self, root: et.Element, strict: bool):
         """[summary]
 
         Args:
@@ -359,6 +363,15 @@ class Category(Serializable):  # pylint: disable=R0904
         LOG.info(f"Created new Quiz instance from cloze file {file_path}")
         return top_quiz
 
+    def read_hdf5(self, file_path: str) -> None:
+        """_summary_
+
+        Args:
+            file_path (str): _description_
+        """
+        # TODO - use h5py
+        raise NotImplementedError("HDF5 not implemented")
+
     @classmethod
     def read_files(cls, files: list, category: str = "$course$"):
         """_summary_
@@ -433,7 +446,7 @@ class Category(Serializable):  # pylint: disable=R0904
         return top_quiz
 
     @classmethod
-    def read_json(cls, file_path: streams):
+    def read_json(cls, file_path):
         """
         Generic file. This is the default file format used by the QAS Editor.
         """
@@ -503,67 +516,26 @@ class Category(Serializable):  # pylint: disable=R0904
         return top_quiz
 
     @classmethod
-    def read_pdf(cls, file_path: str, ptitle=r"Question \d+",
-                 include_image=True):
+    def read_pdf(cls, file_path: str):
         """_summary_
 
         Args:
             file_path (str): _description_
             ptitle (str, optional): _description_.
-            include_image (bool, optional): _description_.
 
         Returns:
             Quiz: _description_
         """
+        # TODO
         raise NotImplementedError("PDF not implemented")
-        # _simg = {'/DCTDecode': "jpg", '/JPXDecode': "jp2",
-        #          '/CCITTFaxDecode': "tiff"}
         # with open(file_path, "rb") as infile:
-        #     pdf_file = PdfFileReader(infile)
-        #     for num in range(pdf_file.getNumPages()):
-        #         page: pdf.PageObject = pdf_file.getPage(num)
-        #         if '/XObject' not in page['/Resources']:
-        #             continue
-        #         xobj = page['/Resources']['/XObject'].getObject()
-        #         for obj in xobj:
-        #             if xobj[obj]['/Subtype'] != '/Image':
-        #                 continue
-        #             size = (xobj[obj]['/Width'], xobj[obj]['/Height'])
-        #             data = xobj[obj].getData()
-        #             color_space = xobj[obj]['/ColorSpace'][0]
-        #             if color_space == '/DeviceRGB':
-        #                 mode = "RGB"
-        #             elif color_space in ["/DeviceN", "/Indexed"]:
-        #                 mode = "P"
-        #                 if color_space == "/Indexed":
-        #                     psize = int(xobj[obj]['/ColorSpace'][2])
-        #                     palette = [255-int(n*psize/255) for n in \
-        #                                range(256) for _ in range(3)]
-        #                 else:
-        #                     palette = None
-        #             else:
-        #                 raise ValueError(f"Mode not tested yet: "
-        #                                   "{xobj[obj]['/ColorSpace']}")
-        #             if '/Filter' in xobj[obj]:
-        #                 xfilter = xobj[obj]['/Filter']
-        #                 if xfilter == '/FlateDecode':
-        #                     img = Image.frombytes(mode, size, data)
-        #                     if palette:
-        #                         img.putpalette(palette)
-        #                     img.save(f"page{num}_{obj[1:]}.png")
-        #                 elif xfilter in _simg:
-        #                     name = f"page{num}_{obj[1:]}.{_simg[xfilter]}"
-        #                     img = open(name, "wb")
-        #                     img.write(data)
-        #                     img.close()
-        #                 else:
-        #                     raise ValueError(f"Filter error: {xfilter}")
-        #             else:
-        #                 img = Image.frombytes(mode, size, data)
-        #                 img.save(obj[1:] + ".png")
+        #     pdf_file = PdfReader(infile)
+        #     for page in pdf_file.pages:
+        #         # It is still not the best, but it is improving!!
+        #         text = page.extract_text()
 
     @classmethod
-    def read_xml(cls, file_path: str, category: str = "$course$"):
+    def read_xml(cls, file_path: str, category: str = None):
         """[summary]
 
         Raises:
@@ -572,8 +544,6 @@ class Category(Serializable):  # pylint: disable=R0904
         Returns:
             [type]: [description]
         """
-        if not category:
-            raise ValueError("Category string should not be empty")
         data_root = et.parse(file_path)
         top_quiz: Category = cls(category)
         quiz = top_quiz
@@ -604,24 +574,26 @@ class Category(Serializable):  # pylint: disable=R0904
 
         Args:
             file_path (str): _description_
-
-        Raises:
-            NotImplementedError: _description_
         """
-        # TODO
-        raise NotImplementedError("Cloze not implemented")
+        self._to_cloze(file_path.rsplit(".", 1)[0])
 
     def write_gift(self, file_path: str) -> None:
         """_summary_
 
         Args:
             file_path (str): _description_
-
-        Raises:
-            NotImplementedError: _description_
         """
         # TODO
         raise NotImplementedError("Gift not implemented")
+
+    def write_hdf5(self, file_path: str) -> None:
+        """_summary_
+
+        Args:
+            file_path (str): _description_
+        """
+        # TODO - use h5py
+        raise NotImplementedError("HDF5 not implemented")
 
     def write_json(self, file_path: str, pretty=False) -> None:
         """[summary]

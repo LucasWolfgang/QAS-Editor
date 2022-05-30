@@ -16,41 +16,37 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import sys
 import os
-test_path = os.path.dirname(__file__)
-src_path = os.path.abspath(os.path.join(test_path, '..'))
-sys.path.append(src_path)
 from qas_editor import category
 
+TEST_PATH = os.path.dirname(__file__)
+SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 
-def test_xml_all():
-    EXAMPLE = f"{test_path}/datasets/moodle/all.xml"
+
+def test_diff_all():
+    EXAMPLE = f"{TEST_PATH}/datasets/moodle/all.xml"
     control = category.Category.read_xml(EXAMPLE)
     XML_TEST = f"{EXAMPLE}.tmp"
     control.write_xml(XML_TEST, True)
     new_data = category.Category.read_xml(XML_TEST)
-    os.remove(XML_TEST)
     assert control.compare(new_data, [])
+    os.remove(XML_TEST)
 
 
-def test_xml_vs_json():
-    EXAMPLE = f"{test_path}/datasets/moodle/all.xml"
+def test_against_json():
+    EXAMPLE = f"{TEST_PATH}/datasets/moodle/all.xml"
     data = category.Category.read_xml(EXAMPLE)
-    XML_TEST = f"{test_path}/datasets/moodle/all.json"
+    XML_TEST = f"{TEST_PATH}/datasets/moodle/all.json"
     # data.write_json(XML_TEST)
     control = category.Category.read_json(XML_TEST)
     assert control.compare(data, [])
 
 
-def test_xml_calculated():
-    EXAMPLE = f"{test_path}/datasets/moodle/calculated.xml"
+def test_diff_calculated():
+    EXAMPLE = f"{TEST_PATH}/datasets/moodle/calculated.xml"
     control = category.Category.read_xml(EXAMPLE)
     XML_TEST = f"{EXAMPLE}.tmp"
     control.write_xml(XML_TEST, True)
     new_data = category.Category.read_xml(XML_TEST)
-    os.remove(XML_TEST)
     assert control.compare(new_data, [])
-
-def test_xml_hello():
-    pass
+    os.remove(XML_TEST)

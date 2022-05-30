@@ -23,13 +23,11 @@ from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
 from .wrappers import B64File, Dataset, FText, Hint, Tags, SelectOption,\
                       Subquestion, Unit
-from .utils import Serializable
+from .utils import Serializable, MarkerError, AnswerError
 from .enums import Format, Grading, ResponseFormat, ShowUnits, Status,\
                    Distribution, Numbering, Synchronise
 from .answer import Answer, ClozeItem, NumericalAnswer, DragText, \
                     CrossWord, CalculatedAnswer, DropZone, DragItem
-# import markdown
-# import latex2mathml
 if TYPE_CHECKING:
     from typing import List, Dict
     from .enums import Direction
@@ -40,6 +38,7 @@ LOG = logging.getLogger(__name__)
 QNAME: Dict[str, _Question] = {}
 QTYPE: Dict[str, _Question] = {}
 MARKER_INT = 9635
+
 
 class _Question(Serializable):
     """
@@ -388,10 +387,43 @@ class QCloze(_QuestionMT):
     MOODLE = "cloze"
     QNAME = "Cloze"
 
-    def __init__(self, **kwargs):
+    def __init__(self, embedded_name=False, **kwargs):
         super().__init__(**kwargs)
-        self._cloze_text = self.question.text
-        self.update()
+        pattern = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
+        gui_text = []
+        start = 0
+        if not self.options:   # if user profides options, assume text updated
+            for match in pattern.finditer(self.question.text):
+                item = ClozeItem.from_cloze(match)
+                self.options.append(item)
+                gui_text.append(self.question.text[start: match.start()])
+                start = match.end()
+            gui_text.append(self.question.text[start:])
+            self.question.text = chr(MARKER_INT).join(gui_text)
+        self.embedded_name = embedded_name
+
+    def pure_text(self) -> str:
+        char = chr(MARKER_INT)
+        find = self.question.text.find(char)
+        text = [self.name, "\n", self.question.text[:find]] if \
+                self.embedded_name else [self.question.text[:find]]
+        for question in self.options:
+            text.append(question.to_text())
+            end = self.question.text.find(char, find + 1)
+            text.append(self.question.text[find + 1 : end])
+            find = end
+        text.append(self.question.text[-1])  # Wont be included by default
+        return "".join(text)
+
+    def check(self):
+        """
+        """
+        markers = self.question.text.count(chr(MARKER_INT))
+        if markers != len(self.options):
+            raise MarkerError("Number of markers and questions differ")
+        for question in self.options:
+            if all(opt.fraction == 0 for opt in question.opts):
+                raise AnswerError("All answer options have 0 grade")
 
     @classmethod
     def from_json(cls, data: dict):
@@ -400,7 +432,7 @@ class QCloze(_QuestionMT):
         return super().from_json(data)
 
     @classmethod
-    def from_cloze(cls, buffer):
+    def from_cloze(cls, buffer, embedded_name=False):
         """_summary_
 
         Args:
@@ -409,30 +441,21 @@ class QCloze(_QuestionMT):
         Returns:
             QCloze: _description_
         """
-        data = buffer.read()
-        name, text = data.split("\n", 1)
-        ftext = FText("questiontext", text, Format.HTML, None)
-        return cls(name=name, question=ftext)
+        data: str = buffer.read()
+        if embedded_name:
+            name, text = data.split("\n", 1)
+        else:
+            name = "Cloze"
+            text = data
+        ftext = FText("questiontext", text.strip(), Format.HTML, None)
+        return cls(embedded_name, name=name, question=ftext)
 
     def to_xml(self, strict: bool) -> et.Element:
         tmp = self.question.text
-        self.question.text = self._cloze_text
+        self.question.text = self.pure_text()
         question = super().to_xml(strict)
         self.question.text = tmp
-        return question
-
-    def update(self):
-        self.options.clear()
-        pattern = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
-        gui_text = []
-        start = 0
-        for match in pattern.finditer(self._cloze_text):
-            item = ClozeItem.from_cloze(match)
-            self.options.append(item)
-            gui_text.append(self._cloze_text[start: match.start()-1])
-            start =  match.end()+1 
-        gui_text.append(self._cloze_text[start:])
-        self.question.text = f" &#{MARKER_INT}; ".join(gui_text)
+        return question 
 
 
 class QDescription(_Question):

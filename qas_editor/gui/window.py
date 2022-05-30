@@ -160,8 +160,8 @@ class Editor(QMainWindow):
         self.show()
 
     def _debug_me(self):
-        self.path = "./tests/datasets/moodle/all.xml"
-        self.top_quiz = Category.read_files(["./tests/datasets/moodle/all.xml"])
+        self.path = "./test_lib/datasets/moodle/all.xml"
+        self.top_quiz = Category.read_files(["./test_lib/datasets/moodle/all.xml"])
         gtags = {}
         self.top_quiz.get_tags(gtags)
         self.tagbar.set_gtags(gtags)
@@ -855,7 +855,6 @@ class PopupFind(QWidget):
                 name.append(parent.name)
                 parent = parent.parent
             name.reverse()
-            print(name)
             self._reslist.addItem(" > ".join(name))
 
     def closeEvent(self, _):

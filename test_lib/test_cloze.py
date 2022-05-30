@@ -16,22 +16,18 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import sys
 import os
-test_path = os.path.dirname(__file__)
-src_path = os.path.abspath(os.path.join(test_path, '..'))
-sys.path.append(src_path)
 from qas_editor import category
 
+TEST_PATH = os.path.dirname(__file__)
+SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 
-def test_aikien() -> None:
-    EXAMPLE = f"{test_path}/datasets/aiken/aiken_1.txt"
-    control = category.Category.read_aiken(EXAMPLE)
-    XML_TEST = f"{EXAMPLE}_tmp"
-    control.write_aiken(XML_TEST)
-    new_data = category.Category.read_aiken(XML_TEST)
-    os.remove(XML_TEST)
+
+def test_diff_simple() -> None:
+    EXAMPLE = f"{TEST_PATH}/datasets/cloze/cloze.cloze"
+    control = category.Category.read_cloze(EXAMPLE)
+    CLOZE_TEST = f"{TEST_PATH}/datasets/cloze/cloze_0.cloze"
+    control.write_cloze(EXAMPLE)
+    new_data = category.Category.read_cloze(CLOZE_TEST)
     assert control.compare(new_data, [])
-
-def test_aiken_2():
-    pass
+    os.remove(CLOZE_TEST)

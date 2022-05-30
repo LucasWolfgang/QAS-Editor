@@ -19,25 +19,61 @@ from __future__ import annotations
 import copy
 import logging
 from xml.etree import ElementTree as et
+from io import BytesIO
+from PIL import Image
+import base64
 
 LOG = logging.getLogger(__name__)
 
+PDF_IMAGE_FILTER = {"/DCTDecode": "jpg",  "/JPXDecode": "jp2",
+                        "/CCITTFaxDecode": "tiff", "/FlateDecode": "png" }
+PDF_IMAGE_CHANNEL = {"DeviceGray": "L",    # 8-bit pixels, black and white
+                        "DeviceRGB": "RGB",   # 3x8-bit pixels, true color
+                        "DeviceCMYK": "CMYK", # 4x8-bit pixels, color separation
+                        "/DeviceN": "P", 
+                        "/Indexed": "P"
+                        }
 
-# from PyPDF2.generic import IndirectObject
-# def quick_print(data, pp):
-#     """This is a temporary function that I am using to test PDF import/export
-#     """
-#     if isinstance(data, dict):
-#         for i in data:
-#             print(f"{pp}{i}:")
-#             quick_print(data[i], pp+"  ")
-#     elif isinstance(data, list):
-#         for i in data:
-#             quick_print(i, pp+"  ")
-#     elif isinstance(data, IndirectObject):
-#         quick_print(data.getObject(), pp+"  ")
-#     else:
-#         print(pp, data)
+def extract_pdf_images(file_path, page, external_refs: bool):
+    images = {}
+    rsc = page['/Resources']
+    path = file_path.rsplit('.',1)[0]
+    if '/XObject' in rsc:
+        for xobj in rsc['/XObject'].values():
+            if xobj['/Subtype'] != '/Image':
+                continue
+            # Getting image
+            size = (xobj['/Width'], xobj['/Height'])
+            data = xobj.read_from_stream()
+            color_space = xobj['/ColorSpace'][0]
+            mode = PDF_IMAGE_FILTER[color_space]
+            if color_space == "/Indexed":
+                psize = int(xobj['/ColorSpace'][2])
+                palette = [255-int(n*psize/255) for n in \
+                            range(256) for _ in range(3)]
+            else:
+                palette = None
+            xformat = PDF_IMAGE_FILTER.get(xobj['/Filter'], "png")
+            if palette:
+                img.putpalette(palette)
+            try:
+                img = Image.frombytes(mode, size, data)
+                END = f"width={size[0]} height={size[1]}>"
+                if external_refs:
+                    name = f"{path}_{xobj.idnum}.{xformat}"
+                    img.save(name)
+                    url = f"<img src={name} {END}"
+                else:
+                    buffer = BytesIO()
+                    img.save(buffer, format=xformat)
+                    img_str = base64.b64encode(buffer.getvalue())
+                    url = f"<file src={name} {END}{img_str}</file>"
+                images[xobj.idnum] = url
+            except Exception:
+                pass
+            finally:
+                img.close()
+    return images
 
 def serialize_fxml(write, elem, short_empty, pretty, level=0):
     """_summary_
@@ -111,6 +147,9 @@ class Serializable:
     """An abstract class to be used as base for all serializable classes
     """
 
+    def __str__(self) -> str:
+        return f"{self.__class__} @{hex(id(self))}"
+
     @staticmethod
     def __itercmp(__a, __b, path: list):
         if not isinstance(__b, __a.__class__):
@@ -153,7 +192,15 @@ class Serializable:
                 if isinstance(val, list) and cpr:
                     val = ", ".join(map(str, val))
                     cpr = ", ".join(map(str, cpr))
-                raise ValueError(f"Items differs in {key}:\n\t{val}\n\t{cpr}")
+                if isinstance(val, str) and len(val) > 20:
+                    with open("raw1.tmp", "w") as ofile:
+                        ofile.write(val)
+                    with open("raw2.tmp", "w") as ofile:
+                        ofile.write(cpr)
+                    output = f"Items differs in {key}. See diff files."
+                else:
+                    output = f"Items differs in {key}:\n\t{val}\n\t{cpr}"
+                raise ValueError(output)
         return True
 
     @classmethod
@@ -250,6 +297,16 @@ class Serializable:
 
 
 class ParseError(Exception):
+    """Exception used when a parsing fails.
+    """
+
+
+class MarkerError(Exception):
+    """Exception used when there is a Marker related error
+    """
+
+
+class AnswerError(Exception):
     """Exception used when a parsing fails.
     """
 
