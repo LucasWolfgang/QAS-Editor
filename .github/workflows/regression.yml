@@ -24,12 +24,32 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         python -m pip install pylint pytest flake8
+        python -m pip install .
         
-    - name: Analysing the code with pylint
+    - name: Lint with pylint
       run: |
         pylint qas_editor --rcfile=$(git ls-files '.pylintrc') --output-format=text | tee ./pylint.log || pylint-exit $?
         echo "PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint.log)" >> $GITHUB_ENV
-        
+      
+    - name: Lint with flake8
+      run: |
+        echo "FLAKE_ERRORS=$(flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --output-file ./flake8.log)" >> $GITHUB_ENV
+
+    - name: Test with pytest
+      run: |
+        pytest >> ./pytest.log
+        echo "PYTEST_MAX=$(sed -n 's/collected \([0-9]*\) items/\1/p' ./pytest.log)" >> $GITHUB_ENV
+        echo "PYTEST_MIN=$(echo "$PYTEST_MAX - 2" | bc) " >> $GITHUB_ENV
+        echo "PYTEST_SCORE=$(sed -n 's/^===.* \([0-9]*\) passed in.*===/\1/p' ./pytest.log)" >> $GITHUB_ENV
+
+  package:
+    name: Gen badges
+    runs-on: ubuntu-latest
+    
+    needs: build
+    steps:
+    - uses: actions/checkout@v3
+    
     - name: Create Pylint Badge
       uses: LucasWolfgang/dynamic-badges-action@master
       with:
@@ -41,11 +61,7 @@ jobs:
         minColorRange: 6
         maxColorRange: 10
         valColorRange: ${{ env.PYLINT_SCORE }}
-
-    - name: Lint with flake8
-      run: |
-        echo "FLAKE_ERRORS=$(flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --output-file ./flake8.log)" >> $GITHUB_ENV
-
+    
     - name: Create Flake8 Badge
       uses: LucasWolfgang/dynamic-badges-action@master
       with:
@@ -58,14 +74,7 @@ jobs:
         maxColorRange: 50
         valColorRange: ${{ env.FLAKE_ERRORS }}
         invertColorRange: 1
-
-    - name: Test with pytest
-      run: |
-        pytest >> ./pytest.log
-        echo "PYTEST_MAX=$(sed -n 's/collected \([0-9]*\) items/\1/p' ./pytest.log)" >> $GITHUB_ENV
-        echo "PYTEST_MIN=$(echo "$PYTEST_MAX - 2" | bc) " >> $GITHUB_ENV
-        echo "PYTEST_SCORE=$(sed -n 's/^===.* \([0-9]*\) passed in.*===/\1/p' ./pytest.log)" >> $GITHUB_ENV
-        
+    
     - name: Create Pytest Badge
       uses: LucasWolfgang/dynamic-badges-action@master
       with:
@@ -77,3 +86,4 @@ jobs:
         minColorRange: ${{ env.PYTEST_MIN }} 
         maxColorRange: ${{ env.PYTEST_MAX }} 
         valColorRange: ${{ env.PYTEST_SCORE }}
+    
