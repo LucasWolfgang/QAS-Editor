@@ -1,0 +1,44 @@
+{
+    "_Category__questions": [
+        {
+            "name": "Essai1",
+            "question": {
+              "name": "questiontext",
+              "text": "Explain in few words the aim of this course.<br>",
+              "formatting": "html",
+              "bfile": []
+            },
+            "default_grade": 1.1,
+            "feedback": {
+              "name": "generalfeedback",
+              "text": "",
+              "formatting": "html",
+              "bfile": []
+            },
+            "dbid": null,
+            "tags": [],
+            "rsp_format": "editor",
+            "rsp_required": true,
+            "lines": 3,
+            "attachments": 0,
+            "atts_required": false,
+            "max_bytes": 0,
+            "file_types": "",
+            "grader_info": {
+              "name": "graderinfo",
+              "text": "",
+              "formatting": "html",
+              "bfile": []
+            },
+            "template": {
+              "name": "responsetemplate",
+              "text": "",
+              "formatting": "html",
+              "bfile": []
+            },
+            "MOODLE": "essay"
+          }
+    ],
+    "_Category__categories": {},
+    "_Category__name": "$course$"
+}

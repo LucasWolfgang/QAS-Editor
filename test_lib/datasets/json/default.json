@@ -1,18 +1,20 @@
 {
-    "_questions": [],
-    "_Quiz__categories": {
+    "_Category__questions": [],
+    "_Category__categories": {
         "qas_editor": {
-            "_questions": [
+            "_Category__questions": [
                 {
                     "name": "Essai1",
                     "question_text": {
+                        "name": "questiontext",
                         "text": "Explain in few words the aim of this course.<br>",
                         "formatting": "html",
                         "bfile": []
                     },
                     "default_grade": 1.1,
                     "general_feedback": {
-                        "text": null,
+                        "name": "responsetemplate",
+                        "text": "",
                         "formatting": "html",
                         "bfile": []
                     },
@@ -237,9 +239,9 @@
                     "MOODLE": "ddmarker"
                 }
             ],
-            "_Quiz__categories": {
+            "_Category__categories": {
                 "second_cat": {
-                    "_questions": [
+                    "_Category__questions": [
                         {
                             "name": "Essai2",
                             "question_text": {
@@ -545,11 +547,11 @@
                             "MOODLE": "description"
                         }
                     ],
-                    "_Quiz__categories": {},
-                    "_Quiz__name": "second_cat"
+                    "_Category__categories": {},
+                    "_Category__name": "second_cat"
                 },
                 "num": {
-                    "_questions": [
+                    "_Category__questions": [
                         {
                             "name": "num:int",
                             "question_text": {
@@ -709,11 +711,11 @@
                             "MOODLE": "numerical"
                         }
                     ],
-                    "_Quiz__categories": {},
-                    "_Quiz__name": "num"
+                    "_Category__categories": {},
+                    "_Category__name": "num"
                 },
                 "calculated": {
-                    "_questions": [
+                    "_Category__questions": [
                         {
                             "name": "Calculated",
                             "question_text": {
@@ -1508,11 +1510,11 @@
                             "MOODLE": "cloze"
                         }
                     ],
-                    "_Quiz__categories": {},
-                    "_Quiz__name": "calculated"
+                    "_Category__categories": {},
+                    "_Category__name": "calculated"
                 },
                 "alternative-format": {
-                    "_questions": [
+                    "_Category__questions": [
                         {
                             "name": "markdown",
                             "question_text": {
@@ -1939,12 +1941,12 @@
                             "MOODLE": "truefalse"
                         }
                     ],
-                    "_Quiz__categories": {},
-                    "_Quiz__name": "alternative-format"
+                    "_Category__categories": {},
+                    "_Category__name": "alternative-format"
                 }
             },
-            "_Quiz__name": "qas_editor"
+            "_Category__name": "qas_editor"
         }
     },
-    "_Quiz__name": "$course$"
+    "_Category__name": "$course$"
 }
