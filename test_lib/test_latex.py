@@ -1,4 +1,4 @@
-""""
+"""
 Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
 Copyright (C) 2022  Lucas Wolfgang
 
@@ -15,9 +15,25 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import sys
-if sys.version_info < (3, 7):
-    raise Exception("Python 2 is not supported.")
 
-__author__ = "Lucas Wolfgang"
-__version__ = "0.0.4"
+import os
+from qas_editor.category import Category
+
+
+TEST_PATH = os.path.dirname(__file__)
+SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
+
+
+def test_read():
+    EXAMPLE = f"{TEST_PATH}/datasets/latex/guillaume_read.tex"
+    control = Category.read_latex(EXAMPLE)
+    assert len(control) == 1
+    assert control.get_size(False) == 3
+    assert control.get_size(True) == 4
+    assert control.name == "My little catgory from latex"
+    question = next(control["Simple arithmetic"].questions)
+    assert question.question.text == "The product 6x8 is equal to ... :\n"
+    opts = question.options
+    assert len(opts) == 3
+    assert opts[0].text == 47
+    assert opts[0].text.fraction == 0.0

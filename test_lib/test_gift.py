@@ -15,9 +15,19 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import sys
-if sys.version_info < (3, 7):
-    raise Exception("Python 2 is not supported.")
 
-__author__ = "Lucas Wolfgang"
-__version__ = "0.0.4"
+import os
+from qas_editor import category
+
+TEST_PATH = os.path.dirname(__file__)
+SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
+
+
+def test_diff_simple() -> None:
+    EXAMPLE = f"{TEST_PATH}/datasets/gift/gift.gift"
+    control = category.Category.read_gift(EXAMPLE)
+    # CLOZE_TEST = f"{TEST_PATH}/datasets/gift/gift.gift.tmp"
+    # control.write_gift(EXAMPLE)
+    # new_data = category.Category.read_gift(CLOZE_TEST)
+    # assert control.compare(new_data, [])
+    # os.remove(CLOZE_TEST)

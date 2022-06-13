@@ -25,18 +25,18 @@ SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 
 def test_diff_all():
     EXAMPLE = f"{TEST_PATH}/datasets/moodle/all.xml"
-    control = category.Category.read_xml(EXAMPLE)
+    control = category.Category.read_moodle(EXAMPLE)
     XML_TEST = f"{EXAMPLE}.tmp"
-    control.write_xml(XML_TEST, True)
-    new_data = category.Category.read_xml(XML_TEST)
+    control.write_moodle(XML_TEST, True)
+    new_data = category.Category.read_moodle(XML_TEST)
     assert control.compare(new_data, [])
     os.remove(XML_TEST)
 
 
 def test_against_json():
     EXAMPLE = f"{TEST_PATH}/datasets/moodle/all.xml"
-    data = category.Category.read_xml(EXAMPLE)
-    XML_TEST = f"{TEST_PATH}/datasets/moodle/all.json"
+    data = category.Category.read_moodle(EXAMPLE)
+    XML_TEST = f"{TEST_PATH}/datasets/json/all.json"
     # data.write_json(XML_TEST)
     control = category.Category.read_json(XML_TEST)
     assert control.compare(data, [])
@@ -44,9 +44,9 @@ def test_against_json():
 
 def test_diff_calculated():
     EXAMPLE = f"{TEST_PATH}/datasets/moodle/calculated.xml"
-    control = category.Category.read_xml(EXAMPLE)
+    control = category.Category.read_moodle(EXAMPLE)
     XML_TEST = f"{EXAMPLE}.tmp"
-    control.write_xml(XML_TEST, True)
-    new_data = category.Category.read_xml(XML_TEST)
+    control.write_moodle(XML_TEST, True)
+    new_data = category.Category.read_moodle(XML_TEST)
     assert control.compare(new_data, [])
     os.remove(XML_TEST)

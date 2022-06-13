@@ -15,9 +15,23 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import sys
-if sys.version_info < (3, 7):
-    raise Exception("Python 2 is not supported.")
 
-__author__ = "Lucas Wolfgang"
-__version__ = "0.0.4"
+
+def read_hdf5(self, file_path: str) -> None:
+        """_summary_
+
+        Args:
+            file_path (str): _description_
+        """
+        # TODO - use h5py
+        raise NotImplementedError("HDF5 not implemented")
+
+
+def write_hdf5(self, file_path: str) -> None:
+    """_summary_
+
+    Args:
+        file_path (str): _description_
+    """
+    # TODO - use h5py
+    raise NotImplementedError("HDF5 not implemented")

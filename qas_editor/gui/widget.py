@@ -29,9 +29,9 @@ from PyQt5.QtWidgets import QWidget, QActionGroup, QAction, QTextEdit, \
                             QFrame,QPushButton,QLabel, QGridLayout, QLineEdit,\
                             QCheckBox, QListWidget, QCompleter
 from ..questions import MARKER_INT
-from ..answer import Answer, CalculatedAnswer, DragItem, ClozeItem
-from ..enums import ClozeFormat, Format, ToleranceType, ToleranceFormat
-from ..wrappers import FText, Hint, SelectOption
+from ..answer import Answer, ACalculated, DragItem, ClozeItem, SelectOption
+from ..enums import ClozeFormat, TextFormat, TolType, TolFormat
+from ..utils import FText, Hint
 if TYPE_CHECKING:
     from ..enums import EnhancedEnum
     from PyQt5.QtGui import QKeyEvent
@@ -191,9 +191,9 @@ class GTextEditor(QTextEdit):
     def focusOutEvent(self, event) -> None:  # pylint: disable=C0103
         if not self.toolbar.hasFocus():
             self.toolbar.setDisabled(True)
-        if self.__obj.formatting == Format.MD:
+        if self.__obj.formatting == TextFormat.MD:
             self.__obj.text = self.toMarkdown()
-        elif self.__obj.formatting == Format.HTML:
+        elif self.__obj.formatting == TextFormat.HTML:
             self.__obj.text = self.toHtml()
         else:
             self.__obj.text = self.toPlainText()
@@ -261,9 +261,9 @@ class GTextEditor(QTextEdit):
                 required data) or is a object that contains the FText
         """
         self.__obj = obj if self.is_ftext else getattr(obj, self.__attr)
-        if self.__obj.formatting == Format.MD:
+        if self.__obj.formatting == TextFormat.MD:
             self.setMarkdown(self.__obj.text)
-        elif self.__obj.formatting == Format.HTML:
+        elif self.__obj.formatting == TextFormat.HTML:
             self.setHtml(self.__obj.text)
         else:
             self.setPlainText(self.__obj.text)
@@ -297,7 +297,7 @@ class GTextToolbar(QToolBar):
         self.addWidget(self._fonts)
 
         self._ttype = QComboBox(self)
-        self._ttype.addItems([item.comment for item in Format])
+        self._ttype.addItems([item.comment for item in TextFormat])
         self.addWidget(self._ttype)
 
         self._mtype = QComboBox(self)
@@ -503,11 +503,11 @@ class GCalculated(GAnswer):
         super().__init__(toolbar, None)
         self._text.setFixedHeight(30)
         self._feedback.setFixedHeight(30)   
-        self._tol_type = GDropbox("ttype", self, ToleranceType)
+        self._tol_type = GDropbox("ttype", self, TolType)
         self._tol_type.setToolTip("The tolerance type")
         self._tol_type.setFixedWidth(105)
         self._layout.addWidget(self._tol_type)
-        self._ans_type = GDropbox("aformat", self, ToleranceFormat)
+        self._ans_type = GDropbox("aformat", self, TolFormat)
         self._ans_type.setToolTip("Tolerance format")
         self._ans_type.setFixedWidth(110)
         self._layout.addWidget(self._ans_type)
@@ -520,11 +520,11 @@ class GCalculated(GAnswer):
         self._answer_len.setFixedWidth(30)
         self._layout.addWidget(self._answer_len)
         if option is None:
-            option = CalculatedAnswer()
+            option = ACalculated()
             question.append(option)
         self.from_obj(option)
 
-    def from_obj(self, obj: CalculatedAnswer) -> None:
+    def from_obj(self, obj: ACalculated) -> None:
         super().from_obj(obj)
         self._tol_type.from_obj(obj)
         self._tolerance.from_obj(obj)
@@ -591,8 +591,8 @@ class GCloze(QFrame):
             LOG.debug("Button clicked is not receiving stat False")
         text = self._text.text()
         frac = float(self._frac.text())
-        fdbk = FText(self._fdbk.text(), Format.PLAIN)
-        self.__obj.opts.append(Answer(frac, text, fdbk, Format.PLAIN))
+        fdbk = FText(self._fdbk.text(), TextFormat.PLAIN)
+        self.__obj.opts.append(Answer(frac, text, fdbk, TextFormat.PLAIN))
         self._opts.addItem(text)
 
     def pop_opts(self, _):
@@ -757,7 +757,7 @@ class GHint(QFrame):
         _content.addWidget(self._state, 1, 1)
         _content.addWidget(self._clear, 2, 1)
         if hint is None:
-            hint = Hint(Format.AUTO, "", True, True)
+            hint = Hint(TextFormat.AUTO, "", True, True)
         self.from_obj(hint)
 
     def from_obj(self, obj: Hint) -> None:
@@ -770,11 +770,11 @@ class GHint(QFrame):
         self._show.setChecked(self.__obj.show_correct)
         self._clear.setChecked(self.__obj.clear_wrong)
         self._state.setChecked(self.__obj.state_incorrect)
-        if self.__obj.formatting == Format.MD:
+        if self.__obj.formatting == TextFormat.MD:
             self._text.setMarkdown(self.__obj.text)
-        elif self.__obj.formatting == Format.HTML:
+        elif self.__obj.formatting == TextFormat.HTML:
             self._text.setHtml(self.__obj.text)
-        elif self.__obj.formatting == Format.PLAIN:
+        elif self.__obj.formatting == TextFormat.PLAIN:
             self._text.setPlainText(self.__obj.text)
 
     def get_attr(self):

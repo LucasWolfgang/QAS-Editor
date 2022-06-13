@@ -16,131 +16,28 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+import base64
 import copy
 import logging
+from urllib import request
 from xml.etree import ElementTree as et
-from io import BytesIO
-from PIL import Image
-import base64
+from .enums import TextFormat, Status, Distribution
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import List
 
 LOG = logging.getLogger(__name__)
 
-PDF_IMAGE_FILTER = {"/DCTDecode": "jpg",  "/JPXDecode": "jp2",
-                        "/CCITTFaxDecode": "tiff", "/FlateDecode": "png" }
-PDF_IMAGE_CHANNEL = {"DeviceGray": "L",    # 8-bit pixels, black and white
-                        "DeviceRGB": "RGB",   # 3x8-bit pixels, true color
-                        "DeviceCMYK": "CMYK", # 4x8-bit pixels, color separation
-                        "/DeviceN": "P", 
-                        "/Indexed": "P"
-                        }
 
-def extract_pdf_images(file_path, page, external_refs: bool):
-    images = {}
-    rsc = page['/Resources']
-    path = file_path.rsplit('.',1)[0]
-    if '/XObject' in rsc:
-        for xobj in rsc['/XObject'].values():
-            if xobj['/Subtype'] != '/Image':
-                continue
-            # Getting image
-            size = (xobj['/Width'], xobj['/Height'])
-            data = xobj.read_from_stream()
-            color_space = xobj['/ColorSpace'][0]
-            mode = PDF_IMAGE_FILTER[color_space]
-            if color_space == "/Indexed":
-                psize = int(xobj['/ColorSpace'][2])
-                palette = [255-int(n*psize/255) for n in \
-                            range(256) for _ in range(3)]
-            else:
-                palette = None
-            xformat = PDF_IMAGE_FILTER.get(xobj['/Filter'], "png")
-            if palette:
-                img.putpalette(palette)
-            try:
-                img = Image.frombytes(mode, size, data)
-                END = f"width={size[0]} height={size[1]}>"
-                if external_refs:
-                    name = f"{path}_{xobj.idnum}.{xformat}"
-                    img.save(name)
-                    url = f"<img src={name} {END}"
-                else:
-                    buffer = BytesIO()
-                    img.save(buffer, format=xformat)
-                    img_str = base64.b64encode(buffer.getvalue())
-                    url = f"<file src={name} {END}{img_str}</file>"
-                images[xobj.idnum] = url
-            except Exception:
-                pass
-            finally:
-                img.close()
-    return images
-
-def serialize_fxml(write, elem, short_empty, pretty, level=0):
-    """_summary_
-
-    Args:
-        write (_type_): _description_
-        elem (_type_): _description_
-        short_empty (_type_): _description_
-        pretty (_type_): _description_
-        level (int, optional): _description_. Defaults to 0.
-
-    Raises:
-        ValueError: _description_
-        NotImplementedError: _description_
-        ParseError: _description_
-    """
-    tag = elem.tag
-    text = elem.text
-    if pretty:
-        write(level * "  ")
-    write(f"<{tag}")
-    for key, value in elem.attrib.items():
-        value = _escape_attrib_html(value)
-        write(f" {key}=\"{value}\"")
-    if (isinstance(text, str) and text) or text is not None or \
-            len(elem) or not short_empty:
-        if len(elem) and pretty:
-            write(">\n")
-        else:
-            write(">")
-        write(_escape_cdata(text))
-        for child in elem:
-            serialize_fxml(write, child, short_empty, pretty, level+1)
-        if len(elem) and pretty:
-            write(level * "  ")
-        write(f"</{tag}>")
-    else:
-        write(" />")
-    if pretty:
-        write("\n")
-    if elem.tail:
-        write(_escape_cdata(elem.tail))
-
-
-def _escape_cdata(data):
-    if data is None:
-        return ""
-    if isinstance(data, (int, float)):
-        return str(data)
-    if ("&" in data or "<" in data or ">" in data) and not\
-            (str.startswith(data, "<![CDATA[") and str.endswith(data, "]]>")):
-        return f"<![CDATA[{data}]]>"
-    return data
-
-
-def _escape_attrib_html(data):
-    if data is None:
-        return ""
-    if isinstance(data, (int, float)):
-        return str(data)
-    if "&" in data:
-        data = data.replace("&", "&amp;")
-    if ">" in data:
-        data = data.replace(">", "&gt;")
-    if "\"" in data:
-        data = data.replace("\"", "&quot;")
-    return data
+def gen_hier(cls, top, category: str):
+    cat_list = category.strip().split("/")
+    start = 1 if top.name == cat_list[0] else 0
+    quiz = top
+    for i in cat_list[start:]:
+        quiz.add_subcat(cls(i))
+        quiz = quiz[i]
+    return quiz
 
 
 class Serializable:
@@ -189,6 +86,7 @@ class Serializable:
             if key not in ("_Question__parent", "_Category__parent") and not \
                     Serializable.__itercmp(val, __o.__dict__.get(key), path):
                 cpr = __o.__dict__.get(key)
+                path = ", ".join(path[:-1])
                 if isinstance(val, list) and cpr:
                     val = ", ".join(map(str, val))
                     cpr = ", ".join(map(str, cpr))
@@ -197,85 +95,11 @@ class Serializable:
                         ofile.write(val)
                     with open("raw2.tmp", "w") as ofile:
                         ofile.write(cpr)
-                    output = f"Items differs in {key}. See diff files."
+                    output = f"Items differs [{path}, {key}]. See diff files."
                 else:
-                    output = f"Items differs in {key}:\n\t{val}\n\t{cpr}"
+                    output = f"Items differs [{path}, {key}]\n\t{val}\n\t{cpr}"
                 raise ValueError(output)
         return True
-
-    @classmethod
-    def from_gift(cls, header: list, answer: list):
-        """_summary_
-
-        Args:
-            header (list): _description_
-            answer (list): _description_
-
-        Returns:
-            QMatching: _description_
-        """
-        raise NotImplementedError("GIFT not implemented")
-
-    @classmethod
-    def from_json(cls, data: dict) -> "Serializable":
-        """_summary_
-
-        Returns:
-            Serializable: _description_
-        """
-        return cls(**data) if isinstance(data, dict) else None
-
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        """Create a new class using XML data
-
-        Args:
-            root (et.Element): _description_
-            tags (dict): _description_
-            attrs (dict): _description_
-
-        Returns:
-            Serializable: _description_
-        """
-        if root is None:
-            return None
-        results = {}
-        name = tags.pop(True, None)  # True is used as a key to ask for the tag
-        if name:                     # If it is present, tag is mapped to <name>
-            results[name] = root.tag
-        for obj in root:
-            if obj.tag in tags:
-                cast_type, name, *_ = tags[obj.tag]
-                if not isinstance(cast_type, type):
-                    tmp = cast_type(obj, {}, {})
-                else:
-                    tmp = obj.text.strip() if obj.text else ""
-                    if not tmp:
-                        text = obj.find("text")
-                        if text is not None:
-                            tmp = text.text
-                    if cast_type == bool:
-                        tmp = tmp.lower() in ["true", "1", "t", ""]
-                    elif tmp or cast_type == str:
-                        tmp = cast_type(tmp)
-                if len(tags[obj.tag]) == 3:
-                    if name not in results:
-                        results[name] = []
-                    results[name].append(tmp)
-                else:
-                    results[name] = tmp
-                    tags.pop(obj.tag)
-        for key in tags:
-            cast_type, name, *_ = tags[key]
-            if cast_type == bool:  # Some tags act like False when missing
-                results[name] = False
-        if attrs:
-            for key in attrs:
-                cast_type, name = attrs[key]
-                results[name] = root.get(key, None)
-                if results[name] is not None:
-                    results[name] = cast_type(results[name])
-        return cls(**results)
 
     def to_xml(self, strict: bool) -> et.Element:
         """Create a XML representation of the object instance following the
@@ -293,7 +117,42 @@ class Serializable:
             Moodle uses tags, like the ones in CombinedFeedback, that can or
             not be valid, we end-up in this mess.
         """
-        raise NotImplementedError("XML not implemented")
+        raise NotImplementedError(f"XML not implemented in {self}")
+
+
+class LineBuffer:
+    """Helps parsing text files that uses lines (\\n) as part of the standard
+    somehow.
+    """
+
+    def __init__(self, stream) -> None:
+        self.last = ""
+        self.cur = ""
+        self.eof = False
+        self._stream = stream
+
+    def read(self, until: str = None) -> str:
+        """_summary_
+
+        Args:
+            inext (bool, optional): _description_. Defaults to False.
+
+        Returns:
+            _type_: _description_
+        """
+        _buffer = [self.cur]
+        self.last = self.cur
+        self.cur = self._stream.readline()
+        while (self.cur and self.cur == "\n" and 
+                    (until is None or self.cur != until)):
+            self.cur = self._stream.readline()
+            _buffer.append(self.cur.strip())
+        self.eof = not bool(self.cur)
+        self.cur = self.cur.strip()
+        return self.cur if until is None else "".join(_buffer)
+
+
+# -----------------------------------------------------------------------------
 
 
 class ParseError(Exception):
@@ -311,32 +170,136 @@ class AnswerError(Exception):
     """
 
 
-class LineBuffer:
-    """Helps parsing text files that uses lines (\\n) as part of the standard
-    somehow.
+# -----------------------------------------------------------------------------
+
+
+class B64File(Serializable):
+    """Internal representation for files that uses Base64 encoding.
     """
 
-    def __init__(self, buffer) -> None:
-        self.last = buffer.readline()
-        self.__bfr = buffer
+    def __init__(self, name: str, path: str = None, bfile: str|bool = True):
+        super().__init__()
+        self.name = name
+        self.path = path
+        self.bfile = bfile
+        if bfile is True:
+            try:
+                with request.urlopen(self.path) as ifile:
+                    self.bfile = str(base64.b64encode(ifile.read()), "utf-8")
+            except ValueError:
+                with open(self.path, "rb") as ifile:
+                    self.bfile = str(base64.b64encode(ifile.read()), "utf-8")
 
-    def read(self, inext: bool = False):
-        """_summary_
 
-        Args:
-            inext (bool, optional): _description_. Defaults to False.
+class Dataset(Serializable):
+    """A
+    """
 
-        Raises:
-            ParseError: _description_
+    def __init__(self, status: Status, name: str, ctype: str,
+                 distribution: Distribution, minimum: float, maximum: float,
+                 decimals: int, items: dict = None) -> None:
+        super().__init__()
+        self.status = status
+        self.name = name
+        self.ctype = ctype
+        self.distribution = distribution
+        self.minimum = minimum
+        self.maximum = maximum
+        self.decimals = decimals
+        self.items = items if items else {}
 
-        Returns:
-            _type_: _description_
-        """
-        if not self.last and inext:
-            raise ParseError()
-        tmp = self.last
-        if inext:
-            self.last = self.__bfr.readline()
-            while self.last and self.last == "\n":
-                self.last = self.__bfr.readline()
-        return tmp
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, self.__class__):
+            return False
+        if self.status == Status.PRV or __o.status == Status.PRV:
+            return False
+        return self.__dict__ == __o.__dict__
+
+    def __str__(self) -> str:
+        return f"{self.status.name} > {self.name} ({hex(id(self))})"
+
+
+class FText(Serializable):
+    """A
+    """
+
+    def __init__(self, name: str, text="", formatting: TextFormat = None,
+                 bfile: List[B64File] = None):
+        super().__init__()
+        self.name = name
+        self.text = text
+        self.formatting = TextFormat.AUTO if formatting is None else formatting
+        self.bfile = bfile if bfile else []
+
+
+class Hint(Serializable):
+    """Represents a hint to be displayed when a wrong answer is provided
+    to a "multiple tries" question. The hints are give in the listed order.
+    """
+
+    def __init__(self, formatting: TextFormat, text: str, show_correct: bool,
+                 clear_wrong: bool, state_incorrect: bool = False) -> None:
+        self.formatting = formatting
+        self.text = text
+        self.show_correct = show_correct
+        self.clear_wrong = clear_wrong
+        self.state_incorrect = state_incorrect
+
+
+class Unit(Serializable):
+    """A
+    """
+
+    def __init__(self, unit_name: str, multiplier: float) -> None:
+        super().__init__()
+        self.unit_name = unit_name
+        self.multiplier = multiplier
+
+
+class Tags(Serializable, list):
+    """A
+    """
+
+    def __init__(self, tags=None) -> None:
+        super().__init__(tags) if tags is not None else super().__init__()
+
+
+class Equation(Serializable):
+    """Represents an equation in a formulary. This is a speciallized way of 
+    representing a test description (<code>QDescription</code>).
+    """
+
+    def __init__(self, name: str, text: FText) -> None:
+        self.__name = name
+        self.__text = text
+
+    def to_description(self):
+        pass
+
+
+class Table(Serializable):
+    """Represents a table in a formulary. This is a speciallized way of 
+    representing a test description (<code>QDescription</code>).
+    """
+
+    def __init__(self, name: str, text: FText) -> None:
+        self.__name = name
+        self.__text = text
+
+    def to_description(self):
+        pass
+
+
+class Rule(Serializable):
+    """Represents a theory, law or other set of sentences that describe a
+    given phenomenum. This is a speciallized way of representing a test
+    description (<code>QDescription</code>).
+    """
+
+    def __init__(self, name: str, text: FText, proof: FText) -> None:
+        self.__name = name
+        self.__text = text
+        self.__proof = proof
+
+    def to_description(self):
+        pass

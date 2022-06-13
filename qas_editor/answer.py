@@ -20,9 +20,8 @@ from __future__ import annotations
 import logging
 from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
-from .enums import ToleranceFormat, Format, ShapeType, ClozeFormat, Direction, ToleranceType
-from .utils import Serializable
-from .wrappers import B64File, FText
+from .enums import TolFormat, TextFormat, ShapeType, ClozeFormat, Direction, TolType
+from .utils import Serializable, B64File, FText
 if TYPE_CHECKING:
     from typing import List
 LOG = logging.getLogger(__name__)
@@ -34,37 +33,14 @@ class Answer(Serializable):
     """
 
     def __init__(self, fraction=0.0, text="", feedback: FText = None,
-                 formatting: Format = None):
+                 formatting: TextFormat = None):
         self.fraction = fraction
-        self.formatting = Format.AUTO if formatting is None else formatting
+        self.formatting = TextFormat.AUTO if formatting is None else formatting
         self.text = text
         self.feedback = FText("feedback") if feedback is None else feedback
 
-    @classmethod
-    def from_json(cls, data: dict):
-        data["formatting"] = Format(data["formatting"])
-        data["feedback"] = FText.from_json(data["feedback"])
-        return cls(**data)
 
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["text"] = (str, "text")
-        tags["feedback"] = (FText.from_xml, "feedback")
-        attrs["format"] = (Format, "formatting")
-        attrs["fraction"] = (float, "fraction")
-        return super().from_xml(root, tags, attrs)
-
-    def to_xml(self, strict: bool) -> et.Element:
-        answer = et.Element("answer", {"fraction": self.fraction})
-        if self.formatting:
-            answer.set("format", self.formatting.value)
-        et.SubElement(answer, "text").text = self.text
-        if self.feedback:
-            answer.append(self.feedback.to_xml(strict))
-        return answer
-
-
-class NumericalAnswer(Answer):
+class ANumerical(Answer):
     """
     This class represents a numerical answer.
     This inherits the Answer class and the answer is still
@@ -79,47 +55,17 @@ class NumericalAnswer(Answer):
         super().__init__(**kwargs)
         self.tolerance = tolerance
 
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["tolerance"] = (float, "tolerance")
-        return super().from_xml(root, tags, attrs)
 
-    def to_xml(self, strict: bool) -> et.Element:
-        answer = super().to_xml(strict)
-        et.SubElement(answer, "tolerance").text = self.tolerance
-        return answer
-
-
-class CalculatedAnswer(NumericalAnswer):
+class ACalculated(ANumerical):
     """[summary]
     """
 
-    def __init__(self, alength=2, ttype: ToleranceType = None,
-                 aformat: ToleranceFormat = None, **kwargs):
+    def __init__(self, alength=2, ttype: TolType = None,
+                 aformat: TolFormat = None, **kwargs):
         super().__init__(**kwargs)
-        self.ttype = ToleranceType.NOM if ttype is None else ttype
-        self.aformat = ToleranceFormat.DEC if aformat is None else aformat
+        self.ttype = TolType.NOM if ttype is None else ttype
+        self.aformat = TolFormat.DEC if aformat is None else aformat
         self.alength = alength
-
-    @classmethod
-    def from_json(cls, data: dict):
-        data["ttype"] = ToleranceType(data["ttype"])
-        data["aformat"] = ToleranceFormat(data["aformat"])
-        return super().from_json(data)
-
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["tolerancetype"] = (ToleranceType, "ttype")
-        tags["correctanswerformat"] = (ToleranceFormat, "aformat")
-        tags["correctanswerlength"] = (int, "alength")
-        return super().from_xml(root, tags, attrs)
-
-    def to_xml(self, strict: bool) -> et.Element:
-        answer = super().to_xml(strict)
-        et.SubElement(answer, "tolerancetype").text = self.ttype.value
-        et.SubElement(answer, "correctanswerformat").text = self.aformat.value
-        et.SubElement(answer, "correctanswerlength").text = self.alength
-        return answer
 
 
 class ClozeItem(Serializable):
@@ -133,13 +79,6 @@ class ClozeItem(Serializable):
         self.cformat = cformat
         self.grade = grade
         self.opts = opts if opts else []
-
-    @classmethod
-    def from_json(cls, data: dict):
-        data["cformat"] = ClozeFormat(data["cformat"])
-        for i in range(len(data["opts"])):
-            data["opts"][i] = Answer.from_json(data["opts"][i])
-        return cls(**data)
 
     @classmethod
     def from_cloze(cls, regex):
@@ -167,8 +106,8 @@ class ClozeItem(Serializable):
             elif tmp[0] == "%":
                 frac, tmp = tmp[1:].split("%")
                 frac = float(frac)
-            opts.append(Answer(frac, tmp, FText("feedback", fdb, Format.PLAIN),
-                               Format.PLAIN))
+            opts.append(Answer(frac, tmp, FText("feedback", fdb, TextFormat.PLAIN),
+                               TextFormat.PLAIN))
         return cls(int(regex[1]), ClozeFormat(regex[2]), opts)
 
     def to_text(self) -> str:
@@ -190,9 +129,6 @@ class ClozeItem(Serializable):
         text.append("}")
         return "".join(text)
 
-    def to_xml(self, strict: bool):
-        LOG.debug("Function <to_xml> always ignored for ClozeItem instances.")
-
 
 class DragText(Serializable):
     """[summary]
@@ -202,21 +138,6 @@ class DragText(Serializable):
         self.text = text
         self.group = group
         self.unlimited = unlimited
-
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["text"] = (str, "text")
-        tags["group"] = (str, "group")
-        tags["unlimited"] = (bool, "unlimited")
-        return super().from_xml(root, tags, attrs)
-
-    def to_xml(self, strict: bool) -> et.Element:
-        dragbox = et.Element("dragbox")
-        et.SubElement(dragbox, "text").text = self.text
-        et.SubElement(dragbox, "group").text = str(self.group)
-        if self.unlimited:
-            et.SubElement(dragbox, "infinite")
-        return dragbox
 
 
 class DragItem(Serializable):
@@ -236,35 +157,6 @@ class DragItem(Serializable):
         self.number = number
         self.no_of_drags = no_of_drags
         self.image = image
-
-    @classmethod
-    def from_json(cls, data: dict):
-        data["image"] = B64File.from_json(data["image"])
-        return cls(**data)
-
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        tags["no"] = (int, "number")
-        tags["text"] = (str, "text")
-        tags["infinite"] = (bool, "unlimited")
-        tags["draggroup"] = (int, "group")
-        tags["noofdrags"] = (bool, "no_of_drags")
-        tags["file"] = (B64File.from_xml, "image")
-        return super().from_xml(root, tags, attrs)
-
-    def to_xml(self, strict: bool) -> et.Element:
-        dragitem = et.Element("drag")
-        et.SubElement(dragitem, "no").text = self.number
-        et.SubElement(dragitem, "text").text = self.text
-        if self.group:
-            et.SubElement(dragitem, "draggroup").text = self.group
-        if self.unlimited:
-            et.SubElement(dragitem, "infinite")
-        if self.no_of_drags:
-            et.SubElement(dragitem, "noofdrags").text = self.no_of_drags
-        if self.image:
-            dragitem.append(self.image.to_xml(strict))
-        return dragitem
 
 
 class DropZone(Serializable):
@@ -292,49 +184,8 @@ class DropZone(Serializable):
         self.choice = choice
         self.number = number
 
-    @classmethod
-    def from_json(cls, data: dict):
-        if data["shape"] is not None:
-            data["shape"] = ShapeType(data["shape"])
-        return cls(**data)
 
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        data = {a.tag: a for a in root}
-        res = {}
-        if "coords" in data and "shape" in data:
-            res["shape"] = ShapeType(data["shape"].text)
-            coords = data["coords"].text.split(";", 1)
-            res["coord_x"], res["coord_y"] = map(int, coords[0].split(","))
-            res["points"] = coords[1]
-        elif "xleft" in data and "ytop" in data:
-            res["coord_x"] = int(data["xleft"].text)
-            res["coord_y"] = int(data["ytop"].text)
-        else:
-            raise AttributeError("One or more coordenates are missing")
-        res["choice"] = int(data["choice"].text)
-        res["number"] = int(data["no"].text)
-        res["text"] = data["text"].text if "text" in data else None
-        return cls(**res)
-
-    def to_xml(self, strict: bool) -> et.Element:
-        dropzone = et.Element("drop")
-        if self.text:
-            et.SubElement(dropzone, "text").text = self.text
-        et.SubElement(dropzone, "no").text = str(self.number)
-        et.SubElement(dropzone, "choice").text = str(self.choice)
-        if self.shape:
-            et.SubElement(dropzone, "shape").text = self.shape.value
-        if not self.points:
-            et.SubElement(dropzone, "xleft").text = str(self.coord_x)
-            et.SubElement(dropzone, "ytop").text = str(self.coord_y)
-        else:
-            _tmp = et.SubElement(dropzone, "coords")
-            _tmp.text = f"{self.coord_x},{self.coord_y};{self.points}"
-        return dropzone
-
-
-class CrossWord(Serializable):
+class ACrossWord(Serializable):
     """_summary_
     """
 
@@ -346,11 +197,23 @@ class CrossWord(Serializable):
         self.direction = direction
         self.clue = clue
 
-    @classmethod
-    def from_json(cls, data: dict):
-        data["direction"] = Direction(data["direction"])
-        return cls(**data)
 
-    @classmethod
-    def from_xml(cls, root: et.Element, tags: dict, attrs: dict):
-        raise NotImplementedError("This Class is not avaiable in a Moodle XML")
+class Subquestion(Serializable):
+    """_summary_
+    """
+
+    def __init__(self, formatting: TextFormat, text: str, answer: str):
+        super().__init__()
+        self.text = text
+        self.answer = answer
+        self.formatting = formatting
+
+
+class SelectOption(Serializable):
+    """Internal representation
+    """
+
+    def __init__(self, text: str, group: int) -> None:
+        super().__init__()
+        self.text = text
+        self.group = group

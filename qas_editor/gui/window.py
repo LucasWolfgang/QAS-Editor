@@ -31,10 +31,10 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QScrollArea, QHBoxLayout, QGroupBox, QShortcut,\
                             QPushButton, QLineEdit, QComboBox, QDialog,\
                             QMessageBox, QListWidget, QCheckBox
-from ..category import Category
+from ..category import Category, SERIALIZERS
 from ..questions import _Question, QNAME
-from ..wrappers import Tags
-from ..enums import Numbering, Grading, ShowUnits, ResponseFormat, Synchronise,\
+from ..utils import Tags
+from ..enums import Numbering, Grading, ShowUnits, RespFormat, Synchronise,\
                     Status, Distribution
 from .widget import GTextToolbar, GTextEditor, GTagBar, GField, GCheckBox,\
                     GDropbox, GList
@@ -74,8 +74,9 @@ class Editor(QMainWindow):
     """This is the main class.
     """
 
-    FORMATS = ("Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;JSON (*.json)"
-               ";;LaTex (*.tex);;Markdown (*.md);;PDF (*.pdf);;XML (*.xml)")
+    FORMATS = ("Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;JSON (*.json);;"
+               "LaTex (*.tex);;Markdown (*.md);;PDF (*.pdf);;Moodle (*.xml);;"
+               "BlackBoard (*.xml)")
 
     SHORTCUTS = {
         "Create file": Qt.CTRL + Qt.Key_N,
@@ -354,7 +355,7 @@ class Editor(QMainWindow):
         _content = QGridLayout(group_box)
         _content.setSpacing(5)
         _content.setContentsMargins(5, 3, 5, 3)
-        self._items.append(GDropbox("rsp_format", self, ResponseFormat))
+        self._items.append(GDropbox("rsp_format", self, RespFormat))
         self._items[-1].setToolTip("The format to be used in the reponse.")
         _content.addWidget(self._items[-1], 0, 0, 1, 2)
         self._items.append(GCheckBox("rsp_required",
@@ -692,7 +693,7 @@ class Editor(QMainWindow):
         else:
             path = self.path
         ext = path.rsplit('.', 1)[-1]
-        getattr(quiz, quiz.SERIALIZERS[ext][1])(path)
+        getattr(quiz, SERIALIZERS[ext][1])(path)
         return path
 
     def _write_file(self, save_as: bool) -> None:

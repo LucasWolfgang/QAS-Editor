@@ -17,18 +17,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import os
-from qas_editor import category
+from qas_editor.category import Category
+
 
 TEST_PATH = os.path.dirname(__file__)
 SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 
 
-def test_diff_simple() -> None:
-    EXAMPLE = f"{TEST_PATH}/datasets/aiken/aiken_1.txt"
-    control = category.Category.read_aiken(EXAMPLE)
-    XML_TEST = f"{EXAMPLE}.tmp"
-    control.write_aiken(XML_TEST)
-    new_data = category.Category.read_aiken(XML_TEST)
+def test_read_essay():
+    EXAMPLE = f"{TEST_PATH}/datasets/json/essay.json"
+    control = Category.read_json(EXAMPLE)
+    qst = control.get_question(0)
+    assert qst.default_grade == 1.1
+    assert qst.lines == 3
+    assert qst.question.text == 'Explain in few words the aim of this course.<br>' 
+    assert qst.atts_required == False
+
+
+def test_diff():
+    _EXAMPLE = f"{TEST_PATH}/datasets/json/all.json"
+    control = Category.read_json(_EXAMPLE)
+    _TEST = f"{_EXAMPLE}.tmp"
+    control.write_json(_TEST, True)
+    new_data = Category.read_json(_TEST)
     assert control.compare(new_data, [])
-    os.remove(XML_TEST)
-    

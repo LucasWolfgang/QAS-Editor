@@ -71,7 +71,7 @@ class Distribution(EnhancedEnum):
     LOG = "loguniform", "Log"
 
 
-class Format(EnhancedEnum):
+class TextFormat(EnhancedEnum):
     """Enumerates text format types
     """
     HTML = "html", "HTML"
@@ -139,7 +139,7 @@ class Synchronise(EnhancedEnum):
     SYNC_NAME = "2", "Synchronise and add as prefix"
 
 
-class ResponseFormat(EnhancedEnum):
+class RespFormat(EnhancedEnum):
     """Enumerates Response Formats
     """
     HTML = "editor", "HTML"
@@ -149,7 +149,7 @@ class ResponseFormat(EnhancedEnum):
     ATCH = "noinline", "No inline"
 
 
-class ToleranceType(EnhancedEnum):
+class TolType(EnhancedEnum):
     """Enumerates Tolerance Types
     """
     REL = "1", "Relative"
@@ -157,7 +157,7 @@ class ToleranceType(EnhancedEnum):
     GEO = "3", "Geometric"
 
 
-class ToleranceFormat(EnhancedEnum):
+class TolFormat(EnhancedEnum):
     """
     """
 
