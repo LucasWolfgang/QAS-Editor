@@ -43,6 +43,10 @@ def _from_b64file(data: dict):
 def _from_dataset(data: dict):
     data["status"] = Status(data["status"])
     data["distribution"] = Distribution(data["distribution"])
+    tmp = {}  # Convertion of keys from string to int
+    for key in data["items"]:
+        tmp[int(key)] = data["items"][key]
+    data["items"] = tmp
     return _from_json(data, Dataset)
 
 
@@ -265,7 +269,7 @@ def _from_qtruefalse(data: dict):
     wrong_answer = _from_answer(data.pop("_QTrueFalse__false"))
     data["options"] = [true_answer, wrong_answer]
     data.pop("_QTrueFalse__correct")  # Defined during init call
-    return _from_json(data, QTrueFalse)
+    return _from_question(data, QTrueFalse)
 
 
 

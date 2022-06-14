@@ -37,7 +37,7 @@ def test_against_json():
     EXAMPLE = f"{TEST_PATH}/datasets/moodle/all.xml"
     data = category.Category.read_moodle(EXAMPLE)
     XML_TEST = f"{TEST_PATH}/datasets/json/all.json"
-    # data.write_json(XML_TEST)
+    #data.write_json(XML_TEST)
     control = category.Category.read_json(XML_TEST)
     assert control.compare(data, [])
 

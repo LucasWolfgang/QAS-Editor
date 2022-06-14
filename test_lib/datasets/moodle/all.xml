@@ -450,8 +450,22 @@
     </answer>
     <unitgradingtype>0</unitgradingtype>
     <unitpenalty>0.1000000</unitpenalty>
-    <showunits>3</showunits>
+    <showunits>0</showunits>
     <unitsleft>0</unitsleft>
+    <units>
+      <unit>
+        <multiplier>1</multiplier>
+        <unit_name>cm</unit_name>
+      </unit>
+      <unit>
+        <multiplier>0.5</multiplier>
+        <unit_name>mm</unit_name>
+      </unit>
+      <unit>
+        <multiplier>0.5</multiplier>
+        <unit_name>m</unit_name>
+      </unit>
+    </units>
   </question>
   <question type="numerical">
     <name>
@@ -2145,8 +2159,30 @@
     </answer>
     <unitgradingtype>0</unitgradingtype>
     <unitpenalty>0.1000000</unitpenalty>
-    <showunits>3</showunits>
+    <showunits>2</showunits>
     <unitsleft>0</unitsleft>
+    <units>
+      <unit>
+        <multiplier>1</multiplier>
+        <unit_name>mm</unit_name>
+      </unit>
+      <unit>
+        <multiplier>0.5</multiplier>
+        <unit_name>cm</unit_name>
+      </unit>
+      <unit>
+        <multiplier>0.4</multiplier>
+        <unit_name>dm</unit_name>
+      </unit>
+      <unit>
+        <multiplier>0.2</multiplier>
+        <unit_name>m</unit_name>
+      </unit>
+      <unit>
+        <multiplier>0.1</multiplier>
+        <unit_name>km</unit_name>
+      </unit>
+    </units>
     <dataset_definitions>
       <dataset_definition>
         <status>
