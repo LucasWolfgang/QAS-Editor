@@ -84,6 +84,7 @@ def _escape_attrib_html(data):
         data = data.replace(">", "&gt;")
     if "\"" in data:
         data = data.replace("\"", "&quot;")
+    return data
 
 
 # -----------------------------------------------------------------------------
@@ -111,7 +112,7 @@ def _from_xml(root: et.Element, tags: dict, attrs: dict, cls):
                     tmp = tmp.lower() in ["true", "1", "t", ""]
                 elif tmp or cast_type == str:
                     tmp = cast_type(tmp)
-            if len(tags[obj.tag]) == 3:
+            if len(tags[obj.tag]) == 3 and tags[obj.tag][2]:
                 if name not in results:
                     results[name] = []
                 results[name].append(tmp)
@@ -189,10 +190,12 @@ def _from_Subquestion(root: et.Element, tags: dict, attrs: dict):
     return _from_xml(root, tags, attrs, Subquestion)
 
 
-def _from_Unit(root: et.Element, tags: dict, attrs: dict) -> Unit:
-    tags["unit_name"] = (str, "unit_name")
-    tags["multiplier"] = (float, "multiplier")
-    return _from_xml(root, tags, attrs, Unit)
+def _from_units(root: et.Element, tags: dict, attrs: dict) -> Unit:
+    units = []
+    for elem in root:
+        unit = Unit(elem.find("unit_name").text, float(elem.find("multiplier").text))
+        units.append(unit)
+    return units
 
 
 def _from_Tags(root: et.Element, tags: dict, attrs: dict) -> Tags:
@@ -297,13 +300,11 @@ def _from_question_mtuh(root: et.Element, tags: dict, attrs: dict, cls):
 
 
 def _from_qcalculated(root: et.Element, tags: dict, attrs: dict, cls=None):
-    if cls is None:
-        cls = QCalculated
     tags["synchronize"] = (Synchronise, "synchronize")
-    tags["units"] = (_from_Unit, "units", True)
+    tags["units"] = (_from_units, "units", False)
     tags["dataset_definitions"] = (_from_Datasets, "datasets")
     tags["answer"] = (_from_ACalculated, "options", True)
-    return _from_question_mtuh(root, tags, attrs, cls)
+    return _from_question_mtuh(root, tags, attrs, cls if cls else QCalculated)
 
 
 def _from_qcalculatedsimple(root: et.Element, tags: dict, attrs: dict):
@@ -388,7 +389,7 @@ def _from_QMultichoice(root: et.Element, tags: dict, attrs: dict):
 
 def _from_QNumerical(root: et.Element, tags: dict, attrs: dict):
     tags["answer"] = (_from_ANumerical, "options", True)
-    tags["units"] = (_from_Unit, "units", True)
+    tags["units"] = (_from_units, "units", False)
     return _from_question_mtuh(root, tags, attrs, QNumerical)
 
 
@@ -431,7 +432,7 @@ def _to_dataset(dset) -> et.Element:
     et.SubElement(decimals, "text").text = dset.decimals
     et.SubElement(dataset_def, "itemcount").text = len(dset.items)
     dataset_items = et.SubElement(dataset_def, "dataset_items")
-    for key, val in dset.items():
+    for key, val in dset.items.items():
         item = et.Element("dataset_item")
         number = et.Element("number")
         number.text = key
@@ -444,7 +445,7 @@ def _to_dataset(dset) -> et.Element:
     return dataset_def
 
 
-def _to_ftext(ftext) -> None:
+def _to_ftext(ftext: FText) -> None:
     elem = et.Element(ftext.name, {"format": ftext.formatting.value})
     txt = et.SubElement(elem, "text")
     txt.text = ftext.text
@@ -453,27 +454,27 @@ def _to_ftext(ftext) -> None:
     return elem
 
 
-def _to_hint(hint) -> et.Element:
-    hint = et.Element("hint", {"format": hint.formatting.value})
-    txt = et.SubElement(hint, "text")
+def _to_hint(hint: Hint) -> et.Element:
+    elem = et.Element("hint", {"format": hint.formatting.value})
+    txt = et.SubElement(elem, "text")
     txt.text = hint.text
     if hint.show_correct:
-        et.SubElement(hint, "shownumcorrect")
+        et.SubElement(elem, "shownumcorrect")
     if hint.state_incorrect:
-        et.SubElement(hint, "options")
+        et.SubElement(elem, "options")
     if hint.clear_wrong:
-        et.SubElement(hint, "clearwrong")
-    return hint
+        et.SubElement(elem, "clearwrong")
+    return elem
 
 
-def _to_unit(unit) -> et.Element:
-    unit = et.Element("unit")
-    et.SubElement(unit, "unit_name").text = unit.unit_name
-    et.SubElement(unit, "multiplier").text = unit.multiplier
-    return unit
+def _to_unit(unit: Unit) -> et.Element:
+    elem = et.Element("units")
+    et.SubElement(elem, "unit_name").text = unit.unit_name
+    et.SubElement(elem, "multiplier").text = unit.multiplier
+    return elem
 
 
-def _to_tags(tags) -> et.Element:
+def _to_tags(tags: Tags) -> et.Element:
     tags = et.Element("tags")
     for item in tags:
         _tag = et.SubElement(tags, "tag")
@@ -481,7 +482,7 @@ def _to_tags(tags) -> et.Element:
     return tags
 
 
-def _to_answer(ans) -> et.Element:
+def _to_answer(ans: Answer) -> et.Element:
     answer = et.Element("answer", {"fraction": ans.fraction})
     if ans.formatting:
         answer.set("format", ans.formatting.value)
@@ -514,7 +515,7 @@ def _to_dragtext(drag) -> et.Element:
     return dragbox
 
 
-def _to_dragitem(drag, strict: bool) -> et.Element:
+def _to_dragitem(drag) -> et.Element:
     dragitem = et.Element("drag")
     et.SubElement(dragitem, "no").text = drag.number
     et.SubElement(dragitem, "text").text = drag.text
@@ -571,20 +572,20 @@ def _to_selectOption(opt) -> et.Element:
     return select_option
 
 
-def _to_question(question, strict: bool) -> et.Element:
-    question = et.Element("question", {"type": question.MOODLE})
-    name = et.SubElement(question, "name")
+def _to_question(question) -> et.Element:
+    elem = et.Element("question", {"type": question.MOODLE})
+    name = et.SubElement(elem, "name")
     et.SubElement(name, "text").text = question.name
-    question.append(_to_ftext(question.question, strict))
+    elem.append(_to_ftext(question.question))
     if question.feedback:
-        question.append(_to_ftext(question.feedback, strict))
-    et.SubElement(question, "defaultgrade").text = question.default_grade
+        elem.append(_to_ftext(question.feedback))
+    et.SubElement(elem, "defaultgrade").text = question.default_grade
     # et.SubElement(question, "hidden").text = "0"
     if question.dbid is not None:
-        et.SubElement(question, "idnumber").text = question.dbid
+        et.SubElement(elem, "idnumber").text = question.dbid
     if question.tags:
-        question.append(_to_tags(question.tags, strict))
-    return question
+        elem.append(_to_tags(question.tags))
+    return elem
 
 
 def _to_question_mt(qst, opt_callback) -> et.Element:
@@ -592,11 +593,9 @@ def _to_question_mt(qst, opt_callback) -> et.Element:
     for hint in qst.hints:
         question.append(_to_hint(hint))
     et.SubElement(question, "penalty").text = str(qst.penalty)
-    if opt_callback:                        # Workaround for
-        for sub in qst.options:             # QRandomMatching.
-            elem = opt_callback(sub)        # If strict, some may
-            if elem:                        # return None.
-                question.append(elem)
+    if opt_callback:  # Workaround for QRandomMatching.
+        for sub in qst.options:
+            question.append(opt_callback(sub))
     return question
 
 
@@ -621,7 +620,7 @@ def _to_question_mtuh(qst, opt_callback) -> et.Element:
     return question
 
 
-def _to_qcalculated(qst) -> et.Element:
+def _to_qcalculated(qst: QCalculated) -> et.Element:
     question = _to_question_mtuh(qst, _to_acalculated)
     et.SubElement(question, "synchronize").text = qst.synchronize.value
     units = et.SubElement(question, "units")
@@ -633,8 +632,8 @@ def _to_qcalculated(qst) -> et.Element:
     return question
 
 
-def _to_qcalcmultichoice(qst) -> et.Element:
-    question = _to_question_mtuh(qst, _to_acalculated)
+def _to_qcalcmultichoice(qst: QCalculatedMultichoice) -> et.Element:
+    question = _to_question_mtcs(qst, _to_acalculated)
     et.SubElement(question, "synchronize").text = qst.synchronize.value
     if qst.single:
         et.SubElement(question, "single")
@@ -645,15 +644,15 @@ def _to_qcalcmultichoice(qst) -> et.Element:
     return question
 
 
-def _to_qcloze(qst) -> et.Element:
+def _to_qcloze(qst: QCloze) -> et.Element:
     tmp = qst.question.text
     qst.question.text = qst.pure_text()
-    question = _to_question_mt(qst, _to_answer)
+    question = _to_question_mt(qst, None)
     qst.question.text = tmp
     return question
 
 
-def _to_qdescription(qst) -> et.Element:
+def _to_qdescription(qst: QDescription) -> et.Element:
     return _to_question(qst)
 
 
@@ -670,8 +669,8 @@ def _to_qdad_image(qst) -> et.Element:
     return question
 
 
-def _to_qdad_marker(qst) -> et.Element:
-    question = _to_question_mtcs(qst)
+def _to_qdad_marker(qst: QDragAndDropMarker) -> et.Element:
+    question = _to_question_mtcs(qst, _to_dragitem)
     if qst.highlight:
         et.SubElement(question, "showmisplaced")
     for dropzone in qst.zones:
@@ -706,10 +705,10 @@ def _to_qmatching(qst) -> et.Element:
 
 
 def _to_qrandommatching(qst) -> et.Element:
-        question = _to_question_mtcs(qst, None)
-        et.SubElement(question, "choose").text = qst.choose
-        et.SubElement(question, "subcats").text = qst.subcats
-        return question
+    question = _to_question_mtcs(qst, None)
+    et.SubElement(question, "choose").text = qst.choose
+    et.SubElement(question, "subcats").text = qst.subcats
+    return question
 
 
 def _to_qmissingword(qst) -> et.Element:
@@ -724,8 +723,8 @@ def _to_qmultichoice(qst) -> et.Element:
     return question
 
 
-def _to_qnumerical(qst) -> et.Element:
-    question = _to_question_mtuh(qst)
+def _to_qnumerical(qst: QNumerical) -> et.Element:
+    question = _to_question_mtuh(qst, _to_anumerical)
     if len(qst.units) > 0:
         units = et.SubElement(question, "units")
         for unit in qst.units:
@@ -739,7 +738,7 @@ def _to_qshortanswer(qst) -> et.Element:
     return question
 
 
-def _to_qtruefalse(qst, strict: bool) -> et.Element:
+def _to_qtruefalse(qst) -> et.Element:
     question = _to_question(qst)
     question.append(_to_answer(qst.true))
     question.append(_to_answer(qst.false))
@@ -772,9 +771,6 @@ _QTYPE = {
 def read_moodle(cls, file_path: str, category: str = None) -> "Category":
     """[summary]
 
-    Raises:
-        TypeError: [description]
-
     Returns:
         [type]: [description]
     """
@@ -797,17 +793,16 @@ def read_moodle(cls, file_path: str, category: str = None) -> "Category":
 # -----------------------------------------------------------------------------
 
 
-def write_moodle(self: "Category", file_path: str, pretty=False, strict=True):
+def write_moodle(self: "Category", file_path: str, pretty=False):
     """Generates XML compatible with Moodle and saves to a file.
 
     Args:
         file_path (str): filename where the XML will be saved
         pretty (bool): saves XML pretty printed.
-        strict (bool): saves using strict Moodle format.
     """
-    def _txrecursive(cat: "Category", root: et.Element, strict: bool):
+    def _txrecursive(cat: "Category", root: et.Element):
         question = et.Element("question")           # Add category on the top
-        if len(cat.__questions) > 0:
+        if cat.get_size() > 0:
             question.set("type", "category")
             category = et.SubElement(question, "category")
             catname = [cat.name]
@@ -818,12 +813,12 @@ def write_moodle(self: "Category", file_path: str, pretty=False, strict=True):
             catname.reverse()
             et.SubElement(category, "text").text = "/".join(catname)
             root.append(question)
-            for question in cat.questions:       # Add own questions first
+            for question in cat.questions:          # Add own questions first
                 root.append(_QTYPE[question.MOODLE][1](question))
-        for name in cat:                      # Then add children data
-            _txrecursive(cat[name], root, strict)
+        for name in cat:                            # Then add children data
+            _txrecursive(cat[name], root)
     root = et.Element("quiz")
-    _txrecursive(self, root, strict)
-    with open(file_path, "unicode") as write:
-        write("<?xml version='1.0' encoding='utf-8'?>\n")
-        serialize_fxml(write, root, True, pretty)
+    _txrecursive(self, root)
+    with open(file_path, "w") as ofile:
+        ofile.write("<?xml version='1.0' encoding='utf-8'?>\n")
+        serialize_fxml(ofile.write, root, True, pretty)

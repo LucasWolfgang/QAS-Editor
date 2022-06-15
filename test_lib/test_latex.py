@@ -24,16 +24,25 @@ TEST_PATH = os.path.dirname(__file__)
 SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 
 
-def test_read():
+def test_guillaume_read():
     EXAMPLE = f"{TEST_PATH}/datasets/latex/guillaume_read.tex"
     control = Category.read_latex(EXAMPLE)
+    control = control["My little catgory from latex"]
     assert len(control) == 1
     assert control.get_size(False) == 3
     assert control.get_size(True) == 4
     assert control.name == "My little catgory from latex"
     question = next(control["Simple arithmetic"].questions)
-    assert question.question.text == "The product 6x8 is equal to ... :\n"
+    assert question.question.text == "The product 6x8 is equal to ... :"
     opts = question.options
     assert len(opts) == 3
-    assert opts[0].text == 47
-    assert opts[0].text.fraction == 0.0
+    assert opts[0].text == "47"
+    assert opts[0].fraction == 0.0
+
+def test_guillaume_vs_moodle():
+    EXAMPLE = f"{TEST_PATH}/datasets/latex/guillaume_xml.tex"
+    data = Category.read_latex(EXAMPLE)
+    data.data.clear()   # This will always be different
+    XML_TEST = f"{TEST_PATH}/datasets/latex/guillaume_xml.xml"
+    control = Category.read_moodle(XML_TEST)
+    assert data.compare(control, [])

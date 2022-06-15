@@ -1,4 +1,4 @@
-""""
+"""
 Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
 Copyright (C) 2022  Lucas Wolfgang
 
@@ -17,7 +17,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import re
 import logging
-from ..questions import QTYPE
+
+from ..enums import Numbering
+from ..utils import FText
+from ..answer import Answer
+from ..questions import QEssay, QMultichoice
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..category import Category
@@ -58,52 +62,61 @@ class _PkgGuillaume():
     See: https://github.com/Guillaume-Garrigos/moodlexport
     """
 
+    _QTYPE = {
+        "multichoice": QMultichoice,
+        "essay": QEssay
+    }
+
     _CMDS = {
-        "\\title" : "description",
-        "\\generalfeedback" : "feedback",
-        "\\grade" : "grade",
-        "\\penalty" : "penalty",
-        "\\hidden" : "",
-        "\\idnumber" : "dbid",
-        "\\responseformat" : "rsp_format",
-        "\\responserequired" : "rsp_required",
-        "\\responsefieldlines" : "lines",
-        "\\attachments" : "attachments",
-        "\\attachmentsrequired" : "atts_required",
-        "\\responsetemplate" : "template",
-        "\\single" : "single ",
-        "\\shuffleanswers" : "shuffle",
-        "\\answernumbering" : "numbering",
-        "\\correctfeedback" : "if_correct",
-        "\\partiallycorrectfeedback" : "if_incomplete",
-        "\\incorrectfeedback" : "if_incorrect",
-        "\\shownumcorrect" : "show_num",
-        "\\answer" : "_add_answer"
+        "title" : ("name", str),
+        "generalfeedback" : ("feedback", FText),
+        "grade" : ("default_grade", float),
+        "penalty" : ("penalty", float),
+        "idnumber" : ("dbid", int),
+        "responseformat" : ("rsp_format", str),
+        "responserequired" : ("rsp_required", bool),
+        "responsefieldlines" : ("lines", int),
+        "attachments" : ("attachments", int),
+        "attachmentsrequired" : ("atts_required", bool),
+        "responsetemplate" : ("template", str),
+        "single" : ("single", bool),
+        "shuffleanswers" : ("shuffle", bool),
+        "answernumbering" : ("numbering", Numbering),
+        "correctfeedback" : ("if_correct", FText),
+        "partiallycorrectfeedback" : ("if_incomplete", FText),
+        "incorrectfeedback" : ("if_incorrect", FText),
+        "shownumcorrect" : ("show_num", bool),
     }
 
     def __init__(self, cls, cat, buffer) -> None:
         self.cls = cls
         self.cat = cat
-        self.qst = None
         self.buf = buffer
         self._document()
 
     def _question(self, qtype):
-        self.qst = QTYPE[qtype]()
+        params = {"question": FText("questiontext")}
+        options = []
         for line in self.buf:
             tmp = line.strip()
             if tmp == "\\end{question}":
+                if options:
+                    params["options"] = options
                 break
-            match = re.match(_TEX_CMD, tmp)
-            if match and match[0] in self._CMDS:
-                cmd, opt, value = match
-                attrs = self._CMDS.get(cmd, [])
-                if len(attrs) == 1:
-                    setattr(self.qst, attrs[0], value)
-                getattr(self, self._CMDS[match.group(0)])(match[3], match[2])
+            match = _TEX_CMD.match(tmp)
+            if match:
+                cmd, opt, value = match.groups()
+                if cmd == "answer":
+                    options.append(Answer(float(opt), value))
+                elif cmd not in self._CMDS:
+                    continue
+                else:
+                    key, cast = self._CMDS[cmd]
+                    params[key] = cast(value)
             else:
-                self.qst.question.text += tmp if tmp else line
-        self.cat.add_question(self.qst)
+                params["question"].text += tmp if tmp else line
+        params["question"].text = params["question"].text.strip()
+        self.cat.add_question(self._QTYPE[qtype](**params))
 
     def _category(self, name):
         tmp = self.cat
@@ -135,7 +148,7 @@ class _PkgGuillaume():
                 self._question(line[17:-1])
             elif line == "\end{document}":
                 break
-            else:
+            elif line:
                 raise ValueError("Couldnt map line %s", line)
 
 
@@ -152,21 +165,21 @@ def read_latex(cls, file_name) -> "Category":
     """
     """
     category = cls()
-    category.data["packages"] = []
+    category.data["latex"] = []
     tex_class = None
     with open(file_name, 'r', encoding='utf-8') as ifile:
         for line in ifile:
-            line = line.strip()
-            if tex_class is None and (line[:12] == "\\usepackage{" or
-                        line[:15] == "\\documentclass{"):
-                pkg = line[12:-1]
-                category.data["packages"].append(pkg)
-                if pkg in _TEMPLATES:
-                    tex_class = _TEMPLATES[pkg]
-            elif "\\begin{document}" == line:
+            if tex_class is None:
+                match =  _TEX_CMD.match(line.strip())
+                if not match:
+                    continue
+                cmd, opt, value = match.groups()
+                if cmd in ("usepackage", "documentclass"):
+                    category.data["latex"].append((cmd, opt, value))
+                    if value in _TEMPLATES:
+                        tex_class = _TEMPLATES[value]
+            elif line == "\\begin{document}\n":
                 tex_class(cls, category, ifile)
-    if len(category) == 1 and category.get_size() == 0:
-        category = [category[i] for i in category][0]
     return category
 
 
