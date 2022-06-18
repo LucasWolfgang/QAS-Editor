@@ -23,7 +23,13 @@ TEST_PATH = os.path.dirname(__file__)
 SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 
 
-def test_diff_simple() -> None:
+def test_read_all():
+    EXAMPLE = f"{TEST_PATH}/datasets/cloze/cloze.cloze"
+    control = category.Category.read_cloze(EXAMPLE)
+    
+
+
+def test_diff_simple():
     EXAMPLE = f"{TEST_PATH}/datasets/cloze/cloze.cloze"
     control = category.Category.read_cloze(EXAMPLE)
     CLOZE_TEST = f"{TEST_PATH}/datasets/cloze/cloze_0.cloze"
