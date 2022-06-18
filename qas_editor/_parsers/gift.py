@@ -16,207 +16,216 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import re
+import logging
 from typing import TYPE_CHECKING
-from ..questions import QDescription, QEssay, QTrueFalse, QNumerical,\
-                        QMissingWord, QMatching, QShortAnswer, QMultichoice
+from ..questions import MARKER_INT, QMatching, QEssay, QTrueFalse, QNumerical,\
+                        QDescription,QShortAnswer, QMultichoice
 from ..enums import TextFormat
-from ..answer import Answer, ANumerical, Subquestion, SelectOption
-from ..utils import LineBuffer, FText, gen_hier
+from ..answer import Answer, ANumerical, Subquestion
+from ..utils import FText, gen_hier
 if TYPE_CHECKING:
     from ..category import Category
+_LOG = logging.getLogger(__name__)
+
+def _nxt(stt: list, qst: str):
+    stt[1] = (qst[stt[0]] == "\\") and not stt[1]
+    stt[0] += 1
 
 
-def _from_qdescription(header):
-    formatting = TextFormat(header[1][1:-1]) if header[1] else TextFormat.AUTO
-    question = FText("questiontext", header[2], formatting, None)
-    return QDescription(name=header[0][2:-2], question=question)
+def _next(stt: list, string: str, comp: list, size: int = 1) -> str:
+    start = stt[0]
+    stt[0] += 1
+    while string[stt[0]:stt[0]+size] not in comp or stt[1]:
+        stt[1] = (string[stt[0]] == "\\") and not stt[1]
+        stt[0] += 1
+    return string[start:stt[0]]
+
+def _from_qdescription(name: str, text: FText):
+    return QDescription(name=name, question=text)
 
 
-def _from_qessay(header: list):
-    formatting = TextFormat(header[1][1:-1]) if header else TextFormat.AUTO
-    question = FText("questiontext", header[1], formatting, None)
-    return QEssay(name=header[0][2:-2], question=question)
+def _from_qessay(name: str, text: FText):
+    return QEssay(name=name, question=text)
 
 
-def _from_qtruefalse(header: list, answer: list):
-    correct = header[3].lower() in ["true", "t"]
-    true_ans = Answer(100 if correct else 0, "true", None, TextFormat.AUTO)
-    false_ans = Answer(0 if correct else 100, "false", None, TextFormat.AUTO)
-    formatting = TextFormat(header[2][1:-1])
-    if formatting is None:
-        formatting = TextFormat.MD
-    qst = QTrueFalse(options=[true_ans, false_ans], name=header[1],
-                question=FText("questiontext", header[3], formatting, None))
-    for ans in answer:
-        if ans[0] == "####":
-            qst.feedback = FText("generalfeedback", ans[2],
-                                    TextFormat(header[2][1:-1]))
-        elif false_ans.feedback is None:
-            false_ans.feedback = FText("feedback", ans[2],
-                                        TextFormat(header[2][1:-1]))
+def _from_qtruefalse(name: str, header: FText, stt: list, qst_blk: str):
+    correct = _next(stt, qst_blk, ["}", "#"], 1).lower() in ["true", "t"]
+    fdbk_false = fdbk_true = fdbk_general = ""
+    if qst_blk[stt[0]] != "}":
+        fdbk_false = _next(stt, qst_blk, ("}", "#"), 1)
+    if qst_blk[stt[0]] != "}":
+        fdbk_true = _next(stt, qst_blk, ("}", "#"), 1)
+    if qst_blk[stt[0]] != "}":
+        fdbk_general = _next(stt, qst_blk, ("}"), 1)[3:]
+    return QTrueFalse(correct, fdbk_true, fdbk_false, name=name, 
+                      question=header, feedback=fdbk_general)
+
+
+def _set_value_tolerance(mtype:str, val: str, tol: str):
+    tol = float(tol)
+    if mtype == "..":
+        val = (float(val) + tol)/2
+        tol = val - tol
+    return str(val), tol
+
+
+def _from_qnumerical(name: str, header: FText, stt: list, qst_blk: str):
+    qst = QNumerical(name=name, question=header)
+    stt[0] += 1   # Jump the Question type marker
+    if qst_blk[stt[0]] not in  ["=", "~"]:
+        rgx = re.match(r"([.0-9-]+)(:|(?:\.\.))([.0-9-]+)\}", qst_blk[stt[0]:])
+        val, tol = _set_value_tolerance(rgx[2], rgx[1], rgx[3])
+        qst.options.append(ANumerical(tol, fraction=100, text=val))
+    else:
+        rgx = re.compile(r"([=~])(%\d+%)?([.0-9-]+)(:|(?:\.\.))([.0-9-]+)")
+        while qst_blk[stt[0]] != "}":
+            if qst_blk[stt[0]:stt[0]+4] == "####":
+                qst.feedback = _next(stt, qst_blk, ["}"], 1)[4:]
+                continue
+            txt = _next(stt, qst_blk, ["=", "~", "#", "}"], 1)
+            if txt[0] == "#":
+                ans.feedback = txt[1:]
+                continue
+            if txt[0] == "~":          # Wrong answer. Created only to hold a
+                frac = val = tol = 0   # feedback. If no feedback.. something
+            else:                      # is wrong
+                mtc = rgx.match(txt)
+                val, tol = _set_value_tolerance(mtc[4], mtc[3], mtc[5])
+                if mtc[1] == "~":
+                    frac = 0
+                elif mtc[2]:
+                    frac = int(mtc[2][1:-1])
+                else:
+                    frac = 100
+            ans = ANumerical(tol, fraction=frac, text=val)
+            qst.options.append(ans)
+    return qst
+
+
+def _from_qmatching(name: str, header: FText, options: list):
+    qst = QMatching(name=name, question=header)
+    for _, val, _ in options:
+        mch = re.match(r"(.*?)(?<!\\) -> (.*)", val)
+        qst.options.append(Subquestion(mch[1], mch[2]))
+    return qst
+
+
+def _from_qshortanswer(name: str, header: FText, options: list):
+    qst = QShortAnswer(name=name, question=header)   # Moodle does this way,                               # so I will do the same
+    for frac, val, fdbk in options:
+        qst.options.append(Answer(frac, val, fdbk))
+    return qst
+
+
+def _from_qmultichoice(name: str, header: FText, options: list):
+    qst = QMultichoice(name=name, question=header)   # Moodle does this way,                               # so I will do the same
+    for frac, val, fdbk in options:
+        qst.options.append(Answer(frac, val, fdbk))
+    return qst
+
+
+def _from_block(name: str, header: FText, stt: list, qst_blk: str):
+    """ Essay differs to Description only because they have an empty block.
+    T/F starts with T or F. Numerical, with #. The others requires identifing
+    the type of answers given in the block, except MissingWord and ShortAnswer.
+    The only difference between these 2 is that the first has a tail text.
+    """
+    _nxt(stt, qst_blk)
+    if qst_blk[stt[0]] in ["T", "F"]:
+        return _from_qtruefalse(name, header, stt, qst_blk)
+    if qst_blk[stt[0]] == "#" and qst_blk[stt[0]:stt[0]+4] != "####":
+        return _from_qnumerical(name, header, stt, qst_blk)
+    options = []
+    rgx = re.compile(r"([=~])(%+\d%)?(.+)")
+    feedback = ""
+    all_equals = True
+    while qst_blk[stt[0]] != "}" or stt[1]:
+        if qst_blk[stt[0]] in ["=", "~"] and not stt[1]:
+            mch = rgx.match(_next(stt, qst_blk, ["=", "~", "#", "}"]))
+            all_equals &= mch[1] == "="
+            if mch[2]:
+                frac = int(mch[2][1:-1])
+            elif mch[1] == "~":
+                frac = 0
+            else:
+                frac = 100
+            if qst_blk[stt[0]:stt[0]+4] != "####" and qst_blk[stt[0]] == "#":
+                fdbk = _next(stt, qst_blk, ["=", "~", "#", "}"])
+            else:
+                fdbk = ""
+            options.append((frac, mch[3], fdbk))
+        elif qst_blk[stt[0]:stt[0]+4] == "####":
+            feedback = _next(stt, qst_blk, ["}"], 1)[4:]
         else:
-            true_ans = FText("feedback", ans[2], TextFormat(header[2][1:-1]))
-    return qst
+            _LOG.info("Char may be incorrectly placed: %s", qst_blk[stt[0]])
+            _nxt(stt, qst_blk)
+    tail = qst_blk[stt[0]+1:]
+    if tail:   
+        header.text = f"{header.text}{chr(MARKER_INT)}{tail}"
+    if not options:
+        question = _from_qessay(name, header)
+    elif " -> " in options[0][1]:
+        question = _from_qmatching(name, header, options)
+    elif all_equals:
+        question = _from_qshortanswer(name, header, options)
+    else:   # Moodle traits MissingWord as a Multichoice...
+        question = _from_qmultichoice(name, header, options)
+    question.feedback = feedback
+    return question
+    
 
-
-def _from_qnumerical(header: list, answer: list):
-    def _extract(data: str) -> tuple:
-        rgx = re.match(r"(.+?)(:|(?:\.\.))(.+)", data)
-        if rgx[2] == "..":  # Converts min/max to value +- tol
-            txt = (float(rgx[1]) + float(rgx[3]))/2
-            tol = txt - float(rgx[1])
-            txt = str(txt)
-        else:
-            txt = rgx[1]
-            tol = float(rgx[3])
-        return txt, tol
-    formatting = TextFormat(header[2][1:-1])
-    if formatting is None:
-        formatting = TextFormat.MD
-    qst = QNumerical(name=header[1], question=FText("questiontext", header[3],
-                                                    formatting, None))
-    if len(answer) == 1:
-        txt, tol = _extract(answer[0][2])
-        qst.options.append(ANumerical(tol, fraction=100, text=txt,
-                                            formatting=TextFormat.AUTO))
-    elif len(answer) > 1:
-        for ans in answer[1:]:
-            if ans[0] == "=":   # Happens first, thus ans is always defined
-                txt, tol = _extract(ans[2])
-                fraction = float(ans[1][1:-1]) if ans[0] == "=" else 0
-                nans = ANumerical(tol, fraction=fraction, text=txt,
-                                        formatting=TextFormat.AUTO)
-                qst.options.append(nans)
-            elif ans[0] == "~":
-                nans = ANumerical(0, fraction=0, text="",
-                                        formatting=TextFormat.AUTO)
-            elif ans[0] == "#":
-                nans.feedback = FText("feedback", ans[2], formatting, None)
-    return qst
-
-
-def _from_qmissingword(header: list, answer: list):
-    formatting = TextFormat(header[2][1:-1])
-    if formatting is None:
-        formatting = TextFormat.MD
-    qst = QMissingWord(name=header[1], question=FText("questiontext", header[3],
-                                                      formatting, None))
-    correct = None
-    for i in answer:
-        if i[0] == "=":
-            correct = SelectOption(i[2], 1)
-        else:
-            qst.options.append(SelectOption(i[2], 1))
-    qst.options.insert(0, correct)
-    return qst
-
-
-def _from_qmatching(cls, header: list, answer: list):
-    formatting = TextFormat(header[2][1:-1])
-    if formatting is None:
-        formatting = TextFormat.MD
-    qst = QMatching(name=header[1], question=FText("questiontext", header[3],
-                                                   formatting, None))
-    for ans in answer:
-        if ans[0] == "=":
-            rgx = re.match(r"(.*?)(?<!\\)->(.*)", ans[2])
-            qst.options.append(Subquestion(formatting, rgx[1].strip(),
-                                            rgx[2].strip()))
-        elif ans[0] == "####":
-            qst.feedback = FText("generalfeedback", ans[2], formatting)
-    return qst
-
-
-def _from_qshortanswer(header: list, answer: list):
-    formatting = TextFormat(header[2][1:-1])
-    if formatting is None:
-        formatting = TextFormat.MD
-    qst = QShortAnswer(name=header[1], question=FText("questiontext", header[3],
-                                                      formatting, None))
-    for ans in answer:
-        fraction = 100 if not ans[1] else float(ans[1][1:-1])
-        qst.options.append(Answer(fraction, ans[2], formatting))
-    return qst
-
-
-def _from_qmultichoice(header: list, answer: list):
-    formatting = TextFormat(header[2][1:-1])
-    if formatting is None:
-        formatting = TextFormat.MD
-    qst = QMultichoice(name=header[1], question=FText("questiontext", header[3],
-                                                      formatting, None))
-    prev_answer = None
-    for ans in answer:
-        txt = ans[2]
-        if ans[0] == "~":  # Wrong or partially correct answer
-            fraction = 0 if not ans[1] else float(ans[1][1:-1])
-            prev_answer = Answer(fraction, txt, None, formatting)
-            qst.options.append(prev_answer)
-        elif ans[0] == "=":  # Correct answer
-            prev_answer = Answer(100, txt, None, formatting)
-            qst.options.append(prev_answer)
-        elif ans[0] == "#":  # Answer feedback
-            prev_answer.feedback = FText("feedback", ans[2],
-                                            formatting, None)
-    return qst
-
-
-def _from_parser(question: str):
-    myiter = question.__iter__()
-    char = [next(myiter), next(myiter)]
-    name = None
-    if char == [":", ":"]:
-        char.append(next(myiter))
-        while char[-2:] != [":", ":"] or char[-3] == "\\":
-            char.append(next(myiter))
-        name = "".join(char[2:-2]).replace("\\", "")
-        char = [next(myiter)]
-    if char[1] == "[":
-        char += next(myiter)
-        while char[-1] != "]" or char[-2] == "\\":
-            char += next(myiter)
-        cformat = "".join(char[1:-1]).replace("\\", "")
-        char = [next(myiter)]
-    while char[-1] not in ["{", None] or char[-2] == "\\":
-        char = [next(myiter, None)]
-    text = "".join(char[1:-1]).replace("\\", "")
+def _from_question(qst_blk: str):
+    """Was initially using regex, but it does not handle escaped char in every
+    situation so I prefered implementing a char parse. TODO measure performance
+    regex was r"(\:\:.+?\:\:)?(\[.+?\])?(.+)(?:(?<!\\)\{(.*)(?<!\\)\})?(.*)?"
+    """
+    stt = [0, False]   # Used instead of discrete vars cause python fails to 
+    name = "default"   # map them to the internal _nxt function
+    cformat = TextFormat.AUTO 
+    if qst_blk[:2] == "::":
+        stt[0] = 3
+        while qst_blk[stt[0]:stt[0]+2] != "::" or stt[1]:
+            _nxt(stt, qst_blk)
+        name = qst_blk[2:stt[0]].replace("\\", "")
+        stt[0] += 2
+    if qst_blk[stt[0]] == "[":  # The types are limited, so we can consider
+        stt[0] += 1              # that if any '\' appears, it should be an
+        start = stt[0]           # error anyway.
+        while qst_blk[stt[0]] != "]":
+            stt[0] += 1
+        cformat = TextFormat(qst_blk[start:stt[0]])
+        _nxt(stt, qst_blk)
+    start = stt[0]
+    while stt[0] < len(qst_blk) and qst_blk[stt[0]] != "{" or stt[1]:
+        _nxt(stt, qst_blk)
+    text = qst_blk[start:stt[0]].replace("\\", "")
+    header = FText("questiontext", text.strip("\\"), cformat)
+    if stt[0] < len(qst_blk) and qst_blk[stt[0]] == "{":
+        result = _from_block(name, header, stt, qst_blk)
+    else:
+        result = _from_qdescription(name, header)
+    return result
 
 
 def read_gift(cls, file_path: str, comment=None) -> "Category":
-    top_quiz = cls()
+    """
+    """
+    top_quiz: "Category" = cls()
     quiz = top_quiz
     with open(file_path, "r", encoding="utf-8") as ifile:
-        buffer = LineBuffer(ifile)
-        while not buffer.eof:
-            tmp = buffer.read()
+        for line in ifile:
+            tmp = line.strip()
             if not tmp or tmp[:2] == "//":
                 continue
             if tmp[:10] == "$CATEGORY:":
-                quiz = gen_hier(cls, top_quiz, tmp[10:])
+                quiz = gen_hier(cls, top_quiz, tmp[10:].strip())
                 continue
-            tmp = re.match(r"(\:\:.+?\:\:)?(\[.+?\])?(.+)(?:(?<!\\)\{(.*)"
-                            r"(?<!\\)\})?(.*)?", buffer.read("\n")).groups()
-            if tmp[3] is None:
-                question = _from_qdescription(tmp)
-            else:
-                ans = re.findall(r"((?<!\\)(?:=|~|#))(%[\d\.]+%)?"
-                                    r"((?:(?<=\\)[=~#]|[^~=#])*)", tmp[4])
-                if not tmp[3]:
-                    question = _from_qessay(tmp, ans)
-                elif tmp[3][0] in ["T", "F"]:
-                    question = _from_qtruefalse(tmp, ans)
-                if tmp[3][0] == "#":
-                    question = _from_qnumerical(tmp, ans)
-                elif tmp[4]:
-                    question = _from_qmissingword(tmp, ans)
-                elif all(a[0] in ["=", "#", "####"] for a in ans):
-                    if re.match(r"(.*?)(?<!\\)->(.*)", ans[0][2]):
-                        question = _from_qmatching(tmp, ans)
-                    else:
-                        question = _from_qshortanswer(tmp, ans)
-                else:
-                    question = _from_qmultichoice(tmp, ans)
-            quiz.add_question(question)
+            for line in ifile:       # TODO Which the best way to do this?
+                tmp += line.strip()
+                if line == "\n":
+                    break
+            quiz.add_question(_from_question(tmp))
+    return top_quiz
 
 
 def write_gift(self, file_path: str) -> None:
