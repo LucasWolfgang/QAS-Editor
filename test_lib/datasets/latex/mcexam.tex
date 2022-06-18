@@ -1,0 +1,701 @@
+%%% Copyright (c) 2017 Jorre Vannieuwenhuyze.
+%%%
+%%% Permission is granted to copy, distribute and/or modify this
+%%% software under the terms of the LaTeX Project Public License
+%%% (LPPL), version 1.3c or any later version.
+%%%
+%%% This software is provided 'as is', without warranty of any kind,
+%%% either expressed or implied, including, but not limited to, the
+%%% implied warranties of merchantability and fitness for a
+%%% particular purpose.
+
+
+\documentclass{article}
+\makeatletter
+\renewcommand\tableofcontents{%
+    \@starttoc{toc}%
+}
+\makeatother
+
+\usepackage{parskip,enumitem}
+\usepackage{fancyvrb}
+\CustomVerbatimEnvironment{code}{Verbatim}{xleftmargin=1em}
+\usepackage{url}
+
+\title{The \textsf{mcexam} package}
+\author{Jorre Vannieuwenhuyze (\url{jorre_v@zoho.com})}
+
+
+
+\begin{document}
+\sloppy
+\maketitle 
+
+
+
+{\small\noindent
+This package automatically randomly permutes the order of questions and answer options in different versions of a multiple choice exam/test. Next to the exam versions themselves, the package also allows printing a concept version of the exam, a key table with the correct answers or points, and a document with solutions and explanation per exam version. The package also allows writing an R code which processes the results of the exam and calculates the grades.}
+
+\vspace{\stretch{1}}
+
+{\scriptsize\noindent\sffamily
+Copyright \textcopyright\ 2017 Jorre Vannieuwenhuyze. Permission is granted to copy, distribute and/or modify this software under the terms of the LaTeX Project Public License, version 1.3c or later.
+}
+
+\vspace{\stretch{1}}
+
+\tableofcontents
+
+\clearpage
+
+
+
+
+
+This package was developed for large-scale randomized multiple choice exams at my department. The functionalities of this package may overlap with the \textsf{esami} package and the \textsf{AMC} program but there were some special requirements at my department which are not included in these packages. In particular the \textsf{mcexam} provides the following features:
+\begin{itemize}
+ \item The possible answer permutation patterns are completely flexible and can entirely be specified by the user.
+ \item Typesetting the answer options is completely flexible with the \verb+mcanswers+ environment.
+ \item At my university, the students have to fill in a standard one-page answer form and unprocessed results from these forms are directly provided to the examiner. The package writes an \verb+R+ code which processes and analyses these results.
+\end{itemize}
+It was easier to build this new package that fits our purpose than to unravel and change the existing ones. Nevertheless, in case of interest, it is my intention to contact the developers of the other packages in order to integrate the functionalities into one package.
+
+Specifying questions and answers with the \textsf{mcexam} are very straightforward and similar to ordinary list environments. Imagine that you want to develop a multiple choice exam with three questions, each including three possible answers, which all need to be randomized. With the \textsf{mcexam} package, all you need to do is to include these questions and answers in a list-wise structure within the \verb+mcquestions+ environment inside the document body of your favourite \LaTeX\ document-class:
+\begin{code}
+\begin{mcquestions}
+
+\question How much is $2+2$? 
+
+          \begin{mcanswerslist}
+          \answer two
+          \answer[correct] four
+          \answer five
+          \end{mcanswerslist} 
+          
+\question How much is $5-3$? 
+
+          \begin{mcanswerslist}
+          \answer 1
+          \answer[correct] 2
+          \answer 3
+          \end{mcanswerslist}
+          
+\question How much is $0 \times 2$? 
+
+          \begin{mcanswerslist}[fixlast]
+          \answer 1
+          \answer 2
+          \answer[correct] none of the above
+          \end{mcanswerslist}
+          
+\end{mcquestions}
+\end{code}
+
+Depending on the option you specify when loading the package, these questions can be compiled as 
+\begin{itemize}
+ \item a concept exam which includes all information about the randomizations and solutions;
+ \item each version of the exam itself;
+ \item a key table with the correct answers;
+ \item each version of the exam including the solutions and explanations; and 
+ \item an analysis version which includes an analysis of the results of the exam after these are processed by \verb+R+.
+\end{itemize}
+The user of the package can further mark answer options by points instead of `correct/incorrect', group questions, add an introduction, an explanation and notes to each question, define arbitrary permutation patterns to the answers, and much more. As an example of such an option, note the optional argument \verb$fixlast$ in the \verb$mcanswerslist$ environment in the last question. This option means that the last answer in this question will never change place across different versions of the exam. Of course, there are many more such options and all these options are described below.  
+
+An example exam file is given in \verb$mcexam_example.tex$. Fictitious results for this exam are given in the \verb$mcexam_example_dataset.r$ which can be processed in R following the instructions below.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Loading the package}
+
+The package is loaded as usual by the code statement 
+\begin{code}[commandchars=\!\?\;]
+\usepackage[!emph?<options>;]{mcexam}
+\end{code}
+The \textsf{mcexam} package requires the following packages to be installed: 
+\textsf{xkeyval}, 
+\textsf{etoolbox}, 
+\textsf{xstring}, 
+\textsf{environ}, 
+\textsf{pgf}, 
+\textsf{enumitem}, 
+\textsf{longtable} and 
+\textsf{newfile}.
+
+The following package options can be included as `key=value'-pairs:
+
+\begin{itemize}
+ \item \verb$output$: 
+       The package  option \verb$output$ defines the output type of the document. There are five possible output types you can use:
+       \begin{itemize}
+       \item \verb$output=concept$: 
+             This option creates a concept version of your exam with all the questions typeset in the same order as they appear in the script file. For each question, the correct answers or the answer points are given, a table is created with the answer permutations for each version of the exam, the explanation of the solution is shown and the additional notes are shown. \verb$concept$ is the default output type.
+       \item \verb$output=exam$: 
+             This option creates a version of the exam that can be printed and given to the students during the real exam. It doesn't mark the correct answer and hides explanation boxes and question notes. The version of the exam which needs to be made, can be specified by the \verb$version$ option (see below).
+       \item \verb$output=key$: 
+             This option creates a key table with the labels of the correct answers for each question. This key table can be published after the exam so that the students can check there answers, without seeing the actual questions and answers themselves.
+       \item \verb$output=answers$: 
+             This option creates a document with the questions, the answers and an explanation of the solution. It is meant to be used for feedback to the students. As with the \verb+exam+ output, these answer documents have to be made for each version separately because they maintain the randomization order of the questions and answers. The version of the exam which needs to be made, can be specified by the \verb$version$ option (see below).
+       \item \verb$output=analysis$: 
+             This option provides an analysis of the results, it provides the frequencies of students giving the answer options and it shows statistics like the average points, the p-value, the corrected p-value, the item rest correlation, or Cronbach's alpha. Before using this option, the results need to be processed by R first (see section \ref{sec:analysis}).
+       \end{itemize}
+       
+  
+ \item \verb$numberofversions=$$n$: 
+       This option specifies the total number of versions $n$ to be made. By default the number of versions is set to $4$. Make sure that the version number (the next package option) does not exceed this number. If the version number does exceed the number of versions, an error will be thrown.
+
+ \item \verb$version=$$v$: 
+       This option defines the version $v$ which needs to be printed when \verb$output=exam$ or \verb$output=answers$. This option takes a number as argument between 1 and the total number of versions, e.g. \verb$version=1$, \verb$version=2$, etc. The default value of this option is \verb$version=1$. 
+              
+       The package also defines the command \verb+\mctheversion+ which can be used to print the version number on the document in the correct format (see section \ref{section:counterformats}). In the \verb$exam$ or \verb$answers$ output style, it prints ``Version $v$''. In the \verb$concept$ output style, it prints ``Concept version''. In the \verb$analysis$ output style, it prints ``Analysis''. 
+
+ \item \verb$seed=$$s$: 
+       This option sets the seed $s$ for the random permutations, which is an arbitrarily chosen positive integer. The seed is not set by default, which means that a different randomization will be obtained each time the document is processed. For that reason, it is advised to always specify the seed, in order to obtain consistent output across different runs.
+
+ \item \verb$randomizequestions=$\emph{true/false}:
+       This option defines whether the question order should be randomized (true) or not (false). This option is set to true by default. 
+
+ \item \verb$randomizeanswers=$\emph{true/false}: 
+       This option defines whether the answer order should be randomized (true) or not (false). This option is set to true by default. If you set both the \verb$randomizequestions$ and the \verb$randomizeanswers$ options to false, a warning will be thrown. After all, if you don't want to randomize anything, you don't really need this package. 
+
+ \item \verb$writeRfile=$\emph{true/false}: 
+       This option defines whether an \verb$R$-script should be written including macro's to process and analyse the students' answers. If it is set to true, an \verb$R$-script will be written. By default it is set to false. Note that, if this option is set to true, all questions should contain answers within the \verb+mcanswers+ or \verb+mcanswerslist+ environments, otherwise the program will throw errors.
+
+\end{itemize}
+
+The package also defines the \verb$\mcexamoptions{key=value,...}$ command which can also be used to set or change the package options after the package has been loaded.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Setting the questions}
+
+
+\subsection{The questions}
+
+The most important parts of the exam are, of course, the questions. Within the body of your script file, you place the questions within the \verb$mcquestions$-environment which works similar to list-environments. Each question is preceded by a \verb$\question$ command similar to the \verb$\item$ command:
+\begin{code}
+\begin{mcquestions}
+\question This is the first question.
+\question This is the second question.
+\end{mcquestions}
+\end{code}
+
+Sometimes, some questions belong together and these questions may not be split when the question order is randomized. To avoid this undesirable behavior, you can include \verb$follow$ as an optional argument to the \verb$\question$ command. For example, 
+\begin{code}
+\begin{mcquestions}
+\question This is the first question.
+\question[follow] This is the second question.
+\question The third question.
+\end{mcquestions}
+\end{code}
+means that the second question will always directly follow the first question even though they may appear as questions two and three instead of one and two in some versions of the exam.
+
+
+
+
+
+\subsection{The answers}
+
+With the \verb$mcexam$ package, answers can be set in two ways. The first and probably the most common way to set the answers is a list structure. This can be achieved by the \verb$mcanswerslist$ environment which works similar to regular list-environments. Each answer is preceded by an \verb$\answer$ command (like \verb$\item$ in an \verb$itemize$ list). You can include as many answers as you want. For example
+\begin{code}
+\question What is the color of the sky?
+  \begin{mcanswerslist}
+  \answer blue
+  \answer green
+  \answer red
+  \answer yellow
+  \answer none of the above
+  \end{mcanswerslist}    
+\end{code}
+will typeset 
+\begin{enumerate}[label=\arabic{*}.,itemsep=1\baselineskip]
+ \item What is the color of the sky?
+ \begin{enumerate}[label=\alph{*}),noitemsep]
+ \item blue
+ \item green
+ \item red
+ \item yellow
+ \item none of the above
+ \end{enumerate}
+\end{enumerate}
+or any of its permutations.
+
+Sometimes, however, such list structures are not what you want. In that case you can use the \verb$mcanswers$ environment. Within this environment you need to use the \verb$\answer$ command and the \verb$\answernum$ command. The \verb$\answer{$$n$\verb$}{$\emph{answer}\verb$}$ sets the \emph{answer} itself which is assigned number $n$. It is mandatory to use all numbers between 1 and the total number of answers. For example, if you need three answers you need to include \verb$\answer{1}{...}$, \verb$\answer{2}{...}$, and \verb$\answer{3}{...}$, otherwise the package will throw errors. The order in which the \verb$\answer$ commands appear, however, is not important. You can start with \verb$\answer{3}{...}$ as long as you also include \verb$\answer{1}{...}$ and \verb$\answer{2}{...}$. 
+
+The \verb$\answernum{$$n$\verb$}$ simply typesets the answer number $n$ in the correct format (see section \ref{section:counterformats}). This command is not mandatory to use, but it is highly recomended to use it because it will automatically typeset the answer number in the correct format. 
+
+As an example, the code
+\begin{code}
+\question Which is the letter alpha?
+          \begin{mcanswers}
+          \begin{tabular}{cccc}
+          \answer{1}{\Huge$\alpha$} & 
+          \answer{2}{\Huge$\beta$}  & 
+          \answer{3}{\Huge$\gamma$} & 
+          \answer{4}{\Huge$\delta$} \\[0.1\baselineskip]
+          \answernum{1} &
+          \answernum{2} &
+          \answernum{3} &
+          \answernum{4} \\
+          \end{tabular} 
+          \end{mcanswers}
+\end{code}
+will produce 
+\begin{enumerate}[label=\arabic{*}.,itemsep=1\baselineskip]
+ \item Which is the letter alpha?\par
+   \begin{tabular}{cccc}
+   \Huge$\alpha$&\Huge$\beta$&\Huge$\gamma$&\Huge$\delta$\\[0.1\baselineskip]
+   a)&b)&c)&d)\\
+   \end{tabular} 
+\end{enumerate}
+or something similar with the Greek letters shuffled around.
+
+
+
+
+
+
+\subsubsection{Permuting the answers}
+
+By default, all answers are randomly shuffled within the \verb$mcanswerslist$ and \verb$mcanswers$ environments. However, this is not always what you want. For that reason, both environments have one optional argument which specifies how answers should be permuted. This option can be one of the following:   
+\begin{itemize}
+ \item \verb$permuteall$:
+       With this option, all answers are permuted in the different versions of the exam. This is the default option and doesn't need to be given explicitly.
+ \item \verb$ordinal$:
+       This option permutes the answers in order. That is, the answers are given on the exam either in the order or the reversed order as they are given in the script file.
+ \item \verb$fixlast$:
+       This option permutes all answers except the last given answer. This is handy if the last answer is something like, for example, ``None of the above''. 
+ \item \verb$permutenone$:
+       This option doesn't permute the answers and sorts the answers in each version in the same order as they are given in the script file.
+ \item \emph{User specific}:
+       If none of the above options satisfies your needs, you can still enter the possible permutations manually. You achieve this by making a comma separated list of all allowed permutations where each permutation itself is a comma separated list of all answer numbers within two curly braces. For example, if your question contains three answers you can give the option \verb$[{1,2,3},{2,3,1}]$. With this option, the package will either put the answers in the order `answer 1, answer 2, answer 3' or in the order `answer 2, answer 3, answer 1'. The package will throw errors if only one permutation is given, if a permutation does not contain all answer numbers, if a permutation contains answer numbers more than once, or if a permutation contains invalid answer numbers. The package will not throw errors if a permutation is given more than once. For example, \verb$[{1,2,3},{1,2,3},{2,3,1}]$ will not give errors, it just means that the order `1,~2,~3' is twice more likely to appear than the order `2,~3,~1'.
+\end{itemize}
+
+Putting all together, in your script file you can write something like this:
+\begin{code}
+\question What is the color of the sky?
+  \begin{mcanswerslist}[fixlast]
+  \answer blue
+  \answer green
+  \answer red
+  \answer yellow
+  \answer none of the above
+  \end{mcanswerslist}    
+  
+\question Which statement is correct?        
+          \begin{mcanswerslist}[{1,2,3,4},{2,1,4,3}
+                                ,{3,4,1,2},{4,3,2,1}]
+          \answer The moon is a planet.
+          \answer The moon is a star.
+          \answer The sun is a planet.
+          \answer The sun is a star.
+          \end{mcanswerslist}
+\end{code}
+
+
+
+
+
+\subsubsection{Points}
+
+The correct answer (or answers) can be marked by an optional argument of the \verb$\answer$ command in both the \verb$mcanswerslist$ and \verb$mcanswers$ environments, that is 
+\begin{code}[commandchars=\!\?\;]
+\answer[!emph?<mark>;] 
+\end{code}
+in the \verb$mcanswerslist$ environment and 
+\begin{code}[commandchars=\!\?\;]
+\answer[!emph?<mark>;]{!emph?<n>;}{!emph?<answer>;}
+\end{code}
+in the \verb$mcanswers$ environment. The \textit{\texttt{<mark>}}-option can be either of two modes.
+\begin{itemize}
+ \item \verb$correct$ or empty (=incorrect, default): 
+       With these options, answers are either correct or incorrect. Correct answers are given one point, incorrect answers are given zero points. Note that more than one answer per question can be marked as correct.
+ \item A decimal number:
+       Altenatively, the marks can be decimal numbers which are the points given to each answer. The numbers/points can be negative in case you want to use guess corrections. 
+\end{itemize}
+Depending on the mode (correct/incorrect or points) the package may give slightly different output in some output types. As soon as the package encounters one decimal as a mark, it switches to points mode. In this mode, \verb$correct$ or empty options will not give errors but will be treated as one point and zero points respectively. In case no decimal marks are given and only `\verb$correct$' marks are encountered, the package will give output in correct/incorrect-mode.
+
+As an example, the following questions are valid questions:
+\begin{code}
+\question Which is the letter alpha?
+          \begin{mcanswers}
+          \begin{tabular}{cccc}
+          \answer[correct]{1}{\Huge$\alpha$} & 
+          \answer{2}{\Huge$\beta$}  & 
+          \answer{3}{\Huge$\gamma$} & 
+          \answer{4}{\Huge$\delta$} \\[0.1\baselineskip]
+          \answernum{1}&
+          \answernum{2}&
+          \answernum{3}&
+          \answernum{4}\\
+          \end{tabular} 
+          \end{mcanswers}
+\end{code}
+and 
+\begin{code}
+\question What is the color of the sky?
+  \begin{mcanswerslist}[fixlast]
+  \answer[4] blue
+  \answer[-2] green
+  \answer[1.5] red
+  \answer[1] yellow
+  \answer none of the above
+  \end{mcanswerslist}  
+\end{code}
+
+
+
+
+
+
+
+
+
+
+\subsection{Instructions, explanation, and notes}
+
+
+Additional to the answers, the question environment can also include an \verb$mcquestioninstruction$, an \verb$mcexplanation$ and an \verb$mcnotes$ environment. The \verb$mcquestioninstruction$ environment is used for general instructions about the next question or group of questions (using the \verb$follow$ option of the \verb$\question$ command). It is printed in the exams themselves. The \verb$mcexplanation$ enviromnent should be used to store an explanation of the question and the right answer. It is printed in the \verb$concept$ and the \verb$answers$ versions. The \verb$mcnotes$ enviromnent, in contrast, can be used to store additional notes about the question. It is only printed in the \verb$concept$ version. An example of their use is as follows:
+\begin{code}
+\begin{mcquestioninstruction}
+This is a question about the sky.
+\end{mcquestioninstruction}
+
+\question What is the color of the sky?
+         
+          \begin{mcanswerslist}[fixlast]
+          \answer[4] blue
+          \answer[-2] green
+          \answer[1.5] red
+          \answer[1] yellow
+          \answer none of the above
+          \end{mcanswerslist}        
+  
+          \begin{mcexplanation}
+          If you look up to the sky and there are no clouds,
+          you'll see it is blue.
+          \end{mcexplanation}
+
+          \begin{mcnotes}
+          This question had a large proportion of good answers 
+          last year.
+          \end{mcnotes}
+\end{code}
+
+Note that the \verb$mcquestioninstruction$ comes before the \verb$\question$ command while the \verb$mcexplanation$ and \verb$mcnotes$ environments come after the \verb$\question$ command. As a result, an \verb$mcexplanation$ or an \verb$mcnotes$ environment before the first \verb$\question$ will give an error, while an \verb$mcquestioninstruction$ after the last \verb$\question$ will also give an error.
+
+
+
+
+\section{Selective output}
+
+Sometimes, you may want to print some text or use some commands in, for example, only one output type or in only one version of the exam. In that case, you should use the \verb$\mcifoutput$ command: 
+\begin{code}[commandchars=\!\?\;]
+\mcifoutput[!emph?<versions>;]{!emph?<output-types>;}{!emph?<text>;}  
+\end{code}
+This command prints \textit{\texttt{<text>}} in all \textit{\texttt{<output-types>}} given as a comma-separated list. In the \verb$exam$ and \verb$answers$ output types you can also optionally specify the \textit{\texttt{<versions>}} as a comma-separated list. As an example, the code 
+\begin{code}
+  \mcifoutput{concept,exam}{name:}
+\end{code}
+will print ``name:'' on the exams and in the concept version but not on the answers document, the key table, or the analysis document. The command 
+\begin{code}
+  \mcifoutput[1,3]{exam}{\newpage}
+\end{code}
+will start a new page on the exams version 1 and 3 but not in the other versions. If the \textit{\texttt{<versions>}} option is empty, the command will print \textit{\texttt{<text>}} on all versions of the \verb$exam$ documents. Note that the \textit{\texttt{<versions>}} option is ignored for \verb$concept$, \verb$key$ and \verb$analysis$ output. This means that code like 
+\begin{code}
+  \mcifoutput[wrong]{exam,concept}{blah} 
+\end{code}
+will print ``blah'' on the concept version because \verb$wrong$ is ignored. However, this code will print nothing on the exams because the \textit{\texttt{<versions>}} option is not empty (although wrong). Note that the optional \textit{\texttt{<versions>}} parameter can not be used in the preamble because the version is only set in stone at the \verb$\begin{document}$.
+
+
+
+
+
+
+
+\section{Analysis of results\label{sec:analysis}}
+
+  \subsection{Processing with R}
+  
+Typically, multiple choice exams are completed on standard forms which are scanned automatically. The examiner then receives a data file listing all students with their answers. Using this file to grade the students is not an easy task because it firstly requires to map the given permuted answer number to the initial answer number and secondly requires checking whether this answer is right or wrong. The \textsf{mcexam} class allows to do this semi-automatically.
+
+If the \verb$writeRfile$ package option is enabled, compiling the exam document in any of the output types automatically generates an \verb$R$ file which can be used to process data files with the answers of the students. The \verb$R$ code will be written to the file \verb$\jobname.r$. In case more than one \verb$mcquestions$ environments are present in the document, the second environment will write its \verb$R$-code to the file \verb$\jobname-B.r$, the third will be written to the file \verb$\jobname-C.r$, etc. The \verb$-B$, \verb$-C$, \ldots extensions can be overruled by the optional argument of the \verb$mcquestions$ environment. For example, if you write
+\begin{code}
+\begin{mcquestions}[myfile]
+...
+\end{mcquestions}
+\end{code}
+the \verb$R$-code of this environment will be written to the file \verb$\jobname-myfile.r$.
+
+In the \verb$R$ file, the function \verb$processanswers$ is defined which processes the answers. This function takes four arguments:
+\begin{itemize}
+ \item \verb$ID$: 
+       A vector with the ID numbers of the students.
+ \item \verb$version$: 
+       A numeric vector with the version number of the exam for each student in the same order as \verb$ID$.
+ \item \verb$answers$: 
+       A numeric data frame with the given answers of the students. The columns refer to the questions, the rows to the students in the same order as \verb$ID$. 
+       
+       Watch out, if your initial data is not numeric, you must first transform the data to numeric answers. For example, if you have a data frame \verb$X$ with answers in capital letters (A-Z) format, you need first to map these letters to the numbers 1-26 by, for example, applying the \verb$match$ function to the data frame:
+       \begin{quote}
+        \verb$apply(answers,2,match,LETTERS)$.
+       \end{quote}
+ \item \verb$path$: 
+       The path where the function writes information for the analysis output type (see next subsection). By default, the path is the working directory (\verb$getwd()$).
+\end{itemize}
+
+The \verb$processanswers$ function creates a new data frame with the students' ID's, the versions, and two variables for each question. The variables \verb$originalQuestion.x$, where \verb$x$ refers to the question number, store the answers of the students in the initial enlisting of the script file (before permutations). The variables \verb$pointsQuestion.x$ give the points of a student to initial question \verb$x$ (in correct/incorrect mode, it is 1 if a student gave a correct answer to question \verb$x$ and 0 if the student gave a wrong answer). Additionally, there is also the \verb$total$ variable which stores the sum of the points (i.e. the sum of the \verb$pointsQuestion.x$ variables).
+
+The \verb$processanswers$ function also creates the file \verb$\jobname.ana$ which stores information for the analysis output type.
+
+
+  \subsection{Compiling an analysis document}
+  
+After processing the answers in R, you can compile an analysis document with the  \verb$output=analysis$ package option. This analysis document includes the percentages of students giving each answer option, the (corrected) p-values, the item-rest correlations, and Cronbach's alpha of the questions. First, confirm that the \verb$\jobname.ana$ file, which was created by R, is in the same folder as your \verb$.tex$ file. In case of multiple \verb$mcquestions$ environments, the program will automatically take the extension into account, also when this is specified by the optional argument of the \verb$mcquestions$ environment. 
+
+
+
+ 
+ 
+ 
+ 
+ 
+
+\section{Lay-out and additional useful commands}  
+  
+  
+\subsection{Tweaking the output types}
+
+At \verb$\begin{document}$, a set of booleans are defined which depend on the output type and which control how the output is created. These booleans can be changed if you don't like the output of a certain output type. In order to change these booleans, use the 
+\begin{code}[commandchars=\!\?\;]
+\mcsetupConcept{!emph?<keys>;}
+\mcsetupExam{!emph?<keys>;}
+\mcsetupKey{!emph?<keys>;}
+\mcsetupAnswers{!emph?<keys>;}
+\mcsetupAnalysis{!emph?<keys>;} 
+\end{code}
+commands, which take a \texttt{key=\textit{value}}-list as argument. The keys which can be used are the following:
+\begin{itemize}
+\item \verb$showPerVersion=$\emph{true/false}: 
+      If true, only one version is send to the output depending on the \verb$version$ option of the package. If false, a general document is made which summarizes all versions and which may show permutation tables for the questions and answers (if these are permuted at least). 
+\item \verb$showQuestionPermutationtable=$\emph{true/false}:
+      Show a permutation table of the questions at the start of the \verb$mcquestions$ environment?
+\item \verb$showQuestionsAnalysis=$\emph{true/false}:
+      Show a the analysis of the questions at the start of the \verb$mcquestions$ environment? (Requires an \verb$.ana$ file).
+\item \verb$showQuestionList=$\emph{true/false}:
+      Show the questions?
+\item \verb$showCorrectAnswers=$\emph{true/false}:
+      Show the correct answers in correct/incorrect-mode?
+\item \verb$showAnswerPoints=$\emph{true/false}:
+      Show the answer points in points-mode?
+\item \verb$showExplanation=$\emph{true/false}:
+      Show the explanation of the correct answer?
+\item \verb$showAnswerPermutationTable=$\emph{true/false}:
+      Show the premutation table of the answers for each question?
+\item \verb$showAnswersAnalysis=$\emph{true/false}:
+      Show a the analysis of the answers for each question? (Requires an \verb$.ana$ file).
+\item \verb$showNotes=$\emph{true/false}:
+      Show the notes for each question?
+\item \verb$showKeytable=$\emph{true/false}:
+      Show the key table? Note that the key table always summarizes all versions. It make no sense to set \verb$showKeytable=true$ if \verb$showPerVersion=true$.
+\end{itemize}
+As an example, if you don't like the standard way of making a document for each version separately with the answers, you can add the following command to the preamble:
+\begin{code}[commandchars=\!\?\;]
+\mcsetupAnswers{showPerVersion=false
+               ,showQuestionPermutationtable=true
+               ,showAnswerPermutationTable=true
+               } 
+\end{code}
+
+  
+  
+
+  
+\subsection{Changing the appearance of the counters}\label{section:counterformats}
+
+By default, the number format of the version numbers is \verb$\Roman$, of the questions numbers is \verb$\arabic$, and of the answers numbers is \verb$\alph$. These formats can be changed by redefining the \verb$\mcversionlabelfmt$, the \verb$\mcquestionlabelfmt$ and the \verb$\mcanswerlabelfmt$ commands with \verb$\renewcommand$. Currently, these commands are defined as 
+\begin{code}
+\newcommand\mcversionlabelfmt[1]{\Roman{#1}} 
+\newcommand\mcquestionlabelfmt[1]{\arabic{#1}}
+\newcommand\mcanswerlabelfmt[1]{(\alph{#1})}
+\end{code}  
+  
+  
+  
+
+  
+  
+\subsection{Changing the appearance of the list structures}
+
+The questions, the answers in the \verb$mcanswerslist$ environment and the question information in the \verb$concept$, \verb$answers$ and \verb$analysis$ output styles are put in newly defined lists using the \verb$enumitem$ package. The lists are \verb$setmcquestions$, \verb$setmcanswerslist$ and \verb$setmcquestioninfo$. You can change the appearance of these lists using the \verb$\setlist$ command from the \verb$enumitem$ package. For more information, refer to the \verb$enumitem$ package documentation. Currently, the lists are defined as
+\begin{code}
+\setlist[setmcquestions]{label=\mcquestionlabelfmt{*}.
+                        ,ref=\mcquestionlabelfmt{*}
+                        ,itemsep=2\baselineskip   
+                        ,topsep=2\baselineskip         }
+\setlist[setmcanswerslist]{label=\mcanswerlabelfmt{*}
+                           ,noitemsep}                           
+\setlist[setmcquestioninfo]{before=\footnotesize\sffamily}  
+\end{code}
+
+
+
+
+
+
+
+
+
+
+\subsection{Changing the appearance of different document elements}
+
+The package defines several environments which typeset particular content. The \verb$setmcquestioninstruction$ environment typesets the question instructions, the \verb$setmcquestion$ typesets the question and its answer options, the \verb$setmcanswers$ environment typesets the content of the \verb$mcanswers$ environment, the \verb$setmcquestionpermutationtable$ typesets the permutation table of the questions, the \verb$setmcanswerpermutationtable$ typesets the permutation table of the answers, the \verb$setmcquestionanalysistable$ and \verb$setmcansweranalysistable$ environments typeset the analysis tables in the \verb$analysis$ output, and the \verb$setmckeytable$ typesets the key table in the \verb$key$ output. All these environments can be redefined with the \verb$renewenvironment$ command. Currently, they are defined as 
+\begin{code}
+\newenvironment{setmcquestioninstruction}
+  {\noindent}
+  {}
+\newenvironment{setmcquestion}
+  {}  
+  {}  
+\newenvironment{setmcanswers}
+  {\vspace{\baselineskip}}
+  {}   
+\newenvironment{setmcquestionpermutationtable}
+  {\begin{center}
+   \footnotesize\sffamily
+   \setlength{\tabcolsep}{15pt}    }
+  {\end{center}}  
+\newenvironment{setmcanswerpermutationtable}
+  {\begin{center}
+   \setlength{\tabcolsep}{10pt}    }
+  {\end{center}}
+\newenvironment{setmcquestionanalysistable}
+  {\begin{center}
+   \setlength{\tabcolsep}{10pt}
+   \footnotesize\sffamily          }
+  {\end{center}}
+\newenvironment{setmcansweranalysistable}
+  {\begin{center}\setlength{\tabcolsep}{10pt}}
+  {\end{center}}  
+\newenvironment{setmckeytable}
+  {\begin{center}\setlength{\tabcolsep}{10pt}}
+  {\end{center}}
+\end{code}
+
+For example, if you want to keep all questions and answer options together on the same page, you can include them in a minipage as follows:
+\begin{code}
+\renewenvironment{setmcquestion}
+  {\begin{minipage}[t]{\linewidth-\labelwidth}}
+  {\end{minipage}\par} 
+\end{code}
+provided that the \verb$calc$ package has been loaded.
+
+
+
+
+
+
+
+  
+\subsection{Babel}  
+
+The \verb$babel$ package can be used in an \verb$mcexam$ document. At the moment, a Dutch implemenation is included. For Dutch exams, you include
+\begin{code}
+\usepackage[dutch]{babel}
+\end{code}
+in the preamble of your script file.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Revision History}
+
+
+\subsection{Versions}
+
+\begin{description}
+
+\item[2017/05/02 v0.3:] First published version.
+
+\item[2017/12/26 v0.4:] Added \texttt{pgffor} package to fix bug.
+
+\item[2021/09/12 v0.5:] Fixed bugs with randomization of answers.
+
+\end{description}
+
+
+
+
+
+
+
+
+ 
+ 
+ 
+\end{document}

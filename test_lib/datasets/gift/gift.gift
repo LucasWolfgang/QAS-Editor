@@ -83,7 +83,7 @@ $CATEGORY: qas editor/Shorts
 		####<p><em>Essays</em> have to be marked by hand. They are <em>manually graded.</em></p>\n<p>The full list of question behaviours is therefore</p>\n<ul>\n<li>deferred feedback with and without Certainty Based Marking</li>\n<li>interactive with multiple tries</li>\n<li>immediate feedback with and without Certainty Based Marking</li>\n<li>manually graded</li>\n</ul>\n<p>All within one quiz system.</p>
 	}
 
-	::Q3:: Two plus {=two =2} equals four.
+	::Q3:: Two plus two equals {=four =4}
 
 	::h3::[html]<p>Type in the name of the ISLAND where the first ever Moodle Research conference was held.</p>{
 		=%100%Crete#<p>Correct. Well done! More information on Moodle Research conferences on the<a href\="http\://research.moodle.net/" title\="Moodle Research site"> Moodle Research site.</a></p>

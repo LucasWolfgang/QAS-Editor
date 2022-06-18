@@ -10,17 +10,19 @@
 </div><br/>
 
 # QAS-Editor
-Question and Answer Sheet Editor is both a Library to automate tasks related to the creation, deletion, update and organization of questions, and a utility to help doing the same using a UI, in the case you don't have access to another tool, or the tool is not optimized fro your usage (which is my case for the [Free Moodle website](https://school.moodledemo.net))
+Question and Answer Sheet Editor is both a python API and a UI utility to automate/help with tasks related to the creation, deletion, update, organization and convertion of question databases.
  
-The structure of the class is based on the Moodle XML. The initial sorce code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle)
+The structure of the class is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle)
 
 The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/). All these coded were modified a lot, but even so, thank a lot for those who coded them.
 
 ## Requirements
 - Requires at least Python 3. If using all dependencies, at least Python 3.6.
-- Use the requirements.txt file to get all the required dependencies installed to be able to fully use the library. All the library are only used in specific flows, so you can just don't install it.
+- Use the setup.py to install the package using:
 
-    ```python -pip install -r requirements.txt```
+    ```python setup.py install```  
+    or   
+    ```python -m pip install .```  
 
 ## Features
   - Hierarchical structures to more easily use and extend module.
@@ -36,26 +38,31 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
  | Drag and drop image    |  :o:  |  :x:  |  :x: | Random matching  |  :o:  |  :x:  |  :x: |
  | Description            |  :o:  |  :o:  |  :x: | Missing word     |  :o:  |  :x:  |  :x: |
  | Essay                  |  :o:  |  :x:  |  :x: | True/False       |  :o:  |  :x:  |  :x: | 
- </center ><br/
+ </center><br/
 
  - A GUI to create, delete, modify and organize questions
- <center >
+ <center>
   
  ![QAS editor GUI](https://user-images.githubusercontent.com/39681420/170771346-1e1d532b-6745-4125-b647-d704d645e5c4.png)
- </center ><br/>
+ </center><br/>
 
  - Many different import and export formats
  <center>
   
- |  Type      | Import | Export | Test | Type         | Import | Export | Test |
- | ---------- | :----: | :----: | :--: | ------------ | :----: | :----: | :--: |
- | Aiken      |   :o:  |   :o:  |  :o: | LaTex (MCQ)  |   :x:  |   :x:  |  :x: |
- | Json (QAS) |   :o:  |   :o:  |  :x: | Markdown     |   :o:  |   :x:  |  :x: |
- | Cloze      |   :o:  |   :x:  |  :x: | PDF          |   :x:  |   :x:  |  :x: |
- | GIFT       |   :o:  |   :x:  |  :x: | XML (Moodle) |   :o:  |   :o:  |  :o: |
+ |  Type      | Import | Export | Test | Type              | Import | Export | Test |
+ | ---------- | :----: | :----: | :--: | ----------------- | :----: | :----: | :--: |
+ | Aiken      |   :o:  |   :o:  |  :o: | Markdown (MCQ)    |   :o:  |   :x:  |  :x: |
+ | Anki       |   :x:  |   :x:  |  :x: | Moodle            |   :o:  |   :o:  |  :o: |
+ | BlackBoard |   :x:  |   :x:  |  :x: | PDF               |   :x:  |   :x:  |  :x: |
+ | Canvas LMS |   :x:  |   :x:  |  :x: | Quizlet           |   :x:  |   :x:  |  :x: |
+ | Cloze      |   :o:  |   :x:  |  :x: | Tex (AMQ)         |   :x:  |   :x:  |  :x: |
+ | GIFT       |   :o:  |   :x:  |  :x: | Tex (moodlexport) |   :o:  |   :x:  |  :x: |
+ | HDF5       |   :x:  |   :x:  |  :x: | Tex (MCexam)      |   :x:  |   :x:  |  :x: |
+ | QAS (json) |   :o:  |   :o:  |  :o: | Tex (alterqcm)    |   :x:  |   :x:  |  :x: |
+ | Kahoot     |   :x:  |   :o:  |  :x: |
 </center ><br/>
 
-# Open to ideas
+## Open to ideas
   - Have any format that you want to see the tool able to import or export?
   - Have any suggestions for the GUI?
   Just create an issue! One day I will definently work on it (if it is a good idea, of course).

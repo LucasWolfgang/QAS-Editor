@@ -15,38 +15,65 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import re
 import logging
 from typing import TYPE_CHECKING
+from ..enums import TextFormat, ClozeFormat
 from ..utils import FText
-from ..questions import QCloze
+from ..answer import ClozeItem, Answer
+from ..questions import QCloze, MARKER_INT
 if TYPE_CHECKING:
     from ..category import Category
 
 _LOG = logging.getLogger(__name__)
+_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
 
-def _from_QCloze(buffer, embedded_name=False):
-    """_summary_
 
-    Args:
-        buffer (MOODLE_): _description_
+def from_text(text):
+    gui_text = []
+    start = 0
+    options = []
+    for match in _PATTERN.finditer(text):
+        opts = []
+        for opt in match[3].split("~"):
+            if not opt:
+                continue
+            tmp = opt.strip("}~").split("#")
+            if len(tmp) == 2:
+                tmp, fdb = tmp
+            else:
+                tmp, fdb = tmp[0], ""
+            frac = 0.0
+            if tmp[0] == "=":
+                frac = 100.0
+                tmp = tmp[1:]
+            elif tmp[0] == "%":
+                frac, tmp = tmp[1:].split("%")
+                frac = float(frac)
+            feedback = FText("feedback", fdb, TextFormat.PLAIN)
+            opts.append(Answer(frac, tmp, feedback, TextFormat.PLAIN))
+        options.append(ClozeItem(int(match[1]), ClozeFormat(match[2]), opts))
+        gui_text.append(text[start: match.start()])
+        start = match.end()
+    gui_text.append(text[start:])
+    return chr(MARKER_INT).join(gui_text), options
 
-    Returns:
-        QCloze: _description_
-    """
+
+def _from_QCloze(buffer, embedded_name):
     data: str = buffer.read()
     if embedded_name:
         name, text = data.split("\n", 1)
     else:
         name = "Cloze"
         text = data
-    ftext = FText("questiontext", text.strip())
-    return QCloze(embedded_name, name=name, question=ftext)
+    text, opts = from_text(text.strip())
+    return QCloze(name=name, question=text, options=opts)
 
 
 # -----------------------------------------------------------------------------
 
 
-def read_cloze(cls, file_path: str, category: str = "$course$") -> "Category":
+def read_cloze(cls, file_path: str, embedded_name=False) -> "Category":
     """Reads a Cloze file.
 
     Args:
@@ -56,28 +83,28 @@ def read_cloze(cls, file_path: str, category: str = "$course$") -> "Category":
     Returns:
         Quiz: _description_
     """
-    top_quiz = cls(category)
+    top_quiz = cls()
     with open(file_path, "r", encoding="utf-8") as ifile:
-        top_quiz.add_question(_from_QCloze(ifile))
+        top_quiz.add_question(_from_QCloze(ifile, embedded_name))
     _LOG.info(f"Created new Quiz instance from cloze file {file_path}")
     return top_quiz
 
 
 
-def write_cloze(self, file_path: str):
+def write_cloze(cat, file_path: str, embedded_name=False):
     """_summary_
 
     Args:
         file_path (str): _description_
     """
     def _to_cloze(path, counter=0):
-        for question in self.__questions:
+        for question in cat.questions:
             if isinstance(question, QCloze):
                 name = f"{path}_{counter}.cloze"
                 with open(name, "w", encoding="utf-8") as ofile:
-                    ofile.write(f"{question.pure_text()}\n")
+                    ofile.write(f"{question.pure_text(embedded_name)}\n")
                     counter += 1
-        for child in self.__categories.values():
-            child._to_cloze(f"{path}_{child.name}", counter)
+        for child in cat:
+            _to_cloze(cat[child], f"{path}_{child.name}", counter)
 
     _to_cloze(file_path.rsplit(".", 1)[0])

@@ -19,14 +19,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 import logging
 import re
-from enum import Enum
 from typing import TYPE_CHECKING
-from xml.etree import ElementTree as et
 
 from .utils import Serializable
 from .questions import _Question
 from .enums import Status
-from ._parsers import aiken, gift, hdf5, json, latex, markdown, moodle
+from ._parsers import aiken, cloze, gift, json, latex, markdown, moodle
 if TYPE_CHECKING:
     from typing import Dict, List   # pylint: disable=C0412
 LOG = logging.getLogger(__name__)
@@ -50,6 +48,7 @@ class Category(Serializable):  # pylint: disable=R0904
     """
 
     read_aiken = classmethod(aiken.read_aiken)
+    read_cloze = classmethod(cloze.read_cloze)
     read_gift = classmethod(gift.read_gift)
     read_json = classmethod(json.read_json)
     read_latex = classmethod(latex.read_latex)
@@ -57,6 +56,7 @@ class Category(Serializable):  # pylint: disable=R0904
     read_moodle = classmethod(moodle.read_moodle)
 
     write_aiken = aiken.write_aiken
+    write_cloze = cloze.write_cloze
     write_json = json.write_json
     write_gift = gift.write_gift
     write_latex = latex.write_latex
@@ -290,7 +290,7 @@ class Category(Serializable):  # pylint: disable=R0904
         for _path in files:
             try:
                 ext = _path.rsplit(".", 1)[-1]
-                top_quiz.merge(getattr(cls, cls.SERIALIZERS[ext][0])(_path))
+                top_quiz.merge(getattr(cls, SERIALIZERS[ext][0])(_path))
             except (ValueError, KeyError):
                 LOG.exception(f"Failed to parse file {_path}.")
         return top_quiz
