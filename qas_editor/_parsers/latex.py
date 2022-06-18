@@ -56,9 +56,8 @@ class _PkgAlterQCM():
 class _PkgGuillaume():
     """Parsers the package created by Guillame for the latextomoodle repo.
     Since document classes have priority, it will only be used if the class of
-    the document is not assigned to any parser. This is a LAZY parser! It
-    expects well cats/questions without any fancy stuff (the rest of the doc
-    can be formatted however you want it to be).
+    the document is not assigned to any parser. This is a LAZY parser! It is
+    meant to be simple and fast, and not to consider all possibilities.
     See: https://github.com/Guillaume-Garrigos/moodlexport
     """
 

@@ -18,10 +18,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 import logging
-from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
 from .enums import TolFormat, TextFormat, ShapeType, ClozeFormat, Direction, TolType
-from .utils import Serializable, B64File, FText
+from .utils import Serializable, B64File, FText, TList
 if TYPE_CHECKING:
     from typing import List
 LOG = logging.getLogger(__name__)
@@ -69,46 +68,16 @@ class ACalculated(ANumerical):
 
 
 class ClozeItem(Serializable):
-    """This class represents a cloze answer.
-    This is not a standard type in the moodle format, once data in a cloze
-    questions is held within the question text in this format.
+    """A cloze item. It is embedded in parts of the question text marked by
+    the <code>MARKER_INT</code> from the questions.py file. This item defile
+    a question, which possible types are enumerated in <code>ClozeFormat</code>
     """
 
     def __init__(self, grade: int, cformat: ClozeFormat,
                  opts: List[Answer] = None):
         self.cformat = cformat
         self.grade = grade
-        self.opts = opts if opts else []
-
-    @classmethod
-    def from_cloze(cls, regex):
-        """_summary_
-
-        Args:
-            regex (_type_): _description_
-
-        Returns:
-            ClozeItem: _description_
-        """
-        opts = []
-        for opt in regex[3].split("~"):
-            if not opt:
-                continue
-            tmp = opt.strip("}~").split("#")
-            if len(tmp) == 2:
-                tmp, fdb = tmp
-            else:
-                tmp, fdb = tmp[0], ""
-            frac = 0.0
-            if tmp[0] == "=":
-                frac = 100.0
-                tmp = tmp[1:]
-            elif tmp[0] == "%":
-                frac, tmp = tmp[1:].split("%")
-                frac = float(frac)
-            opts.append(Answer(frac, tmp, FText("feedback", fdb, TextFormat.PLAIN),
-                               TextFormat.PLAIN))
-        return cls(int(regex[1]), ClozeFormat(regex[2]), opts)
+        self.opts = TList(Answer, opts)
 
     def to_text(self) -> str:
         """A
@@ -130,53 +99,47 @@ class ClozeItem(Serializable):
         return "".join(text)
 
 
-class DragText(Serializable):
-    """[summary]
-    """
-
-    def __init__(self, text: str, group=1, unlimited=False):
-        self.text = text
-        self.group = group
-        self.unlimited = unlimited
-
-
 class DragItem(Serializable):
-    """
-    Abstract class representing any drag item.
+    """A dragable item. Use it as base for other "Drag" classes.
+    All dragable objects have a text parameter, which may be showed in the
+    canvas, or just used to identify the item.
     """
 
-    def __init__(self, number: int, text: str, unlimited: bool = False,
-                 group: int = None, no_of_drags: str = None,
-                 image: B64File = None):
-        if group and no_of_drags:
-            raise ValueError("Both group and number of drags can\'t "
-                             "be provided to a single obj.")
-        self.text = text
-        self.group = group
-        self.unlimited = unlimited
+    def __init__(self, number: int, text: str, no_of_drags = 1):
         self.number = number
+        self.text = text
         self.no_of_drags = no_of_drags
+
+
+class DragGroup(DragItem):
+    """A dragable item that belong to a group of dragable items.
+    """
+
+    def __init__(self, group=1, **kwargs):
+        super().__init__(**kwargs)
+        self.group = group
+
+
+class DragImage(DragGroup):
+    """A dragable and groupable item that can use an image to represent the 
+    item in a canvas.
+    """
+
+    def __init__(self, image: B64File = None, **kwargs):
+        super().__init__(**kwargs)
         self.image = image
 
 
 class DropZone(Serializable):
-    """
-    This class represents DropZone for Questions like QDragAndDropImage.
+    """A zone where dragable items can be placed. They are related to the 
+    items matching the item number to the zone choise. Zone number is used
+    only to enumerate the zone.
     """
 
-    def __init__(self, coord_x: int, coord_y: int, choice: int,
-                 number: int, text: str = None, points: str = None,
+    def __init__(self, coord_x: int, coord_y: float, choice: float,
+                 number: int, text: str = None, points: List[float] = None,
                  shape: ShapeType = None):
-        """[summary]
-
-        Args:
-            x (int): Coordinate X from top left corner.
-            y (int): Coordinate Y from top left corner.
-            text (str, optional): text contained in the zone. Defaults to None.
-            choice ([type], optional): [description]. Defaults to None.
-            number ([type], optional): [description]. Defaults to None.
-        """
-        self.shape = shape
+        self.shape = shape if shape else ShapeType.RECT
         self.coord_x = coord_x
         self.coord_y = coord_y
         self.points = points
@@ -189,8 +152,8 @@ class ACrossWord(Serializable):
     """_summary_
     """
 
-    def __init__(self, word: str, coord_x: int, coord_y: int,
-                 direction: Direction, clue: str):
+    def __init__(self, word: str, coord_x: int, coord_y: int, clue: str,
+                 direction: Direction):
         self.word = word
         self.coord_x = coord_x
         self.coord_y = coord_y

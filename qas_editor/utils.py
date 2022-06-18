@@ -20,8 +20,7 @@ import base64
 import copy
 import logging
 from urllib import request
-from xml.etree import ElementTree as et
-from .enums import TextFormat, Status, Distribution
+from .enums import MathType, TextFormat, Status, Distribution
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -86,7 +85,7 @@ class Serializable:
             if key not in ("_Question__parent", "_Category__parent") and not \
                     Serializable.__itercmp(val, __o.__dict__.get(key), path):
                 cpr = __o.__dict__.get(key)
-                path = ", ".join(path[:-1])
+                path = " > ".join(path[:-1])
                 if isinstance(val, list) and cpr:
                     val = ", ".join(map(str, val))
                     cpr = ", ".join(map(str, cpr))
@@ -95,29 +94,11 @@ class Serializable:
                         ofile.write(val)
                     with open("raw2.tmp", "w") as ofile:
                         ofile.write(cpr)
-                    output = f"Items differs [{path}, {key}]. See diff files."
+                    output = f"See diff files for [{path} > {key}]."
                 else:
-                    output = f"Items differs [{path}, {key}]\n\t{val}\n\t{cpr}"
+                    output = f"See [{path} > {key}].\n\t'{val}'\n\t'{cpr}'"
                 raise ValueError(output)
         return True
-
-    def to_xml(self, strict: bool) -> et.Element:
-        """Create a XML representation of the object instance following the
-        moodle standard. This function if first implemented as "virtual" in
-        the Serializable class, raising an exception if not overriden.
-
-        Args:
-            root (et.Element): where the new tags will be added to
-            strict (bool): if the tags added should only be the ones correctly
-                interpreted by moodle.
-
-        Returns:
-            et.Element: The instance root element. In a organized XML, this
-            should be always different from the "root" argument, but since
-            Moodle uses tags, like the ones in CombinedFeedback, that can or
-            not be valid, we end-up in this mess.
-        """
-        raise NotImplementedError(f"XML not implemented in {self}")
 
 
 class LineBuffer:
@@ -152,6 +133,39 @@ class LineBuffer:
         return self.cur if until is None else "".join(_buffer)
 
 
+class TList(list):
+    """Type List (or Datatype list) is a class that restricts the datatype of
+    all the items to a single one defined in constructor. It works exactly like
+    an list in C++, Java and other high-level compiled languages. Could use an
+    array instead if it allowed any time to be used. TODO If there is something
+    native we could use instead, it is worthy an PR to update.
+    """
+
+    def __init__(self, obj_type: object, iterable=None):
+        super().__init__()
+        self.__type = obj_type
+        if iterable is not None:
+            self.extend(iterable)
+
+    @property
+    def datatype(self):
+        return self.__type
+
+    @datatype.setter
+    def datatype(self, value):
+        if not all(isinstance(obj, value) for obj in self):
+            self.clear()
+        self.__type = value
+
+    def append(self, __object):
+        if isinstance(__object, self.__type):
+            return super().append(__object)
+
+    def extend(self, __iterable):
+        if all(isinstance(obj, self.__type) for obj in __iterable):
+            return super().extend(__iterable)
+
+
 # -----------------------------------------------------------------------------
 
 
@@ -174,7 +188,9 @@ class AnswerError(Exception):
 
 
 class B64File(Serializable):
-    """Internal representation for files that uses Base64 encoding.
+    """File used in questions. Can be either a local path, an URL, a B64 
+    encoded string. TODO May add PIL in the future too. Currently is always
+    converted into B64 to be embedded. May also change in the future.
     """
 
     def __init__(self, name: str, path: str = None, bfile: str|bool = True):
@@ -230,6 +246,21 @@ class FText(Serializable):
         self.text = text
         self.formatting = TextFormat.AUTO if formatting is None else formatting
         self.bfile = bfile if bfile else []
+        self.embbeded = True
+        self.math_type = MathType.IGNORE
+
+    @staticmethod
+    def prop(attr: str):
+        def setter(self, value):
+            if isinstance(value, FText) and value.name == getattr(self, attr).name:
+                setattr(self, attr, value)
+            elif isinstance(value, str):
+                getattr(self, attr).text = value
+            elif value is not None:
+                raise ValueError(f"Can't assign {value} to {attr}")
+        def getter(self) -> FText:
+            return getattr(self, attr)
+        return property(getter, setter, doc="")
 
 
 class Hint(Serializable):
@@ -254,14 +285,6 @@ class Unit(Serializable):
         super().__init__()
         self.unit_name = unit_name
         self.multiplier = multiplier
-
-
-class Tags(Serializable, list):
-    """A
-    """
-
-    def __init__(self, tags=None) -> None:
-        super().__init__(tags) if tags is not None else super().__init__()
 
 
 class Equation(Serializable):

@@ -21,13 +21,13 @@ from enum import Enum
 from ..enums import ClozeFormat, Direction, Distribution, Grading, RespFormat, \
                     ShapeType, Synchronise, TolType, TolFormat, Status, \
                     ShowUnits, TextFormat, Numbering
-from ..utils import B64File, Dataset, FText, Hint, Tags, Unit
+from ..utils import B64File, Dataset, FText, Hint, TList, Unit
 from ..answer import ACalculated, ANumerical, Answer, ClozeItem, DragItem, \
-                     ACrossWord, DropZone, SelectOption, DragText, Subquestion
+                     ACrossWord, DropZone, SelectOption, DragGroup, Subquestion
 from ..questions import QCalculatedMultichoice, QCrossWord, QDescription, \
                         QTrueFalse, QCalculated, QCalculatedSimple, QCloze,\
-                        QDragAndDropImage, QDragAndDropMarker, QMissingWord,\
-                        QEssay, QMatching, QDragAndDropText, QMultichoice, \
+                        QDaDImage, QDaDMarker, QMissingWord,\
+                        QEssay, QMatching, QDaDText, QMultichoice, \
                         QNumerical, QRandomMatching, QShortAnswer
 if TYPE_CHECKING:
     from ..category import Category
@@ -63,7 +63,7 @@ def _from_hint(data: dict):
 
 
 def _from_tags(data: list):
-    return _from_json(data, Tags)
+    return TList(str, data)
 
 
 def _from_unit(data:dict):
@@ -97,7 +97,7 @@ def _from_clozeitem(data: dict):
 
 
 def _from_dragtext(data: dict):
-    return _from_json(data, DragText)
+    return _from_json(data, DragGroup)
 
 
 def _from_dragitem(data: dict):
@@ -193,7 +193,7 @@ def _from_qdescription(data: dict):
 def _from_qdraganddroptext(data: dict):
     for i in range(len(data["options"])):
         data["options"][i] = _from_dragtext(data["options"][i])
-    return _from_question_mtcs(data, QDragAndDropText)
+    return _from_question_mtcs(data, QDaDText)
 
 
 def _from_qdraganddropimage(data: dict):
@@ -202,7 +202,7 @@ def _from_qdraganddropimage(data: dict):
         data["options"][i] = _from_dragitem(data["options"][i])
     for i in range(len(data["zones"])):
         data["zones"][i] = _from_dropzone(data["zones"][i])
-    return _from_question_mtcs(data, QDragAndDropImage)
+    return _from_question_mtcs(data, QDaDImage)
 
 
 def _from_qdraganddropmarker(data: dict):
@@ -211,7 +211,7 @@ def _from_qdraganddropmarker(data: dict):
         data["options"][i] = _from_dragitem(data["options"][i])
     for i in range(len(data["zones"])):
         data["zones"][i] = _from_dropzone(data["zones"][i])
-    return _from_question_mtcs(data, QDragAndDropMarker)
+    return _from_question_mtcs(data, QDaDMarker)
 
 
 def _from_qessay(data: dict):

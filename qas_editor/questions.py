@@ -19,23 +19,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 import re
 import logging
-from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
-from .enums import TextFormat, Grading, RespFormat, ShowUnits, Status,\
-                   Distribution, Numbering, Synchronise
+from .enums import Grading, RespFormat, ShowUnits, Status, Distribution,\
+                   Numbering, Synchronise
 from .utils import Serializable, MarkerError, AnswerError, B64File, Dataset, \
-                   FText, Hint, Tags, Unit
-from .answer import Answer, ClozeItem, ANumerical, Subquestion,\
-                    ACrossWord, DropZone, DragItem
+                   FText, Hint, Unit, TList
+from .answer import ACalculated, ACrossWord, Answer, ClozeItem, ANumerical,\
+                    DragGroup, DragImage, SelectOption, Subquestion,\
+                    DropZone, DragItem
 if TYPE_CHECKING:
-    from typing import List, Dict
+    from typing import List, Dict, Iterator
     from .enums import Direction
     from .category import Category
 LOG = logging.getLogger(__name__)
 
 
 QNAME: Dict[str, _Question] = {}
-QTYPE: Dict[str, _Question] = {}
 MARKER_INT = 9635
 
 
@@ -51,11 +50,9 @@ class _Question(Serializable):
         super().__init_subclass__(**kwargs)
         if cls.QNAME is not None:
             QNAME[cls.QNAME] = cls
-        if cls.MOODLE is not None:
-            QTYPE[cls.MOODLE] = cls
 
     def __init__(self, name="qstn", default_grade=1.0, question: FText = None,
-                 dbid: int = None, feedback: FText = None, tags: Tags = None):
+                 dbid: int = None, feedback: FText = None, tags: TList = None):
         """
         [summary]
 
@@ -66,24 +63,26 @@ class _Question(Serializable):
             general_feedback (str, optional): general feedback.
             dbid (int, optional): id number.
         """
-        self.name = name
-        self.question = FText("questiontext") if question is None else question
-        self.default_grade = default_grade
-        self.feedback = FText("generalfeedback") if feedback \
-                is None else feedback
-        self.dbid = dbid
-        self.tags = Tags() if tags is None else tags
+        self.name = str(name)
+        self.default_grade = float(default_grade)
+        self.time_lim = 60
+        self.dbid = int(dbid) if dbid else None
+        self._question = FText("questiontext")
+        self.question = question
+        self._feedback = FText("generalfeedback")
+        self.feedback = feedback
+        self._tags = TList(str, tags)
         self.__parent = None
 
     def __str__(self) -> str:
         return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
 
+    question = FText.prop("_question")
+    feedback = FText.prop("_feedback")
+
     @property
     def parent(self) -> Category:
         """_summary_
-
-        Returns:
-            Quiz: _description_
         """
         return self.__parent
 
@@ -95,15 +94,30 @@ class _Question(Serializable):
                              "parent's add/pop_question functions instead.")
         self.__parent = value
 
+    @property
+    def tags(self) -> Iterator:
+        """_summary_
+        """
+        return self._tags
+
 
 class _QuestionMT(_Question):
+    """
+    """
+    ANS_TYPE = None
 
     def __init__(self, options: list = None, hints: List[Hint] = None,
                  penalty=0.5, **kwargs):
         super().__init__(**kwargs)
-        self.penalty = penalty
+        self.penalty = float(penalty)
         self.hints = [] if hints is None else hints
-        self.options = [] if options is None else options
+        self._options = TList(self.ANS_TYPE, options)
+    
+    @property
+    def options(self) -> TList:
+        """_summary_
+        """
+        return self._options
 
 
 class _QuestionMTCS(_QuestionMT):
@@ -128,6 +142,12 @@ class _QuestionMTCS(_QuestionMT):
         self.show_num = show_num
         self.shuffle = shuffle
 
+    @_QuestionMT.options.getter
+    def options(self):
+        # if self.shuffle:
+        #     random.shuffle(self._options)
+        return super().options
+
 
 class _QuestionMTUH(_QuestionMT):
     """A
@@ -145,10 +165,11 @@ class _QuestionMTUH(_QuestionMT):
 class QCalculated(_QuestionMTUH):
     """Represents a "Calculated"q question, in which a numberical result should
     be provided. Note that <code>single</code> tag may show up in Moodle
-    xml document but this seems to be just a bug. Th class don't use it.
+    xml document but this seems to be just a bug. The class don't use it.
     """
     MOODLE = "calculated"
     QNAME = "Calculated"
+    ANS_TYPE = ACalculated
 
     def __init__(self, synchronize: Synchronise = None, units: List[Unit] = None,
                  datasets: List[Dataset] = None, **kwargs):
@@ -169,7 +190,8 @@ class QCalculated(_QuestionMTUH):
 
 class QCalculatedSimple(QCalculated):
     """Same as QCalculated. Implemented only for compatibility with the moodle
-    XML format.
+    XML format. It may be removed in the future, so it is not recommended to be
+    used.
     """
     MOODLE = "calculatedsimple"
     QNAME = "Simplified Calculated"
@@ -182,6 +204,7 @@ class QCalculatedMultichoice(_QuestionMTCS):
     """
     MOODLE = "calculatedmulti"
     QNAME = "Calculated Multichoice"
+    ANS_TYPE = ACalculated
 
     def __init__(self, synchronize: Synchronise, numbering: Numbering = None,
                  single = False, datasets: List[Dataset] = None, **kwargs):
@@ -213,27 +236,13 @@ class QCloze(_QuestionMT):
     """
     MOODLE = "cloze"
     QNAME = "Cloze"
+    ANS_TYPE = ClozeItem
 
-    def __init__(self, embedded_name=False, **kwargs):
-        super().__init__(**kwargs)
-        pattern = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
-        gui_text = []
-        start = 0
-        if not self.options:   # if user profides options, assume text updated
-            for match in pattern.finditer(self.question.text):
-                item = ClozeItem.from_cloze(match)
-                self.options.append(item)
-                gui_text.append(self.question.text[start: match.start()])
-                start = match.end()
-            gui_text.append(self.question.text[start:])
-            self.question.text = chr(MARKER_INT).join(gui_text)
-        self.embedded_name = embedded_name
-
-    def pure_text(self) -> str:
+    def pure_text(self, embedded_name) -> str:
         char = chr(MARKER_INT)
         find = self.question.text.find(char)
         text = [self.name, "\n", self.question.text[:find]] if \
-                self.embedded_name else [self.question.text[:find]]
+                embedded_name else [self.question.text[:find]]
         for question in self.options:
             text.append(question.to_text())
             end = self.question.text.find(char, find + 1)
@@ -266,107 +275,66 @@ class QDotConnect(_QuestionMT):
     """
     """
     QNAME = "Dot Connect"
+    ANS_TYPE = Subquestion
 
     def __init__(self, ordered=False, **kwargs):
         super().__init__(**kwargs)
         self.ordered = ordered
 
 
-class QDragAndDropText(_QuestionMTCS):
-    """
-    This class represents a drag and drop text onto image question.
-    It inherits from abstract class Question.
+class QDaDText(_QuestionMTCS):
+    """Drag and drop text boxes into question text.
     """
     MOODLE = "ddwtos"
     QNAME = "Drag and Drop Text"
+    ANS_TYPE = DragGroup
+
+    def pure_text(self):
+        char = chr(MARKER_INT)
+        find = self.question.text.find(char)
+        text = [self.question.text[:find]]
+        for question in len(self.options):
+            text.append(question.to_text())
+            end = self.question.text.find(char, find + 1)
+            text.append(self.question.text[find + 1 : end])
+            find = end
+        text.append(self.question.text[-1])  # Wont be included by default
+        return "".join(text)
+
+    def check(self):
+        pass
 
 
-class QDragAndDropImage(_QuestionMTCS):
-    """This class represents a drag and drop onto image question.
-    It inherits from abstract class Question.
+class QDaDImage(_QuestionMTCS):
+    """Drag and Drop items onto drop zones, where the items are custom images.
     """
     MOODLE = "ddimageortext"
     QNAME = "Drag and Drop Image"
+    ANS_TYPE = DragImage
 
     def __init__(self, background: B64File = None,
                  zones: List[DropZone] = None, **kwargs):
-        """Creates an drag and drop onto image type of question.
-
-        Args:
-            background (str): Filepath to the background image.
-        """
         super().__init__(**kwargs)
         self.background = background
-        self.zones = [] if zones is None else zones
+        self._zones = TList(DropZone, zones)
 
-    def add_image(self, text: str, group: int, file: str, unlimited=False):
-        """Adds new DragItem with assigned DropZones.
-
-        Args:
-            file (str): path to image to be used as a drag image;
-            text (str, optional): text of the drag text.
-            group (int, optional): group.
-            unlimited (bool, optional): if item is allowed to be used again.
-                Defaults to False.
+    @property
+    def zones(self):
+        """Zones
         """
-        dragimage = DragItem(len(self.options) + 1, text, unlimited, group,
-                             image=file)
-        self.options.append(dragimage)
-
-    def add_text(self, text: str, group: str, unlimited=False):
-        """Adds new DragText with assigned DropZones.
-
-        Args:
-            text (str): text of the drag text.
-            group (str): group.
-            unlimited (bool, optional): if item is allowed to be used again.
-                Defaults to False.
-        """
-        dragitem = DragItem(len(self.options) + 1, text, unlimited, group)
-        self.options.append(dragitem)
-
-    def add_zone(self, coord_x: int, coord_y: int, text: str, choice: int):
-        """[summary]
-
-        Args:
-            x (int): [description]
-            y (int): [description]
-            text (str): [description]
-            choice (int): [description]
-        """
-        self.zones.append(DropZone(coord_x, coord_y, text, choice,
-                                   len(self.zones) + 1))
+        return self._zones
 
 
-class QDragAndDropMarker(_QuestionMTCS):
-    """Represents a Drag and Drop question where the items are markers.
+class QDaDMarker(QDaDImage):
+    """Drag and Drop items onto drop zones, where the items are markers.
     """
     MOODLE = "ddmarker"
     QNAME = "Drag and Drop Marker"
+    ANS_TYPE = DragItem
 
-    def __init__(self, highlight=False, background: B64File = None,
-                 zones: List[DropZone] = None,  **kwargs):
-        """Creates an drag and drop onto image type of question.
-
-        Args:
-            background (str): Filepath to the background image.
-        """
+    def __init__(self, highlight=False, **kwargs):
         super().__init__(**kwargs)
-        self.background = background
         self.highlight = highlight
-        self.zones = [] if zones is None else zones
-
-    def add_option(self, text: str, no_of_drags: str, unlimited: bool = False):
-        """[summary]
-
-        Args:
-            text (str): [description]
-            no_of_drags (str): [description]
-            unlimited (bool, optional): [description]. Defaults to False.
-        """
-        dragitem = DragItem(len(self.options) + 1, text, unlimited,
-                            no_of_drags=no_of_drags)
-        self.options.append(dragitem)
 
 
 class QEssay(_Question):
@@ -402,19 +370,13 @@ class QMatching(_QuestionMTCS):
     """
     MOODLE = "matching"
     QNAME = "Matching"
-
-    def add_option(self, text: str, answer: str) -> None:
-        """[summary]
-
-        Args:
-            text (str): [description]
-            answer (str): [description]
-        """
-        self.options.append(Subquestion(TextFormat.AUTO, text, answer))
+    ANS_TYPE = Subquestion
 
 
 class QRandomMatching(_QuestionMTCS):
-    """Represents a Random match question.
+    """A Random Match question. Unlike to other MTCS questions, it does not
+    have options, reusing other questions randomly instead. It was implemented
+    more targetting Moodle, since other platforms dont store this in databases.
     """
     MOODLE = "randomsamatch"
     QNAME = "Random Matching"
@@ -428,10 +390,11 @@ class QRandomMatching(_QuestionMTCS):
 
 
 class QMissingWord(_QuestionMTCS):
-    """ Represents a "Missing Word" question.
+    """A Missing Word question.
     """
     MOODLE = "gapselect"
     QNAME = "Missing Word"
+    ANS_TYPE = SelectOption
 
     def update(self):
         for i in re.finditer(r"\[\[[0-9]+\]\]", self.toPlainText()):
@@ -439,10 +402,11 @@ class QMissingWord(_QuestionMTCS):
 
 
 class QMultichoice(_QuestionMTCS):
-    """This class represents 'Multiple choice' question.
+    """A Multiple choice question.
     """
     MOODLE = "multichoice"
     QNAME = "Multichoice"
+    ANS_TYPE = Answer
 
     def __init__(self, single=True, show_instr=False,
                  numbering: Numbering = None, **kwargs):
@@ -451,40 +415,29 @@ class QMultichoice(_QuestionMTCS):
         self.show_instr = show_instr
         self.numbering = Numbering.ALF_LR if numbering is None else numbering
 
+    def check(self):
+        pass
+
 
 class QNumerical(_QuestionMTUH):
     """
-    This class represents 'Numerical Question' moodle question type.
-    Units are currently not implemented, only numerical answer, which
-    are specified as text and absolute tolerance value are implemented
+    This class represents 'Numerical Question' question type.
     """
     MOODLE = "numerical"
     QNAME = "Numerical"
+    ANS_TYPE = ANumerical
 
     def __init__(self, units: List[Unit] = None,  **kwargs):
         super().__init__(**kwargs)
         self.units = [] if units is None else units
 
-    def add_option(self, text: str, tol: float, fraction: float,
-                   feedback: str = None) -> None:
-        """_summary_
-
-        Args:
-            tol (float): _description_
-            fraction (float): _description_
-            text (str): _description_
-            feedback (str, optional): _description_. Defaults to None.
-        """
-        self.options.append(ANumerical(tol, fraction=fraction, text=text,
-                                            formatting=feedback))
-
 
 class QShortAnswer(_QuestionMT):
-    """
-    This class represents 'Short answer' question.
+    """This class represents 'Short answer' question.
     """
     MOODLE = "shortanswer"
     QNAME = "Short Answer"
+    ANS_TYPE = Answer
 
     def __init__(self, use_case = False, **kwargs):
         super().__init__(**kwargs)
@@ -492,65 +445,22 @@ class QShortAnswer(_QuestionMT):
 
 
 class QTrueFalse(_Question):
-    """
-    This class represents true/false question.
+    """This class represents true/false question.
     """
     MOODLE = "truefalse"
     QNAME = "True or False"
 
-    def __init__(self, options: list, **kwargs) -> None:
+    def __init__(self, correct: bool, true_fdbk: FText|str, 
+                 false_fdbk: FText|str, **kwargs) -> None:
         super().__init__(**kwargs)
-        if options is not None:
-            if len(options) != 2:
-                raise ValueError()
-            for answer in options:
-                if answer.text.lower() == "true":
-                    self.__true = answer
-                    self.__correct = answer.fraction == 100
-                elif answer.text.lower() == "false":
-                    self.__false = answer
-        else:
-            self.__true = Answer(100, "true", FText("feedback"), TextFormat.AUTO)
-            self.__false = Answer(0, "false", FText("feedback"), TextFormat.AUTO)
-            self.__correct = True
+        self.correct = correct
+        self._true_feedback = FText("feedback")
+        self.true_feedback = true_fdbk
+        self._false_feedback = FText("feedback")
+        self.false_feedback = false_fdbk
 
-    def set_feedbacks(self, correct: FText, incorrect: FText):
-        """_summary_
-
-        Args:
-            correct (FText): _description_
-            incorrect (FText): _description_
-        """
-        self.__true.feedback = correct if self.correct else incorrect
-        self.__false.feedback = correct if not self.correct else incorrect
-
-    @property
-    def correct(self) -> bool:
-        """_summary_
-
-        Returns:
-            bool: _description_
-        """
-        return self.__correct
-
-    @correct.setter
-    def correct(self, value: bool) -> None:
-        """_summary_
-
-        Args:
-            value (bool): _description_
-        """
-        self.__true.fraction = 100 if value else 0
-        self.__false.fraction = 100 if not value else 0
-        self.__correct = value
-
-    @property
-    def false(self):
-        return self.__false
-
-    @property
-    def true(self):
-        return self.__true
+    true_feedback = FText.prop("_true_feedback")
+    false_feedback = FText.prop("_false_feedback")
 
 
 class QFreeDrawing(_Question):

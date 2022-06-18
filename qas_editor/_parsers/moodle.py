@@ -18,17 +18,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
 
-from ..answer import ACalculated, ANumerical, Answer, DragItem, DragText, \
+from ..answer import ACalculated, ANumerical, Answer, DragItem, DragGroup, \
                      DropZone, Subquestion, SelectOption
 from ..questions import QCalculated, QCalculatedMultichoice, QDescription,\
                         QCalculatedSimple, QCloze, QMissingWord, QTrueFalse,\
-                        QDragAndDropMarker, QDragAndDropImage, QNumerical,\
-                        QDragAndDropText, QEssay, QMatching,  QMultichoice,\
+                        QDaDMarker, QDaDImage, QNumerical,\
+                        QDaDText, QEssay, QMatching,  QMultichoice,\
                         QRandomMatching, QShortAnswer
 from ..enums import TextFormat, ShowUnits,Numbering, RespFormat, Synchronise,\
                     ShapeType, Grading, Status, TolFormat, TolType,\
                     Distribution
-from ..utils import gen_hier, Dataset, Hint, Tags, FText, B64File, Unit
+from ..utils import gen_hier, Dataset, Hint, TList, FText, B64File, Unit
 if TYPE_CHECKING:
     from ..category import Category
 
@@ -190,7 +190,7 @@ def _from_Subquestion(root: et.Element, tags: dict, attrs: dict):
     return _from_xml(root, tags, attrs, Subquestion)
 
 
-def _from_units(root: et.Element, tags: dict, attrs: dict) -> Unit:
+def _from_units(root: et.Element, *_) -> Unit:
     units = []
     for elem in root:
         unit = Unit(elem.find("unit_name").text, float(elem.find("multiplier").text))
@@ -198,9 +198,11 @@ def _from_units(root: et.Element, tags: dict, attrs: dict) -> Unit:
     return units
 
 
-def _from_Tags(root: et.Element, tags: dict, attrs: dict) -> Tags:
-    tags["tag"] = (str, "tags", True)
-    return _from_xml(root, tags, attrs, Tags)
+def _from_Tags(root: et.Element, *_) -> TList:
+    _tags = TList(str)
+    for elem in root:
+        _tags.append(elem.text)
+    return _tags
 
 
 # -----------------------------------------------------------------------------
@@ -230,7 +232,7 @@ def _from_dragtext(root: et.Element, tags: dict, attrs: dict):
     tags["text"] = (str, "text")
     tags["group"] = (str, "group")
     tags["unlimited"] = (bool, "unlimited")
-    return _from_xml(root, tags, attrs, DragText)
+    return _from_xml(root, tags, attrs, DragGroup)
 
 
 def _from_dragitem(root: et.Element, tags: dict, attrs: dict):
@@ -240,7 +242,7 @@ def _from_dragitem(root: et.Element, tags: dict, attrs: dict):
     tags["draggroup"] = (int, "group")
     tags["noofdrags"] = (bool, "no_of_drags")
     tags["file"] = (_from_B64File, "image")
-    return _from_xml(root, tags, attrs, DragItem)
+    return _from_xml(root, tags, attrs, DragGroup)
 
 
 def _from_dropzone(root: et.Element, *_):
@@ -330,14 +332,14 @@ def _from_qdescription(root: et.Element, tags: dict, attrs: dict):
 
 def _from_ddwtos(root: et.Element, tags: dict, attrs: dict):
     tags["dragbox"] = (_from_dragtext, "options", True)
-    return _from_question_mtcs(root, tags, attrs, QDragAndDropText)
+    return _from_question_mtcs(root, tags, attrs, QDaDText)
 
 
 def _from_ddimageortext(root: et.Element, tags: dict, attrs: dict):
     tags["file"] = (_from_B64File, "background")
     tags["drag"] = (_from_dragitem, "options", True)
     tags["drop"] = (_from_dropzone, "zones", True)
-    return _from_question_mtcs(root, tags, attrs, QDragAndDropImage)
+    return _from_question_mtcs(root, tags, attrs, QDaDImage)
 
 
 def _from_ddmarker(root: et.Element, tags: dict, attrs: dict):
@@ -345,7 +347,7 @@ def _from_ddmarker(root: et.Element, tags: dict, attrs: dict):
     tags["showmisplaced"] = (bool, "highlight")
     tags["drag"] = (_from_dragitem, "options", True)
     tags["drop"] = (_from_dropzone, "zones", True)
-    return _from_question_mtcs(root, tags, attrs, QDragAndDropMarker)
+    return _from_question_mtcs(root, tags, attrs, QDaDMarker)
 
 
 def _from_qessay(root: et.Element, tags: dict, attrs: dict):
@@ -474,7 +476,7 @@ def _to_unit(unit: Unit) -> et.Element:
     return elem
 
 
-def _to_tags(tags: Tags) -> et.Element:
+def _to_tags(tags: TList) -> et.Element:
     tags = et.Element("tags")
     for item in tags:
         _tag = et.SubElement(tags, "tag")
@@ -669,7 +671,7 @@ def _to_qdad_image(qst) -> et.Element:
     return question
 
 
-def _to_qdad_marker(qst: QDragAndDropMarker) -> et.Element:
+def _to_qdad_marker(qst: QDaDMarker) -> et.Element:
     question = _to_question_mtcs(qst, _to_dragitem)
     if qst.highlight:
         et.SubElement(question, "showmisplaced")
