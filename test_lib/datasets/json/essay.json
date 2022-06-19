@@ -2,21 +2,21 @@
     "_Category__questions": [
         {
             "name": "Essai1",
-            "question": {
+            "_question": {
               "name": "questiontext",
               "text": "Explain in few words the aim of this course.<br>",
               "formatting": "html",
               "bfile": []
             },
             "default_grade": 1.1,
-            "feedback": {
+            "_feedback": {
               "name": "generalfeedback",
               "text": "",
               "formatting": "html",
               "bfile": []
             },
             "dbid": null,
-            "tags": [],
+            "_tags": [],
             "rsp_format": "editor",
             "rsp_required": true,
             "lines": 3,

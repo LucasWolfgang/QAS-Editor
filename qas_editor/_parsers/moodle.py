@@ -423,12 +423,12 @@ def _from_QTrueFalse(root: et.Element, tags: dict, attrs: dict):
     opt = data.pop("options")
     if opt[0].text.lower() == "true":
         data["correct"] = opt[0].fraction == 100
-        data["true_fdbk"] = opt[0].feedback
-        data["false_fdbk"] = opt[1].feedback
+        data["true_feedback"] = opt[0].feedback
+        data["false_feedback"] = opt[1].feedback
     else:
         data["correct"] = opt[0].fraction == 0
-        data["true_fdbk"] = opt[1].feedback
-        data["false_fdbk"] = opt[0].feedback
+        data["true_feedback"] = opt[1].feedback
+        data["false_feedback"] = opt[0].feedback
     return QTrueFalse(**data)
 
 
