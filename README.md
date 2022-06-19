@@ -14,7 +14,7 @@ Question and Answer Sheet Editor is both a python API and a UI utility to automa
  
 The structure of the class is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle)
 
-The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/). All these coded were modified a lot, but even so, thank a lot for those who coded them.
+The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/).
 
 ## Requirements
 - Requires at least Python 3. If using all dependencies, at least Python 3.6.
@@ -62,11 +62,26 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
  | Kahoot     |   :x:  |   :o:  |  :x: |
 </center ><br/>
 
-## Open to ideas
-  - Have any format that you want to see the tool able to import or export?
-  - Have any suggestions for the GUI?
-  Just create an issue! One day I will definently work on it (if it is a good idea, of course).
-  
+## Contributing
+This one is a really large project, and I would appreciate if you could contribute to it. Currently the reporistory can be improved by:
+ * updating documentation (in-code and wiki);
+ * adding examples;
+ * adding new parsers;
+ * improving parsers performance;
+ * adding UI functionalities;
+ * adding pytests;
+ * improving code quality (flake8 and pylint).
+
+To contribute to this repo just do the usual. Fork, modify and send a PR.
+No need to create a separate branch, unless you want to deliver your updates in chunks.
+Always make sure all tests are passing before submitting the PR.
+It does not need to be fully documented, nor fully pass pylint and flake8, but this would make me pretty happy :).
+
+Here are some points to consider before submitting a PR:
+ * This python module is a desktop API/utility. Try your best to keep eveything local. If the only way to import/export the database is connecting to a website or other external service, you may still submit the PR, but it is very likely that it will be not accepted.
+ * This module strives to be as pure python and light as possible. Only submit PRs that add new packages/modules to be intalled by the end user if the work needed to implement the code would be herculean, or the module/package can be reused in multiple other parts of the code improving readability and performance.
+ * The scope of this repo is only of converting and modifying question databases (creating, deleting, modifying and reorganizing questions).
+
   Thank you,\
   Wolfgang\
   :blush:
