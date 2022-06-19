@@ -39,6 +39,7 @@ jobs:
         echo "PYTEST_MAX=$(sed -n 's/collected \([0-9]*\) items/\1/p' ./pytest.log)" >> $GITHUB_ENV
         echo "PYTEST_MIN=$(echo "$PYTEST_MAX - 2" | bc) " >> $GITHUB_ENV
         echo "PYTEST_SCORE=$(sed -n 's/^===.* \([0-9]*\) passed in.*===/\1/p' ./pytest.log)" >> $GITHUB_ENV
+      continue-on-error: true
 
   package:
     name: Gen badges
