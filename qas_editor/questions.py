@@ -20,8 +20,8 @@ from __future__ import annotations
 import re
 import logging
 from typing import TYPE_CHECKING
-from .enums import Grading, RespFormat, ShowUnits, Status, Distribution,\
-                   Numbering, Synchronise
+from .enums import ClozeFormat, Grading, RespFormat, ShowUnits, Status, Distribution,\
+                   Numbering, Synchronise, TextFormat
 from .utils import Serializable, MarkerError, AnswerError, B64File, Dataset, \
                    FText, Hint, Unit, TList
 from .answer import ACalculated, ACrossWord, Answer, ClozeItem, ANumerical,\
@@ -52,7 +52,8 @@ class _Question(Serializable):
             QNAME[cls.QNAME] = cls
 
     def __init__(self, name="qstn", default_grade=1.0, question: FText = None,
-                 dbid: int = None, feedback: FText = None, tags: TList = None):
+                 dbid: int = None, feedback: FText = None, tags: TList = None,
+                 time_lim: int = 60):
         """
         [summary]
 
@@ -65,7 +66,7 @@ class _Question(Serializable):
         """
         self.name = str(name)
         self.default_grade = float(default_grade)
-        self.time_lim = 60
+        self.time_lim = int(time_lim)
         self.dbid = int(dbid) if dbid else None
         self._question = FText("questiontext")
         self.question = question
@@ -133,14 +134,18 @@ class _QuestionMTCS(_QuestionMT):
                  if_incorrect: FText = None, shuffle=False, show_num=False,
                  **kwargs):
         super().__init__(**kwargs)
-        self.if_correct = FText("correctfeedback") \
-            if if_correct is None else if_correct
-        self.if_incomplete = FText("partiallycorrectfeedback") \
-            if if_incomplete is None else if_incomplete
-        self.if_incorrect = FText("incorrectfeedback") \
-            if if_incorrect is None else if_incorrect
+        self._if_correct = FText("correctfeedback")
+        self.if_correct = if_correct
+        self._if_incomplete = FText("partiallycorrectfeedback")
+        self.if_incomplete = if_incomplete
+        self._if_incorrect = FText("incorrectfeedback")
+        self.if_incorrect = if_incorrect
         self.show_num = show_num
         self.shuffle = shuffle
+
+    if_correct = FText.prop("_if_correct")
+    if_incomplete = FText.prop("_if_incomplete")
+    if_incorrect =FText.prop("_if_incorrect")
 
     @_QuestionMT.options.getter
     def options(self):
@@ -250,6 +255,37 @@ class QCloze(_QuestionMT):
             find = end
         text.append(self.question.text[-1])  # Wont be included by default
         return "".join(text)
+
+    @staticmethod
+    def get_items(text: str):
+        gui_text = []
+        start = 0
+        options = []
+        _PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
+        for match in _PATTERN.finditer(text):
+            opts = []
+            for opt in match[3].split("~"):
+                if not opt:
+                    continue
+                tmp = opt.strip("}~").split("#")
+                if len(tmp) == 2:
+                    tmp, fdb = tmp
+                else:
+                    tmp, fdb = tmp[0], ""
+                frac = 0.0
+                if tmp[0] == "=":
+                    frac = 100.0
+                    tmp = tmp[1:]
+                elif tmp[0] == "%":
+                    frac, tmp = tmp[1:].split("%")
+                    frac = float(frac)
+                feedback = FText("feedback", fdb, TextFormat.PLAIN)
+                opts.append(Answer(frac, tmp, feedback, TextFormat.PLAIN))
+            options.append(ClozeItem(int(match[1]), ClozeFormat(match[2]), opts))
+            gui_text.append(text[start: match.start()])
+            start = match.end()
+        gui_text.append(text[start:])
+        return chr(MARKER_INT).join(gui_text), options
 
     def check(self):
         """
@@ -383,7 +419,7 @@ class QRandomMatching(_QuestionMTCS):
 
     def __init__(self, choose: int = 0, subcats: bool = False, **kwargs):
         super().__init__(**kwargs)
-        delattr(self, "options")
+        delattr(self, "_options")
         delattr(self, "shuffle")
         self.choose = choose
         self.subcats = subcats
@@ -450,14 +486,14 @@ class QTrueFalse(_Question):
     MOODLE = "truefalse"
     QNAME = "True or False"
 
-    def __init__(self, correct: bool, true_fdbk: FText|str, 
-                 false_fdbk: FText|str, **kwargs) -> None:
+    def __init__(self, correct: bool, true_feedback: FText|str, 
+                 false_feedback: FText|str, **kwargs) -> None:
         super().__init__(**kwargs)
         self.correct = correct
         self._true_feedback = FText("feedback")
-        self.true_feedback = true_fdbk
+        self.true_feedback = true_feedback
         self._false_feedback = FText("feedback")
-        self.false_feedback = false_fdbk
+        self.false_feedback = false_feedback
 
     true_feedback = FText.prop("_true_feedback")
     false_feedback = FText.prop("_false_feedback")

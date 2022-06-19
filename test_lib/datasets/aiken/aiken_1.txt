@@ -1,8 +1,10 @@
 Which version of Moodle does this image represent?[Moodle Version?]
 A) 2.6
-B) 2.5
+B) -2.0
 C) 2.0
-ANSWER: B
+D) 2.1
+E) 2.5
+ANSWER: E
 
 During the month of September 2013, Moodle ran a successful MOOC for teachers new to Moodle. What was the name of the course?
 A) Teaching with Moodle

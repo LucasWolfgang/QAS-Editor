@@ -20,9 +20,9 @@ from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QPushButton, QApplication,
                             QFrame, QLabel
 from PyQt5.QtGui import QColor, QPainter
 from ..questions import QCalculatedMultichoice, QCalculatedSimple, QCloze,\
-                        QDragAndDropImage, QDragAndDropText, QMatching, \
+                        QDaDImage, QDaDText, QMatching, \
                         QMissingWord, QMultichoice, QCalculated, QNumerical,\
-                        QDragAndDropMarker
+                        QDaDMarker
 from .widget import GCalculated, GCloze, GDrag, GAnswer, GHint, GCheckBox
 
 class GOptions(QVBoxLayout):
@@ -33,9 +33,9 @@ class GOptions(QVBoxLayout):
         QCalculatedSimple: GCalculated,
         QCalculatedMultichoice: GCalculated,
         QCloze: GCloze,
-        QDragAndDropText: GDrag,
-        QDragAndDropMarker: GDrag,
-        QDragAndDropImage: GDrag,
+        QDaDText: GDrag,
+        QDaDMarker: GDrag,
+        QDaDImage: GDrag,
         QMatching: None,        #Subquestion,
         QMultichoice: GAnswer,
         QNumerical: GAnswer,

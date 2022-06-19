@@ -1,4 +1,4 @@
-"""
+""""
 Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
 Copyright (C) 2022  Lucas Wolfgang
 
@@ -16,17 +16,3 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import os
-from qas_editor import category
-
-TEST_PATH = os.path.dirname(__file__)
-SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
-
-
-def test_diff_all():
-    EXAMPLE = f"{TEST_PATH}/datasets/kahoot/kahoot.csv"
-    control = category.Category.read_kahoot(EXAMPLE)
-    _TEST = f"{EXAMPLE}.tmp"
-    control.write_kahoot(_TEST)
-    data = category.Category.read_kahoot(_TEST)
-    control.compare(data, [])

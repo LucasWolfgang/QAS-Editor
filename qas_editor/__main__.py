@@ -39,8 +39,8 @@ def main():
     edit = Editor()
 
     # This is just for debug. If it is impacting you, remove this section
-    if __debug__:
-        edit._debug_me()
+    # if __debug__:
+    #     edit._debug_me()
 
     sys.exit(app.exec_())
 

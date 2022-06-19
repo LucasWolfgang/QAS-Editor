@@ -33,7 +33,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QMessageBox, QListWidget, QCheckBox
 from ..category import Category, SERIALIZERS
 from ..questions import _Question, QNAME
-from ..utils import Tags
+from ..utils import TList
 from ..enums import Numbering, Grading, ShowUnits, RespFormat, Synchronise,\
                     Status, Distribution
 from .widget import GTextToolbar, GTextEditor, GTagBar, GField, GCheckBox,\
@@ -113,14 +113,12 @@ class Editor(QMainWindow):
 
         self._add_menu_bars()
 
-        # Left side
         self.data_view = QTreeView()
         self.data_view.setIconSize(QSize(18, 18))
         xframe_vbox = self._block_datatree()
         left = QWidget()
         left.setLayout(xframe_vbox)
 
-        # Right side
         self.cframe_vbox = QVBoxLayout()
         self._block_general_data()
         self._block_answer()
@@ -141,7 +139,6 @@ class Editor(QMainWindow):
         right.setWidget(frame)
         right.setWidgetResizable(True)
 
-        # Create main window divider for the splitter
         splitter = QSplitter()
         splitter.addWidget(left)
         splitter.addWidget(right)
@@ -149,7 +146,6 @@ class Editor(QMainWindow):
         splitter.setSizes([250, 100])
         self.setCentralWidget(splitter)
 
-        # Create lower status bar.
         status = QStatusBar()
         self.setStatusBar(status)
         self.cat_name = QLabel()
@@ -210,7 +206,14 @@ class Editor(QMainWindow):
         tmp.triggered.connect(self._open_find_popup)
         tmp.setShortcut(self.SHORTCUTS["Find questions"])
         file_menu.addAction(tmp)
-        
+
+        file_menu = self.menuBar().addMenu("&Options")
+        tmp = QAction("Import", self)
+        tmp.triggered.connect(self._open_dataset_popup)
+        file_menu.addAction(tmp)
+
+        file_menu = self.menuBar().addMenu("&Help")
+
         self.toolbar = GTextToolbar(self)
         self.addToolBar(Qt.TopToolBarArea, self.toolbar)
 
@@ -789,7 +792,9 @@ class PopupDataset(QWidget):
         self.__cur_data.items[key] = value
         self._items.from_obj(self.__cur_data)
 
-    def closeEvent(self, _):
+    def closeEvent(self, _):  # pylint: disable=C0103
+        """ Closing event
+        """
         self.parent().is_open_dataset = False
 
 
@@ -806,7 +811,7 @@ class PopupFind(QWidget):
         _content.addWidget(self._title, 0, 1)
         self._by_tags = QCheckBox("By tags", self)
         _content.addWidget(self._by_tags, 1, 0)
-        self._tags = Tags()
+        self._tags = TList()
         _tagbar = GTagBar(self)
         _tagbar.from_list(self._tags)
         _tagbar.set_gtags(gtags)
@@ -858,7 +863,9 @@ class PopupFind(QWidget):
             name.reverse()
             self._reslist.addItem(" > ".join(name))
 
-    def closeEvent(self, _):
+    def closeEvent(self, _):   # pylint: disable=C0103
+        """ Closing event
+        """
         self.parent().is_open_find = False
 
 
@@ -926,4 +933,19 @@ class PopupName(QDialog):
             self.reject()
         self.data = name
         self.accept()
-    
+
+
+class PopupImportOpt(QWidget):
+
+    def __init__(self, parent, top: Category, gtags: dict):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+        self.setWindowTitle("Import Options")
+
+
+class PopupExportOpt(QWidget):
+
+    def __init__(self, parent, top: Category, gtags: dict):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+        self.setWindowTitle("Export Options")

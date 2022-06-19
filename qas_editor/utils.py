@@ -246,8 +246,6 @@ class FText(Serializable):
         self.text = text
         self.formatting = TextFormat.AUTO if formatting is None else formatting
         self.bfile = bfile if bfile else []
-        self.embbeded = True
-        self.math_type = MathType.IGNORE
 
     @staticmethod
     def prop(attr: str):

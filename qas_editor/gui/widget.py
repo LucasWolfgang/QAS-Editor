@@ -29,7 +29,7 @@ from PyQt5.QtWidgets import QWidget, QActionGroup, QAction, QTextEdit, \
                             QFrame,QPushButton,QLabel, QGridLayout, QLineEdit,\
                             QCheckBox, QListWidget, QCompleter
 from ..questions import MARKER_INT
-from ..answer import Answer, ACalculated, DragItem, ClozeItem, SelectOption
+from ..answer import Answer, ACalculated, DragGroup, DragItem, ClozeItem, DropZone, SelectOption
 from ..enums import ClozeFormat, TextFormat, TolType, TolFormat
 from ..utils import FText, Hint
 if TYPE_CHECKING:
@@ -618,11 +618,7 @@ class GCloze(QFrame):
 
 
 class GDrag(QWidget):
-    """This class works from both DragText and DragItem.
-    I hope someday people from moodle unify these 2.
-
-    Args:
-        QGridLayout ([type]): [description]
+    """This class works for both DragGrou and DragItem.
     """
 
     TYPES = ["Image", "Text"]
@@ -643,29 +639,23 @@ class GDrag(QWidget):
         self._itype.setEnabled(False)
         self._itype.setFixedWidth(55)
         self._layout.addWidget(self.itype, 0, 5)
-        self._unlimited = GCheckBox("unlimited", "Unlimited", self)
-        self._layout.addWidget(self.unlimited, 0, 6)
+        self._nodrags = GField("no_of_drags", self, int)
+        self._layout.addWidget(self._nodrags, 0, 6)
         self.img = None
-        self.obj = None
 
-    def from_obj(self, obj):
+    def from_obj(self, obj: DragGroup):
         """_summary_
 
         Args:
             obj (_type_): _description_
         """
-        self._text.setText(obj.text)
-        self._group.setText(str(obj.group))
-        self._unlimited.setChecked(obj.unlimited)
-        self.obj = obj
+        self._text.from_obj(obj)
+        self._group.from_obj(obj)
+        self._nodrags.from_obj(obj)
 
 
 class GDragImage(GDrag):
     """This class works from both DragText and DragItem.
-    I hope someday people from moodle unify these 2.
-
-    Args:
-        QGridLayout ([type]): [description]
     """
 
     def __init__(self, **kwargs) -> None:
@@ -685,28 +675,28 @@ class GDropZone(QWidget):
         super().__init__(**kwargs)
         _layout = QHBoxLayout(self)
         _layout.addWidget(QLabel("Type", self), 0)
-        self.itype = GDropbox(None, self, self.TYPES)
-        self.itype.addItem(self.TYPES)
-        _layout.addWidget(self.itype, 1)
-        self.group = GField("group", self, int)
+        self._itype = GDropbox(None, self, self.TYPES)
+        self._itype.addItem(self.TYPES)
+        _layout.addWidget(self._itype, 1)
+        self._group = GField("group", self, int)
         _layout.addWidget(QLabel("Group"), 2)
-        _layout.addWidget(self.group, 3)
-        self.text = GField("text", self, str)
+        _layout.addWidget(self._group, 3)
+        self._text = GField("text", self, str)
         _layout.addWidget(QLabel("Text"), 4)
-        _layout.addWidget(self.text, 5)
-        self._ndrags = GField("ndrags", self, int)
+        _layout.addWidget(self._text, 5)
+        self._ndrags = GField("no_of_drags", self, int)
         _layout.addWidget(QLabel("No Drags"), 4)
         _layout.addWidget(self._ndrags, 5)
 
-    def from_obj(self, obj: DragItem):
+    def from_obj(self, obj: DropZone):
         """_summary_
 
         Args:
             obj (DragItem): _description_
         """
-        self.group.setText(obj.group)
-        self.text.setText(obj.text)
-        self._ndrags.setText(obj.no_of_drags)
+        self._group.from_obj(obj)
+        self._text.from_obj(obj)
+        self._ndrags.from_obj(obj)
 
 
 class GSelectOption(QWidget):
@@ -715,7 +705,6 @@ class GSelectOption(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.__obj = None
         _layout = QHBoxLayout(self)
         self._group = GField("group", self, int)
         _layout.addWidget(QLabel("Group"), 0)
@@ -732,9 +721,8 @@ class GSelectOption(QWidget):
         Args:
             obj (_type_): _description_
         """
-        self.__obj = obj
-        self._text.setText(obj.text)
-        self._group.setText(str(obj.group))
+        self._text.from_obj(obj)
+        self._group.from_obj(obj)
 
 
 class GHint(QFrame):
@@ -869,7 +857,7 @@ class GTagBar(QFrame):
         """_summary_
 
         Args:
-            obj (Tags): _description_
+            obj (_Question): _description_
         """
         self.from_list(obj.tags)
 

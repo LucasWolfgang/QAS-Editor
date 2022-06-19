@@ -28,24 +28,26 @@ if TYPE_CHECKING:
     from ..category import Category
 
 LOG = logging.getLogger(__name__)
+_PATTERN = re.compile(r"[A-Z]+\) (.+)")
 
-
-def _from_QMultichoice(buffer: LineBuffer, name: str):
-    header = ""
+def _from_question(buffer, line: str, name: str):
+    header = line
     answers = []
     match = None
-    while not buffer.eof and match is None:
-        header += buffer.cur
-        match = re.match(r"[A-Z]+\) (.+)", buffer.read())
-    while not buffer.eof and match is not None:
+    for _line in buffer:
+        match = _PATTERN.match(_line)
+        if match:
+            answers.append(Answer(0.0, match[1], None, TextFormat.PLAIN))
+            break
+        header += _line
+    for _line in buffer:
+        match = _PATTERN.match(_line)
+        if not match:
+            answers[ord(_line[8].upper())-65].fraction = 100.0
+            break
         answers.append(Answer(0.0, match[1], None, TextFormat.PLAIN))
-        match = re.match(r"[A-Z]+\) (.+)", buffer.read())
-    try:
-        answers[ord(buffer.cur[8].upper())-65].fraction = 100.0
-    except IndexError:
-        LOG.exception(f"Failed to set correct answer in question {name}.")
-    return QMultichoice(name=name, options=answers,
-                question=FText("questiontext", header, TextFormat.PLAIN, None))
+    question = FText("questiontext", header.strip(), TextFormat.PLAIN)
+    return QMultichoice(name=name, options=answers, question=question)
 
 
 # -----------------------------------------------------------------------------
@@ -62,15 +64,13 @@ def read_aiken(cls, file_path: str, category: str = "$course$") -> "Category":
         Quiz: _description_
     """
     quiz = cls(category)
-    name = file_path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
     cnt = 0
     for _path in glob.glob(file_path):
         with open(_path, encoding="utf-8") as ifile:
-            buffer = LineBuffer(ifile)
-            buffer.read()
-            while not buffer.eof:
-                quiz.add_question(_from_QMultichoice(buffer, f"aiken_{cnt}"))
-                buffer.read()
+            for line in ifile:
+                if line == "\n":
+                    continue
+                quiz.add_question(_from_question(ifile, line, f"aiken_{cnt}"))
                 cnt += 1
     return quiz
 

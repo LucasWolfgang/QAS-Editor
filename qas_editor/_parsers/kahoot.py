@@ -16,36 +16,58 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import logging
+import csv
+from ..answer import Answer
 from ..questions import QMultichoice
 from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from ..category import Category
-_LOG = logging.getlogger(__name__)
 
+
+_LOG = logging.getLogger(__name__)
 _TIME = [5, 10, 20, 30, 60, 90, 120, 240]
 
-def read(cls, file_path: str, comment=None) -> "Category":
-    """
-    """
-    pass
 
-def write(self, file_path: str):
+def read_kahoot(cls, file_path: str) -> "Category":
+    """
+    """
+    cat = cls()
+    with open(file_path, mode ='r') as file:
+        csvFile = csv.reader(file)
+        next(csvFile)  # ignore the header, since is not useful currently.
+        for lines in csvFile:
+            num, text, ans1, ans2, ans3, ans4, time, resp = lines
+            resp = resp.split(",")
+            opts = [Answer(100 if "1" in resp else 0, ans1),
+                    Answer(100 if "2" in resp else 0, ans2),
+                    Answer(100 if "3" in resp else 0, ans3),
+                    Answer(100 if "4" in resp else 0, ans4)]
+            qst = QMultichoice(len(resp) == 1, name=f"kahoot{num}",
+                               question=text, time_lim=int(time), options=opts)
+            cat.add_question(qst)
+    return cat
+            
+
+def write_kahoot(self, file_path: str):
     """
     """
     def _kwrecursive(cat: "Category", write: Callable):
-        for num, qst in enumerate(cat.questions):
+        for num, qst in enumerate(cat.questions, 1):
             if not isinstance(qst, QMultichoice):
                 continue
             qst.check()
-            write(f"{num},{qst.question},")
+            data = [str(num), qst.question.text]
             correct = []
-            for pos, ans in enumerate(qst.options[:4]):
+            if len(qst.options) > 4:
+                _LOG.warning("Kahoot: question %s has more than 4 options. "
+                             "Before importing to Kahoot you will need to it.", 
+                             qst.name)
+            for pos, ans in enumerate(qst.options, 1):
                 if ans.fraction == 100:
-                    correct.append(pos)
-                else:
-                    write(f"{ans.text},")
-            for num in range(4 - len(qst.options)):
-                write(",")
+                    correct.append(str(pos))
+                data.append(ans.text)
+            for _ in range(4 - len(qst.options)):
+                data.append(None)
             time = qst.time_lim
             if time not in _TIME:       # Rounds question time limit to the
                 for val in _TIME:       # next valid value.
@@ -54,9 +76,11 @@ def write(self, file_path: str):
                         break
                 else:
                     time = val
-            write(f"{time},\"{','.join(correct)}\"\n")    
+            data.append(time)
+            data.append(','.join(correct))  
+            write(data)  
         for name in cat:                            # Then add children data
             _kwrecursive(cat[name], write)
     with open(file_path, "w") as ofile:
         ofile.write(",Question,Answer1,Answer2,Answer3,Answer4,Time,Correct\n")
-        _kwrecursive(self, ofile.write)
+        _kwrecursive(self, csv.writer(ofile).writerow)

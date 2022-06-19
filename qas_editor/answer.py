@@ -36,7 +36,10 @@ class Answer(Serializable):
         self.fraction = fraction
         self.formatting = TextFormat.AUTO if formatting is None else formatting
         self.text = text
-        self.feedback = FText("feedback") if feedback is None else feedback
+        self._feedback = FText("feedback")
+        self.feedback = feedback
+    
+    feedback = FText.prop("_feedback")
 
 
 class ANumerical(Answer):
@@ -105,7 +108,7 @@ class DragItem(Serializable):
     canvas, or just used to identify the item.
     """
 
-    def __init__(self, number: int, text: str, no_of_drags = 1):
+    def __init__(self, number=0, text="", no_of_drags=1):
         self.number = number
         self.text = text
         self.no_of_drags = no_of_drags
@@ -165,11 +168,11 @@ class Subquestion(Serializable):
     """_summary_
     """
 
-    def __init__(self, formatting: TextFormat, text: str, answer: str):
+    def __init__(self, text: str, answer: str, formatting: TextFormat=None):
         super().__init__()
         self.text = text
         self.answer = answer
-        self.formatting = formatting
+        self.formatting = formatting if formatting else TextFormat.AUTO
 
 
 class SelectOption(Serializable):

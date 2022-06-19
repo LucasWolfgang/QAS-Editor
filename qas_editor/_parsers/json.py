@@ -18,12 +18,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import json
 from typing import TYPE_CHECKING
 from enum import Enum
-from ..enums import ClozeFormat, Direction, Distribution, Grading, RespFormat, \
+from ..enums import ClozeFormat, Direction, Distribution, Grading, MathType, RespFormat, \
                     ShapeType, Synchronise, TolType, TolFormat, Status, \
                     ShowUnits, TextFormat, Numbering
 from ..utils import B64File, Dataset, FText, Hint, TList, Unit
 from ..answer import ACalculated, ANumerical, Answer, ClozeItem, DragItem, \
-                     ACrossWord, DropZone, SelectOption, DragGroup, Subquestion
+                     ACrossWord, DropZone, SelectOption, DragGroup, DragImage,\
+                     Subquestion
 from ..questions import QCalculatedMultichoice, QCrossWord, QDescription, \
                         QTrueFalse, QCalculated, QCalculatedSimple, QCloze,\
                         QDaDImage, QDaDMarker, QMissingWord,\
@@ -75,7 +76,7 @@ def _from_unit(data:dict):
 
 def _from_answer(data: dict, cls=None):
     data["formatting"] = TextFormat(data["formatting"])
-    data["feedback"] = _from_ftext(data["feedback"])
+    data["feedback"] = _from_ftext(data.pop("_feedback"))
     return _from_json(data, cls if cls else Answer)
 
 
@@ -96,13 +97,17 @@ def _from_clozeitem(data: dict):
     return _from_json(data, ClozeItem)
 
 
-def _from_dragtext(data: dict):
-    return _from_json(data, DragGroup)
-
-
 def _from_dragitem(data: dict):
+    return DragItem(**data)
+
+
+def _from_draggroup(data: dict):
+    return DragGroup(**data)
+
+
+def _from_dragimage(data: dict):
     data["image"] = _from_b64file(data["image"])
-    return _from_json(data, DragItem)
+    return DragImage(**data)
 
 
 def _from_dropzone(data: dict):
@@ -129,30 +134,33 @@ def _from_selectoption(data: dict):
 
 
 def _from_question(data: dict, cls):
-    data["question"] = _from_ftext(data["question"])
-    data["feedback"] = _from_ftext(data["feedback"])
-    data["tags"] = _from_tags(data["tags"])
-    return _from_json(data, cls)
+    data["question"] = _from_ftext(data.pop("_question"))
+    data["feedback"] = _from_ftext(data.pop("_feedback"))
+    data["tags"] = _from_tags(data.pop("_tags"))
+    return cls(**data)
 
 
-def _from_question_mt(data: dict, cls):
+def _from_question_mt(data: dict, cls, opt_callback):
     for i in range(len(data["hints"])):
         data["hints"][i] = _from_hint(data["hints"][i])
-    # Defintion of options reading should be done by children
+    if opt_callback is not None:
+        for i in range(len(data["_options"])):
+            data["_options"][i] = opt_callback(data["_options"][i])
+        data["options"] = data.pop("_options")
     return _from_question(data, cls)
 
 
-def _from_question_mtcs(data: dict, cls):
-    data["if_correct"] =_from_ftext(data["if_correct"])
-    data["if_incomplete"] = _from_ftext(data["if_incomplete"])
-    data["if_incorrect"] = _from_ftext(data["if_incorrect"])
-    return _from_question_mt(data, cls)
+def _from_question_mtcs(data: dict, cls, opt_callback):
+    data["if_correct"] =_from_ftext(data.pop("_if_correct"))
+    data["if_incomplete"] = _from_ftext(data.pop("_if_incomplete"))
+    data["if_incorrect"] = _from_ftext(data.pop("_if_incorrect"))
+    return _from_question_mt(data, cls, opt_callback)
 
 
-def _from_question_mtuh(data: dict, cls):
+def _from_question_mtuh(data: dict, cls, opt_callback):
     data["grading_type"] = Grading(data["grading_type"])
     data["show_unit"] = ShowUnits(data["show_unit"])
-    return _from_question_mt(data, cls)
+    return _from_question_mt(data, cls, opt_callback)
 
 
 def _from_qcalculated(data: dict, cls=None):
@@ -161,9 +169,8 @@ def _from_qcalculated(data: dict, cls=None):
         data["units"][i] = _from_unit(data["units"][i])
     for i in range(len(data["datasets"])):
         data["datasets"][i] = _from_dataset(data["datasets"][i])
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_acalculated(data["options"][i])
-    return _from_question_mtuh(data, cls if cls else QCalculated)
+    return _from_question_mtuh(data, cls if cls else QCalculated, 
+                               _from_acalculated)
 
 
 def _from_qcalculatedsimple(data: dict):
@@ -175,15 +182,11 @@ def _from_qcalculatedmultichoice(data: dict):
     data["synchronize"] = Synchronise(data["synchronize"])
     for i in range(len(data["datasets"])):
         data["datasets"][i] = _from_dataset(data["datasets"][i])
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_acalculated(data["options"][i])
-    return _from_question_mtcs(data, QCalculatedMultichoice)
+    return _from_question_mtcs(data, QCalculatedMultichoice, _from_acalculated)
 
 
 def _from_qcloze(data: dict):
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_clozeitem(data["options"][i])
-    return _from_question_mt(data, QCloze)
+    return _from_question_mt(data, QCloze, _from_clozeitem)
 
 
 def _from_qdescription(data: dict):
@@ -191,27 +194,20 @@ def _from_qdescription(data: dict):
 
 
 def _from_qdraganddroptext(data: dict):
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_dragtext(data["options"][i])
-    return _from_question_mtcs(data, QDaDText)
+    return _from_question_mtcs(data, QDaDText, _from_draggroup)
 
 
-def _from_qdraganddropimage(data: dict):
+def _from_qdraganddropimage(data: dict, cls=None, callback=None):
     data["background"] = _from_b64file(data["background"])
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_dragitem(data["options"][i])
-    for i in range(len(data["zones"])):
-        data["zones"][i] = _from_dropzone(data["zones"][i])
-    return _from_question_mtcs(data, QDaDImage)
+    for i in range(len(data["_zones"])):
+        data["_zones"][i] = _from_dropzone(data["_zones"][i])
+    data["zones"] = data.pop("_zones")
+    return _from_question_mtcs(data, cls if cls else QDaDImage, 
+                               callback if callback else _from_dragimage)
 
 
 def _from_qdraganddropmarker(data: dict):
-    data["background"] = _from_b64file(data["background"])
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_dragitem(data["options"][i])
-    for i in range(len(data["zones"])):
-        data["zones"][i] = _from_dropzone(data["zones"][i])
-    return _from_question_mtcs(data, QDaDMarker)
+    return _from_qdraganddropimage(data, QDaDMarker, _from_dragitem)
 
 
 def _from_qessay(data: dict):
@@ -222,19 +218,15 @@ def _from_qessay(data: dict):
 
 
 def _from_qmatching(data: dict):
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_subquestion(data["options"][i])
-    return _from_question_mtcs(data, QMatching)
+    return _from_question_mtcs(data, QMatching, _from_subquestion)
 
 
 def _from_qrandommatching(data: dict):
-    return _from_question_mtcs(data, QRandomMatching)
+    return _from_question_mtcs(data, QRandomMatching, None)
 
 
 def _from_qmissingword(data: dict):
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_selectoption(data["options"][i])
-    return _from_question_mtcs(data, QMissingWord)
+    return _from_question_mtcs(data, QMissingWord, _from_selectoption)
 
 
 def _from_qcrossword(data: dict):
@@ -245,32 +237,23 @@ def _from_qcrossword(data: dict):
 
 def _from_qmultichoice(data: dict):
     data["numbering"] = Numbering(data["numbering"])
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_answer(data["options"][i])
-    return _from_question_mtcs(data, QMultichoice)
+    return _from_question_mtcs(data, QMultichoice, _from_answer)
 
 
 def _from_qnumerical(data: dict):
     for i in range(len(data["units"])):
         data["units"][i] = _from_unit(data["units"][i])
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_anumerical(data["options"][i])
-    return _from_question_mtuh(data, QNumerical)
+    return _from_question_mtuh(data, QNumerical, _from_anumerical)
 
 
 def _from_qshortanswer(data: dict):
-    for i in range(len(data["options"])):
-        data["options"][i] = _from_answer(data["options"][i])
-    return _from_question_mt(data, QShortAnswer)
+    return _from_question_mt(data, QShortAnswer, _from_answer)
 
 
 def _from_qtruefalse(data: dict):
-    true_answer = _from_answer(data.pop("_QTrueFalse__true"))
-    wrong_answer = _from_answer(data.pop("_QTrueFalse__false"))
-    data["options"] = [true_answer, wrong_answer]
-    data.pop("_QTrueFalse__correct")  # Defined during init call
+    data["true_feedback"] = _from_ftext(data.pop("_true_feedback"))
+    data["false_feedback"] = _from_ftext(data.pop("_false_feedback"))
     return _from_question(data, QTrueFalse)
-
 
 
 # -----------------------------------------------------------------------------

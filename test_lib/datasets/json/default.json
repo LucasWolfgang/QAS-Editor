@@ -84,37 +84,37 @@
                         {
                             "text": "E. Fortunately, these issues were soon resolved.",
                             "group": 1,
-                            "unlimited": false
+                            "no_of_drags": 1
                         },
                         {
                             "text": "C. Fear of missing out on another such memorable performance caused huge demand for tickets the following year.",
                             "group": 1,
-                            "unlimited": false
+                            "no_of_drags": 1
                         },
                         {
                             "text": "G. Their other idea was even more brilliant.",
                             "group": 1,
-                            "unlimited": false
+                            "no_of_drags": 1
                         },
                         {
                             "text": "B. When refreshments, merchandise, transport and accommodation are taken into account, the expense of attending rises dramatically.",
                             "group": 1,
-                            "unlimited": false
+                            "no_of_drags": 1
                         },
                         {
                             "text": "A. The appeal of its location - palm trees, guaranteed sunshine, warm temperatures - is not difficult to understand.",
                             "group": 1,
-                            "unlimited": false
+                            "no_of_drags": 1
                         },
                         {
                             "text": "D. Lately, however, increasingly extravagant marketing by the fashion industry means that attendees are now preferring to stay away from the music concert itself.",
                             "group": 1,
-                            "unlimited": false
+                            "no_of_drags": 1
                         },
                         {
                             "text": "F. On this occasion, medical professionals treated numerous audience members for heatstroke.",
                             "group": 1,
-                            "unlimited": false
+                            "no_of_drags": 1
                         }
                     ],
                     "MOODLE": "ddwtos"
@@ -185,25 +185,22 @@
                         {
                             "text": "Marker1",
                             "group": null,
-                            "unlimited": true,
+                            "no_of_drags": -1,
                             "number": "1",
-                            "no_of_drags": "1",
                             "image": null
                         },
                         {
                             "text": "Marker2",
                             "group": null,
-                            "unlimited": false,
+                            "no_of_drags": 1,
                             "number": "2",
-                            "no_of_drags": "1",
                             "image": null
                         },
                         {
                             "text": "Marker3",
                             "group": null,
-                            "unlimited": false,
+                            "no_of_drags": 2,
                             "number": "3",
-                            "no_of_drags": "2",
                             "image": null
                         }
                     ],
@@ -1812,9 +1809,8 @@
                                 {
                                     "text": null,
                                     "group": "1",
-                                    "unlimited": false,
+                                    "no_of_drags": 1,
                                     "number": "1",
-                                    "no_of_drags": null,
                                     "image": {
                                         "path": null,
                                         "name": "add_curve.png",
@@ -1824,9 +1820,8 @@
                                 {
                                     "text": null,
                                     "group": "1",
-                                    "unlimited": true,
+                                    "no_of_drags": -1,
                                     "number": "2",
-                                    "no_of_drags": null,
                                     "image": {
                                         "path": null,
                                         "name": "axes.png",
@@ -1836,9 +1831,8 @@
                                 {
                                     "text": "test_text_drag",
                                     "group": "1",
-                                    "unlimited": false,
+                                    "no_of_drags": 1,
                                     "number": "3",
-                                    "no_of_drags": null,
                                     "image": null
                                 }
                             ],

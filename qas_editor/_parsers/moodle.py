@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
 
 from ..answer import ACalculated, ANumerical, Answer, DragItem, DragGroup, \
-                     DropZone, Subquestion, SelectOption
+                     DragImage, DropZone, Subquestion, SelectOption
 from ..questions import QCalculated, QCalculatedMultichoice, QDescription,\
                         QCalculatedSimple, QCloze, QMissingWord, QTrueFalse,\
                         QDaDMarker, QDaDImage, QNumerical,\
@@ -90,7 +90,7 @@ def _escape_attrib_html(data):
 # -----------------------------------------------------------------------------
 
 
-def _from_xml(root: et.Element, tags: dict, attrs: dict, cls):
+def _from_xml(root: et.Element, tags: dict, attrs: dict) -> dict:
     if root is None:
         return None
     results = {}
@@ -129,14 +129,14 @@ def _from_xml(root: et.Element, tags: dict, attrs: dict, cls):
             results[name] = root.get(key, None)
             if results[name] is not None:
                 results[name] = cast_type(results[name])
-    return cls(**results)
+    return results
 
 
-def _from_B64File(root: et.Element, tags: dict, attrs: dict):
+def _from_B64File(root: et.Element, *_):
     return B64File(root.get("name"), root.get("path"), root.text)
 
 
-def _from_DatasetItems(root: et.Element, tags: dict, attrs: dict):
+def _from_DatasetItems(root: et.Element, *_):
     data = {}
     for item in root:
         number = int(item.find("number").text)
@@ -156,7 +156,7 @@ def _from_Datasets(root: et.Element, tags: dict, *_):
         tags["maximum"] = (str, "maximum")
         tags["decimals"] = (str, "decimals")
         tags["dataset_items"] = (_from_DatasetItems, "items")
-        data.append(_from_xml(obj, tags, None, Dataset))
+        data.append(Dataset(**_from_xml(obj, tags, None)))
     return data
 
 
@@ -165,7 +165,7 @@ def _from_FText(root: et.Element, tags: dict, attrs: dict):
     tags["text"] = (str, "text")
     tags["file"] = (_from_B64File, "bfile", True)
     attrs["format"] = (TextFormat, "formatting")
-    return _from_xml(root, tags, attrs, FText)
+    return FText(**_from_xml(root, tags, attrs))
 
 
 def _from_Hint(root: et.Element, tags: dict, attrs: dict) -> "Hint":
@@ -174,20 +174,20 @@ def _from_Hint(root: et.Element, tags: dict, attrs: dict) -> "Hint":
     tags["shownumcorrect"] = (bool, "show_correct")
     tags["clearwrong"] = (bool, "clear_wrong")
     attrs["format"] = (TextFormat, "formatting")
-    return _from_xml(root, tags, attrs, Hint)
+    return Hint(**_from_xml(root, tags, attrs))
 
 
 def _from_SelectOption(root: et.Element, tags: dict, attrs: dict):
     tags["text"] = (str, "text")
     tags["group"] = (str, "group")
-    return _from_xml(root, tags, attrs, SelectOption)
+    return SelectOption(**_from_xml(root, tags, attrs))
 
 
 def _from_Subquestion(root: et.Element, tags: dict, attrs: dict):
     attrs["format"] = (TextFormat, "formatting")
     tags["text"] = (str, "text")
     tags["answer"] = (str, "answer")
-    return _from_xml(root, tags, attrs, Subquestion)
+    return Subquestion(**_from_xml(root, tags, attrs))
 
 
 def _from_units(root: et.Element, *_) -> Unit:
@@ -201,48 +201,43 @@ def _from_units(root: et.Element, *_) -> Unit:
 def _from_Tags(root: et.Element, *_) -> TList:
     _tags = TList(str)
     for elem in root:
-        _tags.append(elem.text)
+        _tags.append(elem.find("text").text)
     return _tags
 
 
 # -----------------------------------------------------------------------------
 
 
-def _from_Answer(root: et.Element, tags: dict, attrs: dict, cls=None):
+def _from_Answer(root: et.Element, tags: dict, attrs: dict, go_up=False):
     tags["text"] = (str, "text")
     tags["feedback"] = (_from_FText, "feedback")
     attrs["format"] = (TextFormat, "formatting")
     attrs["fraction"] = (float, "fraction")
-    return _from_xml(root, tags, attrs, cls if cls else Answer)
+    data = _from_xml(root, tags, attrs)
+    return data if go_up else Answer(**data)
 
 
-def _from_ANumerical(root: et.Element, tags: dict, attrs: dict, cls=None):
+def _from_ANumerical(root: et.Element, tags: dict, attrs: dict, go_up=False):
     tags["tolerance"] = (float, "tolerance")
-    return _from_Answer(root, tags, attrs, cls if cls else ANumerical)
+    data = _from_Answer(root, tags, attrs, True)
+    return data if go_up else ANumerical(**data)
 
 
 def _from_ACalculated(root: et.Element, tags: dict, attrs: dict):
     tags["tolerancetype"] = (TolType, "ttype")
     tags["correctanswerformat"] = (TolFormat, "aformat")
     tags["correctanswerlength"] = (int, "alength")
-    return _from_ANumerical(root, tags, attrs, ACalculated)
+    return ACalculated(**_from_ANumerical(root, tags, attrs, True))
 
 
-def _from_dragtext(root: et.Element, tags: dict, attrs: dict):
+def _from_draggroup(root: et.Element, tags: dict, attrs: dict):
     tags["text"] = (str, "text")
     tags["group"] = (str, "group")
     tags["unlimited"] = (bool, "unlimited")
-    return _from_xml(root, tags, attrs, DragGroup)
-
-
-def _from_dragitem(root: et.Element, tags: dict, attrs: dict):
-    tags["no"] = (int, "number")
-    tags["text"] = (str, "text")
-    tags["infinite"] = (bool, "unlimited")
-    tags["draggroup"] = (int, "group")
-    tags["noofdrags"] = (bool, "no_of_drags")
-    tags["file"] = (_from_B64File, "image")
-    return _from_xml(root, tags, attrs, DragGroup)
+    data = _from_xml(root, tags, attrs)
+    unlimited = data.pop("unlimited")
+    data["no_of_drags"] = -1 if unlimited else 1
+    return DragGroup(**data)
 
 
 def _from_dropzone(root: et.Element, *_):
@@ -267,50 +262,50 @@ def _from_dropzone(root: et.Element, *_):
 # -----------------------------------------------------------------------------
 
 
-def _from_question(root: et.Element, tags: dict, attrs: dict, cls):
+def _from_question(root: et.Element, tags: dict, attrs: dict):
     tags["name"] = (str, "name")
     tags["questiontext"] = (_from_FText, "question")
     tags["generalfeedback"] = (_from_FText, "feedback")
     tags["defaultgrade"] = (float, "default_grade")
     tags["idnumber"] = (int, "dbid")
     tags["tags"] = (_from_Tags, "tags")
-    return _from_xml(root, tags, attrs, cls)
+    return _from_xml(root, tags, attrs)
 
 
-def _from_question_mt(root: et.Element, tags: dict, attrs: dict, cls):
+def _from_question_mt(root: et.Element, tags: dict, attrs: dict):
     tags["hint"] = (_from_Hint, "hints", True)
     tags["penalty"] = (float, "penalty")
-    # Defintion of options reading should be done by children
-    return _from_question(root, tags, attrs, cls)
+    return _from_question(root, tags, attrs)
 
 
-def _from_question_mtcs(root: et.Element, tags: dict, attrs: dict, cls):
+def _from_question_mtcs(root: et.Element, tags: dict, attrs: dict):
     tags["correctfeedback"] = (_from_FText, "if_correct")
     tags["partiallycorrectfeedback"] = (_from_FText, "if_incomplete")
     tags["incorrectfeedback"] = (_from_FText, "if_incorrect")
     tags["shownumcorrect"] = (bool, "show_num")
     tags["shuffleanswers"] = (bool, "shuffle")
-    return _from_question_mt(root, tags, attrs, cls)
+    return _from_question_mt(root, tags, attrs)
 
 
-def _from_question_mtuh(root: et.Element, tags: dict, attrs: dict, cls):
+def _from_question_mtuh(root: et.Element, tags: dict, attrs: dict):
     tags["unitgradingtype"] = (Grading, "grading_type")
     tags["unitpenalty"] = (str, "unit_penalty")
     tags["unitsleft"] = (bool, "left")
     tags["showunits"] = (ShowUnits, "show_unit")
-    return _from_question_mt(root, tags, attrs, cls)
+    return _from_question_mt(root, tags, attrs)
 
 
-def _from_qcalculated(root: et.Element, tags: dict, attrs: dict, cls=None):
+def _from_qcalculated(root: et.Element, tags: dict, attrs: dict, go_up=False):
     tags["synchronize"] = (Synchronise, "synchronize")
     tags["units"] = (_from_units, "units", False)
     tags["dataset_definitions"] = (_from_Datasets, "datasets")
     tags["answer"] = (_from_ACalculated, "options", True)
-    return _from_question_mtuh(root, tags, attrs, cls if cls else QCalculated)
+    data = _from_question_mtuh(root, tags, attrs)
+    return data if go_up else QCalculated(**data)
 
 
 def _from_qcalculatedsimple(root: et.Element, tags: dict, attrs: dict):
-    return _from_qcalculated(root, tags, attrs, QCalculatedSimple)
+    return QCalculatedSimple(**_from_qcalculated(root, tags, attrs, True))
 
 
 def _from_qcalcmultichoice(root: et.Element, tags: dict, attrs: dict):
@@ -319,35 +314,56 @@ def _from_qcalcmultichoice(root: et.Element, tags: dict, attrs: dict):
     tags["answernumbering"] = (Numbering, "numbering")
     tags["dataset_definitions"] = (_from_Datasets, "datasets")
     tags["answer"] = (_from_ACalculated, "options", True)
-    return _from_question_mtcs(root, tags, attrs, QCalculatedMultichoice)
+    return QCalculatedMultichoice(**_from_question_mtcs(root, tags, attrs))
 
 
 def _from_qcloze(root: et.Element, tags: dict, attrs: dict):
-    return _from_question_mt(root, tags, attrs, QCloze)
+    data = _from_question_mt(root, tags, attrs)
+    text, opts = QCloze.get_items(data["question"].text)
+    data["question"].text = text
+    data["options"] = opts
+    return QCloze(**data)
 
 
 def _from_qdescription(root: et.Element, tags: dict, attrs: dict):
-    return _from_question(root, tags, attrs, QDescription)
+    return QDescription(**_from_question(root, tags, attrs))
 
 
 def _from_ddwtos(root: et.Element, tags: dict, attrs: dict):
-    tags["dragbox"] = (_from_dragtext, "options", True)
-    return _from_question_mtcs(root, tags, attrs, QDaDText)
+    tags["dragbox"] = (_from_draggroup, "options", True)
+    return QDaDText(**_from_question_mtcs(root, tags, attrs))
 
 
 def _from_ddimageortext(root: et.Element, tags: dict, attrs: dict):
+    def _from_dragimage(root: et.Element, tags: dict, attrs: dict):
+        tags["no"] = (int, "number")
+        tags["text"] = (str, "text")
+        tags["infinite"] = (bool, "unlimited")
+        tags["draggroup"] = (int, "group")
+        tags["file"] = (_from_B64File, "image")
+        data = _from_xml(root, tags, attrs)
+        unlimited = data.pop("unlimited")
+        data["no_of_drags"] = -1 if unlimited else 1
+        return DragImage(**data)
     tags["file"] = (_from_B64File, "background")
-    tags["drag"] = (_from_dragitem, "options", True)
+    tags["drag"] = (_from_dragimage, "options", True)
     tags["drop"] = (_from_dropzone, "zones", True)
-    return _from_question_mtcs(root, tags, attrs, QDaDImage)
+    return QDaDImage(**_from_question_mtcs(root, tags, attrs))
 
 
 def _from_ddmarker(root: et.Element, tags: dict, attrs: dict):
+    def _from_dragitem(root: et.Element, tags: dict, attrs: dict):
+        tags["no"] = (int, "number")
+        tags["text"] = (str, "text")
+        tags["infinite"] = (bool, "no_of_drags")
+        data = _from_xml(root, tags, attrs)
+        data["no_of_drags"] = -1 if data["no_of_drags"] else 1
+        return DragItem(**data)
     tags["file"] = (_from_B64File, "background")
     tags["showmisplaced"] = (bool, "highlight")
     tags["drag"] = (_from_dragitem, "options", True)
     tags["drop"] = (_from_dropzone, "zones", True)
-    return _from_question_mtcs(root, tags, attrs, QDaDMarker)
+    return QDaDMarker(**_from_question_mtcs(root, tags, attrs))
 
 
 def _from_qessay(root: et.Element, tags: dict, attrs: dict):
@@ -362,23 +378,23 @@ def _from_qessay(root: et.Element, tags: dict, attrs: dict):
     tags["filetypeslist"] = (str, "file_types")
     tags["graderinfo"] = (_from_FText, "grader_info")
     tags["responsetemplate"] = (_from_FText, "template")
-    return _from_question(root, tags, attrs, QEssay)
+    return QEssay(**_from_question(root, tags, attrs))
 
 
 def _from_qmatching(root: et.Element, tags: dict, attrs: dict):
     tags["subquestion"] = (_from_Subquestion, "options", True)
-    return _from_question_mtcs(root, tags, attrs, QMatching)
+    return QMatching(**_from_question_mtcs(root, tags, attrs))
 
 
 def _from_QRandomMatching(root: et.Element, tags: dict, attrs: dict):
     tags["choose"] = (int, "choose")
     tags["subcats"] = (bool, "subcats")
-    return _from_question_mtcs(root, tags, attrs, QRandomMatching)
+    return QRandomMatching(**_from_question_mtcs(root, tags, attrs))
 
 
 def _from_QMissingWord(root: et.Element, tags: dict, attrs: dict):
     tags["selectoption"] = (_from_SelectOption, "options", True)
-    return _from_question_mtcs(root, tags, attrs, QMissingWord)
+    return QMissingWord(**_from_question_mtcs(root, tags, attrs))
 
 
 def _from_QMultichoice(root: et.Element, tags: dict, attrs: dict):
@@ -386,24 +402,34 @@ def _from_QMultichoice(root: et.Element, tags: dict, attrs: dict):
     tags["showstandardinstruction"] = (bool, "show_instr")
     tags["answernumbering"] = (Numbering, "numbering")
     tags["answer"] = (_from_Answer, "options", True)
-    return _from_question_mtcs(root, tags, attrs, QMultichoice)
+    return QMultichoice(**_from_question_mtcs(root, tags, attrs))
 
 
 def _from_QNumerical(root: et.Element, tags: dict, attrs: dict):
     tags["answer"] = (_from_ANumerical, "options", True)
     tags["units"] = (_from_units, "units", False)
-    return _from_question_mtuh(root, tags, attrs, QNumerical)
+    return QNumerical(**_from_question_mtuh(root, tags, attrs))
 
 
 def _from_QShortAnswer(root: et.Element, tags: dict, attrs: dict):
     tags["usecase"] = (str, "use_case")
     tags["answer"] = (_from_Answer, "options", True)
-    return _from_question_mt(root, tags, attrs, QShortAnswer)
+    return QShortAnswer(**_from_question_mt(root, tags, attrs))
 
 
 def _from_QTrueFalse(root: et.Element, tags: dict, attrs: dict):
     tags["answer"] = (_from_Answer, "options", True)
-    return _from_question(root, tags, attrs, QTrueFalse)
+    data = _from_question(root, tags, attrs)
+    opt = data.pop("options")
+    if opt[0].text.lower() == "true":
+        data["correct"] = opt[0].fraction == 100
+        data["true_fdbk"] = opt[0].feedback
+        data["false_fdbk"] = opt[1].feedback
+    else:
+        data["correct"] = opt[0].fraction == 0
+        data["true_fdbk"] = opt[1].feedback
+        data["false_fdbk"] = opt[0].feedback
+    return QTrueFalse(**data)
 
 
 # -----------------------------------------------------------------------------
@@ -477,11 +503,11 @@ def _to_unit(unit: Unit) -> et.Element:
 
 
 def _to_tags(tags: TList) -> et.Element:
-    tags = et.Element("tags")
-    for item in tags:
-        _tag = et.SubElement(tags, "tag")
-        et.SubElement(_tag, "text").text = item
-    return tags
+    item = et.Element("tags")
+    for tag in tags:
+        _itag = et.SubElement(item, "tag")
+        et.SubElement(_itag, "text").text = tag
+    return item
 
 
 def _to_answer(ans: Answer) -> et.Element:
@@ -506,30 +532,6 @@ def _to_acalculated(ans) -> et.Element:
     et.SubElement(answer, "correctanswerformat").text = ans.aformat.value
     et.SubElement(answer, "correctanswerlength").text = ans.alength
     return answer
-
-
-def _to_dragtext(drag) -> et.Element:
-    dragbox = et.Element("dragbox")
-    et.SubElement(dragbox, "text").text = drag.text
-    et.SubElement(dragbox, "group").text = str(drag.group)
-    if drag.unlimited:
-        et.SubElement(dragbox, "infinite")
-    return dragbox
-
-
-def _to_dragitem(drag) -> et.Element:
-    dragitem = et.Element("drag")
-    et.SubElement(dragitem, "no").text = drag.number
-    et.SubElement(dragitem, "text").text = drag.text
-    if drag.group:
-        et.SubElement(dragitem, "draggroup").text = drag.group
-    if drag.unlimited:
-        et.SubElement(dragitem, "infinite")
-    if drag.no_of_drags:
-        et.SubElement(dragitem, "noofdrags").text = drag.no_of_drags
-    if drag.image:
-        dragitem.append(_to_b64file(drag.image))
-    return dragitem
 
 
 def _to_dropzone(drop) -> et.Element:
@@ -590,7 +592,7 @@ def _to_question(question) -> et.Element:
     return elem
 
 
-def _to_question_mt(qst, opt_callback) -> et.Element:
+def  _to_question_mt(qst, opt_callback) -> et.Element:
     question = _to_question(qst)
     for hint in qst.hints:
         question.append(_to_hint(hint))
@@ -648,7 +650,7 @@ def _to_qcalcmultichoice(qst: QCalculatedMultichoice) -> et.Element:
 
 def _to_qcloze(qst: QCloze) -> et.Element:
     tmp = qst.question.text
-    qst.question.text = qst.pure_text()
+    qst.question.text = qst.pure_text(False)
     question = _to_question_mt(qst, None)
     qst.question.text = tmp
     return question
@@ -658,12 +660,30 @@ def _to_qdescription(qst: QDescription) -> et.Element:
     return _to_question(qst)
 
 
-def _to_qdad_text(qst) -> et.Element:
-    return _to_question_mtcs(qst, _to_dragtext)
+def _to_qdad_text(qst: QDaDText) -> et.Element:
+    def _to_draggroup(drag: DragGroup) -> et.Element:
+        dragbox = et.Element("dragbox")
+        et.SubElement(dragbox, "text").text = drag.text
+        et.SubElement(dragbox, "group").text = drag.group
+        if drag.no_of_drags < 0:   # Same as unlimited
+            et.SubElement(dragbox, "infinite")
+        return dragbox
+    return _to_question_mtcs(qst, _to_draggroup)
 
 
-def _to_qdad_image(qst) -> et.Element:
-    question = _to_question_mtcs(qst, _to_dragitem)
+def _to_qdad_image(qst: QDaDImage) -> et.Element:
+    def _to_dragimage(drag: DragImage) -> et.Element:
+        dragitem = et.Element("drag")
+        et.SubElement(dragitem, "no").text = drag.number
+        et.SubElement(dragitem, "text").text = drag.text
+        if drag.group:
+            et.SubElement(dragitem, "draggroup").text = drag.group
+        if drag.no_of_drags < 0:
+            et.SubElement(dragitem, "infinite")
+        if drag.image:
+            dragitem.append(_to_b64file(drag.image))
+        return dragitem
+    question = _to_question_mtcs(qst, _to_dragimage)
     if qst.background:
         question.append(_to_b64file(qst.background))
     for dropzone in qst.zones:
@@ -672,7 +692,16 @@ def _to_qdad_image(qst) -> et.Element:
 
 
 def _to_qdad_marker(qst: QDaDMarker) -> et.Element:
-    question = _to_question_mtcs(qst, _to_dragitem)
+    def _to_dragmarker(drag: DragItem) -> et.Element:
+        dragitem = et.Element("drag")
+        et.SubElement(dragitem, "no").text = drag.number
+        et.SubElement(dragitem, "text").text = drag.text
+        if drag.no_of_drags < 0:
+            et.SubElement(dragitem, "infinite")
+        else:
+            et.SubElement(dragitem, "noofdrags").text = drag.no_of_drags
+        return dragitem
+    question = _to_question_mtcs(qst, _to_dragmarker)
     if qst.highlight:
         et.SubElement(question, "showmisplaced")
     for dropzone in qst.zones:
@@ -740,11 +769,17 @@ def _to_qshortanswer(qst) -> et.Element:
     return question
 
 
-def _to_qtruefalse(qst) -> et.Element:
-    question = _to_question(qst)
-    question.append(_to_answer(qst.true))
-    question.append(_to_answer(qst.false))
-    return question
+def _to_qtruefalse(qst: QTrueFalse) -> et.Element:
+    item = _to_question(qst)
+    ans = et.SubElement(item, "answer", {"fraction": 100 if qst.correct else 0,
+                                         "format": TextFormat.AUTO.value})
+    et.SubElement(ans, "text").text = "true"
+    ans.append(_to_ftext(qst.true_feedback))
+    ans = et.SubElement(item, "answer", {"fraction": 0 if qst.correct else 100,
+                                         "format": TextFormat.AUTO.value})
+    et.SubElement(ans, "text").text = "false"
+    ans.append(_to_ftext(qst.false_feedback))
+    return item
 
 
 # -----------------------------------------------------------------------------

@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 from .utils import Serializable
 from .questions import _Question
 from .enums import Status
-from ._parsers import aiken, cloze, gift, json, latex, markdown, moodle
+from ._parsers import aiken, cloze, gift, json, kahoot, latex, markdown, moodle
 if TYPE_CHECKING:
     from typing import Dict, List   # pylint: disable=C0412
 LOG = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ class Category(Serializable):  # pylint: disable=R0904
     read_cloze = classmethod(cloze.read_cloze)
     read_gift = classmethod(gift.read_gift)
     read_json = classmethod(json.read_json)
+    read_kahoot = classmethod(kahoot.read_kahoot)
     read_latex = classmethod(latex.read_latex)
     read_markdown = classmethod(markdown.read_markdown)
     read_moodle = classmethod(moodle.read_moodle)
@@ -58,6 +59,7 @@ class Category(Serializable):  # pylint: disable=R0904
     write_aiken = aiken.write_aiken
     write_cloze = cloze.write_cloze
     write_json = json.write_json
+    write_kahoot = kahoot.write_kahoot
     write_gift = gift.write_gift
     write_latex = latex.write_latex
     write_markdown = markdown.write_markdown

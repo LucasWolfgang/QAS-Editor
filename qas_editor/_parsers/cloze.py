@@ -26,37 +26,7 @@ if TYPE_CHECKING:
     from ..category import Category
 
 _LOG = logging.getLogger(__name__)
-_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
 
-
-def from_text(text):
-    gui_text = []
-    start = 0
-    options = []
-    for match in _PATTERN.finditer(text):
-        opts = []
-        for opt in match[3].split("~"):
-            if not opt:
-                continue
-            tmp = opt.strip("}~").split("#")
-            if len(tmp) == 2:
-                tmp, fdb = tmp
-            else:
-                tmp, fdb = tmp[0], ""
-            frac = 0.0
-            if tmp[0] == "=":
-                frac = 100.0
-                tmp = tmp[1:]
-            elif tmp[0] == "%":
-                frac, tmp = tmp[1:].split("%")
-                frac = float(frac)
-            feedback = FText("feedback", fdb, TextFormat.PLAIN)
-            opts.append(Answer(frac, tmp, feedback, TextFormat.PLAIN))
-        options.append(ClozeItem(int(match[1]), ClozeFormat(match[2]), opts))
-        gui_text.append(text[start: match.start()])
-        start = match.end()
-    gui_text.append(text[start:])
-    return chr(MARKER_INT).join(gui_text), options
 
 
 def _from_QCloze(buffer, embedded_name):
@@ -66,7 +36,7 @@ def _from_QCloze(buffer, embedded_name):
     else:
         name = "Cloze"
         text = data
-    text, opts = from_text(text.strip())
+    text, opts = QCloze.get_items(text.strip())
     return QCloze(name=name, question=text, options=opts)
 
 
