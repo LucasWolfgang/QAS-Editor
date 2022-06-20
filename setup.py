@@ -15,9 +15,11 @@ setup(
     ],
     python_requires=">=3.7",
     install_requires=[
-        "PyQt5 >= 5.15.0",
+        "PyQt5 >= 5.15.0"
+    ],
+    extras_require={
         #"PyPDF2 >= 1.26.0",
         #"Pillow >= 9.0.0",
         #"python-docx"
-    ],
+    }
 )
