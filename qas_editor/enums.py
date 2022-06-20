@@ -21,31 +21,35 @@ from types import DynamicClassAttribute
 
 
 class EnhancedEnum(Enum):
+    """An enhanced <code>Enum</code> that included allow multiple values to
+    be used, and adds a new comment field.
     """
-    """
-    
+
     def __new__(cls, *values):
         obj = object.__new__(cls)
         obj._value_ = values[0]
         obj._comment_ = values[-1]
         for other_value in values[1:-1]:
-            cls._value2member_map_[other_value] = obj
+            cls._value2member_map_[other_value] = obj  # pylint: disable=E1101
         obj._all_values = values
         return obj
 
     def __repr__(self):
-        return f"<{self.__class__.__name__}.{self._name_}: %s>" % (
-                ', '.join([repr(v) for v in self._all_values]))
+        values = ', '.join([repr(v) for v in self._all_values])
+        return (f"<{self.__class__.__name__}."         # pylint: disable=E1101
+                f"{self._name_}: {values}>")           # pylint: disable=E1101
 
     @DynamicClassAttribute
     def comment(self):
+        """Description/commentary for the given item
+        """
         return self._comment_
 
 
 class ClozeFormat(EnhancedEnum):
     """Enumerates Cloze formats
     """
-    SA = "SHORTANSWER", "MW", "SA", "Short, Case Insensitive" 
+    SA = "SHORTANSWER", "MW", "SA", "Short, Case Insensitive"
     SAC = "SHORTANSWER_C", "MWC", "SAC", "Short, Case Sensitive"
     NUM = "NUMERICAL", "NM", "Numerical"
     MC = "MULTICHOICE", "MC", "Multichoice, dropdown"
@@ -132,7 +136,7 @@ class Status(EnhancedEnum):
 
 
 class Synchronise(EnhancedEnum):
-    """
+    """Synchronise types
     """
     NO_SYNC = "0", "Do not synchronise"
     SYNC = "1", "Synchronise"
@@ -158,7 +162,7 @@ class TolType(EnhancedEnum):
 
 
 class TolFormat(EnhancedEnum):
-    """
+    """Tolerance Format types
     """
 
     DEC = "1", "Decimals"

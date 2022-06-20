@@ -18,20 +18,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import json
 from typing import TYPE_CHECKING
 from enum import Enum
-from ..enums import ClozeFormat, Direction, Distribution, Grading, MathType, RespFormat, \
-                    ShapeType, Synchronise, TolType, TolFormat, Status, \
+from ..enums import ClozeFormat, Direction, Distribution, Grading, RespFormat,\
+                    ShapeType, Synchronise, TolType, TolFormat, Status,\
                     ShowUnits, TextFormat, Numbering
 from ..utils import B64File, Dataset, FText, Hint, TList, Unit
-from ..answer import ACalculated, ANumerical, Answer, ClozeItem, DragItem, \
+from ..answer import ACalculated, ANumerical, Answer, ClozeItem, DragItem,\
                      ACrossWord, DropZone, SelectOption, DragGroup, DragImage,\
                      Subquestion
-from ..questions import QCalculatedMultichoice, QCrossWord, QDescription, \
-                        QTrueFalse, QCalculated, QCalculatedSimple, QCloze,\
-                        QDaDImage, QDaDMarker, QMissingWord,\
-                        QEssay, QMatching, QDaDText, QMultichoice, \
-                        QNumerical, QRandomMatching, QShortAnswer
+from ..question import _Question, QCalculatedMC, QCrossWord, QCloze,\
+                        QTrueFalse, QCalculated, QCalculatedSimple, QEssay,\
+                        QDaDImage, QDaDMarker, QMissingWord, QDescription,\
+                        QMatching, QDaDText, QMultichoice, QRandomMatching,\
+                        QNumerical,  QShortAnswer
 if TYPE_CHECKING:
     from ..category import Category
+
 
 def _from_json(data: dict, cls):
     return cls(**data) if isinstance(data, dict) else None
@@ -67,7 +68,7 @@ def _from_tags(data: list):
     return TList(str, data)
 
 
-def _from_unit(data:dict):
+def _from_unit(data: dict):
     return _from_json(data, Unit)
 
 
@@ -151,7 +152,7 @@ def _from_question_mt(data: dict, cls, opt_callback):
 
 
 def _from_question_mtcs(data: dict, cls, opt_callback):
-    data["if_correct"] =_from_ftext(data.pop("_if_correct"))
+    data["if_correct"] = _from_ftext(data.pop("_if_correct"))
     data["if_incomplete"] = _from_ftext(data.pop("_if_incomplete"))
     data["if_incorrect"] = _from_ftext(data.pop("_if_incorrect"))
     return _from_question_mt(data, cls, opt_callback)
@@ -169,7 +170,7 @@ def _from_qcalculated(data: dict, cls=None):
         data["units"][i] = _from_unit(data["units"][i])
     for i in range(len(data["datasets"])):
         data["datasets"][i] = _from_dataset(data["datasets"][i])
-    return _from_question_mtuh(data, cls if cls else QCalculated, 
+    return _from_question_mtuh(data, cls if cls else QCalculated,
                                _from_acalculated)
 
 
@@ -177,12 +178,12 @@ def _from_qcalculatedsimple(data: dict):
     return _from_qcalculated(data, QCalculatedSimple)
 
 
-def _from_qcalculatedmultichoice(data: dict):
+def _from_qcalculatedmc(data: dict):
     data["numbering"] = Numbering(data["numbering"])
     data["synchronize"] = Synchronise(data["synchronize"])
     for i in range(len(data["datasets"])):
         data["datasets"][i] = _from_dataset(data["datasets"][i])
-    return _from_question_mtcs(data, QCalculatedMultichoice, _from_acalculated)
+    return _from_question_mtcs(data, QCalculatedMC, _from_acalculated)
 
 
 def _from_qcloze(data: dict):
@@ -202,7 +203,7 @@ def _from_qdraganddropimage(data: dict, cls=None, callback=None):
     for i in range(len(data["_zones"])):
         data["_zones"][i] = _from_dropzone(data["_zones"][i])
     data["zones"] = data.pop("_zones")
-    return _from_question_mtcs(data, cls if cls else QDaDImage, 
+    return _from_question_mtcs(data, cls if cls else QDaDImage,
                                callback if callback else _from_dragimage)
 
 
@@ -260,22 +261,22 @@ def _from_qtruefalse(data: dict):
 
 
 _QTYPE = {
-    "calculated": _from_qcalculated,
-    "calculatedsimple": _from_qcalculatedsimple,
-    "calculatedmulti": _from_qcalculatedmultichoice,
-    "cloze": _from_qcloze,
-    "description": _from_qdescription,
-    "ddwtos":_from_qdraganddroptext,
-    "ddimageortext": _from_qdraganddropimage,
-    "ddmarker": _from_qdraganddropmarker,
-    "essay": _from_qessay,
-    "matching": _from_qmatching,
-    "randomsamatch": _from_qrandommatching,
-    "gapselect": _from_qmissingword,
-    "multichoice": _from_qmultichoice,
-    "numerical": _from_qnumerical,
-    "shortanswer" : _from_qshortanswer,
-    "truefalse": _from_qtruefalse
+    "QCalculated": _from_qcalculated,
+    "QCalculatedSimple": _from_qcalculatedsimple,
+    "QCalculatedMC": _from_qcalculatedmc,
+    "QCloze": _from_qcloze,
+    "QDescription": _from_qdescription,
+    "QDaDText": _from_qdraganddroptext,
+    "QDaDImage": _from_qdraganddropimage,
+    "QDaDMarker": _from_qdraganddropmarker,
+    "QEssay": _from_qessay,
+    "QMatching": _from_qmatching,
+    "QRandomMatching": _from_qrandommatching,
+    "QMissingWord": _from_qmissingword,
+    "QMultichoice": _from_qmultichoice,
+    "QNumerical": _from_qnumerical,
+    "QShortAnswer": _from_qshortanswer,
+    "QTrueFalse": _from_qtruefalse
 }
 
 
@@ -286,7 +287,7 @@ def read_json(cls, file_path) -> "Category":
     def _rjrecursive(_dt: dict):
         quiz = cls(_dt["_Category__name"])
         for qst in _dt["_Category__questions"]:
-            quiz.add_question(_QTYPE[qst.pop("MOODLE")](qst))
+            quiz.add_question(_QTYPE[qst.pop("__clsname__")](qst))
         for i in _dt["_Category__categories"]:
             quiz.add_subcat(_rjrecursive(_dt["_Category__categories"][i]))
         return quiz
@@ -314,8 +315,8 @@ def write_json(self, file_path: str, pretty=False) -> None:
                 res = val.value
             elif hasattr(val, "__dict__"):  # for the objects
                 tmp = val.__dict__.copy()
-                if hasattr(val, "MOODLE"):
-                    tmp["MOODLE"] = val.MOODLE
+                if isinstance(val, _Question):
+                    tmp["__clsname__"] = val.__class__.__name__
                 if "_Question__parent" in tmp:
                     del tmp["_Question__parent"]
                 elif "_Category__parent" in tmp:

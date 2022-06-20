@@ -20,18 +20,18 @@ from PIL import Image
 import base64
 
 PDF_IMAGE_FILTER = {"/DCTDecode": "jpg",  "/JPXDecode": "jp2",
-                        "/CCITTFaxDecode": "tiff", "/FlateDecode": "png" }
-PDF_IMAGE_CHANNEL = {"DeviceGray": "L",    # 8-bit pixels, black and white
-                        "DeviceRGB": "RGB",   # 3x8-bit pixels, true color
-                        "DeviceCMYK": "CMYK", # 4x8-bit pixels, color separation
-                        "/DeviceN": "P", 
-                        "/Indexed": "P"
-                        }
+                    "/CCITTFaxDecode": "tiff", "/FlateDecode": "png"}
+PDF_IMAGE_CHANNEL = {"DeviceGray": "L",     # 8-bit pixels, black and white
+                     "DeviceRGB": "RGB",    # 3x8-bit pixels, true color
+                     "DeviceCMYK": "CMYK",  # 4x8-bit pixels, color separation
+                     "/DeviceN": "P",
+                     "/Indexed": "P"}
+
 
 def extract_pdf_images(file_path, page, external_refs: bool):
     images = {}
     rsc = page['/Resources']
-    path = file_path.rsplit('.',1)[0]
+    path = file_path.rsplit('.', 1)[0]
     if '/XObject' in rsc:
         for xobj in rsc['/XObject'].values():
             if xobj['/Subtype'] != '/Image':
@@ -43,15 +43,15 @@ def extract_pdf_images(file_path, page, external_refs: bool):
             mode = PDF_IMAGE_FILTER[color_space]
             if color_space == "/Indexed":
                 psize = int(xobj['/ColorSpace'][2])
-                palette = [255-int(n*psize/255) for n in \
-                            range(256) for _ in range(3)]
+                palette = [255-int(n*psize/255) for n in
+                           range(256) for _ in range(3)]
             else:
                 palette = None
             xformat = PDF_IMAGE_FILTER.get(xobj['/Filter'], "png")
-            if palette:
-                img.putpalette(palette)
             try:
                 img = Image.frombytes(mode, size, data)
+                if palette:
+                    img.putpalette(palette)
                 END = f"width={size[0]} height={size[1]}>"
                 if external_refs:
                     name = f"{path}_{xobj.idnum}.{xformat}"
@@ -83,7 +83,6 @@ def read_pdf(cls, file_path: str):
     Returns:
         Quiz: _description_
     """
-    # TODO
     raise NotImplementedError("PDF not implemented")
     # with open(file_path, "rb") as infile:
     #     pdf_file = PdfReader(infile)
@@ -101,5 +100,4 @@ def write_pdf(self, file_path: str):
     Raises:
         NotImplementedError: _description_
     """
-    # TODO
     raise NotImplementedError("PDF not implemented")

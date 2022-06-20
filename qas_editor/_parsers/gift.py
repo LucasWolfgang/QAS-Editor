@@ -18,14 +18,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import re
 import logging
 from typing import TYPE_CHECKING
-from ..questions import MARKER_INT, QMatching, QEssay, QTrueFalse, QNumerical,\
-                        QDescription,QShortAnswer, QMultichoice
+from ..question import MARKER_INT, QMatching, QEssay, QTrueFalse, QNumerical,\
+                       QDescription, QShortAnswer, QMultichoice
 from ..enums import TextFormat
 from ..answer import Answer, ANumerical, Subquestion
 from ..utils import FText, gen_hier
 if TYPE_CHECKING:
     from ..category import Category
 _LOG = logging.getLogger(__name__)
+
 
 def _nxt(stt: list, qst: str):
     stt[1] = (qst[stt[0]] == "\\") and not stt[1]
@@ -39,6 +40,7 @@ def _next(stt: list, string: str, comp: list, size: int = 1) -> str:
         stt[1] = (string[stt[0]] == "\\") and not stt[1]
         stt[0] += 1
     return string[start:stt[0]]
+
 
 def _from_qdescription(name: str, text: FText):
     return QDescription(name=name, question=text)
@@ -57,11 +59,11 @@ def _from_qtruefalse(name: str, header: FText, stt: list, qst_blk: str):
         fdbk_true = _next(stt, qst_blk, ("}", "#"), 1)
     if qst_blk[stt[0]] != "}":
         fdbk_general = _next(stt, qst_blk, ("}"), 1)[3:]
-    return QTrueFalse(correct, fdbk_true, fdbk_false, name=name, 
+    return QTrueFalse(correct, fdbk_true, fdbk_false, name=name,
                       question=header, feedback=fdbk_general)
 
 
-def _set_value_tolerance(mtype:str, val: str, tol: str):
+def _set_value_tolerance(mtype: str, val: str, tol: str):
     tol = float(tol)
     if mtype == "..":
         val = (float(val) + tol)/2
@@ -72,23 +74,24 @@ def _set_value_tolerance(mtype:str, val: str, tol: str):
 def _from_qnumerical(name: str, header: FText, stt: list, qst_blk: str):
     qst = QNumerical(name=name, question=header)
     stt[0] += 1   # Jump the Question type marker
-    if qst_blk[stt[0]] not in  ["=", "~"]:
+    if qst_blk[stt[0]] not in ["=", "~"]:
         rgx = re.match(r"([.0-9-]+)(:|(?:\.\.))([.0-9-]+)\}", qst_blk[stt[0]:])
         val, tol = _set_value_tolerance(rgx[2], rgx[1], rgx[3])
         qst.options.append(ANumerical(tol, fraction=100, text=val))
     else:
         rgx = re.compile(r"([=~])(%\d+%)?([.0-9-]+)(:|(?:\.\.))([.0-9-]+)")
+        ans = None
         while qst_blk[stt[0]] != "}":
             if qst_blk[stt[0]:stt[0]+4] == "####":
                 qst.feedback = _next(stt, qst_blk, ["}"], 1)[4:]
                 continue
             txt = _next(stt, qst_blk, ["=", "~", "#", "}"], 1)
-            if txt[0] == "#":
-                ans.feedback = txt[1:]
+            if txt[0] == "#":           # Should only happen after "ans" is
+                ans.feedback = txt[1:]  # defined, so this is secure
                 continue
-            if txt[0] == "~":          # Wrong answer. Created only to hold a
-                frac = val = tol = 0   # feedback. If no feedback.. something
-            else:                      # is wrong
+            if txt[0] == "~":           # Wrong answer. Created only to hold a
+                frac = val = tol = 0    # feedback. If no feedback.. something
+            else:                       # is wrong
                 mtc = rgx.match(txt)
                 val, tol = _set_value_tolerance(mtc[4], mtc[3], mtc[5])
                 if mtc[1] == "~":
@@ -111,15 +114,15 @@ def _from_qmatching(name: str, header: FText, options: list):
 
 
 def _from_qshortanswer(name: str, header: FText, options: list):
-    qst = QShortAnswer(name=name, question=header)   # Moodle does this way,                               # so I will do the same
-    for frac, val, fdbk in options:
+    qst = QShortAnswer(name=name, question=header)   # Moodle does this way,
+    for frac, val, fdbk in options:                  # so I will do the same
         qst.options.append(Answer(frac, val, fdbk))
     return qst
 
 
 def _from_qmultichoice(name: str, header: FText, options: list):
-    qst = QMultichoice(name=name, question=header)   # Moodle does this way,                               # so I will do the same
-    for frac, val, fdbk in options:
+    qst = QMultichoice(name=name, question=header)   # Moodle does this way,
+    for frac, val, fdbk in options:                  # so I will do the same
         qst.options.append(Answer(frac, val, fdbk))
     return qst
 
@@ -160,7 +163,7 @@ def _from_block(name: str, header: FText, stt: list, qst_blk: str):
             _LOG.info("Char may be incorrectly placed: %s", qst_blk[stt[0]])
             _nxt(stt, qst_blk)
     tail = qst_blk[stt[0]+1:]
-    if tail:   
+    if tail:
         header.text = f"{header.text}{chr(MARKER_INT)}{tail}"
     if not options:
         question = _from_qessay(name, header)
@@ -172,16 +175,17 @@ def _from_block(name: str, header: FText, stt: list, qst_blk: str):
         question = _from_qmultichoice(name, header, options)
     question.feedback = feedback
     return question
-    
+
 
 def _from_question(qst_blk: str):
     """Was initially using regex, but it does not handle escaped char in every
     situation so I prefered implementing a char parse. TODO measure performance
-    regex was r"(\:\:.+?\:\:)?(\[.+?\])?(.+)(?:(?<!\\)\{(.*)(?<!\\)\})?(.*)?"
+    regex was (chars are escaped)
+    r"(\\:\\:.+?\\:\\:)?(\\[.+?\\])?(.+)(?:(?<!\\)\\{(.*)(?<!\\\\)\\})?(.*)?"
     """
-    stt = [0, False]   # Used instead of discrete vars cause python fails to 
+    stt = [0, False]   # Used instead of discrete vars cause python fails to
     name = "default"   # map them to the internal _nxt function
-    cformat = TextFormat.AUTO 
+    cformat = TextFormat.AUTO
     if qst_blk[:2] == "::":
         stt[0] = 3
         while qst_blk[stt[0]:stt[0]+2] != "::" or stt[1]:

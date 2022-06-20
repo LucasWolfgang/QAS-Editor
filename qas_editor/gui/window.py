@@ -32,7 +32,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QPushButton, QLineEdit, QComboBox, QDialog,\
                             QMessageBox, QListWidget, QCheckBox
 from ..category import Category, SERIALIZERS
-from ..questions import _Question, QNAME
+from ..question import _Question, QNAME
 from ..utils import TList
 from ..enums import Numbering, Grading, ShowUnits, RespFormat, Synchronise,\
                     Status, Distribution
@@ -102,7 +102,7 @@ class Editor(QMainWindow):
         self.top_quiz = Category()
         self.cxt_menu = QMenu(self)
         self.cxt_item: QStandardItem = None
-        self.cxt_data: _Question | Category= None
+        self.cxt_data: _Question | Category = None
         self.cur_question: _Question = None
         self.tagbar: GTagBar = None
         self.main_editor: GTextEditor = None
@@ -156,9 +156,11 @@ class Editor(QMainWindow):
         self.setGeometry(50, 50, 1200, 650)
         self.show()
 
-    def _debug_me(self):
+    def debug_me(self):
+        """TODO Method used for debugg...
+        """
         self.path = "./test_lib/datasets/moodle/all.xml"
-        self.top_quiz = Category.read_files(["./test_lib/datasets/moodle/all.xml"])
+        self.top_quiz = Category.read_files([self.path])
         gtags = {}
         self.top_quiz.get_tags(gtags)
         self.tagbar.set_gtags(gtags)
@@ -196,7 +198,7 @@ class Editor(QMainWindow):
 
         file_menu = self.menuBar().addMenu("&Edit")
         tmp = QAction("Shortcuts", self)
-        #tmp.setShortcut(self.SHORTCUTS["Read file"])
+        # TODO add a popup to list the shortcuts
         file_menu.addAction(tmp)
         tmp = QAction("Datasets", self)
         tmp.triggered.connect(self._open_dataset_popup)
@@ -223,14 +225,14 @@ class Editor(QMainWindow):
         if not popup.exec():
             return
         self.cxt_data.add_subcat(popup.data)
-        self._new_item(popup.data, self.cxt_item, "question")
+        self._new_item(popup.data, self.cxt_item)
 
     def _add_new_question(self):
         popup = PopupQuestion(self, self.cxt_data)
         popup.show()
         if not popup.exec():
             return
-        self._new_item(popup.question, self.cxt_item, "question")
+        self._new_item(popup.question, self.cxt_item)
 
     @action_handler
     def _append_category(self):
@@ -245,7 +247,7 @@ class Editor(QMainWindow):
     def _block_answer(self) -> None:
         frame = GCollapsible(self, "Answers")
         self.cframe_vbox.addLayout(frame)
-        self._items.append(GOptions(self.toolbar, self.main_editor))
+        self._items.append(GOptions(self, self.toolbar, self.main_editor))
         _shortcut = QShortcut(self.SHORTCUTS["Add answer"], self)
         _shortcut.activated.connect(self._items[-1].add)
         _shortcut = QShortcut(self.SHORTCUTS["Remove answer"], self)
@@ -275,10 +277,8 @@ class Editor(QMainWindow):
     def _block_general_data(self) -> None:
         clayout = GCollapsible(self, "Question Header")
         self.cframe_vbox.addLayout(clayout, 1)
-
         grid = QVBoxLayout()    # No need of parent. It's inside GCollapsible
         grid.setSpacing(2)
-
         self.main_editor = GTextEditor(self.toolbar, "question")
         self._items.append(self.main_editor)
         self._items[-1].setToolTip("Question's description text")
@@ -288,10 +288,19 @@ class Editor(QMainWindow):
         self.tagbar.setToolTip("List of tags used by the question.")
         self._items.append(self.tagbar)
         grid.addWidget(self._items[-1], 0)
-
         others = QHBoxLayout()  # No need of parent. It's inside GCollapsible
         grid.addLayout(others, 0)
+        others.addWidget(self._block_general_data_general(), 0)
+        others.addWidget(self._block_general_data_unit_handling(), 1)
+        others.addWidget(self._block_general_data_multichoice(), 1)
+        others.addWidget(self._block_general_data_documents(), 1)
+        others.addLayout(self._block_general_data_random(), 0)
+        others.addWidget(self._block_general_data_datasets(), 2)
+        others.addStretch()
+        clayout.setLayout(grid)
+        clayout.toggle()
 
+    def _block_general_data_general(self):
         group_box = QGroupBox("General", self)
         _content = QVBoxLayout(group_box)
         _content.setSpacing(5)
@@ -311,9 +320,9 @@ class Editor(QMainWindow):
         self._items[-1].setText("0.0")
         _content.addWidget(self._items[-1], 0)
         _content.addStretch()
+        return group_box
 
-        others.addWidget(group_box, 0)
-
+    def _block_general_data_unit_handling(self):
         group_box = QGroupBox("Unit Handling", self)
         _content = QVBoxLayout(group_box)
         _content.setSpacing(5)
@@ -331,8 +340,9 @@ class Editor(QMainWindow):
         _content.addWidget(self._items[-1], 0)
         self._items.append(GCheckBox("left", "Left side", self))
         _content.addWidget(self._items[-1], 0)
-        others.addWidget(group_box, 1)
+        return group_box
 
+    def _block_general_data_multichoice(self):
         group_box = QGroupBox("Multichoices", self)
         _content = QVBoxLayout(group_box)
         _content.setSpacing(5)
@@ -352,8 +362,9 @@ class Editor(QMainWindow):
         self._items[-1].setToolTip("If answers should be shuffled (e.g. order "
                                    "of options will change each time)")
         _content.addWidget(self._items[-1], 0)
-        others.addWidget(group_box, 1)
+        return group_box
 
+    def _block_general_data_documents(self):
         group_box = QGroupBox("Documents", self)
         _content = QGridLayout(group_box)
         _content.setSpacing(5)
@@ -397,8 +408,9 @@ class Editor(QMainWindow):
         self._items[-1].setToolTip("Accepted file types (comma separeted).")
         self._items[-1].setText(".txt, .pdf")
         _content.addWidget(self._items[-1], 3, 0, 1, 3)
-        others.addWidget(group_box, 1)
+        return group_box
 
+    def _block_general_data_random(self):
         _wrapper = QVBoxLayout()  # No need of parent. It's inside GCollapsible
         group_box = QGroupBox("Random", self)
         _wrapper.addWidget(group_box)
@@ -422,9 +434,9 @@ class Editor(QMainWindow):
         self._items.append(GCheckBox("use_case", "Match case", self))
         self._items[-1].setToolTip("If text is case sensitive.")
         _content.addWidget(self._items[-1])
+        return _wrapper
 
-        others.addLayout(_wrapper, 0)
-
+    def _block_general_data_datasets(self):
         group_box = QGroupBox("Datasets", self)
         _content = QGridLayout(group_box)
         _content.setSpacing(5)
@@ -442,13 +454,9 @@ class Editor(QMainWindow):
                         "values of the datasets, and the current solution.")
         _gen.clicked.connect(self._gen_items)
         _content.addWidget(_gen, 1, 1)
-        others.addWidget(group_box, 2)
+        return group_box
 
-        others.addStretch()
-        clayout.setLayout(grid)
-        clayout._toggle()
-
-    def _block_hints(self) -> None:
+    def _block_hints(self):
         clayout = GCollapsible(self, "Hints")
         self.cframe_vbox.addLayout(clayout)
         self._items.append(GHintsList(None, self.toolbar))
@@ -482,9 +490,9 @@ class Editor(QMainWindow):
         self._items.append(GTextEditor(self.toolbar, "if_incorrect"))
         self._items[-1].setToolTip("Feedback for incorrect answer")
         _content.addWidget(self._items[-1], 0, 2)
-        self._items.append(GCheckBox("show_num", "Show the number of correct "
-                                     "responses once the question has finished"
-                                     , self))
+        self._items.append(GCheckBox("show_num", "Show the number of correct r"
+                                     "esponses once the question has finished",
+                                     self))
         _content.addWidget(self._items[-1], 2, 0, 1, 3)
         _content.setColumnStretch(3, 1)
 
@@ -496,7 +504,7 @@ class Editor(QMainWindow):
         self._items.append(GTextEditor(self.toolbar, "template"))
         self._items[-1].setMinimumHeight(70)
         self._items[-1].setToolTip("Text displayed in the response input box "
-                                    "when a new attempet is started.")
+                                   "when a new attempet is started.")
         layout.addWidget(self._items[-1])
         self._items.append(GTextEditor(self.toolbar, "grader_info"))
         self._items[-1].setMinimumHeight(50)
@@ -514,12 +522,12 @@ class Editor(QMainWindow):
     @action_handler
     def _clone_shallow(self) -> None:
         new_data = copy.copy(self.cxt_data)
-        self._new_item(new_data, self.cxt_item.parent(), "question")
+        self._new_item(new_data, self.cxt_item.parent())
 
     @action_handler
     def _clone_deep(self) -> None:
         new_data = copy.deepcopy(self.cxt_data)
-        self._new_item(new_data, self.cxt_itemparent(), "question")
+        self._new_item(new_data, self.cxt_itemparent())
 
     @action_handler
     def _create_file(self, *_):
@@ -561,13 +569,14 @@ class Editor(QMainWindow):
             self.cxt_menu.addAction(tmp)
         if isinstance(self.cxt_data, Category):
             tmp = QAction("Save as", self)
-            tmp.triggered.connect(lambda: self._write_quiz(self.cxt_data, True))
+            conn = tmp.triggered.connect
+            conn(lambda: self._write_quiz(self.cxt_data, True))
             self.cxt_menu.addAction(tmp)
             tmp = QAction("Append", self)
             tmp.triggered.connect(self._append_category)
             self.cxt_menu.addAction(tmp)
             tmp = QAction("Sort", self)
-            #tmp.triggered.connect(self._add_new_category)
+            # TODO add sorting for the Category and Questions
             self.cxt_menu.addAction(tmp)
             tmp = QAction("New Question", self)
             tmp.triggered.connect(self._add_new_question)
@@ -590,8 +599,8 @@ class Editor(QMainWindow):
     def _gen_items(self, _):
         pass
 
-    def _new_item(self, data: Category, parent: QStandardItem, title: str):
-
+    @staticmethod
+    def _new_item(data: Category | _Question, parent: QStandardItem):
         name = f"{data.__class__.__name__}_icon.png".lower()
         item = None
         with resources.path("qas_editor.images", name) as path:
@@ -680,9 +689,9 @@ class Editor(QMainWindow):
         self.cat_name.setText(" > ".join(path[:-1]) + path[-1])
 
     def _update_tree_item(self, data: Category, parent: QStandardItem) -> None:
-        item = self._new_item(data, parent, "category")
+        item = self._new_item(data, parent)
         for k in data.questions:
-            self._new_item(k, item, "question")
+            self._new_item(k, item)
         for k in data:
             self._update_tree_item(data[k], item)
 
@@ -706,6 +715,8 @@ class Editor(QMainWindow):
 
 
 class PopupDataset(QWidget):
+    """UI for the data listed in <code>Dataset</code> class.
+    """
 
     def __init__(self, parent, top: Category):
         super().__init__(parent)
@@ -716,18 +727,18 @@ class PopupDataset(QWidget):
         self.__datasets = datasets
         self.__cur_data = None
         _content = QGridLayout(self)
-        self._list = QListWidget(self)
-        self._list.addItems(datasets)
-        self._list.blockSignals(True)
-        self._list.currentItemChanged.connect(self.__changed_dataset)
-        self._list.blockSignals(False)
-        _content.addWidget(self._list, 0, 0, 4, 2)
-        self._add = QPushButton("Add", self)
-        self._add.setToolTip("")
-        _content.addWidget(self._add, 4, 0)
-        self._new = QPushButton("New", self)
-        self._new.setToolTip("If the dataset if private or public")
-        _content.addWidget(self._new, 4, 1)
+        _list = QListWidget(self)
+        _list.addItems(datasets)
+        _list.blockSignals(True)
+        _list.currentItemChanged.connect(self.__changed_dataset)
+        _list.blockSignals(False)
+        _content.addWidget(_list, 0, 0, 4, 2)
+        _add = QPushButton("Add", self)
+        _add.setToolTip("")
+        _content.addWidget(_add, 4, 0)
+        _new = QPushButton("New", self)
+        _new.setToolTip("If the dataset if private or public")
+        _content.addWidget(_new, 4, 1)
         self._status = GDropbox("status", self, Status)
         self._status.setToolTip("")
         self._status.setFixedWidth(120)
@@ -764,11 +775,11 @@ class PopupDataset(QWidget):
         self._value = QLineEdit(self)
         self._value.setToolTip("Value to be used in the dataset's item update")
         _content.addWidget(self._value, 4, 4)
-        self._update = QPushButton("Update", self)
-        self._update.setToolTip("Update one item in the dataset using the "
-                                "values provided in the field on the left")
-        self._update.clicked.connect(self.__update_items)
-        _content.addWidget(self._update, 4, 5)
+        _update = QPushButton("Update", self)
+        _update.setToolTip("Update one item in the dataset using the "
+                           "values provided in the field on the left")
+        _update.clicked.connect(self.__update_items)
+        _content.addWidget(_update, 4, 5)
         self.setGeometry(100, 100, 600, 400)
 
     def __changed_dataset(self, current, _):
@@ -799,6 +810,8 @@ class PopupDataset(QWidget):
 
 
 class PopupFind(QWidget):
+    """A find window.
+    """
 
     def __init__(self, parent, top: Category, gtags: dict):
         super().__init__(parent)
@@ -811,7 +824,7 @@ class PopupFind(QWidget):
         _content.addWidget(self._title, 0, 1)
         self._by_tags = QCheckBox("By tags", self)
         _content.addWidget(self._by_tags, 1, 0)
-        self._tags = TList()
+        self._tags = TList(str)
         _tagbar = GTagBar(self)
         _tagbar.from_list(self._tags)
         _tagbar.set_gtags(gtags)
@@ -840,13 +853,13 @@ class PopupFind(QWidget):
         self._res = []
         self._category = top
 
-    @action_handler  
+    @action_handler
     def _find_me(self, _):
         title = self._title.text() if self._by_title.isChecked() else None
         tags = list(self._tags) if self._by_tags.isChecked() else None
         text = self._text.text() if self._by_text.isChecked() else None
         qtype = QNAME[self._qtype.currentText()] if \
-                self._by_qtype.isChecked() else None
+            self._by_qtype.isChecked() else None
         dbid = int(self._dbid.text()) if self._by_dbid.isChecked() else None
         if all(item is None for item in [title, tags, text, qtype, dbid]):
             return
@@ -936,16 +949,20 @@ class PopupName(QDialog):
 
 
 class PopupImportOpt(QWidget):
+    """A popup to list options used while importing databases.
+    """
 
-    def __init__(self, parent, top: Category, gtags: dict):
+    def __init__(self, parent: Editor):
         super().__init__(parent)
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Import Options")
 
 
 class PopupExportOpt(QWidget):
+    """A popup to list options used while exporting databases.
+    """
 
-    def __init__(self, parent, top: Category, gtags: dict):
+    def __init__(self, parent: Editor):
         super().__init__(parent)
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Export Options")

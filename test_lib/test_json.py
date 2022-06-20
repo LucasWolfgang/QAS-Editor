@@ -34,10 +34,11 @@ def test_read_essay():
     assert qst.atts_required == False
 
 
-def test_diff():
+def test_diff_all():
     _EXAMPLE = f"{TEST_PATH}/datasets/json/all.json"
     control = Category.read_json(_EXAMPLE)
     _TEST = f"{_EXAMPLE}.tmp"
     control.write_json(_TEST, True)
     new_data = Category.read_json(_TEST)
     assert control.compare(new_data, [])
+    os.remove(_TEST)

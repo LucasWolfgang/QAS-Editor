@@ -18,13 +18,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 def read_hdf5(self, file_path: str) -> None:
-        """_summary_
+    """_summary_
 
-        Args:
-            file_path (str): _description_
-        """
-        # TODO - use h5py
-        raise NotImplementedError("HDF5 not implemented")
+    Args:
+        file_path (str): _description_
+    """
+    # TODO - use h5py
+    raise NotImplementedError("HDF5 not implemented")
 
 
 def write_hdf5(self, file_path: str) -> None:

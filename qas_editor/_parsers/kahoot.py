@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import logging
 import csv
 from ..answer import Answer
-from ..questions import QMultichoice
+from ..question import QMultichoice
 from typing import TYPE_CHECKING, Callable
 if TYPE_CHECKING:
     from ..category import Category
@@ -32,7 +32,7 @@ def read_kahoot(cls, file_path: str) -> "Category":
     """
     """
     cat = cls()
-    with open(file_path, mode ='r') as file:
+    with open(file_path, mode='r') as file:
         csvFile = csv.reader(file)
         next(csvFile)  # ignore the header, since is not useful currently.
         for lines in csvFile:
@@ -46,7 +46,7 @@ def read_kahoot(cls, file_path: str) -> "Category":
                                question=text, time_lim=int(time), options=opts)
             cat.add_question(qst)
     return cat
-            
+
 
 def write_kahoot(self, file_path: str):
     """
@@ -60,7 +60,7 @@ def write_kahoot(self, file_path: str):
             correct = []
             if len(qst.options) > 4:
                 _LOG.warning("Kahoot: question %s has more than 4 options. "
-                             "Before importing to Kahoot you will need to it.", 
+                             "Before importing to Kahoot you will need to it.",
                              qst.name)
             for pos, ans in enumerate(qst.options, 1):
                 if ans.fraction == 100:
@@ -77,8 +77,8 @@ def write_kahoot(self, file_path: str):
                 else:
                     time = val
             data.append(time)
-            data.append(','.join(correct))  
-            write(data)  
+            data.append(','.join(correct))
+            write(data)
         for name in cat:                            # Then add children data
             _kwrecursive(cat[name], write)
     with open(file_path, "w") as ofile:

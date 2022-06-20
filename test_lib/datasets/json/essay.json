@@ -36,7 +36,7 @@
               "formatting": "html",
               "bfile": []
             },
-            "MOODLE": "essay"
+            "__clsname__": "QEssay"
           }
     ],
     "_Category__categories": {},

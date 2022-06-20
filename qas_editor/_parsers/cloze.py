@@ -15,18 +15,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import re
 import logging
 from typing import TYPE_CHECKING
-from ..enums import TextFormat, ClozeFormat
-from ..utils import FText
-from ..answer import ClozeItem, Answer
-from ..questions import QCloze, MARKER_INT
+from ..question import QCloze
 if TYPE_CHECKING:
     from ..category import Category
 
-_LOG = logging.getLogger(__name__)
 
+_LOG = logging.getLogger(__name__)
 
 
 def _from_QCloze(buffer, embedded_name):
@@ -60,7 +56,6 @@ def read_cloze(cls, file_path: str, embedded_name=False) -> "Category":
     return top_quiz
 
 
-
 def write_cloze(cat, file_path: str, embedded_name=False):
     """_summary_
 
@@ -76,5 +71,4 @@ def write_cloze(cat, file_path: str, embedded_name=False):
                     counter += 1
         for child in cat:
             _to_cloze(cat[child], f"{path}_{child.name}", counter)
-
     _to_cloze(file_path.rsplit(".", 1)[0])

@@ -15,42 +15,44 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+from typing import TYPE_CHECKING
 from PyQt5.QtCore import QPoint, QPointF
-from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QPushButton, QApplication,\
-                            QFrame, QLabel
+from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QPushButton, QLabel,\
+                            QFrame, QApplication
 from PyQt5.QtGui import QColor, QPainter
-from ..questions import QCalculatedMultichoice, QCalculatedSimple, QCloze,\
-                        QDaDImage, QDaDText, QMatching, \
-                        QMissingWord, QMultichoice, QCalculated, QNumerical,\
-                        QDaDMarker
+from ..answer import Answer, DragImage, DragItem, DragGroup, ClozeItem, \
+                     ACalculated, ANumerical
+from ..utils import Hint
 from .widget import GCalculated, GCloze, GDrag, GAnswer, GHint, GCheckBox
+if TYPE_CHECKING:
+    from ..utils import TList
 
-class GOptions(QVBoxLayout):
-    """GUI for GOptions class.
+
+_TYPE_MAP = {
+    ACalculated: GCalculated,
+    ClozeItem: GCloze,
+    DragGroup: GDrag,
+    DragItem: GDrag,
+    DragImage: GDrag,
+    Answer: GAnswer,
+    ANumerical: GAnswer,
+    Hint: GHint
+}
+
+
+class _AutoUpdateVBox(QVBoxLayout):
+    """A base class for all the other classes defined in this file.
+    TODO change it to a QWidget and add a DragAndDrop logic. This will also
+    allow removing the selected option, which would replace the "pop the last"
+    logic currently being used.
     """
-    _TYPES = {
-        QCalculated: GCalculated,
-        QCalculatedSimple: GCalculated,
-        QCalculatedMultichoice: GCalculated,
-        QCloze: GCloze,
-        QDaDText: GDrag,
-        QDaDMarker: GDrag,
-        QDaDImage: GDrag,
-        QMatching: None,        #Subquestion,
-        QMultichoice: GAnswer,
-        QNumerical: GAnswer,
-        QMissingWord: None     #SelectOption
-    }
 
-    def __init__(self, toolbar, editor) -> None:
+    def __init__(self, parent, toolbar, otype) -> None:
         super().__init__()
-        self.visible = True
-        self.toolbar = toolbar
-        self.__ctype = None
-        self.__obj: list = None
-        self.add_marker_to_text = editor.add_marker
-        self.pop_marker_from_text = editor.pop_marker
-        self.setSpacing(5)
+        self.parent = parent
+        self._toolbar = toolbar
+        self.__obj: "TList" = None
+        self.__type = otype
 
     def add(self, child=None):
         """_summary_
@@ -61,27 +63,23 @@ class GOptions(QVBoxLayout):
         Returns:
             _type_: _description_
         """
-        cls = self._TYPES[self.__ctype]
-        item = cls(self.toolbar, self.__obj, child)
-        self.addWidget(item)
-        if child is None:
-            self.add_marker_to_text()
+        cls = _TYPE_MAP[self.__obj.datatype]
+        item = cls(self._toolbar, self.__obj, child)
+        super().addWidget(item)
         return item
 
     def from_obj(self, obj) -> None:
         """_summary_
 
         Args:
-            objs (list): _description_
+            obj (MultipleTries): _description_
         """
-        ctype = self.__ctype
-        self.__ctype = type(obj)
-        self.__obj = obj.options
+        _obj: "TList" = getattr(obj, self.__attr)
         new_size = len(self.__obj)
         if self.count() != 0:
             to_rem = 0
-            if self._TYPES[ctype] != self._TYPES[self.__ctype]:
-                to_rem = self.count()
+            if _TYPE_MAP[_obj.datatype] != _TYPE_MAP[self.__obj.datatype]:
+                to_rem = self.count()   # Should only happen in flexible lists
             elif self.count() > new_size:
                 to_rem = self.count() - new_size
             for _ in range(to_rem):
@@ -89,13 +87,41 @@ class GOptions(QVBoxLayout):
                 item.widget().deleteLater()
                 del item
             for idx in range(self.count()):
-                self.itemAt(idx).widget().from_obj(self.__obj[idx])
+                self.itemAt(idx).widget().from_obj(self._obj[idx])
         if self.count() < new_size:
-            for cloze_item in self.__obj[self.count():]:
+            for cloze_item in _obj[self.count():]:
                 self.add(cloze_item)
+        self.__obj = _obj
 
     def get_attr(self):
-        return "options"
+        """Get attribute.
+        """
+        return self.__type
+
+    def pop(self) -> None:
+        """_summary_
+        """
+        if not self.count():
+            return
+        self.itemAt(self.count()-1).widget().deleteLater()
+
+
+class GOptions(_AutoUpdateVBox):
+    """GUI for GOptions class.
+    """
+
+    def __init__(self, parent, toolbar, editor) -> None:
+        super().__init__(parent, toolbar, "options")
+        self.visible = True
+        self.add_marker_to_text = editor.add_marker
+        self.pop_marker_from_text = editor.pop_marker
+        self.setSpacing(5)
+
+    def add(self, child=None):
+        item = super().add(child)
+        if child is None:
+            self.add_marker_to_text()
+        return item
 
     def pop(self) -> None:
         """_summary_
@@ -109,101 +135,33 @@ class GOptions(QVBoxLayout):
                 break
 
 
-class GHintsList(QVBoxLayout):
+class GHintsList(_AutoUpdateVBox):
     """GUI class for the MultipleTries wrapper
     """
 
     def __init__(self, parent, toolbar) -> None:
-        super().__init__(parent)
-        self.__obj: list = None
-        self._toolbar = toolbar
-
-    def add(self, obj):
-        """ Adds a new Hint Widget to the instances's VBox
-        """
-        hint_widget = GHint(self._toolbar, obj)
-        self.__obj.append(hint_widget.obj)
-        super().addWidget(hint_widget)
-        return hint_widget
-
-    def from_obj(self, obj) -> None:
-        """_summary_
-
-        Args:
-            obj (MultipleTries): _description_
-        """
-        self.__obj = obj.hints
-        new_size = len(self.__obj)
-        if len(self.children()) != 0:
-            to_rem = 0
-            if self.count() > new_size:
-                to_rem = self.count() - new_size
-            for i in reversed(range(to_rem)):
-                self.itemAt(i).layout().deleteLater()
-            for obj, child in zip(self.__obj, self.children()):
-                child.from_obj(obj)
-        if self.count() < new_size:
-            for obj in self.__obj[self.count():]:
-                self.add(obj)
-
-    def get_attr(self):
-        return "hints"
-
-    def pop(self) -> None:
-        """_summary_
-        """
-        if not self.count():
-            return
-        self.itemAt(self.count()-1).widget().deleteLater()
+        super().__init__(parent, toolbar, "hints")
 
 
-class GUnits(QVBoxLayout):
+class GUnits(_AutoUpdateVBox):
     """ Wdiget for the Unit data used by Questions.
     """
 
-    def __init__(self):
-        super().__init__()
-
-    def get_attr(self):
-        return "units"
+    def __init__(self, parent, toolbar):
+        super().__init__(parent, toolbar, "units")
 
 
-class GZones(QVBoxLayout):
+class GZones(_AutoUpdateVBox):
     """ Widget to list Zones used by the question.
     """
 
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.__obj = None
+    def __init__(self, parent, toolbar):
+        super().__init__(parent, toolbar, "zones")
         _row = QHBoxLayout()
         self._background = QPushButton("Background")
         _row.addLayout(self._background)
         self._highlight = GCheckBox("highlight", "Highlight dropzones with inc"
                                     "orrect correct markers placed", parent)
-
-    def from_obj(self, obj) -> None:
-        """_summary_
-
-        Args:
-            obj (MultipleTries): _description_
-        """
-        self.__obj = obj.hints
-        new_size = len(self.__obj)
-        if len(self.children()) != 0:
-            to_rem = 0
-            if self.count() > new_size:
-                to_rem = self.count() - new_size
-            for i in reversed(range(to_rem)):
-                self.itemAt(i).layout().deleteLater()
-            for key, child in zip(self.__obj, self.children()):
-                child.from_obj(key)
-        if self.count() < new_size:
-            for data in self.__obj[self.count():]:
-                item = self.add()
-                item.from_obj(data)
-
-    def get_attr(self):
-        return "zones"
 
 
 class GCollapsible(QVBoxLayout):
@@ -233,10 +191,7 @@ class GCollapsible(QVBoxLayout):
             self.update()
 
         def paintEvent(self, _):    # pylint: disable=C0103
-            """_summary_
-
-            Args:
-                _ (_type_): _description_
+            """Overwritten method. Paint the arrow icon.
             """
             painter = QPainter()
             painter.begin(self)
@@ -245,31 +200,32 @@ class GCollapsible(QVBoxLayout):
             painter.drawPolygon(*self._arrow)
             painter.end()
 
-
     class _GTitle(QFrame):
 
         def __init__(self, parent, toogle_func, title=""):
             QFrame.__init__(self, parent)
-            self._arrow = GCollapsible._GArrow(parent, True)
+            self.arrow = GCollapsible._GArrow(parent, True)
             _title = QLabel(title)
             _title.move(QPoint(24, 0))
             _hlayout = QHBoxLayout(self)
             _hlayout.setContentsMargins(0, 0, 0, 0)
             _hlayout.setSpacing(0)
-            _hlayout.addWidget(self._arrow)
+            _hlayout.addWidget(self.arrow)
             _hlayout.addWidget(_title)
             self.setFixedHeight(24)
             self.__toogle_func = toogle_func
 
         def mousePressEvent(self, event):  # pylint: disable=C0103
+            """Overwritten method. Toogle the arrow icon and toggle items
+            visibility when clicked.
+            """
             self.__toogle_func()
             return super().mousePressEvent(event)
-
 
     def __init__(self, parent, title):
         QVBoxLayout.__init__(self)
         self._is_collasped = True
-        self._title_frame = GCollapsible._GTitle(parent, self._toggle, title)
+        self._title_frame = GCollapsible._GTitle(parent, self.toggle, title)
         super().addWidget(self._title_frame)
         self._content = QFrame(parent)
         self._content.setStyleSheet(".QFrame{border:1px solid rgb(41, 41, 41)"
@@ -279,12 +235,12 @@ class GCollapsible(QVBoxLayout):
         self.setContentsMargins(0, 0, 0, 0)
         self.setSpacing(0)
 
-    def _toggle(self):
+    def toggle(self):
         """_summary_
         """
         self._content.setVisible(self._is_collasped)
         self._is_collasped = not self._is_collasped
-        self._title_frame._arrow.set_arrow(int(self._is_collasped))
+        self._title_frame.arrow.set_arrow(int(self._is_collasped))
 
     def setLayout(self, layout) -> None:  # pylint: disable=C0103
         """_summary_

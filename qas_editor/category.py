@@ -15,22 +15,21 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-
 from __future__ import annotations
 import logging
 import re
 from typing import TYPE_CHECKING
 
 from .utils import Serializable
-from .questions import _Question
+from .question import _Question
 from .enums import Status
 from ._parsers import aiken, cloze, gift, json, kahoot, latex, markdown, moodle
 if TYPE_CHECKING:
     from typing import Dict, List   # pylint: disable=C0412
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
 
-SERIALIZERS = { 
+SERIALIZERS = {
     "cloze": ("read_cloze", "write_cloze"),
     "gift": ("read_gift", "write_gift"),
     "json": ("read_json", "write_json"),
@@ -85,16 +84,6 @@ class Category(Serializable):  # pylint: disable=R0904
     def __str__(self) -> str:
         return f"Category: '{self.name}' @{hex(id(self))}"
 
-    @staticmethod
-    def gen_hier(top: "Category", category: str) -> Category:
-        cat_list = category.strip().split("/")
-        start = 1 if top.name == cat_list[0] else 0
-        quiz = top
-        for i in cat_list[start:]:
-            quiz.add_subcat(Category(i))
-            quiz = quiz[i]
-        return quiz
-
     @property
     def questions(self):
         """_summary_
@@ -109,13 +98,15 @@ class Category(Serializable):  # pylint: disable=R0904
 
     @name.setter
     def name(self, value: str):
-        if self.__parent:
-            if value in self.__parent.__categories:
+        if self.__parent is not None:
+            if value in self.__parent:
                 raise ValueError(f"Question name \"{value}\" already "
                                  "exists on current category")
-            self.__parent.__categories.pop(self.__name)
-            self.__parent.__categories[value] = self
-        self.__name = value
+            self.__parent.pop_subcat(self.__name)
+            self.__name = value
+            self.__parent.add_subcat(self)
+        else:
+            self.__name = value
 
     @property
     def parent(self):
@@ -127,8 +118,8 @@ class Category(Serializable):  # pylint: disable=R0904
     def parent(self, value: Category):
         if (value is not None and self.name not in value) or\
                 (self.__parent is not None and self.name in self.__parent):
-            raise ValueError("This attribute can't be assigned directly. Use "
-                             "parent's add/pop_question functions instead.")
+            raise ValueError("This attribute shouldn't be assigned directly. U"
+                             "se parent's add/pop_question functions instead.")
         self.__parent = value
 
     def add_subcat(self, child: Category) -> bool:
@@ -137,7 +128,7 @@ class Category(Serializable):  # pylint: disable=R0904
         if child.name in self.__categories:
             return False
         if child.parent is not None:
-            child.parent.__categories.pop(child.name)
+            child.parent.pop_subcat(child.name)
         self.__categories[child.name] = child
         child.parent = self
         return True
@@ -159,22 +150,32 @@ class Category(Serializable):  # pylint: disable=R0904
         question.parent = self
         return True
 
-    def find(self, results: list, title: str = None, tags: list = None, 
+    def find(self, results: list, title: str = None, tags: list = None,
              text: str = None, qtype: _Question = None, dbid: int = None):
-        """
+        """Find a question inside the category based on the provided arguments.
+        If the argument is not passed (same as None), it is ignored.
+
+        Args:
+            results (list): An empty list the will be filled with the results.
+            title (str): A regex that matchs the question's title.
+            tags (list): A list of tags (str) used in the question.
+            text (str): A regex that matchs the question's text.
+            qtype (_Question): The question type of the question.
+            dbid (int): The dbid of the question (exact same number).
         """
         for question in self.__questions:
             if (title is None or re.search(title, question.name)) and \
-                 (tags is None or set(tags).issubset(set(question.tags))) and \
-                 (text is None or re.search(text, question.question.text)) and \
+                 (tags is None or set(tags).issubset(set(question.tags))) and\
+                 (text is None or re.search(text, question.question.text)) and\
                  (qtype is None or isinstance(question, qtype)) and \
                  (dbid is None or dbid == question.dbid):
-                results.append(question)       
+                results.append(question)
         for cat in self.__categories.values():
             cat.find(results, title, tags, text, qtype, dbid)
 
     def get_datasets(self, datasets: dict):
-        """
+        """Fill a dictionary with all the databases objets found in this
+        category. It asks for an empty dictionary instead of returning one.
         """
         for question in self.__questions:
             if hasattr(question, "datasets"):
@@ -183,8 +184,8 @@ class Category(Serializable):  # pylint: disable=R0904
                     if data.status == Status.PRV:
                         key += f" ({hex(id(data))})"
                     if key in datasets and datasets[key] != data:
-                        LOG.error("Public dataset %s has different instances."
-                                  "New found in %s.", data.name, self)
+                        _LOG.error("Public dataset %s has different instances."
+                                   "New found in %s.", data.name, self)
                     classes = datasets.setdefault(key, (data, []))[1]
                     classes.append(question)
         for cat in self.__categories.values():
@@ -200,7 +201,9 @@ class Category(Serializable):  # pylint: disable=R0904
         return total
 
     def get_tags(self, tags: dict):
-        """
+        """Fill a dictionary with all the tags defined in this category, being
+        the tag used as a key, and the number of ocurrencies as values. It
+        asks for an empty dictionary instead of returning one.
         """
         for question in self.__questions:
             for name in question.tags:
@@ -215,32 +218,31 @@ class Category(Serializable):  # pylint: disable=R0904
         """
         return self.__questions[index]
 
-
     def merge(self, child: Category):
-        """
+        """Merge this <code>Category</code> with another one. This merge will
+        move the subcats and questions of the provided <code>Category</code>
+        to this one, ignoring duplicated, and deleting it in the end.
         """
         to_pop = []
         for cat in child:
-            if child[cat].name in self.__categories:
-                return False
-            if child[cat].parent is not None:
+            if child[cat].name not in self.__categories:
+                _LOG.warning("Merge: Question %s ignored.", cat)
+            elif child[cat].parent is not None:
                 to_pop.append(cat)
-            self.__categories[child[cat].name] = child[cat]
-            child[cat].parent = self
         for question in child.questions:
             self.add_question(question)
         for cat in to_pop:
-            child[cat].parent.__categories.pop(child[cat].name)
+            child.pop_subcat(child[cat].name)
+            self.__categories[child[cat].name] = child[cat]
+            child[cat].parent = self
         del child
+        return True
 
-    def pop_question(self, question) -> bool:
+    def pop_question(self, question: _Question) -> bool:
         """_summary_
 
-        Args:
-            question (questions.Question): _description_
-
         Returns:
-            bool: if the question was added
+            bool: if the question was removed
         """
         if question not in self.__questions:
             return False
@@ -248,31 +250,31 @@ class Category(Serializable):  # pylint: disable=R0904
         question.parent = None
         return True
 
-    def pop_subcat(self, subcat: Category) -> bool:
-        """
+    def pop_subcat(self, subcat: Category | str) -> Category:
+        """Pop a given subcat. This was made a common method instead of a magic
+        method on purpose. This allows removing the category
 
         Returns:
-            bool: if the subcategory was added
+            bool: if the subcategory was removed
         """
-        if subcat.name not in self.__questions:
-            return False
-        self.__categories.pop(subcat.name)
-        subcat.parent = None
-        return True
+        name = subcat.name if isinstance(subcat, Category) else subcat
+        child = self.__categories.pop(name)
+        child.parent = None
+        return child
 
     def sort_questions(self, recursive: bool):
+        """Sort the questions in this category.
         """
-        """
-        self.__questions = sorted(self.__questions, key = lambda qst: qst.name)
+        self.__questions = sorted(self.__questions, key=lambda qst: qst.name)
         if recursive:
             for cat in self.__categories.values():
                 cat.sort_questions(recursive)
 
     def sort_subcats(self, recursive: bool):
+        """Sort the sub-categories (children) of this category.
         """
-        """
-        self.__categories = { key: val for key, val in 
-                sorted(self.__categories.items(), key = lambda elem: elem[0]) }
+        self.__categories = dict(sorted(self.__categories.items(),
+                                 key=lambda elem: elem[0]))
         if recursive:
             for cat in self.__categories.values():
                 cat.sort_subcats(recursive)
@@ -294,6 +296,5 @@ class Category(Serializable):  # pylint: disable=R0904
                 ext = _path.rsplit(".", 1)[-1]
                 top_quiz.merge(getattr(cls, SERIALIZERS[ext][0])(_path))
             except (ValueError, KeyError):
-                LOG.exception(f"Failed to parse file {_path}.")
+                _LOG.exception(f"Failed to parse file {_path}.")
         return top_quiz
-

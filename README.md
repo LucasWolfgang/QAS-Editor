@@ -6,10 +6,10 @@
 </div>
 
 <div align="center">
-:exclamation: There is NO stable release so far. The frontend (UI) changes daily, and the backend, montly. :exclamation:
+:exclamation: There is NO stable release so far. :exclamation:
 </div><br/>
 
-# QAS-Editor
+## Description
 Question and Answer Sheet Editor is both a python API and a UI utility to automate/help with tasks related to the creation, deletion, update, organization and convertion of question databases.
  
 The structure of the class is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle)
@@ -40,13 +40,13 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
  | Essay                  |  :o:  |  :x:  |  :x: | True/False       |  :o:  |  :x:  |  :x: | 
  </center><br/
 
- - A GUI to create, delete, modify and organize questions
+  - A GUI to create, delete, modify and organize questions.
  <center>
   
  ![QAS editor GUI](https://user-images.githubusercontent.com/39681420/170771346-1e1d532b-6745-4125-b647-d704d645e5c4.png)
  </center><br/>
 
- - Many different import and export formats
+  - Many different import and export formats.
  <center>
   
  |  Type      | Import | Export | Test | Type              | Import | Export | Test |
@@ -59,15 +59,15 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
  | GIFT       |   :o:  |   :x:  |  :x: | Tex (moodlexport) |   :o:  |   :x:  |  :x: |
  | HDF5       |   :x:  |   :x:  |  :x: | Tex (MCexam)      |   :x:  |   :x:  |  :x: |
  | QAS (json) |   :o:  |   :o:  |  :o: | Tex (alterqcm)    |   :x:  |   :x:  |  :x: |
- | Kahoot     |   :x:  |   :o:  |  :x: |
+ | Kahoot     |   :o:  |   :o:  |  :o: |
 </center ><br/>
 
 ## Contributing
-This one is a really large project, and I would appreciate if you could contribute to it. Currently the reporistory can be improved by:
+This one is a really large project, and I would appreciate if you could contribute to it. Currently the repository can be improved by:
  * updating documentation (in-code and wiki);
  * adding examples;
  * adding new parsers;
- * improving parsers performance;
+ * improving parsers\' performance;
  * adding UI functionalities;
  * adding pytests;
  * improving code quality (flake8 and pylint).

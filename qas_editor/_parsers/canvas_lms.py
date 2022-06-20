@@ -15,3 +15,23 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+
+
+def read_canvas(self, file_path: str) -> None:
+    """_summary_
+
+    Args:
+        file_path (str): _description_
+    """
+    # TODO
+    raise NotImplementedError("Canvas LMS not implemented")
+
+
+def write_canvas(self, file_path: str) -> None:
+    """_summary_
+
+    Args:
+        file_path (str): _description_
+    """
+    # TODO
+    raise NotImplementedError("Canvas LMS not implemented")

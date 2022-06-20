@@ -19,9 +19,8 @@ import re
 
 from ..enums import TextFormat
 from ..utils import FText
-from ..questions import QMultichoice
+from ..question import QMultichoice
 from ..answer import Answer
-
 
 
 class DefaultMD:
@@ -57,7 +56,7 @@ def _from_QMultichoice(lines: list, form: DefaultMD, name: str):
         match = re.match(regex_exp, lines.pop())
         if match and match[3]:
             ans = Answer(100.0 if match[4] is not None else 0.0, match[5],
-                            None, TextFormat.HTML)
+                         None, TextFormat.HTML)
             question.options.append(ans)
         else:
             break
@@ -100,7 +99,7 @@ def read_markdown(cls, file_path: str, form: DefaultMD, category="$course$"):
                 cnt += 1
             elif match[5]:
                 raise ValueError(f"Answer found out of a question "
-                                    f"block: {match[5]}.")
+                                 f"block: {match[5]}.")
         else:
             lines.pop()
     return top_quiz
@@ -115,5 +114,4 @@ def write_markdown(self, file_path: str) -> None:
     Raises:
         NotImplementedError: _description_
     """
-    # TODO
     raise NotImplementedError("Markdown not implemented")

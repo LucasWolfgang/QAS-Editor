@@ -20,8 +20,8 @@ import base64
 import copy
 import logging
 from urllib import request
-from .enums import MathType, TextFormat, Status, Distribution
 from typing import TYPE_CHECKING
+from .enums import TextFormat, Status, Distribution
 
 if TYPE_CHECKING:
     from typing import List
@@ -30,6 +30,9 @@ LOG = logging.getLogger(__name__)
 
 
 def gen_hier(cls, top, category: str):
+    """Generates a categorty hierarchy based on the provided string.
+    TODO consider putting it in another file.
+    """
     cat_list = category.strip().split("/")
     start = 1 if top.name == cat_list[0] else 0
     quiz = top
@@ -51,7 +54,7 @@ class Serializable:
         if not isinstance(__b, __a.__class__):
             return False
         if hasattr(__a, "compare"):
-            path.append(str(__a))
+            path.append(__a)
             __a.compare(__b, path)
             path.pop()
         elif isinstance(__a, list):
@@ -59,7 +62,7 @@ class Serializable:
                 return False
             tmp: list = copy.copy(__b)
             for ita in __a:
-                path.append(str(ita))
+                path.append(ita)
                 idx = 0
                 for idx, itb in enumerate(tmp):
                     if Serializable.__itercmp(ita, itb, path):
@@ -82,55 +85,11 @@ class Serializable:
         if not isinstance(__o, self.__class__):
             return False
         for key, val in self.__dict__.items():
+            cpr = __o.__dict__.get(key)
             if key not in ("_Question__parent", "_Category__parent") and not \
-                    Serializable.__itercmp(val, __o.__dict__.get(key), path):
-                cpr = __o.__dict__.get(key)
-                path = " > ".join(path[:-1])
-                if isinstance(val, list) and cpr:
-                    val = ", ".join(map(str, val))
-                    cpr = ", ".join(map(str, cpr))
-                if isinstance(val, str) and len(val) > 20:
-                    with open("raw1.tmp", "w") as ofile:
-                        ofile.write(val)
-                    with open("raw2.tmp", "w") as ofile:
-                        ofile.write(cpr)
-                    output = f"See diff files for [{path} > {key}]."
-                else:
-                    output = f"See [{path} > {key}].\n\t'{val}'\n\t'{cpr}'"
-                raise ValueError(output)
+                    Serializable.__itercmp(val, cpr, path):
+                raise ValueError(f"In {path} > {key}. Use debugger.")
         return True
-
-
-class LineBuffer:
-    """Helps parsing text files that uses lines (\\n) as part of the standard
-    somehow.
-    """
-
-    def __init__(self, stream) -> None:
-        self.last = ""
-        self.cur = ""
-        self.eof = False
-        self._stream = stream
-
-    def read(self, until: str = None) -> str:
-        """_summary_
-
-        Args:
-            inext (bool, optional): _description_. Defaults to False.
-
-        Returns:
-            _type_: _description_
-        """
-        _buffer = [self.cur]
-        self.last = self.cur
-        self.cur = self._stream.readline()
-        while (self.cur and self.cur == "\n" and 
-                    (until is None or self.cur != until)):
-            self.cur = self._stream.readline()
-            _buffer.append(self.cur.strip())
-        self.eof = not bool(self.cur)
-        self.cur = self.cur.strip()
-        return self.cur if until is None else "".join(_buffer)
 
 
 class TList(list):
@@ -149,6 +108,8 @@ class TList(list):
 
     @property
     def datatype(self):
+        """The datatype of the items in this list.
+        """
         return self.__type
 
     @datatype.setter
@@ -159,11 +120,11 @@ class TList(list):
 
     def append(self, __object):
         if isinstance(__object, self.__type):
-            return super().append(__object)
+            super().append(__object)
 
     def extend(self, __iterable):
         if all(isinstance(obj, self.__type) for obj in __iterable):
-            return super().extend(__iterable)
+            super().extend(__iterable)
 
 
 # -----------------------------------------------------------------------------
@@ -188,12 +149,12 @@ class AnswerError(Exception):
 
 
 class B64File(Serializable):
-    """File used in questions. Can be either a local path, an URL, a B64 
+    """File used in questions. Can be either a local path, an URL, a B64
     encoded string. TODO May add PIL in the future too. Currently is always
     converted into B64 to be embedded. May also change in the future.
     """
 
-    def __init__(self, name: str, path: str = None, bfile: str|bool = True):
+    def __init__(self, name: str, path: str = None, bfile: str | bool = True):
         super().__init__()
         self.name = name
         self.path = path
@@ -227,7 +188,7 @@ class Dataset(Serializable):
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, self.__class__):
             return False
-        if self.status == Status.PRV or __o.status == Status.PRV:
+        if Status.PRV in (self.status, __o.status):
             return False
         return self.__dict__ == __o.__dict__
 
@@ -249,13 +210,17 @@ class FText(Serializable):
 
     @staticmethod
     def prop(attr: str):
+        """Generate get/set/del properties for a Ftext attribute.
+        """
         def setter(self, value):
-            if isinstance(value, FText) and value.name == getattr(self, attr).name:
+            data = getattr(self, attr)
+            if isinstance(value, FText) and value.name == data.name:
                 setattr(self, attr, value)
             elif isinstance(value, str):
-                getattr(self, attr).text = value
+                data.text = value
             elif value is not None:
                 raise ValueError(f"Can't assign {value} to {attr}")
+
         def getter(self) -> FText:
             return getattr(self, attr)
         return property(getter, setter, doc="")
@@ -286,29 +251,23 @@ class Unit(Serializable):
 
 
 class Equation(Serializable):
-    """Represents an equation in a formulary. This is a speciallized way of 
+    """Represents an equation in a formulary. This is a speciallized way of
     representing a test description (<code>QDescription</code>).
     """
 
     def __init__(self, name: str, text: FText) -> None:
-        self.__name = name
-        self.__text = text
-
-    def to_description(self):
-        pass
+        self.name = name
+        self.text = text
 
 
 class Table(Serializable):
-    """Represents a table in a formulary. This is a speciallized way of 
+    """Represents a table in a formulary. This is a speciallized way of
     representing a test description (<code>QDescription</code>).
     """
 
     def __init__(self, name: str, text: FText) -> None:
-        self.__name = name
-        self.__text = text
-
-    def to_description(self):
-        pass
+        self.name = name
+        self.text = text
 
 
 class Rule(Serializable):
@@ -318,9 +277,6 @@ class Rule(Serializable):
     """
 
     def __init__(self, name: str, text: FText, proof: FText) -> None:
-        self.__name = name
-        self.__text = text
-        self.__proof = proof
-
-    def to_description(self):
-        pass
+        self.name = name
+        self.text = text
+        self.proof = proof

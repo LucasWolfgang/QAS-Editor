@@ -18,23 +18,27 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 import logging
-import re
 from typing import TYPE_CHECKING
 from os.path import splitext
 from uuid import uuid4
 from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QFont, QImage, QTextDocument, QKeySequence, QIcon, QTextCursor
-from PyQt5.QtWidgets import QWidget, QActionGroup, QAction, QTextEdit, \
+from PyQt5.QtGui import QFont, QImage, QTextDocument, QKeySequence, QIcon,\
+                        QTextCursor
+from PyQt5.QtWidgets import QWidget, QActionGroup, QCompleter, QTextEdit,\
                             QToolBar, QFontComboBox, QComboBox, QHBoxLayout,\
-                            QFrame,QPushButton,QLabel, QGridLayout, QLineEdit,\
-                            QCheckBox, QListWidget, QCompleter
-from ..questions import MARKER_INT
-from ..answer import Answer, ACalculated, DragGroup, DragItem, ClozeItem, DropZone, SelectOption
+                            QFrame, QPushButton, QLabel, QAction, QLineEdit,\
+                            QCheckBox, QListWidget, QGridLayout
+from ..question import MARKER_INT
+from ..answer import Answer, ACalculated, DragGroup, ClozeItem, DropZone,\
+                     SelectOption
 from ..enums import ClozeFormat, TextFormat, TolType, TolFormat
 from ..utils import FText, Hint
 if TYPE_CHECKING:
+    from typing import Callable
     from ..enums import EnhancedEnum
     from PyQt5.QtGui import QKeyEvent
+
+
 IMG_PATH = __file__.replace('\\', '/').rsplit('/', 2)[0] + "/images"
 LOG = logging.getLogger(__name__)
 
@@ -43,7 +47,7 @@ class _AutoUpdate():
     """ Helper class to abstract interface for auto updatable Widgets.
     """
 
-    _get_data = None
+    _get_data: Callable = None
 
     def __init__(self, attribute, *args):
         super().__init__(*args)
@@ -51,25 +55,27 @@ class _AutoUpdate():
         self.__attr = attribute
 
     def get_attr(self):
-        """ Return attribute updated when focus is lost.
+        """Return attribute updated when focus is lost.
         """
         return self.__attr
 
     def from_obj(self, obj):
-        """_summary_
+        """Set the target object. The object should have the attribute defined
+        during instanciation.
 
         Args:
-            obj (_type_): _description_
+            obj (_type_): target object.
         """
         self.__obj = obj
         return getattr(obj, self.__attr)
 
-    def focusOutEvent(self, event) -> None:   # pylint: disable=C0103
-        """a
+    def focusOutEvent(self, event):             # pylint: disable=C0103
+        """Method overwritten. Updates the data in the target object.
         """
         if self.__obj is not None and callable(self._get_data):
-            setattr(self.__obj, self.__attr, self._get_data())
-        return super().focusOutEvent(event)
+            setattr(self.__obj, self.__attr,
+                    self._get_data())           # pylint: disable=E1102
+        return super().focusOutEvent(event)     # pylint: disable=E1101
 
 
 class GDropbox(_AutoUpdate, QComboBox):
@@ -86,7 +92,7 @@ class GDropbox(_AutoUpdate, QComboBox):
         self.setFixedHeight(24)
 
     def from_obj(self, obj):
-        data =  super().from_obj(obj)
+        data = super().from_obj(obj)
         if isinstance(data, list):
             self.clear()
             for num, item in enumerate(data):
@@ -99,10 +105,11 @@ class GField(_AutoUpdate, QLineEdit):
     """An auto updatable QLineEdit
     """
 
+    _get_data = QLineEdit.text
+
     def __init__(self, attribute, parent, cast_type):
         super().__init__(attribute, parent)
         self._cast = cast_type
-        self._get_data = self.text
 
     def from_obj(self, obj):
         value = super().from_obj(obj)
@@ -111,8 +118,10 @@ class GField(_AutoUpdate, QLineEdit):
 
 
 class GCheckBox(_AutoUpdate, QCheckBox):
-    """ An auto updatable QCheckBox
+    """An auto updatable QCheckBox
     """
+
+    _get_data = QCheckBox.isChecked
 
     def __init__(self, attribute, text, parent):
         super().__init__(attribute, text, parent)
@@ -123,7 +132,7 @@ class GCheckBox(_AutoUpdate, QCheckBox):
 
 
 class GList(_AutoUpdate, QListWidget):
-    """ An auto updatable QListWidget
+    """An auto updatable QListWidget
     """
 
     def from_obj(self, obj):
@@ -142,7 +151,7 @@ class GTextEditor(QTextEdit):
     """
 
     def __init__(self, toolbar: "GTextToolbar", attribute: str, is_ftext=False,
-                parent: QWidget = None):
+                 parent: QWidget = None):
         super().__init__(parent)
         self.toolbar = toolbar
         self.is_ftext = is_ftext
@@ -158,6 +167,8 @@ class GTextEditor(QTextEdit):
         return False
 
     def add_marker(self):
+        """Add a new marker to the text where the cursor currently is.
+        """
         cur = self.textCursor()
         cur.insertText(chr(MARKER_INT))
 
@@ -172,15 +183,19 @@ class GTextEditor(QTextEdit):
         """
         return source.hasImage() or super().canInsertFromMimeData(source)
 
-    def contextMenuEvent(self, _):          # pylint: disable=C0103
-        return None                         # Disables completely ctx menu
+    def contextMenuEvent(self, _):          # pylint: disable=C0103,R0201
+        """Method overwritten. Disables completely ctx menu
+        """
+        return None
 
     def dragEnterEvent(self, event):        # pylint: disable=C0103
-        self.__from_drag = True             # Allow moving markers arround
+        """Method overwritten. Allow moving markers arround
+        """
+        self.__from_drag = True
         return super().dragEnterEvent(event)
 
     def focusInEvent(self, event) -> None:  # pylint: disable=C0103
-        """_summary_
+        """Method overwritten. Set itself as the toolbar's target.
 
         Args:
             event (_type_): _description_
@@ -189,6 +204,8 @@ class GTextEditor(QTextEdit):
         return super().focusOutEvent(event)
 
     def focusOutEvent(self, event) -> None:  # pylint: disable=C0103
+        """Method overwritten. Updates the object's field.
+        """
         if not self.toolbar.hasFocus():
             self.toolbar.setDisabled(True)
         if self.__obj.formatting == TextFormat.MD:
@@ -200,9 +217,13 @@ class GTextEditor(QTextEdit):
         return super().focusOutEvent(event)
 
     def get_attr(self):
+        """Get attribute.
+        """
         return self.__attr
 
     def get_formatting(self):
+        """Return the formatting used by the target object
+        """
         return self.__obj.formatting.name
 
     def insertFromMimeData(self, source):   # pylint: disable=C0103
@@ -244,10 +265,11 @@ class GTextEditor(QTextEdit):
         """
         if event.key() == Qt.Key_Backspace:
             cur = self.textCursor()
-            cur.setPosition(cur.position() - event.count(), QTextCursor.KeepAnchor)
-        if not (event.key() in [Qt.Key_C, Qt.Key_Z] and \
-                event.modifiers() & Qt.ControlModifier) and \
-                GTextEditor.__has_marker(self.textCursor().selectedText()):
+            pos = cur.position() - event.count()
+            cur.setPosition(pos, QTextCursor.KeepAnchor)
+        if not (event.key() in [Qt.Key_C, Qt.Key_Z] and event.modifiers() &
+                Qt.ControlModifier) and GTextEditor.__has_marker(
+                self.textCursor().selectedText()):
             event.ignore()
             return None
         return super().keyPressEvent(event)
@@ -269,6 +291,8 @@ class GTextEditor(QTextEdit):
             self.setPlainText(self.__obj.text)
 
     def pop_marker(self, index):
+        """Pop the last marker found in the text.
+        """
         txt = self.toHtml()
         char = chr(MARKER_INT)
         find = txt.find(char)
@@ -280,6 +304,8 @@ class GTextEditor(QTextEdit):
             self.setHtml(txt[:find] + txt[find+len(char):])
 
     def update_fmt(self, index):
+        """ Update the formatting used.
+        """
         self.__obj.formatting = list(GTextToolbar.FORMATS.values())[index]
 
 
@@ -438,7 +464,6 @@ class GTextToolbar(QToolBar):
             self._alignr.setChecked(self.editor.alignment() == Qt.AlignRight)
             self._alignj.setChecked(self.editor.alignment() == Qt.AlignJustify)
             self._ttype.setCurrentText(self.editor.get_formatting())
-            #self._mtype
             for _obj in self._format_actions:
                 _obj.blockSignals(False)
             self._ttype.currentIndexChanged.connect(self.editor.update_fmt)
@@ -457,10 +482,10 @@ class GTextToolbar(QToolBar):
 
 
 class GAnswer(QFrame):
-    """GUI for QAnswer class.
+    """An UI representation for QAnswer class.
     """
 
-    def __init__(self, toolbar: GTextToolbar, question: list, option = None):
+    def __init__(self, toolbar: GTextToolbar, question: list, option=None):
         super().__init__()
         self._layout = QHBoxLayout(self)
         self._text = GTextEditor(toolbar, "text", True)
@@ -496,13 +521,13 @@ class GAnswer(QFrame):
 
 
 class GCalculated(GAnswer):
-    """
+    """An UI representation for QCalculated class.
     """
 
-    def __init__(self, toolbar: GTextToolbar, question: list, option = None):
+    def __init__(self, toolbar: GTextToolbar, question: list, option=None):
         super().__init__(toolbar, None)
         self._text.setFixedHeight(30)
-        self._feedback.setFixedHeight(30)   
+        self._feedback.setFixedHeight(30)
         self._tol_type = GDropbox("ttype", self, TolType)
         self._tol_type.setToolTip("The tolerance type")
         self._tol_type.setFixedWidth(105)
@@ -516,7 +541,7 @@ class GCalculated(GAnswer):
         self._tolerance.setFixedWidth(45)
         self._layout.addWidget(self._tolerance)
         self._answer_len = GField("alength", self,  int)
-        self._answer_len.setToolTip("Number of significant figures or decimals")
+        self._answer_len.setToolTip("Number of significant figures/decimals")
         self._answer_len.setFixedWidth(30)
         self._layout.addWidget(self._answer_len)
         if option is None:
@@ -765,11 +790,15 @@ class GHint(QFrame):
         elif self.__obj.formatting == TextFormat.PLAIN:
             self._text.setPlainText(self.__obj.text)
 
-    def get_attr(self):
+    def get_attr(self):     # pylint: disable=R0201
+        """Get attribute
+        """
         return "hint"
 
     @property
     def obj(self):
+        """Object
+        """
         return self.__obj
 
 
@@ -848,11 +877,11 @@ class GTagBar(QFrame):
         self._line_edit.setFocus()
 
     def from_list(self, obj):
-        """
+        """Update the list of tags based on a iterable object.
         """
         self._tags = obj
         self.__refresh()
-    
+
     def from_obj(self, obj):
         """_summary_
 

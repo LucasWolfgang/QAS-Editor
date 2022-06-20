@@ -20,8 +20,8 @@ import logging
 import glob
 from typing import TYPE_CHECKING
 
-from ..questions import QMultichoice
-from ..utils import FText, LineBuffer
+from ..question import QMultichoice
+from ..utils import FText
 from ..enums import TextFormat
 from ..answer import Answer
 if TYPE_CHECKING:
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 LOG = logging.getLogger(__name__)
 _PATTERN = re.compile(r"[A-Z]+\) (.+)")
+
 
 def _from_question(buffer, line: str, name: str):
     header = line

@@ -20,12 +20,12 @@ from xml.etree import ElementTree as et
 
 from ..answer import ACalculated, ANumerical, Answer, DragItem, DragGroup, \
                      DragImage, DropZone, Subquestion, SelectOption
-from ..questions import QCalculated, QCalculatedMultichoice, QDescription,\
-                        QCalculatedSimple, QCloze, QMissingWord, QTrueFalse,\
-                        QDaDMarker, QDaDImage, QNumerical,\
-                        QDaDText, QEssay, QMatching,  QMultichoice,\
-                        QRandomMatching, QShortAnswer
-from ..enums import TextFormat, ShowUnits,Numbering, RespFormat, Synchronise,\
+from ..question import QCalculated, QCalculatedMC, QDescription,\
+                       QCalculatedSimple, QCloze, QMissingWord, QTrueFalse,\
+                       QDaDMarker, QDaDImage, QNumerical,\
+                       QDaDText, QEssay, QMatching,  QMultichoice,\
+                       QRandomMatching, QShortAnswer
+from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
                     ShapeType, Grading, Status, TolFormat, TolType,\
                     Distribution
 from ..utils import gen_hier, Dataset, Hint, TList, FText, B64File, Unit
@@ -193,7 +193,8 @@ def _from_Subquestion(root: et.Element, tags: dict, attrs: dict):
 def _from_units(root: et.Element, *_) -> Unit:
     units = []
     for elem in root:
-        unit = Unit(elem.find("unit_name").text, float(elem.find("multiplier").text))
+        multiplier = float(elem.find("multiplier").text)
+        unit = Unit(elem.find("unit_name").text, multiplier)
         units.append(unit)
     return units
 
@@ -314,7 +315,7 @@ def _from_qcalcmultichoice(root: et.Element, tags: dict, attrs: dict):
     tags["answernumbering"] = (Numbering, "numbering")
     tags["dataset_definitions"] = (_from_Datasets, "datasets")
     tags["answer"] = (_from_ACalculated, "options", True)
-    return QCalculatedMultichoice(**_from_question_mtcs(root, tags, attrs))
+    return QCalculatedMC(**_from_question_mtcs(root, tags, attrs))
 
 
 def _from_qcloze(root: et.Element, tags: dict, attrs: dict):
@@ -553,7 +554,7 @@ def _to_dropzone(drop) -> et.Element:
 
 def _to_subquestion(sub) -> et.Element:
     subquestion = et.Element("subquestion",
-                            {"format": sub.formatting.value})
+                             {"format": sub.formatting.value})
     text = et.Element("text")
     text.text = sub.text
     subquestion.append(text)
@@ -592,7 +593,7 @@ def _to_question(question) -> et.Element:
     return elem
 
 
-def  _to_question_mt(qst, opt_callback) -> et.Element:
+def _to_question_mt(qst, opt_callback) -> et.Element:
     question = _to_question(qst)
     for hint in qst.hints:
         question.append(_to_hint(hint))
@@ -636,7 +637,7 @@ def _to_qcalculated(qst: QCalculated) -> et.Element:
     return question
 
 
-def _to_qcalcmultichoice(qst: QCalculatedMultichoice) -> et.Element:
+def _to_qcalcmultichoice(qst: QCalculatedMC) -> et.Element:
     question = _to_question_mtcs(qst, _to_acalculated)
     et.SubElement(question, "synchronize").text = qst.synchronize.value
     if qst.single:
@@ -786,7 +787,7 @@ def _to_qtruefalse(qst: QTrueFalse) -> et.Element:
 
 
 _QTYPE = {
-    "calculated": (_from_qcalculated, _to_qcalculated), 
+    "calculated": (_from_qcalculated, _to_qcalculated),
     "calculatedsimple": (_from_qcalculatedsimple, _to_qcalculated),
     "calculatedmulti": (_from_qcalcmultichoice, _to_qcalcmultichoice),
     "cloze": (_from_qcloze, _to_qcloze),
@@ -800,7 +801,7 @@ _QTYPE = {
     "gapselect": (_from_QMissingWord, _to_qmissingword),
     "multichoice": (_from_QMultichoice, _to_qmultichoice),
     "numerical": (_from_QNumerical, _to_qnumerical),
-    "shortanswer" : (_from_QShortAnswer, _to_qshortanswer),
+    "shortanswer": (_from_QShortAnswer, _to_qshortanswer),
     "truefalse": (_from_QTrueFalse, _to_qtruefalse)
 }
 

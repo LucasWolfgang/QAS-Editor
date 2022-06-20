@@ -19,7 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
-from .enums import TolFormat, TextFormat, ShapeType, ClozeFormat, Direction, TolType
+from .enums import TolFormat, TextFormat, ShapeType, ClozeFormat, Direction,\
+                   TolType
 from .utils import Serializable, B64File, FText, TList
 if TYPE_CHECKING:
     from typing import List
@@ -38,7 +39,7 @@ class Answer(Serializable):
         self.text = text
         self._feedback = FText("feedback")
         self.feedback = feedback
-    
+
     feedback = FText.prop("_feedback")
 
 
@@ -124,7 +125,7 @@ class DragGroup(DragItem):
 
 
 class DragImage(DragGroup):
-    """A dragable and groupable item that can use an image to represent the 
+    """A dragable and groupable item that can use an image to represent the
     item in a canvas.
     """
 
@@ -134,7 +135,7 @@ class DragImage(DragGroup):
 
 
 class DropZone(Serializable):
-    """A zone where dragable items can be placed. They are related to the 
+    """A zone where dragable items can be placed. They are related to the
     items matching the item number to the zone choise. Zone number is used
     only to enumerate the zone.
     """
@@ -168,7 +169,7 @@ class Subquestion(Serializable):
     """_summary_
     """
 
-    def __init__(self, text: str, answer: str, formatting: TextFormat=None):
+    def __init__(self, text: str, answer: str, formatting: TextFormat = None):
         super().__init__()
         self.text = text
         self.answer = answer

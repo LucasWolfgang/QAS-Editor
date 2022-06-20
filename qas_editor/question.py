@@ -20,8 +20,8 @@ from __future__ import annotations
 import re
 import logging
 from typing import TYPE_CHECKING
-from .enums import ClozeFormat, Grading, RespFormat, ShowUnits, Status, Distribution,\
-                   Numbering, Synchronise, TextFormat
+from .enums import ClozeFormat, Grading, RespFormat, ShowUnits, Status,\
+                   Distribution, Numbering, Synchronise, TextFormat
 from .utils import Serializable, MarkerError, AnswerError, B64File, Dataset, \
                    FText, Hint, Unit, TList
 from .answer import ACalculated, ACrossWord, Answer, ClozeItem, ANumerical,\
@@ -101,6 +101,16 @@ class _Question(Serializable):
         """
         return self._tags
 
+    def check(self):
+        """Check if the instance parameters have valid values. Call this method
+        before exporting the instance, or right after modifying many valid of
+        a instance.
+        """
+        if (not isinstance(self.name, str) or self.time_lim < 0 or (self.dbid
+                is not None and not isinstance(self.dbid, (None, int)))
+                or self.default_grade < 0):
+            raise ValueError("Invalid value.")
+
 
 class _QuestionMT(_Question):
     """
@@ -113,7 +123,7 @@ class _QuestionMT(_Question):
         self.penalty = float(penalty)
         self.hints = [] if hints is None else hints
         self._options = TList(self.ANS_TYPE, options)
-    
+
     @property
     def options(self) -> TList:
         """_summary_
@@ -145,13 +155,7 @@ class _QuestionMTCS(_QuestionMT):
 
     if_correct = FText.prop("_if_correct")
     if_incomplete = FText.prop("_if_incomplete")
-    if_incorrect =FText.prop("_if_incorrect")
-
-    @_QuestionMT.options.getter
-    def options(self):
-        # if self.shuffle:
-        #     random.shuffle(self._options)
-        return super().options
+    if_incorrect = FText.prop("_if_incorrect")
 
 
 class _QuestionMTUH(_QuestionMT):
@@ -176,8 +180,9 @@ class QCalculated(_QuestionMTUH):
     QNAME = "Calculated"
     ANS_TYPE = ACalculated
 
-    def __init__(self, synchronize: Synchronise = None, units: List[Unit] = None,
-                 datasets: List[Dataset] = None, **kwargs):
+    def __init__(self, datasets: List[Dataset] = None,
+                 units: List[Unit] = None, synchronize: Synchronise = None,
+                 **kwargs):
         """[summary]
 
         Args:
@@ -202,7 +207,7 @@ class QCalculatedSimple(QCalculated):
     QNAME = "Simplified Calculated"
 
 
-class QCalculatedMultichoice(_QuestionMTCS):
+class QCalculatedMC(_QuestionMTCS):
     """Represents a "Calculated" question with multiple choices, behaving like
     a multichoice question where the answers are calculated using equations and
     datasets.
@@ -212,7 +217,7 @@ class QCalculatedMultichoice(_QuestionMTCS):
     ANS_TYPE = ACalculated
 
     def __init__(self, synchronize: Synchronise, numbering: Numbering = None,
-                 single = False, datasets: List[Dataset] = None, **kwargs):
+                 single=False, datasets: List[Dataset] = None, **kwargs):
         super().__init__(**kwargs)
         self.synchronize = synchronize
         self.single = single
@@ -242,27 +247,24 @@ class QCloze(_QuestionMT):
     MOODLE = "cloze"
     QNAME = "Cloze"
     ANS_TYPE = ClozeItem
+    _PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
 
-    def pure_text(self, embedded_name) -> str:
-        char = chr(MARKER_INT)
-        find = self.question.text.find(char)
-        text = [self.name, "\n", self.question.text[:find]] if \
-                embedded_name else [self.question.text[:find]]
+    def check(self):
+        markers = self.question.text.count(chr(MARKER_INT))
+        if markers != len(self.options):
+            raise MarkerError("Number of markers and questions differ")
         for question in self.options:
-            text.append(question.to_text())
-            end = self.question.text.find(char, find + 1)
-            text.append(self.question.text[find + 1 : end])
-            find = end
-        text.append(self.question.text[-1])  # Wont be included by default
-        return "".join(text)
+            if all(opt.fraction == 0 for opt in question.opts):
+                raise AnswerError("All answer options have 0 grade")
 
     @staticmethod
     def get_items(text: str):
+        """Return a tuple with the Marked text and the data extracted.
+        """
         gui_text = []
         start = 0
         options = []
-        _PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
-        for match in _PATTERN.finditer(text):
+        for match in QCloze._PATTERN.finditer(text):
             opts = []
             for opt in match[3].split("~"):
                 if not opt:
@@ -281,34 +283,46 @@ class QCloze(_QuestionMT):
                     frac = float(frac)
                 feedback = FText("feedback", fdb, TextFormat.PLAIN)
                 opts.append(Answer(frac, tmp, feedback, TextFormat.PLAIN))
-            options.append(ClozeItem(int(match[1]), ClozeFormat(match[2]), opts))
+            item = ClozeItem(int(match[1]), ClozeFormat(match[2]), opts)
+            options.append(item)
             gui_text.append(text[start: match.start()])
             start = match.end()
         gui_text.append(text[start:])
         return chr(MARKER_INT).join(gui_text), options
 
-    def check(self):
+    def pure_text(self, embedded_name) -> str:
+        """Return the text formatted as expected by the end-tool, which is
+        currently only moodle.
         """
-        """
-        markers = self.question.text.count(chr(MARKER_INT))
-        if markers != len(self.options):
-            raise MarkerError("Number of markers and questions differ")
+        char = chr(MARKER_INT)
+        find = self.question.text.find(char)
+        text = [self.name, "\n", self.question.text[:find]] if \
+            embedded_name else [self.question.text[:find]]
         for question in self.options:
-            if all(opt.fraction == 0 for opt in question.opts):
-                raise AnswerError("All answer options have 0 grade")
+            text.append(question.to_text())
+            end = self.question.text.find(char, find + 1)
+            text.append(self.question.text[find + 1: end])
+            find = end
+        text.append(self.question.text[-1])  # Wont be included by default
+        return "".join(text)
 
 
 class QDescription(_Question):
-    """Represents a simple description. This is not a question. It has the same
-    extructure as Question class and was add for compatiblity with the moodle
-    XML format.
+    """A description that can have 1 or more subquestion.
+    TODO fully replace it with a <code>Category</code> class.
     """
     MOODLE = "description"
     QNAME = "Description"
 
+    def __init__(self, children: List[_Question] = None, **kwargs):
+        super().__init__(**kwargs)
+        self.children = children if children else TList(_Question)
+
 
 class QDotConnect(_QuestionMT):
-    """
+    """Connect the dots questions. In the question the student need to
+    connect multiple nodes with one or more connection. Similar to the
+    <code>QMatching</code> question.
     """
     QNAME = "Dot Connect"
     ANS_TYPE = Subquestion
@@ -326,13 +340,16 @@ class QDaDText(_QuestionMTCS):
     ANS_TYPE = DragGroup
 
     def pure_text(self):
+        """Return the text formatted as expected by the end-tool, which is
+        currently only moodle.
+        """
         char = chr(MARKER_INT)
         find = self.question.text.find(char)
         text = [self.question.text[:find]]
         for question in len(self.options):
             text.append(question.to_text())
             end = self.question.text.find(char, find + 1)
-            text.append(self.question.text[find + 1 : end])
+            text.append(self.question.text[find + 1: end])
             find = end
         text.append(self.question.text[-1])  # Wont be included by default
         return "".join(text)
@@ -381,7 +398,7 @@ class QEssay(_Question):
     MOODLE = "essay"
     QNAME = "Essay"
 
-    def __init__(self, lines=10, attachments=0, max_bytes=0, file_types="", 
+    def __init__(self, lines=10, attachments=0, max_bytes=0, file_types="",
                  rsp_required=True, atts_required=False,
                  min_words: int = None, max_words: int = None,
                  grader_info: FText = None,
@@ -432,9 +449,37 @@ class QMissingWord(_QuestionMTCS):
     QNAME = "Missing Word"
     ANS_TYPE = SelectOption
 
-    def update(self):
-        for i in re.finditer(r"\[\[[0-9]+\]\]", self.toPlainText()):
-            self.__tags.append(i.span())
+    def check(self):
+        total = len(re.findall(r"\[\[[0-9]+\]\]", self.question.text))
+        if total != len(self.options):
+            raise MarkerError("Incorrect number of marker in text.")
+
+    @staticmethod
+    def get_items(text):
+        """Return a tuple with the Marked text and the data extracted.
+        """
+        gui_text = []
+        start = 0
+        for match in re.finditer(r"\[\[[0-9]+\]\]", text):
+            gui_text.append(text[start: match.start()])
+            start = match.end()
+        gui_text.append(text[start:])
+        return chr(MARKER_INT).join(gui_text), None
+
+    def pure_text(self):
+        """Return the text formatted as expected by the end-tool, which is
+        currently only moodle.
+        """
+        char = chr(MARKER_INT)
+        find = self.question.text.find(char)
+        text = [self.question.text[:find]]
+        for num in range(len(self.options)):
+            text.append(str(num+1))
+            end = self.question.text.find(char, find + 1)
+            text.append(self.question.text[find + 1: end])
+            find = end
+        text.append(self.question.text[-1])  # Wont be included by default
+        return "".join(text)
 
 
 class QMultichoice(_QuestionMTCS):
@@ -450,9 +495,6 @@ class QMultichoice(_QuestionMTCS):
         self.single = single
         self.show_instr = show_instr
         self.numbering = Numbering.ALF_LR if numbering is None else numbering
-
-    def check(self):
-        pass
 
 
 class QNumerical(_QuestionMTUH):
@@ -475,7 +517,7 @@ class QShortAnswer(_QuestionMT):
     QNAME = "Short Answer"
     ANS_TYPE = Answer
 
-    def __init__(self, use_case = False, **kwargs):
+    def __init__(self, use_case=False, **kwargs):
         super().__init__(**kwargs)
         self.use_case = use_case
 
@@ -486,8 +528,8 @@ class QTrueFalse(_Question):
     MOODLE = "truefalse"
     QNAME = "True or False"
 
-    def __init__(self, correct: bool, true_feedback: FText|str, 
-                 false_feedback: FText|str, **kwargs) -> None:
+    def __init__(self, correct: bool, true_feedback: FText | str,
+                 false_feedback: FText | str, **kwargs) -> None:
         super().__init__(**kwargs)
         self.correct = correct
         self._true_feedback = FText("feedback")
@@ -547,7 +589,7 @@ class QCrossWord(_Question):
         if coord_x < 0 or coord_x > self.x_grid+len(word) or \
                 coord_y < 0 or coord_y > self.y_grid+len(word):
             raise ValueError("New word does not fit in the current grid")
-        self.words.append(ACrossWord(word, coord_x, coord_y, direction, clue))
+        self.words.append(ACrossWord(word, coord_x, coord_y, clue, direction))
 
     def get_solution(self) -> bool:
         """
@@ -559,4 +601,3 @@ class QCrossWord(_Question):
                 solution[word.x] = {}
             if word.coord_y not in solution:
                 solution[word.coord_x][word.coord_y] = {}
-

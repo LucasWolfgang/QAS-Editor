@@ -21,13 +21,14 @@ import logging
 from ..enums import Numbering
 from ..utils import FText
 from ..answer import Answer
-from ..questions import QEssay, QMultichoice
+from ..question import QEssay, QMultichoice
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..category import Category
 
 _LOG = logging.getLogger(__name__)
 _TEX_CMD = re.compile(r"\\(\w+)(?:\[(.+)\])?\{(.*)\}$")
+
 
 class _ClassExam():
     """
@@ -67,24 +68,24 @@ class _PkgGuillaume():
     }
 
     _CMDS = {
-        "title" : ("name", str),
-        "generalfeedback" : ("feedback", FText),
-        "grade" : ("default_grade", float),
-        "penalty" : ("penalty", float),
-        "idnumber" : ("dbid", int),
-        "responseformat" : ("rsp_format", str),
-        "responserequired" : ("rsp_required", bool),
-        "responsefieldlines" : ("lines", int),
-        "attachments" : ("attachments", int),
-        "attachmentsrequired" : ("atts_required", bool),
-        "responsetemplate" : ("template", str),
-        "single" : ("single", bool),
-        "shuffleanswers" : ("shuffle", bool),
-        "answernumbering" : ("numbering", Numbering),
-        "correctfeedback" : ("if_correct", FText),
-        "partiallycorrectfeedback" : ("if_incomplete", FText),
-        "incorrectfeedback" : ("if_incorrect", FText),
-        "shownumcorrect" : ("show_num", bool),
+        "title": ("name", str),
+        "generalfeedback": ("feedback", FText),
+        "grade": ("default_grade", float),
+        "penalty": ("penalty", float),
+        "idnumber": ("dbid", int),
+        "responseformat": ("rsp_format", str),
+        "responserequired": ("rsp_required", bool),
+        "responsefieldlines": ("lines", int),
+        "attachments": ("attachments", int),
+        "attachmentsrequired": ("atts_required", bool),
+        "responsetemplate": ("template", str),
+        "single": ("single", bool),
+        "shuffleanswers": ("shuffle", bool),
+        "answernumbering": ("numbering", Numbering),
+        "correctfeedback": ("if_correct", FText),
+        "partiallycorrectfeedback": ("if_incomplete", FText),
+        "incorrectfeedback": ("if_incorrect", FText),
+        "shownumcorrect": ("show_num", bool),
     }
 
     def __init__(self, cls, cat, buffer) -> None:
@@ -119,7 +120,7 @@ class _PkgGuillaume():
 
     def _category(self, name):
         tmp = self.cat
-        try:  
+        try:
             self.cat = self.cls(name)
             tmp.add_subcat(self.cat)
             for line in self.buf:
@@ -137,7 +138,7 @@ class _PkgGuillaume():
         except ValueError:
             _LOG.exception("Failed to parse category %s", name)
         self.cat = tmp
-        
+
     def _document(self):
         for line in self.buf:
             line = line.strip()
@@ -145,7 +146,7 @@ class _PkgGuillaume():
                 self._category(line[17:-1])
             elif line[:16] == "\\begin{question}":
                 self._question(line[17:-1])
-            elif line == "\end{document}":
+            elif line == "\\end{document}":
                 break
             elif line:
                 raise ValueError("Couldnt map line %s", line)
@@ -155,7 +156,7 @@ _TEMPLATES = {
     "latextomoodle": _PkgGuillaume,
     "automultiplechoice": _PkgAMQ,
     "mcexam": _PkgMcExam,
-    "alterqcm": _PkgAlterQCM, 
+    "alterqcm": _PkgAlterQCM,
     "exam": _ClassExam
 }
 
@@ -169,7 +170,7 @@ def read_latex(cls, file_name) -> "Category":
     with open(file_name, 'r', encoding='utf-8') as ifile:
         for line in ifile:
             if tex_class is None:
-                match =  _TEX_CMD.match(line.strip())
+                match = _TEX_CMD.match(line.strip())
                 if not match:
                     continue
                 cmd, opt, value = match.groups()
@@ -191,5 +192,4 @@ def write_latex(self, file_path: str) -> None:
     Raises:
         NotImplementedError: _description_
     """
-    # TODO
     raise NotImplementedError("LaTex not implemented")

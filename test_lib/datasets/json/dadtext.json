@@ -76,7 +76,7 @@
                     "no_of_drags": 1
                 }
             ],
-            "MOODLE": "ddwtos"
+            "__clsname__": "QDaDText"
         }
     ],
     "_Category__categories": {},

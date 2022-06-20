@@ -12,7 +12,8 @@ disable = C0302,    # Too many lines in module
 
 [DESIGN]
 # Temporarily increasing the max. Will remove once the dataclasses are implemented
-max-attributes=15
-max-args=10
-max-bool-expr=8
+max-attributes=20
+max-args=20
+max-bool-expr=15
+max-statements = 100
 extension-pkg-whitelist=PyQt5
