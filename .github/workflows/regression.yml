@@ -36,7 +36,7 @@ jobs:
 
     - name: Test with pytest
       run: |
-        pytest | tee ./pytest.log
+        pytest ./test_lib | tee ./pytest.log
         echo "PYTEST_MAX=$(sed -n 's/collected \([0-9]*\) items/\1/p' ./pytest.log)" >> $GITHUB_ENV
         echo "PYTEST_SCORE=$(sed -n 's/^===.* \([0-9]*\) passed.*===/\1/p' ./pytest.log)" >> $GITHUB_ENV
       continue-on-error: true
