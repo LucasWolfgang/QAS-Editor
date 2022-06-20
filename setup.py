@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
    name="QAS Editor",
-   version="0.0.5",
+   version="0.0.4",
    description="Question and Answer Sheet editor",
    author="Lucas Wolfgang",
    author_email="lucawolfcs@hotmail.com",
