@@ -31,12 +31,11 @@ jobs:
       
     - name: Lint with flake8
       run: |
-        echo "FLAKE_ERRORS=$(flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics --output-file ./flake8.log)" >> $GITHUB_ENV
+        echo "FLAKE_ERRORS=$(flake8 qas_editor --count --exit-zero --statistics --output-file ./flake8.log)" >> $GITHUB_ENV
 
     - name: Test with pytest
       run: |
-        pytest >> ./pytest.log
-        cat ./pytest.log
+        pytest | tee ./pytest.log
         echo "PYTEST_MAX=$(sed -n 's/collected \([0-9]*\) items/\1/p' ./pytest.log)" >> $GITHUB_ENV
         echo "PYTEST_MIN=$(echo "$PYTEST_MAX - 2" | bc) " >> $GITHUB_ENV
         echo "PYTEST_SCORE=$(sed -n 's/^===.* \([0-9]*\) passed in.*===/\1/p' ./pytest.log)" >> $GITHUB_ENV
