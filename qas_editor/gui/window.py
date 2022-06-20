@@ -643,7 +643,8 @@ class Editor(QMainWindow):
     @action_handler
     def _read_folder(self, _):
         dialog = QFileDialog(self)
-        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dir_mode = QFileDialog.FileMode.Directory  # pylint: disable=E1101
+        dialog.setFileMode(dir_mode)
         if not dialog.exec():
             return
         self.top_quiz = Category()

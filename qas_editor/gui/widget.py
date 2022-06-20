@@ -183,7 +183,7 @@ class GTextEditor(QTextEdit):
         """
         return source.hasImage() or super().canInsertFromMimeData(source)
 
-    def contextMenuEvent(self, _):          # pylint: disable=C0103,R0201
+    def contextMenuEvent(self, _):          # pylint: disable=C0103
         """Method overwritten. Disables completely ctx menu
         """
         return None
@@ -441,7 +441,7 @@ class GTextToolbar(QToolBar):
         if self.editor is not None:
             self._ttype.currentIndexChanged.disconnect()
             self._fonts.currentFontChanged.disconnect()
-            self._fsize.currentIndexChanged[str].disconnect()
+            self._fsize.currentIndexChanged.disconnect()
             self._bold.toggled.disconnect()
             self._underline.toggled.disconnect()
             self._italic.toggled.disconnect()
@@ -470,7 +470,7 @@ class GTextToolbar(QToolBar):
             self._fonts.currentFontChanged.connect(self.editor.setCurrentFont)
             self._underline.toggled.connect(self.editor.setFontUnderline)
             self._italic.toggled.connect(self.editor.setFontItalic)
-            self._fsize.currentIndexChanged[str].connect(
+            self._fsize.currentIndexChanged.connect(
                     lambda s: self.editor.setFontPointSize(float(s)))
             self._bold.toggled.connect(lambda x: self.editor.setFontWeight(
                     QFont.Bold if x else QFont.Normal))
@@ -790,7 +790,7 @@ class GHint(QFrame):
         elif self.__obj.formatting == TextFormat.PLAIN:
             self._text.setPlainText(self.__obj.text)
 
-    def get_attr(self):     # pylint: disable=R0201
+    def get_attr(self):
         """Get attribute
         """
         return "hint"
@@ -890,7 +890,7 @@ class GTagBar(QFrame):
         """
         self.from_list(obj.tags)
 
-    def get_attr(self):  # pylint: disable=R0201
+    def get_attr(self):
         """ Return attribute updated when new tag is added.
         """
         return "tags"

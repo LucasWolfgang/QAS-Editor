@@ -106,8 +106,8 @@ class _Question(Serializable):
         before exporting the instance, or right after modifying many valid of
         a instance.
         """
-        if (not isinstance(self.name, str) or self.time_lim < 0 or (self.dbid
-                is not None and not isinstance(self.dbid, (None, int)))
+        if (not isinstance(self.name, str) or self.time_lim < 0
+                or (self.dbid is not None and not isinstance(self.dbid, int))
                 or self.default_grade < 0):
             raise ValueError("Invalid value.")
 

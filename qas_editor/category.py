@@ -88,7 +88,7 @@ class Category(Serializable):  # pylint: disable=R0904
     def questions(self):
         """_summary_
         """
-        return self.__questions.__iter__()
+        return iter(self.__questions)
 
     @property
     def name(self):
