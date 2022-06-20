@@ -38,8 +38,7 @@ jobs:
       run: |
         pytest | tee ./pytest.log
         echo "PYTEST_MAX=$(sed -n 's/collected \([0-9]*\) items/\1/p' ./pytest.log)" >> $GITHUB_ENV
-        echo "PYTEST_MIN=$(echo "$PYTEST_MAX - 2" | bc) " >> $GITHUB_ENV
-        echo "PYTEST_SCORE=$(sed -n 's/^===.* \([0-9]*\) passed in.*===/\1/p' ./pytest.log)" >> $GITHUB_ENV
+        echo "PYTEST_SCORE=$(sed -n 's/^===.* \([0-9]*\) passed.*===/\1/p' ./pytest.log)" >> $GITHUB_ENV
       continue-on-error: true
 
     - name: Create Pylint Badge
@@ -77,7 +76,7 @@ jobs:
         filename: pytest_${{ matrix.python-version }}.json
         label: Pytest
         message: ${{ env.PYTEST_SCORE }} / ${{ env.PYTEST_MAX }} tests
-        minColorRange: ${{ env.PYTEST_MIN }} 
+        minColorRange: 13
         maxColorRange: ${{ env.PYTEST_MAX }} 
         valColorRange: ${{ env.PYTEST_SCORE }}
     
