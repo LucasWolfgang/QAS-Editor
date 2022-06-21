@@ -10,7 +10,7 @@
 </div><br/>
 
 ## Description
-Question and Answer Sheet Editor is both a python API and a UI utility to automate/help with tasks related to the creation, deletion, update, organization and convertion of question databases.
+Question and Answer Sheet Editor is a desktop-focused python API and a UI utility to automate/help with tasks related to the creation, deletion, update, organization and convertion of question databases.
  
 The structure of the class is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle)
 
@@ -61,6 +61,10 @@ The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasol
  | QAS (json) |   :o:  |   :o:  |  :o: | Tex (alterqcm)    |   :x:  |   :x:  |  :x: |
  | Kahoot     |   :o:  |   :o:  |  :o: |
 </center ><br/>
+
+## Database
+- The [QAS Database](https://github.com/LucasWolfgang/QASDatabase) is the repository used to archive questions that can be opened using this QAS Editor or other applications. The extensions currently used is the Moodle XML, but I am studying changing it to a better one.
+
 
 ## Contributing
 This one is a really large project, and I would appreciate if you could contribute to it. Currently the repository can be improved by:

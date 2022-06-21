@@ -1,2 +1,14 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Source files
+*.py      text diff=python
+
+# To ignore during exports
+/test_gui export-ignore
+/test_lib export-ignore
+/.github  export-ignore
+.pylintrc export-ignore
+
+# To removed from statistics
+/test_lib/datasets/* linguist-documentation
