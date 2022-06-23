@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 from qas_editor import category
+from qas_editor._parsers import moodle
 
 TEST_PATH = os.path.dirname(__file__)
 SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
@@ -50,3 +51,30 @@ def test_diff_calculated():
     new_data = category.Category.read_moodle(XML_TEST)
     assert control.compare(new_data, [])
     os.remove(XML_TEST)
+
+
+def test_sympy():
+    from sympy import Symbol, sqrt
+    s = ("<text><![CDATA[<p><b>Moodle</b> and <b>fp</b> latex package syntax "
+        "is not always equivalent. Here some test for pathological cases.</p>"
+        "<p>Let {x} and {y} some real number.<br></p><ul><li>argument of "
+        "'pow' function are in a different order {=pow({x},2)}</li><li>"
+        "the 'sqrt' function doesn't exist, need 'root(n, x)' in fp, "
+        "{=sqrt(({x}-{y})*({x}+{y}))}</li><li>'pi' is a function in moodle,"
+        " {=sin(1.5*pi())}</li><li>test with '- unary' expression"
+        " {=-{x}+(-{y}+2)}<br></li></ul>]]></text>")
+    _vars, _results = moodle.get_sympy(s)
+    x = Symbol("x")
+    y = Symbol("y")
+    assert _vars == {x, y}
+    assert _results == ["<text><![CDATA[<p><b>Moodle</b> and <b>fp</b> "
+            "latex package syntax is not always equivalent. Here some "
+            "test for pathological cases.</p><p>Let ", x, ' and ', y, 
+            " some real number.<br></p><ul><li>argument of 'pow' "
+            "function are in a different order ", x**2, 
+            "</li><li>the 'sqrt' function doesn't exist, need"
+            " 'root(n, x)' in fp, ", sqrt((x - y)*(x + y)), 
+            "</li><li>'pi' is a function in moodle, ", -1, 
+            "</li><li>test with '- unary' expression ", -x - y + 2, 
+            '<br></li></ul>]]></text>']
+    

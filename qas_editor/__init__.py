@@ -18,6 +18,3 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import sys
 if sys.version_info < (3, 7):
     raise Exception("Python 2 is not supported.")
-
-__author__ = "Lucas Wolfgang"
-__version__ = "0.0.4"

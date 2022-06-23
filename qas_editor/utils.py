@@ -19,6 +19,8 @@ from __future__ import annotations
 import base64
 import copy
 import logging
+from io import BytesIO
+from importlib import util
 from urllib import request
 from typing import TYPE_CHECKING
 from .enums import TextFormat, Status, Distribution
@@ -27,6 +29,8 @@ if TYPE_CHECKING:
     from typing import List
 
 LOG = logging.getLogger(__name__)
+EXTRAS_FORMULAE = util.find_spec("sympy") is not None
+EXTRAS_GUI = util.find_spec("PyQt5") is not None
 
 
 def gen_hier(cls, top, category: str):
@@ -40,6 +44,47 @@ def gen_hier(cls, top, category: str):
         quiz.add_subcat(cls(i))
         quiz = quiz[i]
     return quiz
+
+
+def nxt(stt: list, string: str):
+    """A help function to parse text char by char.
+    
+    Args:
+        stt (list): 0 - index, 1 - if escaped
+        string (str): the string being parsed
+    """
+    stt[1] = (string[stt[0]] == "\\") and not stt[1]
+    stt[0] += 1
+
+
+def sympy_to_image(s: str, wrap: bool, color='Black', scale=1.0):
+    """
+
+    # TODO optimize. It has just too many calls. But at least it works...
+    """
+    try:
+        from matplotlib import figure, font_manager, mathtext
+        from matplotlib.backends import backend_agg
+        from pyparsing import ParseFatalException  # Part of matplotlib package
+    except ImportError:
+        return None
+    s = s.replace('$$', '$')
+    if wrap:
+        s = u'${0}$'.format(s)
+    try:
+        prop = font_manager.FontProperties(size=12)
+        dpi = 120 * scale
+        buffer = BytesIO()
+        parser = mathtext.MathTextParser("path")
+        width, height, depth, _, _ = parser.parse(s, dpi=72, prop=prop)
+        fig = figure.Figure(figsize=(width / 72, height / 72))
+        fig.text(0, depth / height, s, fontproperties=prop, color=color)
+        backend_agg.FigureCanvasAgg(fig)  # set the canvas used
+        fig.savefig(buffer, dpi=dpi, format="png", transparent=True)
+        return str(base64.b64encode(buffer.getvalue()), "utf-8")
+    except (ValueError, RuntimeError, ParseFatalException):
+        return None
+
 
 
 class Serializable:

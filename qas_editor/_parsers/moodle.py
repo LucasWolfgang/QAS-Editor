@@ -15,20 +15,21 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import re
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
 
 from ..answer import ACalculated, ANumerical, Answer, DragItem, DragGroup, \
                      DragImage, DropZone, Subquestion, SelectOption
-from ..question import QCalculated, QCalculatedMC, QDescription,\
+from ..question import QCalculated, QCalculatedMC, QDescription, QDaDImage,\
                        QCalculatedSimple, QCloze, QMissingWord, QTrueFalse,\
-                       QDaDMarker, QDaDImage, QNumerical,\
-                       QDaDText, QEssay, QMatching,  QMultichoice,\
-                       QRandomMatching, QShortAnswer
+                       QDaDMarker, QNumerical, QDaDText, QEssay, QMatching,\
+                       QMultichoice, QRandomMatching, QShortAnswer
 from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
                     ShapeType, Grading, Status, TolFormat, TolType,\
                     Distribution
-from ..utils import gen_hier, Dataset, Hint, TList, FText, B64File, Unit
+from ..utils import ParseError, gen_hier, Dataset, Hint, TList, FText, B64File, Unit, \
+                    EXTRAS_FORMULAE, nxt
 if TYPE_CHECKING:
     from ..category import Category
 
@@ -86,6 +87,42 @@ def _escape_attrib_html(data):
         data = data.replace("\"", "&quot;")
     return data
 
+
+def get_sympy(string: str) -> str:
+    """This function suposse that at least once the 
+    """
+    if EXTRAS_FORMULAE:
+        from sympy.parsing.sympy_parser import parse_expr 
+    result = []
+    _vars = set()
+    last = 0
+    counter = 0
+    stt = [0, False]
+    while stt[0] < len(string):
+        if string[stt[0]] == "{" and not stt[1]:
+            nxt(stt, string)
+            if counter == 0:
+                result.append(string[last: stt[0]-1])
+                last = stt[0]
+                if string[stt[0]] == "=" and not stt[1]:
+                    last +=1
+            counter += 1
+        elif string[stt[0]] == "}" and not stt[1]:
+            counter -= 1
+            if counter == 0:
+                expr = string[last: stt[0]]
+                if EXTRAS_FORMULAE:
+                    expr = expr.replace("{","").replace("}","")
+                    expr = expr.replace("pi()","pi")
+                    expr = parse_expr(expr)
+                    _vars |= expr.free_symbols
+                    last = stt[0] + 1
+                elif expr.isalpha():
+                    _vars |= expr
+                result.append(expr)
+        nxt(stt, string)
+    result.append(string[last:])
+    return _vars, result
 
 # -----------------------------------------------------------------------------
 
