@@ -11,4 +11,4 @@
 .pylintrc export-ignore
 
 # To removed from statistics
-/test_lib/datasets/* linguist-documentation
+/test_lib/datasets/**/* linguist-documentation

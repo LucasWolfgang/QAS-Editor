@@ -54,6 +54,7 @@ class Category(Serializable):  # pylint: disable=R0904
     read_latex = classmethod(latex.read_latex)
     read_markdown = classmethod(markdown.read_markdown)
     read_moodle = classmethod(moodle.read_moodle)
+    read_moodle_backup = classmethod(moodle.read_moodle_backup)
 
     write_aiken = aiken.write_aiken
     write_cloze = cloze.write_cloze
@@ -173,6 +174,21 @@ class Category(Serializable):  # pylint: disable=R0904
         for cat in self.__categories.values():
             cat.find(results, title, tags, text, qtype, dbid)
 
+    def gen_dbids(self, dont_use: list, initial: int = 0) -> int:
+        """Generates unique IDs for each of the questions within this category
+        in sequencially, starting from initial value.
+        """
+        self.get_dbids(dont_use)
+        for question in self.__questions:
+            while initial in dont_use:
+                initial += 1
+            if question.dbid is None:
+                question.dbid = initial
+                initial += 1
+        for cat in self.__categories.values():
+            initial = cat.gen_dbids(dont_use, initial)
+        return initial
+
     def get_datasets(self, datasets: dict):
         """Fill a dictionary with all the databases objets found in this
         category. It asks for an empty dictionary instead of returning one.
@@ -190,6 +206,15 @@ class Category(Serializable):  # pylint: disable=R0904
                     classes.append(question)
         for cat in self.__categories.values():
             cat.get_datasets(datasets)
+
+    def get_dbids(self, dbids: list):
+        """Fill a list with all he IDs already in use in this category.
+        """
+        for question in self.__questions:
+            if question.dbid:
+                dbids.append(question.dbid)
+        for cat in self.__categories.values():
+            cat.get_dbids(dbids)
 
     def get_size(self, recursive=False):
         """Total number of questions in this category, including subcategories.
