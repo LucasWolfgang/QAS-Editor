@@ -6,35 +6,71 @@ on:
       - '**.py'
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+
+  install_python: 
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.7", "3.8", "3.9", "3.10"]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Dont install 3.10 for ubuntu. This one is done in the other job, so we can start running pylint and flake faster
+        exclude:
+          - os: ubuntu-latest
+            python-version: '3.10'
+    runs-on: $
     steps:
     - uses: actions/checkout@v3
-    
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+    - uses: actions/setup-python@v3
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: ${{ matrix.python-version }}      
+    - run: |
+        python -m pip install pylint pytest flake8 .[formulae]
+        echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
         
-    - name: Install dependencies
-      run: |
-        python -m pip install pylint pytest flake8
-        python -m pip install .[formulae]
+        
+  install_python_2:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/setup-python@v3
+      with:
+        python-version: 3.10     
+    - run: |
+        python -m pip install pylint pytest flake8 .[formulae]
         echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
-        
-    - name: Lint with pylint
-      run: |
+
+  pylint: # Just lint with 3.10  
+    runs-on: ubuntu-latest
+    needs: install_python_2
+    steps:
+    - run: |
         pylint qas_editor --rcfile=$(git ls-files '.pylintrc') --output-format=text | tee ./pylint.log || pylint-exit $?
         echo "PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' ./pylint.log)" >> $GITHUB_ENV
-      
+        
+
+  flake8: # Just lint with 3.10
+    runs-on: ubuntu-latest
+    needs: install_python_2
+    steps:
+    - name: Set up Python 3.10 / Ubuntu
+      uses: actions/setup-python@v3
+      with:
+        python-version: 3.10
     - name: Lint with flake8
       run: |
         echo "FLAKE_ERRORS=$(flake8 qas_editor --count --exit-zero --statistics --output-file ./flake8.log)" >> $GITHUB_ENV
 
+
+  pytest:
+    needs: [install_python, install_python_2]
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: $
+    steps:
     - name: Test with pytest
       run: |
         pytest ./test_lib | tee ./pytest.log
@@ -42,6 +78,13 @@ jobs:
         echo "PYTEST_SCORE=$(sed -n 's/^===.* \([0-9]*\) passed.*===/\1/p' ./pytest.log)" >> $GITHUB_ENV
       continue-on-error: true
 
+
+  badges:
+    # Not needed to run on parallell, plus may generate error while accessing gist, so lets avoid it
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    needs: [pylint, flake8, pytest]
+    steps:
     - name: Create Pylint Badge
       uses: LucasWolfgang/dynamic-badges-action@master
       with:
@@ -53,8 +96,7 @@ jobs:
         minColorRange: 6
         maxColorRange: 10
         valColorRange: ${{ env.PYLINT_SCORE }}
-      continue-on-error: true
-    
+      continue-on-error: true   
     - name: Create Flake8 Badge
       uses: LucasWolfgang/dynamic-badges-action@master
       with:
@@ -67,8 +109,7 @@ jobs:
         maxColorRange: 50
         valColorRange: ${{ env.FLAKE_ERRORS }}
         invertColorRange: 1
-      continue-on-error: true
-    
+      continue-on-error: true  
     - name: Create Pytest Badge
       uses: LucasWolfgang/dynamic-badges-action@master
       with:
