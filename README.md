@@ -16,7 +16,7 @@ The structure of the class is based on the Moodle XML. The initial source code w
 
 The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/).
 
-Besides repos listed above, some testcases were also taken from [moodle test website](https://school.moodledemo.net/) 
+Besides repos listed above, some testcases were also taken from [moodle test website](https://school.moodledemo.net/) and [edx4edx_lite](https://github.com/mitocw/edx4edx_lite).
 
 ## Requirements
 - Requires at least Python 3. If using all dependencies, at least Python 3.6.
@@ -54,9 +54,9 @@ Besides repos listed above, some testcases were also taken from [moodle test web
  |  Type      | Import | Export | Test | Type              | Import | Export | Test |
  | ---------- | :----: | :----: | :--: | ----------------- | :----: | :----: | :--: |
  | Aiken      |   :o:  |   :o:  |  :o: | Markdown (MCQ)    |   :o:  |   :x:  |  :x: |
- | Anki       |   :x:  |   :x:  |  :x: | Moodle            |   :o:  |   :o:  |  :o: |
+ | Anki       |   :o:  |   :x:  |  :x: | Moodle            |   :o:  |   :o:  |  :o: |
  | BlackBoard |   :x:  |   :x:  |  :x: | PDF               |   :x:  |   :x:  |  :x: |
- | Canvas LMS |   :x:  |   :x:  |  :x: | Quizlet           |   :x:  |   :x:  |  :x: |
+ | Canvas LMS |   :x:  |   :x:  |  :x: | Quizlet           |   :o:  |   :x:  |  :x: |
  | Cloze      |   :o:  |   :x:  |  :x: | Tex (AMQ)         |   :x:  |   :x:  |  :x: |
  | GIFT       |   :o:  |   :x:  |  :x: | Tex (moodlexport) |   :o:  |   :x:  |  :x: |
  | HDF5       |   :x:  |   :x:  |  :x: | Tex (MCexam)      |   :x:  |   :x:  |  :x: |
