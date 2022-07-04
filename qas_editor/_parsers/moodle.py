@@ -1,4 +1,4 @@
-""""
+"""
 Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
 Copyright (C) 2022  Lucas Wolfgang
 
@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import re
+import zipfile
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
 
@@ -27,65 +27,11 @@ from ..question import QCalculated, QCalculatedMC, QDescription, QDaDImage,\
                        QMultichoice, QRandomMatching, QShortAnswer
 from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
                     ShapeType, Grading, Status, TolFormat, TolType,\
-                    Distribution
-from ..utils import ParseError, gen_hier, Dataset, Hint, TList, FText, B64File, Unit, \
-                    EXTRAS_FORMULAE, nxt
+                    Distribution, ShowAnswer
+from ..utils import gen_hier, Dataset, Hint, TList, FText, B64File, Unit, \
+                    EXTRAS_FORMULAE, nxt, serialize_fxml
 if TYPE_CHECKING:
     from ..category import Category
-
-
-def serialize_fxml(write, elem, short_empty, pretty, level=0):
-    tag = elem.tag
-    text = elem.text
-    if pretty:
-        write(level * "  ")
-    write(f"<{tag}")
-    for key, value in elem.attrib.items():
-        value = _escape_attrib_html(value)
-        write(f" {key}=\"{value}\"")
-    if (isinstance(text, str) and text) or text is not None or \
-            len(elem) or not short_empty:
-        if len(elem) and pretty:
-            write(">\n")
-        else:
-            write(">")
-        write(_escape_cdata(text))
-        for child in elem:
-            serialize_fxml(write, child, short_empty, pretty, level+1)
-        if len(elem) and pretty:
-            write(level * "  ")
-        write(f"</{tag}>")
-    else:
-        write(" />")
-    if pretty:
-        write("\n")
-    if elem.tail:
-        write(_escape_cdata(elem.tail))
-
-
-def _escape_cdata(data):
-    if data is None:
-        return ""
-    if isinstance(data, (int, float)):
-        return str(data)
-    if ("&" in data or "<" in data or ">" in data) and not\
-            (str.startswith(data, "<![CDATA[") and str.endswith(data, "]]>")):
-        return f"<![CDATA[{data}]]>"
-    return data
-
-
-def _escape_attrib_html(data):
-    if data is None:
-        return ""
-    if isinstance(data, (int, float)):
-        return str(data)
-    if "&" in data:
-        data = data.replace("&", "&amp;")
-    if ">" in data:
-        data = data.replace(">", "&gt;")
-    if "\"" in data:
-        data = data.replace("\"", "&quot;")
-    return data
 
 
 def get_sympy(string: str) -> str:
@@ -127,18 +73,15 @@ def get_sympy(string: str) -> str:
 # -----------------------------------------------------------------------------
 
 
-def _from_xml(root: et.Element, tags: dict, attrs: dict) -> dict:
+def _from_xml(root: et.Element, tags: dict) -> dict:
     if root is None:
         return None
     results = {}
-    name = tags.pop(True, None)  # True is used as a key to ask for the tag
-    if name:                     # If it is present, tag is mapped to <name>
-        results[name] = root.tag
     for obj in root:
         if obj.tag in tags:
             cast_type, name, *_ = tags[obj.tag]
             if not isinstance(cast_type, type):
-                tmp = cast_type(obj, {}, {})
+                tmp = cast_type(obj, {})
             else:
                 tmp = obj.text.strip() if obj.text else ""
                 if not tmp:
@@ -160,12 +103,6 @@ def _from_xml(root: et.Element, tags: dict, attrs: dict) -> dict:
         cast_type, name, *_ = tags[key]
         if cast_type == bool:  # Some tags act like False when missing
             results[name] = False
-    if attrs:
-        for key in attrs:
-            cast_type, name = attrs[key]
-            results[name] = root.get(key, None)
-            if results[name] is not None:
-                results[name] = cast_type(results[name])
     return results
 
 
@@ -182,7 +119,7 @@ def _from_DatasetItems(root: et.Element, *_):
     return data
 
 
-def _from_Datasets(root: et.Element, tags: dict, *_):
+def _from_Datasets(root: et.Element, tags: dict):
     data = []
     for obj in root:
         tags["status"] = (Status, "status")
@@ -197,34 +134,36 @@ def _from_Datasets(root: et.Element, tags: dict, *_):
     return data
 
 
-def _from_FText(root: et.Element, tags: dict, attrs: dict):
-    tags[True] = "name"
+def _from_FText(root: et.Element, tags: dict):
     tags["text"] = (str, "text")
     tags["file"] = (_from_B64File, "bfile", True)
-    attrs["format"] = (TextFormat, "formatting")
-    return FText(**_from_xml(root, tags, attrs))
+    data = _from_xml(root, tags)
+    data["formatting"] = TextFormat(root.get("format"))
+    return FText(root.tag, **data)
 
 
-def _from_Hint(root: et.Element, tags: dict, attrs: dict) -> "Hint":
+def _from_Hint(root: et.Element, tags: dict) -> "Hint":
     tags["text"] = (str, "text")
     tags["options"] = (bool, "state_incorrect")
     tags["shownumcorrect"] = (bool, "show_correct")
     tags["clearwrong"] = (bool, "clear_wrong")
-    attrs["format"] = (TextFormat, "formatting")
-    return Hint(**_from_xml(root, tags, attrs))
+    data = _from_xml(root, tags)
+    data["formatting"] = TextFormat(root.get("format"))
+    return Hint(**data)
 
 
-def _from_SelectOption(root: et.Element, tags: dict, attrs: dict):
+def _from_SelectOption(root: et.Element, tags: dict):
     tags["text"] = (str, "text")
     tags["group"] = (str, "group")
-    return SelectOption(**_from_xml(root, tags, attrs))
+    return SelectOption(**_from_xml(root, tags))
 
 
-def _from_Subquestion(root: et.Element, tags: dict, attrs: dict):
-    attrs["format"] = (TextFormat, "formatting")
+def _from_Subquestion(root: et.Element, tags: dict):
     tags["text"] = (str, "text")
     tags["answer"] = (str, "answer")
-    return Subquestion(**_from_xml(root, tags, attrs))
+    data = _from_xml(root, tags)
+    data["formatting"] = TextFormat(root.get("format"))
+    return Subquestion(**data)
 
 
 def _from_units(root: et.Element, *_) -> Unit:
@@ -246,33 +185,33 @@ def _from_Tags(root: et.Element, *_) -> TList:
 # -----------------------------------------------------------------------------
 
 
-def _from_Answer(root: et.Element, tags: dict, attrs: dict, go_up=False):
+def _from_Answer(root: et.Element, tags: dict, go_up=False):
     tags["text"] = (str, "text")
     tags["feedback"] = (_from_FText, "feedback")
-    attrs["format"] = (TextFormat, "formatting")
-    attrs["fraction"] = (float, "fraction")
-    data = _from_xml(root, tags, attrs)
+    data = _from_xml(root, tags)
+    data["formatting"] = TextFormat(root.get("format"))
+    data["fraction"] = float("fraction")
     return data if go_up else Answer(**data)
 
 
-def _from_ANumerical(root: et.Element, tags: dict, attrs: dict, go_up=False):
+def _from_ANumerical(root: et.Element, tags: dict, go_up=False):
     tags["tolerance"] = (float, "tolerance")
-    data = _from_Answer(root, tags, attrs, True)
+    data = _from_Answer(root, tags, True)
     return data if go_up else ANumerical(**data)
 
 
-def _from_ACalculated(root: et.Element, tags: dict, attrs: dict):
+def _from_ACalculated(root: et.Element, tags: dict):
     tags["tolerancetype"] = (TolType, "ttype")
     tags["correctanswerformat"] = (TolFormat, "aformat")
     tags["correctanswerlength"] = (int, "alength")
-    return ACalculated(**_from_ANumerical(root, tags, attrs, True))
+    return ACalculated(**_from_ANumerical(root, tags, True))
 
 
-def _from_draggroup(root: et.Element, tags: dict, attrs: dict):
+def _from_draggroup(root: et.Element, tags: dict):
     tags["text"] = (str, "text")
     tags["group"] = (str, "group")
     tags["unlimited"] = (bool, "unlimited")
-    data = _from_xml(root, tags, attrs)
+    data = _from_xml(root, tags)
     unlimited = data.pop("unlimited")
     data["no_of_drags"] = -1 if unlimited else 1
     return DragGroup(**data)
@@ -300,111 +239,116 @@ def _from_dropzone(root: et.Element, *_):
 # -----------------------------------------------------------------------------
 
 
-def _from_question(root: et.Element, tags: dict, attrs: dict):
+def _from_question(root: et.Element, tags: dict):
     tags["name"] = (str, "name")
     tags["questiontext"] = (_from_FText, "question")
     tags["generalfeedback"] = (_from_FText, "feedback")
     tags["defaultgrade"] = (float, "default_grade")
     tags["idnumber"] = (int, "dbid")
     tags["tags"] = (_from_Tags, "tags")
-    return _from_xml(root, tags, attrs)
+    return _from_xml(root, tags)
 
 
-def _from_question_mt(root: et.Element, tags: dict, attrs: dict):
+def _from_question_mt(root: et.Element, tags: dict):
     tags["hint"] = (_from_Hint, "hints", True)
-    tags["penalty"] = (float, "penalty")
-    return _from_question(root, tags, attrs)
+    tags["max_tries"] = (float, "penalty")
+    res = _from_question(root, tags)
+    if res["max_tries"] is None:
+        res["max_tries"] = -1
+    else:
+        res["max_tries"] = int(1/res["max_tries"])
+    return res
 
 
-def _from_question_mtcs(root: et.Element, tags: dict, attrs: dict):
+def _from_question_mtcs(root: et.Element, tags: dict):
     tags["correctfeedback"] = (_from_FText, "if_correct")
     tags["partiallycorrectfeedback"] = (_from_FText, "if_incomplete")
     tags["incorrectfeedback"] = (_from_FText, "if_incorrect")
-    tags["shownumcorrect"] = (bool, "show_num")
+    tags["shownumcorrect"] = (bool, "show_ans")
     tags["shuffleanswers"] = (bool, "shuffle")
-    return _from_question_mt(root, tags, attrs)
+    return _from_question_mt(root, tags)
 
 
-def _from_question_mtuh(root: et.Element, tags: dict, attrs: dict):
+def _from_question_mtuh(root: et.Element, tags: dict):
     tags["unitgradingtype"] = (Grading, "grading_type")
     tags["unitpenalty"] = (str, "unit_penalty")
     tags["unitsleft"] = (bool, "left")
     tags["showunits"] = (ShowUnits, "show_unit")
-    return _from_question_mt(root, tags, attrs)
+    return _from_question_mt(root, tags)
 
 
-def _from_qcalculated(root: et.Element, tags: dict, attrs: dict, go_up=False):
+def _from_qcalculated(root: et.Element, tags: dict, go_up=False):
     tags["synchronize"] = (Synchronise, "synchronize")
     tags["units"] = (_from_units, "units", False)
     tags["dataset_definitions"] = (_from_Datasets, "datasets")
     tags["answer"] = (_from_ACalculated, "options", True)
-    data = _from_question_mtuh(root, tags, attrs)
+    data = _from_question_mtuh(root, tags)
     return data if go_up else QCalculated(**data)
 
 
-def _from_qcalculatedsimple(root: et.Element, tags: dict, attrs: dict):
-    return QCalculatedSimple(**_from_qcalculated(root, tags, attrs, True))
+def _from_qcalculatedsimple(root: et.Element, tags: dict):
+    return QCalculatedSimple(**_from_qcalculated(root, tags, True))
 
 
-def _from_qcalcmultichoice(root: et.Element, tags: dict, attrs: dict):
+def _from_qcalcmultichoice(root: et.Element, tags: dict):
     tags["synchronize"] = (Synchronise, "synchronize")
     tags["single"] = (bool, "single")
     tags["answernumbering"] = (Numbering, "numbering")
     tags["dataset_definitions"] = (_from_Datasets, "datasets")
     tags["answer"] = (_from_ACalculated, "options", True)
-    return QCalculatedMC(**_from_question_mtcs(root, tags, attrs))
+    return QCalculatedMC(**_from_question_mtcs(root, tags))
 
 
-def _from_qcloze(root: et.Element, tags: dict, attrs: dict):
-    data = _from_question_mt(root, tags, attrs)
+def _from_qcloze(root: et.Element, tags: dict):
+    data = _from_question_mt(root, tags)
     text, opts = QCloze.get_items(data["question"].text)
     data["question"].text = text
     data["options"] = opts
     return QCloze(**data)
 
 
-def _from_qdescription(root: et.Element, tags: dict, attrs: dict):
-    return QDescription(**_from_question(root, tags, attrs))
+def _from_qdescription(root: et.Element, tags: dict):
+    return QDescription(**_from_question(root, tags))
 
 
-def _from_ddwtos(root: et.Element, tags: dict, attrs: dict):
+def _from_ddwtos(root: et.Element, tags: dict):
     tags["dragbox"] = (_from_draggroup, "options", True)
-    return QDaDText(**_from_question_mtcs(root, tags, attrs))
+    return QDaDText(**_from_question_mtcs(root, tags))
 
 
-def _from_ddimageortext(root: et.Element, tags: dict, attrs: dict):
-    def _from_dragimage(root: et.Element, tags: dict, attrs: dict):
+def _from_ddimageortext(root: et.Element, tags: dict):
+    def _from_dragimage(root: et.Element, tags: dict):
         tags["no"] = (int, "number")
         tags["text"] = (str, "text")
         tags["infinite"] = (bool, "unlimited")
         tags["draggroup"] = (int, "group")
         tags["file"] = (_from_B64File, "image")
-        data = _from_xml(root, tags, attrs)
+        data = _from_xml(root, tags)
         unlimited = data.pop("unlimited")
         data["no_of_drags"] = -1 if unlimited else 1
         return DragImage(**data)
     tags["file"] = (_from_B64File, "background")
     tags["drag"] = (_from_dragimage, "options", True)
     tags["drop"] = (_from_dropzone, "zones", True)
-    return QDaDImage(**_from_question_mtcs(root, tags, attrs))
+    return QDaDImage(**_from_question_mtcs(root, tags))
 
 
-def _from_ddmarker(root: et.Element, tags: dict, attrs: dict):
-    def _from_dragitem(root: et.Element, tags: dict, attrs: dict):
+def _from_ddmarker(root: et.Element, tags: dict):
+    def _from_dragitem(root: et.Element, tags: dict):
         tags["no"] = (int, "number")
         tags["text"] = (str, "text")
         tags["infinite"] = (bool, "no_of_drags")
-        data = _from_xml(root, tags, attrs)
+        data = _from_xml(root, tags)
         data["no_of_drags"] = -1 if data["no_of_drags"] else 1
         return DragItem(**data)
     tags["file"] = (_from_B64File, "background")
     tags["showmisplaced"] = (bool, "highlight")
     tags["drag"] = (_from_dragitem, "options", True)
     tags["drop"] = (_from_dropzone, "zones", True)
-    return QDaDMarker(**_from_question_mtcs(root, tags, attrs))
+    return QDaDMarker(**_from_question_mtcs(root, tags))
 
 
-def _from_qessay(root: et.Element, tags: dict, attrs: dict):
+def _from_qessay(root: et.Element, tags: dict):
     tags["responseformat"] = (RespFormat, "rsp_format")
     tags["responserequired"] = (bool, "rsp_required")
     tags["responsefieldlines"] = (int, "lines")
@@ -416,48 +360,48 @@ def _from_qessay(root: et.Element, tags: dict, attrs: dict):
     tags["filetypeslist"] = (str, "file_types")
     tags["graderinfo"] = (_from_FText, "grader_info")
     tags["responsetemplate"] = (_from_FText, "template")
-    return QEssay(**_from_question(root, tags, attrs))
+    return QEssay(**_from_question(root, tags))
 
 
-def _from_qmatching(root: et.Element, tags: dict, attrs: dict):
+def _from_qmatching(root: et.Element, tags: dict):
     tags["subquestion"] = (_from_Subquestion, "options", True)
-    return QMatching(**_from_question_mtcs(root, tags, attrs))
+    return QMatching(**_from_question_mtcs(root, tags))
 
 
-def _from_QRandomMatching(root: et.Element, tags: dict, attrs: dict):
+def _from_QRandomMatching(root: et.Element, tags: dict):
     tags["choose"] = (int, "choose")
     tags["subcats"] = (bool, "subcats")
-    return QRandomMatching(**_from_question_mtcs(root, tags, attrs))
+    return QRandomMatching(**_from_question_mtcs(root, tags))
 
 
-def _from_QMissingWord(root: et.Element, tags: dict, attrs: dict):
+def _from_QMissingWord(root: et.Element, tags: dict):
     tags["selectoption"] = (_from_SelectOption, "options", True)
-    return QMissingWord(**_from_question_mtcs(root, tags, attrs))
+    return QMissingWord(**_from_question_mtcs(root, tags))
 
 
-def _from_QMultichoice(root: et.Element, tags: dict, attrs: dict):
+def _from_QMultichoice(root: et.Element, tags: dict):
     tags["single"] = (bool, "single")
     tags["showstandardinstruction"] = (bool, "show_instr")
     tags["answernumbering"] = (Numbering, "numbering")
     tags["answer"] = (_from_Answer, "options", True)
-    return QMultichoice(**_from_question_mtcs(root, tags, attrs))
+    return QMultichoice(**_from_question_mtcs(root, tags))
 
 
-def _from_QNumerical(root: et.Element, tags: dict, attrs: dict):
+def _from_QNumerical(root: et.Element, tags: dict):
     tags["answer"] = (_from_ANumerical, "options", True)
     tags["units"] = (_from_units, "units", False)
-    return QNumerical(**_from_question_mtuh(root, tags, attrs))
+    return QNumerical(**_from_question_mtuh(root, tags))
 
 
-def _from_QShortAnswer(root: et.Element, tags: dict, attrs: dict):
+def _from_QShortAnswer(root: et.Element, tags: dict):
     tags["usecase"] = (str, "use_case")
     tags["answer"] = (_from_Answer, "options", True)
-    return QShortAnswer(**_from_question_mt(root, tags, attrs))
+    return QShortAnswer(**_from_question_mt(root, tags))
 
 
-def _from_QTrueFalse(root: et.Element, tags: dict, attrs: dict):
+def _from_QTrueFalse(root: et.Element, tags: dict):
     tags["answer"] = (_from_Answer, "options", True)
-    data = _from_question(root, tags, attrs)
+    data = _from_question(root, tags)
     opt = data.pop("options")
     if opt[0].text.lower() == "true":
         data["correct"] = opt[0].fraction == 100
@@ -634,7 +578,7 @@ def _to_question_mt(qst, opt_callback) -> et.Element:
     question = _to_question(qst)
     for hint in qst.hints:
         question.append(_to_hint(hint))
-    et.SubElement(question, "penalty").text = str(qst.penalty)
+    et.SubElement(question, "penalty").text = 1/qst.max_tries
     if opt_callback:  # Workaround for QRandomMatching.
         for sub in qst.options:
             question.append(opt_callback(sub))
@@ -646,7 +590,7 @@ def _to_question_mtcs(qst, opt_callback) -> et.Element:
     question.append(_to_ftext(qst.if_correct))
     question.append(_to_ftext(qst.if_incomplete))
     question.append(_to_ftext(qst.if_incorrect))
-    if qst.show_num:
+    if qst.show_ans != ShowAnswer.NEVER:
         et.SubElement(question, "shownumcorrect")
     if hasattr(qst, "shuffle") and qst.shuffle:    # Workaround for
         et.SubElement(question, "shuffleanswers")   # QRandomMatching
@@ -850,7 +794,7 @@ def read_moodle(cls, file_path: str, category: str = None) -> "Category":
         [type]: [description]
     """
     data_root = et.parse(file_path)
-    top_quiz = cls(category)
+    top_quiz: Category = cls(category)
     quiz = top_quiz
     for elem in data_root.getroot():
         if elem.tag != "question":
@@ -864,6 +808,18 @@ def read_moodle(cls, file_path: str, category: str = None) -> "Category":
             quiz.add_question(question)
     return top_quiz
 
+
+def read_moodle_backup(cls, file_path: str) -> "Category":
+    """[summary]
+
+    Returns:
+        [type]: [description]
+    """
+    with zipfile.ZipFile(file_path, "r") as ifile:
+        data = ifile.extract("questions.xml")
+        top_quiz: Category = read_moodle(cls, data)
+        data = ifile.extract("moodle_backup.xml")
+        top_quiz.data["moodle_course"] = file_path
 
 # -----------------------------------------------------------------------------
 
