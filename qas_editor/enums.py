@@ -75,13 +75,12 @@ class Distribution(EnhancedEnum):
     LOG = "loguniform", "Log"
 
 
-class TextFormat(EnhancedEnum):
-    """Enumerates text format types
+class FileType(Enum):
+    """Define how a File class should behave.
     """
-    HTML = "html", "HTML"
-    AUTO = "moodle_auto_format", "Auto"
-    PLAIN = "plain_text", "Plain"
-    MD = "markdown", "Markdown"
+    LOCAL = 1
+    B64 = 2
+    URL = 3
 
 
 class Grading(EnhancedEnum):
@@ -90,6 +89,16 @@ class Grading(EnhancedEnum):
     IGNORE = "0", "Ignore"
     RESPONSE = "1", "Fraction (reponse)"
     QUESTION = "2", "Fraction (question)"
+
+
+class MathType(Enum):
+    """Enumerates ways to represent math function in questions' test
+    """
+    PLAIN = "Plain"
+    MATHML = "MathML"
+    LATEX = "LaTex"
+    MATHJAX = "MathJax"
+    ASCII = "ASCII"
 
 
 class Numbering(EnhancedEnum):
@@ -103,20 +112,25 @@ class Numbering(EnhancedEnum):
     ROM_UR = "IIII", "IIII"
 
 
-class MathType(Enum):
-    """Enumerates ways to represent math function in questions' test
-    """
-    IGNORE = "Ignore"
-    MATHML = "MathML"
-    LATEX = "LaTex"
-
-
 class ShapeType(Enum):
     """Enumerates Shape Types
     """
     CIRCLE = "circle"
     RECT = "rectangle"
     POLY = "polygon"
+
+
+class ShowAnswer(EnhancedEnum):
+    """
+    """
+    ALWAYS = "always"
+    ANSWERED = "answered"
+    ATTEMPTED = "attempted"
+    CLOSED = "closed"
+    COR_PAST = "correct_or_past_due"
+    FINISHED = "finished"
+    PAST_DUE = "past_due"
+    NEVER = "never"
 
 
 class ShowUnits(EnhancedEnum):
@@ -126,6 +140,15 @@ class ShowUnits(EnhancedEnum):
     MC = "1", "Multiple choice"
     DROP_DOWN = "2", "Drop-down"
     NONE = "3", "Not visible"
+
+
+class ShuffleType(EnhancedEnum):
+    """
+    """
+    ALWAYS = "always"
+    RESET = "on_reset"
+    NEVER = "never"
+    STUDENT = "per_student"
 
 
 class Status(EnhancedEnum):
@@ -151,6 +174,15 @@ class RespFormat(EnhancedEnum):
     PLAIN = "plain", "Plain text"
     MONO = "monospaced", "Mono spaced"
     ATCH = "noinline", "No inline"
+
+
+class TextFormat(EnhancedEnum):
+    """Enumerates text format types
+    """
+    HTML = "html", "HTML"
+    AUTO = "moodle_auto_format", "Auto"
+    PLAIN = "plain_text", "Plain"
+    MD = "markdown", "Markdown"
 
 
 class TolType(EnhancedEnum):

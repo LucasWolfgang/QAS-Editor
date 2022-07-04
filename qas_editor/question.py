@@ -20,8 +20,8 @@ from __future__ import annotations
 import re
 import logging
 from typing import TYPE_CHECKING
-from .enums import ClozeFormat, Grading, RespFormat, ShowUnits, Status,\
-                   Distribution, Numbering, Synchronise, TextFormat
+from .enums import ClozeFormat, Grading, RespFormat, ShowUnits, ShowAnswer, ShuffleType,\
+                   Distribution, Numbering, Synchronise, TextFormat, Status
 from .utils import Serializable, MarkerError, AnswerError, B64File, Dataset, \
                    FText, Hint, Unit, TList
 from .answer import ACalculated, ACrossWord, Answer, ClozeItem, ANumerical,\
@@ -73,13 +73,14 @@ class _Question(Serializable):
         self._feedback = FText("generalfeedback")
         self.feedback = feedback
         self._tags = TList(str, tags)
+        self.resettable = False
         self.__parent = None
 
     def __str__(self) -> str:
         return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
 
-    question = FText.prop("_question")
-    feedback = FText.prop("_feedback")
+    question = FText.prop("_question", "Question text")
+    feedback = FText.prop("_feedback", "Solution or global feedback")
 
     @property
     def parent(self) -> Category:
@@ -118,9 +119,9 @@ class _QuestionMT(_Question):
     ANS_TYPE = None
 
     def __init__(self, options: list = None, hints: List[Hint] = None,
-                 penalty=0.5, **kwargs):
+                 max_tries=-1, **kwargs):
         super().__init__(**kwargs)
-        self.penalty = float(penalty)
+        self.max_tries = int(max_tries)
         self.hints = [] if hints is None else hints
         self._options = TList(self.ANS_TYPE, options)
 
@@ -131,7 +132,7 @@ class _QuestionMT(_Question):
         return self._options
 
 
-class _QuestionMTCS(_QuestionMT):
+class _CombinedFdbk:
     """Represents classes that have both Multiple tries attributes and
     Combinated Feedbacks parameters. There are no classes that don't present
     all the 4 first attributes. Shuffle was added here too because it is
@@ -141,8 +142,8 @@ class _QuestionMTCS(_QuestionMT):
     """
 
     def __init__(self, if_correct: FText = None, if_incomplete: FText = None,
-                 if_incorrect: FText = None, shuffle=False, show_num=False,
-                 **kwargs):
+                 if_incorrect: FText = None, shuffle: ShuffleType = None,
+                 show_ans: ShowAnswer | bool = None, **kwargs):
         super().__init__(**kwargs)
         self._if_correct = FText("correctfeedback")
         self.if_correct = if_correct
@@ -150,16 +151,22 @@ class _QuestionMTCS(_QuestionMT):
         self.if_incomplete = if_incomplete
         self._if_incorrect = FText("incorrectfeedback")
         self.if_incorrect = if_incorrect
-        self.show_num = show_num
-        self.shuffle = shuffle
+        if isinstance(show_ans, ShowAnswer):
+            self.show_ans = show_ans
+        else:
+            self.show_ans = ShowAnswer.ALWAYS if show_ans else ShowAnswer.NEVER
+        if isinstance(shuffle, ShuffleType):
+            self.show_ans = show_ans
+        else:
+            self.shuffle = ShuffleType.ALWAYS if shuffle else ShuffleType.NEVER
 
-    if_correct = FText.prop("_if_correct")
-    if_incomplete = FText.prop("_if_incomplete")
-    if_incorrect = FText.prop("_if_incorrect")
+    if_correct = FText.prop("_if_correct", "Feedback for a correct answer")
+    if_incomplete = FText.prop("_if_incomplete", "Feedback for a incomplete answer")
+    if_incorrect = FText.prop("_if_incorrect", "Feedback for a incorrect answer")
 
 
-class _QuestionMTUH(_QuestionMT):
-    """A
+class _UnitHandling:
+    """Helper class used for questions that handle units.
     """
 
     def __init__(self, grading_type=Grading.IGNORE, unit_penalty=0.0,
@@ -171,7 +178,7 @@ class _QuestionMTUH(_QuestionMT):
         self.left = left
 
 
-class QCalculated(_QuestionMTUH):
+class QCalculated(_UnitHandling, _QuestionMT):
     """Represents a "Calculated"q question, in which a numberical result should
     be provided. Note that <code>single</code> tag may show up in Moodle
     xml document but this seems to be just a bug. The class don't use it.
@@ -207,7 +214,7 @@ class QCalculatedSimple(QCalculated):
     QNAME = "Simplified Calculated"
 
 
-class QCalculatedMC(_QuestionMTCS):
+class QCalculatedMC(_CombinedFdbk, _QuestionMT):
     """Represents a "Calculated" question with multiple choices, behaving like
     a multichoice question where the answers are calculated using equations and
     datasets.
@@ -243,6 +250,7 @@ class QCalculatedMC(_QuestionMTCS):
 class QCloze(_QuestionMT):
     """This is a very simples class that hold cloze data. All data is compressed
     inside the question text, so no further implementation is necessary.
+    TODO This class may be removed in the future and replaced by QProblem
     """
     MOODLE = "cloze"
     QNAME = "Cloze"
@@ -314,9 +322,17 @@ class QDescription(_Question):
     MOODLE = "description"
     QNAME = "Description"
 
-    def __init__(self, children: List[_Question] = None, **kwargs):
+
+class QProblem(_Question):
+    """A class that accepts other questions as a internal enumeration.
+    """
+    QNAME = "Enumeration"
+
+    def __init__(self, qtype = _Question, children: List[_Question] = None,  
+                 numbering: Numbering = None,**kwargs):
         super().__init__(**kwargs)
-        self.children = children if children else TList(_Question)
+        self.children = children if children else TList(qtype)
+        self.numbering = Numbering.ALF_LR if numbering is None else numbering
 
 
 class QDotConnect(_QuestionMT):
@@ -332,7 +348,7 @@ class QDotConnect(_QuestionMT):
         self.ordered = ordered
 
 
-class QDaDText(_QuestionMTCS):
+class QDaDText(_CombinedFdbk, _QuestionMT):
     """Drag and drop text boxes into question text.
     """
     MOODLE = "ddwtos"
@@ -358,7 +374,7 @@ class QDaDText(_QuestionMTCS):
         pass
 
 
-class QDaDImage(_QuestionMTCS):
+class QDaDImage(_CombinedFdbk, _QuestionMT):
     """Drag and Drop items onto drop zones, where the items are custom images.
     """
     MOODLE = "ddimageortext"
@@ -418,7 +434,7 @@ class QEssay(_Question):
         self.template = template
 
 
-class QMatching(_QuestionMTCS):
+class QMatching(_CombinedFdbk, _QuestionMT):
     """Represents a Matching question, in which the goal is to find matchs.
     """
     MOODLE = "matching"
@@ -426,7 +442,7 @@ class QMatching(_QuestionMTCS):
     ANS_TYPE = Subquestion
 
 
-class QRandomMatching(_QuestionMTCS):
+class QRandomMatching(_CombinedFdbk, _QuestionMT):
     """A Random Match question. Unlike to other MTCS questions, it does not
     have options, reusing other questions randomly instead. It was implemented
     more targetting Moodle, since other platforms dont store this in databases.
@@ -442,7 +458,7 @@ class QRandomMatching(_QuestionMTCS):
         self.subcats = subcats
 
 
-class QMissingWord(_QuestionMTCS):
+class QMissingWord(_CombinedFdbk, _QuestionMT):
     """A Missing Word question.
     """
     MOODLE = "gapselect"
@@ -482,22 +498,23 @@ class QMissingWord(_QuestionMTCS):
         return "".join(text)
 
 
-class QMultichoice(_QuestionMTCS):
+class QMultichoice(_CombinedFdbk, _QuestionMT):
     """A Multiple choice question.
     """
     MOODLE = "multichoice"
     QNAME = "Multichoice"
     ANS_TYPE = Answer
 
-    def __init__(self, single=True, show_instr=False,
+    def __init__(self, single=True, show_instr=False, use_dropdown=False,
                  numbering: Numbering = None, **kwargs):
         super().__init__(**kwargs)
         self.single = single
         self.show_instr = show_instr
         self.numbering = Numbering.ALF_LR if numbering is None else numbering
+        self.use_dropdown = use_dropdown
 
 
-class QNumerical(_QuestionMTUH):
+class QNumerical(_UnitHandling, _QuestionMT):
     """
     This class represents 'Numerical Question' question type.
     """

@@ -23,7 +23,7 @@ from io import BytesIO
 from importlib import util
 from urllib import request
 from typing import TYPE_CHECKING
-from .enums import TextFormat, Status, Distribution
+from .enums import FileType, TextFormat, Status, Distribution, MathType
 
 if TYPE_CHECKING:
     from typing import List
@@ -55,6 +55,62 @@ def nxt(stt: list, string: str):
     """
     stt[1] = (string[stt[0]] == "\\") and not stt[1]
     stt[0] += 1
+
+
+def serialize_fxml(write, elem, short_empty, pretty, level=0):
+    """
+    """
+    tag = elem.tag
+    text = elem.text
+    if pretty:
+        write(level * "  ")
+    write(f"<{tag}")
+    for key, value in elem.attrib.items():
+        value = _escape_attrib_html(value)
+        write(f" {key}=\"{value}\"")
+    if (isinstance(text, str) and text) or text is not None or \
+            len(elem) or not short_empty:
+        if len(elem) and pretty:
+            write(">\n")
+        else:
+            write(">")
+        write(_escape_cdata(text))
+        for child in elem:
+            serialize_fxml(write, child, short_empty, pretty, level+1)
+        if len(elem) and pretty:
+            write(level * "  ")
+        write(f"</{tag}>")
+    else:
+        write(" />")
+    if pretty:
+        write("\n")
+    if elem.tail:
+        write(_escape_cdata(elem.tail))
+
+
+def _escape_cdata(data):
+    if data is None:
+        return ""
+    if isinstance(data, (int, float)):
+        return str(data)
+    if ("&" in data or "<" in data or ">" in data) and not\
+            (str.startswith(data, "<![CDATA[") and str.endswith(data, "]]>")):
+        return f"<![CDATA[{data}]]>"
+    return data
+
+
+def _escape_attrib_html(data):
+    if data is None:
+        return ""
+    if isinstance(data, (int, float)):
+        return str(data)
+    if "&" in data:
+        data = data.replace("&", "&amp;")
+    if ">" in data:
+        data = data.replace(">", "&gt;")
+    if "\"" in data:
+        data = data.replace("\"", "&quot;")
+    return data
 
 
 def sympy_to_image(s: str, wrap: bool, color='Black', scale=1.0):
@@ -199,18 +255,44 @@ class B64File(Serializable):
     converted into B64 to be embedded. May also change in the future.
     """
 
-    def __init__(self, name: str, path: str = None, bfile: str | bool = True):
+    def __init__(self, name: str, ftype: FileType, source: str):
         super().__init__()
         self.name = name
-        self.path = path
-        self.bfile = bfile
-        if bfile is True:
-            try:
+        self.source = source
+        self.path = source if ftype in (FileType.LOCAL, FileType.URL) else "/"
+        self._type = ftype
+
+    def set_type(self, value: FileType):
+        """Update the resource type and modify it to match that type. FileType
+        URL is not a valid value because the idea is to keep data local if it
+        is already local.
+        """
+        if value in (FileType.URL, self._type):
+            return  # We dont care about ANY or if the value is the same
+        elif value == FileType.B64:
+            if self._type == FileType.URL:
                 with request.urlopen(self.path) as ifile:
-                    self.bfile = str(base64.b64encode(ifile.read()), "utf-8")
-            except ValueError:
+                    self.source = str(base64.b64encode(ifile.read()), "utf-8")
+            elif self._type == FileType.LOCAL:
                 with open(self.path, "rb") as ifile:
-                    self.bfile = str(base64.b64encode(ifile.read()), "utf-8")
+                    self.source = str(base64.b64encode(ifile.read()), "utf-8")
+        elif value == FileType.LOCAL:
+            if self.path == "/":
+                with open(self.name, "w", "utf-8") as ifile:
+                    if value == FileType.B64:
+                        ifile.write(base64.b64decode(self.source))
+                    elif value == FileType.URL:
+                        with request.urlopen(self.path) as ofile:
+                            ifile.write(ofile.read())
+                self.source = self.path = self.name
+            else:
+                self.source = self.path
+        return
+
+    def moodle_link(self) -> str:
+        """Returns a string that acts like a link in Moodle text.
+        """
+        return f"@@PLUGINFILE@@/{self.name}"
 
 
 class Dataset(Serializable):
@@ -249,16 +331,45 @@ class FText(Serializable):
                  bfile: List[B64File] = None):
         super().__init__()
         self.name = name
-        self.text = text
+        self._text = text
         self.formatting = TextFormat.AUTO if formatting is None else formatting
         self.bfile = bfile if bfile else []
+        self.math_type = MathType.PLAIN
+
+    @property
+    def text(self):
+        return self._text
+
+    @text.getter
+    def text(self):
+        if EXTRAS_FORMULAE:
+            from sympy.printing import mathml, latex, pretty
+            data = ""
+            for item in self._text:  # Suposse few item, so no poor performance
+                if isinstance(item, str) or self.math_type == MathType.PLAIN:
+                    data += str(item)
+                elif self.math_type == MathType.LATEX:
+                    data += f"$${latex(item)}$$"
+                elif self.math_type == MathType.MATHJAX:
+                    data += f"[mathjax]{latex(item)}[/mathjax]"
+                elif self.math_type == MathType.MATHML:
+                    data += mathml(item)
+                elif self.math_type == MathType.ASCII:
+                    data += pretty(item)
+        else:
+            return self._text
+
+    @text.setter
+    def text(self, value):
+        self._text = value
 
     @staticmethod
-    def prop(attr: str):
+    def prop(attr: str, doc: str=""):
         """Generate get/set/del properties for a Ftext attribute.
         """
         def setter(self, value):
             data = getattr(self, attr)
+            print(data, value)
             if isinstance(value, FText) and value.name == data.name:
                 setattr(self, attr, value)
             elif isinstance(value, str):
@@ -268,7 +379,7 @@ class FText(Serializable):
 
         def getter(self) -> FText:
             return getattr(self, attr)
-        return property(getter, setter, doc="")
+        return property(getter, setter, doc=doc)
 
 
 class Hint(Serializable):
@@ -296,8 +407,8 @@ class Unit(Serializable):
 
 
 class Equation(Serializable):
-    """Represents an equation in a formulary. This is a speciallized way of
-    representing a test description (<code>QDescription</code>).
+    """Represents an equation in a formulary. It can be define to be used in
+    either a quiz description or a question header.
     """
 
     def __init__(self, name: str, text: FText) -> None:
@@ -306,8 +417,8 @@ class Equation(Serializable):
 
 
 class Table(Serializable):
-    """Represents a table in a formulary. This is a speciallized way of
-    representing a test description (<code>QDescription</code>).
+    """Represents a table in a formulary. It can be define to be used in
+    either a quiz description or a question header.
     """
 
     def __init__(self, name: str, text: FText) -> None:
@@ -317,8 +428,8 @@ class Table(Serializable):
 
 class Rule(Serializable):
     """Represents a theory, law or other set of sentences that describe a
-    given phenomenum. This is a speciallized way of representing a test
-    description (<code>QDescription</code>).
+    given phenomenum. It can be define to be used in either a quiz description
+    or a question header.
     """
 
     def __init__(self, name: str, text: FText, proof: FText) -> None:

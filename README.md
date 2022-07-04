@@ -12,9 +12,11 @@
 ## Description
 Question and Answer Sheet Editor is a desktop-focused python API and a UI utility to automate/help with tasks related to the creation, deletion, update, organization and convertion of question databases.
  
-The structure of the class is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle)
+The structure of the class is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle). Some code was reused from [moodle2edx-0.1.0](https://github.com/mitocw/moodle2edx) and [amc2moodle](https://github.com/nennigb/amc2moodle) too.
 
 The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/).
+
+Besides repos listed above, some testcases were also taken from [moodle test website](https://school.moodledemo.net/) 
 
 ## Requirements
 - Requires at least Python 3. If using all dependencies, at least Python 3.6.
