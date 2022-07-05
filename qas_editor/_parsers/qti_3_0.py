@@ -1,4 +1,4 @@
-""""
+"""
 Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
 Copyright (C) 2022  Lucas Wolfgang
 
@@ -17,21 +17,21 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 
-def read_hdf5(self, file_path: str) -> None:
+def read_canvas(self, file_path: str) -> None:
     """_summary_
 
     Args:
         file_path (str): _description_
     """
-    # TODO - use h5py
-    raise NotImplementedError("HDF5 not implemented")
+    # TODO
+    raise NotImplementedError("Canvas LMS not implemented")
 
 
-def write_hdf5(self, file_path: str) -> None:
+def write_canvas(self, file_path: str) -> None:
     """_summary_
 
     Args:
         file_path (str): _description_
     """
-    # TODO - use h5py
-    raise NotImplementedError("HDF5 not implemented")
+    # TODO
+    raise NotImplementedError("Canvas LMS not implemented")

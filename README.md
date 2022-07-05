@@ -51,17 +51,26 @@ Besides repos listed above, some testcases were also taken from [moodle test web
   - Many different import and export formats.
  <center>
   
- |  Type      | Import | Export | Test | Type              | Import | Export | Test |
- | ---------- | :----: | :----: | :--: | ----------------- | :----: | :----: | :--: |
- | Aiken      |   :o:  |   :o:  |  :o: | Markdown (MCQ)    |   :o:  |   :x:  |  :x: |
- | Anki       |   :o:  |   :x:  |  :x: | Moodle            |   :o:  |   :o:  |  :o: |
- | BlackBoard |   :x:  |   :x:  |  :x: | PDF               |   :x:  |   :x:  |  :x: |
- | Canvas LMS |   :x:  |   :x:  |  :x: | Quizlet           |   :o:  |   :x:  |  :x: |
- | Cloze      |   :o:  |   :x:  |  :x: | Tex (AMQ)         |   :x:  |   :x:  |  :x: |
- | GIFT       |   :o:  |   :x:  |  :x: | Tex (moodlexport) |   :o:  |   :x:  |  :x: |
- | HDF5       |   :x:  |   :x:  |  :x: | Tex (MCexam)      |   :x:  |   :x:  |  :x: |
- | QAS (json) |   :o:  |   :o:  |  :o: | Tex (alterqcm)    |   :x:  |   :x:  |  :x: |
- | Kahoot     |   :o:  |   :o:  |  :o: |
+ |  Type    | Import | Export | Test | Type              | Import | Export | Test |
+ | -------- | :----: | :----: | :--: | ----------------- | :----: | :----: | :--: |
+ | Aiken    |   :o:  |   :o:  |  :o: | Markdown (MCQ)    |   :o:  |   :x:  |  :x: |
+ | CSV Card |   :o:  |   :o:  |  :x: | Moodle XML        |   :o:  |   :o:  |  :o: |
+ | QTI 2.1  |   :x:  |   :x:  |  :x: | QAS JSON          |   :o:  |   :o:  |  :o: |
+ | QTI 3.0  |   :x:  |   :x:  |  :x: | BB pool ZIP       |   :x:  |   :x:  |  :x: |
+ | Cloze    |   :o:  |   :x:  |  :x: | Tex (AMQ)         |   :x:  |   :x:  |  :x: |
+ | GIFT     |   :o:  |   :x:  |  :x: | Tex (moodlexport) |   :o:  |   :x:  |  :x: |
+ | ODF      |   :x:  |   :x:  |  :x: | Tex (MCexam)      |   :x:  |   :x:  |  :x: |
+ | EDX ZIP  |   :x:  |   :x:  |  :x: | Tex (alterqcm)    |   :x:  |   :x:  |  :x: |
+ | KahootCSV  |   :x:  |   :x:  |  :x: 
+</center ><br/>
+
+  - Which are used by many platforms.
+ <center>
+
+ |            |              |          |          |
+ | ---------- | ------------ | -------- | -------- |
+ | Anki       | Brightspace  | Kahoot!  | Moodle   |
+ | BlackBoard | Canvas LMS   | Quizlet  | NEO LMS  |
 </center ><br/>
 
 ## Database
