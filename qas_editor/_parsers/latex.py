@@ -82,10 +82,10 @@ class _PkgGuillaume():
         "single": ("single", bool),
         "shuffleanswers": ("shuffle", bool),
         "answernumbering": ("numbering", Numbering),
-        "correctfeedback": ("if_correct", FText),
-        "partiallycorrectfeedback": ("if_incomplete", FText),
-        "incorrectfeedback": ("if_incorrect", FText),
-        "shownumcorrect": ("show_num", bool),
+        # "correctfeedback": ("if_correct", FText),
+        # "partiallycorrectfeedback": ("if_incomplete", FText),
+        # "incorrectfeedback": ("if_incorrect", FText),
+        "shownumcorrect": ("show_ans", bool),
     }
 
     def __init__(self, cls, cat, buffer) -> None:

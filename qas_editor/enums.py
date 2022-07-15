@@ -99,6 +99,16 @@ class MathType(Enum):
     LATEX = "LaTex"
     MATHJAX = "MathJax"
     ASCII = "ASCII"
+    FILE = "File"
+
+
+class MediaType(Enum):
+    """A
+    """
+    FILE = "File"
+    MUSIC = "Music"
+    IMAGE = "Image"
+    VIDEO = "Video"
 
 
 class Numbering(EnhancedEnum):

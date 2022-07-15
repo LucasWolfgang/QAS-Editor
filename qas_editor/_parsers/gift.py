@@ -83,7 +83,7 @@ def _from_qnumerical(name: str, header: FText, stt: list, qst_blk: str):
         ans = None
         while qst_blk[stt[0]] != "}":
             if qst_blk[stt[0]:stt[0]+4] == "####":
-                qst.feedback = _next(stt, qst_blk, ["}"], 1)[4:]
+                qst.remarks = _next(stt, qst_blk, ["}"], 1)[4:]
                 continue
             txt = _next(stt, qst_blk, ["=", "~", "#", "}"], 1)
             if txt[0] == "#":           # Should only happen after "ans" is
@@ -173,7 +173,7 @@ def _from_block(name: str, header: FText, stt: list, qst_blk: str):
         question = _from_qshortanswer(name, header, options)
     else:   # Moodle traits MissingWord as a Multichoice...
         question = _from_qmultichoice(name, header, options)
-    question.feedback = feedback
+    question.remarks = feedback
     return question
 
 

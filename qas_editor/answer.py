@@ -21,7 +21,7 @@ import logging
 from typing import TYPE_CHECKING
 from .enums import TolFormat, TextFormat, ShapeType, ClozeFormat, Direction,\
                    TolType
-from .utils import Serializable, B64File, FText, TList
+from .utils import Serializable, File, FText, TList
 if TYPE_CHECKING:
     from typing import List
 LOG = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ class DragImage(DragGroup):
     item in a canvas.
     """
 
-    def __init__(self, image: B64File = None, **kwargs):
+    def __init__(self, image: File = None, **kwargs):
         super().__init__(**kwargs)
         self.image = image
 

@@ -22,13 +22,13 @@ import logging
 from typing import TYPE_CHECKING
 from .enums import ClozeFormat, Grading, RespFormat, ShowUnits, ShowAnswer, ShuffleType,\
                    Distribution, Numbering, Synchronise, TextFormat, Status
-from .utils import Serializable, MarkerError, AnswerError, B64File, Dataset, \
+from .utils import Serializable, MarkerError, AnswerError, File, Dataset, \
                    FText, Hint, Unit, TList
 from .answer import ACalculated, ACrossWord, Answer, ClozeItem, ANumerical,\
                     DragGroup, DragImage, SelectOption, Subquestion,\
                     DropZone, DragItem
 if TYPE_CHECKING:
-    from typing import List, Dict, Iterator
+    from typing import List, Dict
     from .enums import Direction
     from .category import Category
 LOG = logging.getLogger(__name__)
@@ -68,25 +68,35 @@ class _Question(Serializable):
         self.default_grade = float(default_grade)
         self.time_lim = int(time_lim)
         self.dbid = int(dbid) if dbid else None
+        self.resettable = False
+        self.scripts: str = ""
+        self.notes: str = ""
         self._question = FText("questiontext")
         self.question = question
-        self._feedback = FText("generalfeedback")
-        self.feedback = feedback
+        self._remarks = FText("generalfeedback")
+        self.remarks = feedback
+        self._feedbacks: Dict[float, FText] = {}
         self._tags = TList(str, tags)
-        self.resettable = False
+        self._free_hints = TList(str, tags)
         self.__parent = None
 
     def __str__(self) -> str:
         return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
 
     question = FText.prop("_question", "Question text")
-    feedback = FText.prop("_feedback", "Solution or global feedback")
+    remarks = FText.prop("_feedback", "Solution or global feedback")
 
     @property
     def parent(self) -> Category:
         """_summary_
         """
         return self.__parent
+
+    @property
+    def feedbacks(self) -> Dict[float, FText]:
+        """
+        """
+        return self._feedbacks
 
     @parent.setter
     def parent(self, value):
@@ -97,10 +107,16 @@ class _Question(Serializable):
         self.__parent = value
 
     @property
-    def tags(self) -> Iterator:
+    def tags(self) -> TList:
         """_summary_
         """
         return self._tags
+
+    @property
+    def free_hints(self) -> TList:
+        """
+        """
+        return self._free_hints
 
     def check(self):
         """Check if the instance parameters have valid values. Call this method
@@ -110,20 +126,34 @@ class _Question(Serializable):
         if (not isinstance(self.name, str) or self.time_lim < 0
                 or (self.dbid is not None and not isinstance(self.dbid, int))
                 or self.default_grade < 0):
-            raise ValueError("Invalid value.")
+            raise ValueError("Invalid value(s).")
+        for key, value in self._feedback.items():
+            if not isinstance(key, float) or not isinstance(value, FText):
+                raise TypeError()
 
 
-class _QuestionMT(_Question):
-    """
+class _QHasOptions(_Question):
+    """Helper class for questions that have a exact answer. Dont misread the
+    name, numeric questions also have options since you need to define a
+    correct answer, among other scenarios to define the final grade.
     """
     ANS_TYPE = None
 
     def __init__(self, options: list = None, hints: List[Hint] = None,
-                 max_tries=-1, **kwargs):
+                 max_tries=-1, shuffle: ShuffleType = None,
+                 show_ans: ShowAnswer | bool = None, **kwargs):
         super().__init__(**kwargs)
         self.max_tries = int(max_tries)
-        self.hints = [] if hints is None else hints
+        self._fail_hints = [] if hints is None else hints
         self._options = TList(self.ANS_TYPE, options)
+        if isinstance(show_ans, ShowAnswer):
+            self.show_ans = show_ans
+        else:
+            self.show_ans = ShowAnswer.ALWAYS if show_ans else ShowAnswer.NEVER
+        if isinstance(shuffle, ShuffleType):
+            self.shuffle = shuffle
+        else:
+            self.shuffle = ShuffleType.ALWAYS if shuffle else ShuffleType.NEVER
 
     @property
     def options(self) -> TList:
@@ -131,41 +161,19 @@ class _QuestionMT(_Question):
         """
         return self._options
 
+    @property
+    def fail_hints(self) -> TList:
+        """
+        """
+        return self._fail_hints
 
-class _CombinedFdbk:
-    """Represents classes that have both Multiple tries attributes and
-    Combinated Feedbacks parameters. There are no classes that don't present
-    all the 4 first attributes. Shuffle was added here too because it is
-    also used by all the classes that uses the other 2 groups, except
-    <code>QRandomMatching</code>. For now, this is the more efficient way to
-    handle this. TODO: track future updates to shuffle attribute.
-    """
-
-    def __init__(self, if_correct: FText = None, if_incomplete: FText = None,
-                 if_incorrect: FText = None, shuffle: ShuffleType = None,
-                 show_ans: ShowAnswer | bool = None, **kwargs):
-        super().__init__(**kwargs)
-        self._if_correct = FText("correctfeedback")
-        self.if_correct = if_correct
-        self._if_incomplete = FText("partiallycorrectfeedback")
-        self.if_incomplete = if_incomplete
-        self._if_incorrect = FText("incorrectfeedback")
-        self.if_incorrect = if_incorrect
-        if isinstance(show_ans, ShowAnswer):
-            self.show_ans = show_ans
-        else:
-            self.show_ans = ShowAnswer.ALWAYS if show_ans else ShowAnswer.NEVER
-        if isinstance(shuffle, ShuffleType):
-            self.show_ans = show_ans
-        else:
-            self.shuffle = ShuffleType.ALWAYS if shuffle else ShuffleType.NEVER
-
-    if_correct = FText.prop("_if_correct", "Feedback for a correct answer")
-    if_incomplete = FText.prop("_if_incomplete", "Feedback for a incomplete answer")
-    if_incorrect = FText.prop("_if_incorrect", "Feedback for a incorrect answer")
+    def check(self):
+        super().check()
+        if not isinstance(self.max_tries, int):
+            raise TypeError()
 
 
-class _UnitHandling:
+class _QHasUnits:
     """Helper class used for questions that handle units.
     """
 
@@ -178,7 +186,7 @@ class _UnitHandling:
         self.left = left
 
 
-class QCalculated(_UnitHandling, _QuestionMT):
+class QCalculated(_QHasUnits, _QHasOptions):
     """Represents a "Calculated"q question, in which a numberical result should
     be provided. Note that <code>single</code> tag may show up in Moodle
     xml document but this seems to be just a bug. The class don't use it.
@@ -214,7 +222,7 @@ class QCalculatedSimple(QCalculated):
     QNAME = "Simplified Calculated"
 
 
-class QCalculatedMC(_CombinedFdbk, _QuestionMT):
+class QCalculatedMC(_QHasOptions):
     """Represents a "Calculated" question with multiple choices, behaving like
     a multichoice question where the answers are calculated using equations and
     datasets.
@@ -247,7 +255,7 @@ class QCalculatedMC(_CombinedFdbk, _QuestionMT):
         self.datasets.append(data)
 
 
-class QCloze(_QuestionMT):
+class QCloze(_QHasOptions):
     """This is a very simples class that hold cloze data. All data is compressed
     inside the question text, so no further implementation is necessary.
     TODO This class may be removed in the future and replaced by QProblem
@@ -335,7 +343,7 @@ class QProblem(_Question):
         self.numbering = Numbering.ALF_LR if numbering is None else numbering
 
 
-class QDotConnect(_QuestionMT):
+class QDotConnect(_QHasOptions):
     """Connect the dots questions. In the question the student need to
     connect multiple nodes with one or more connection. Similar to the
     <code>QMatching</code> question.
@@ -348,7 +356,7 @@ class QDotConnect(_QuestionMT):
         self.ordered = ordered
 
 
-class QDaDText(_CombinedFdbk, _QuestionMT):
+class QDaDText(_QHasOptions):
     """Drag and drop text boxes into question text.
     """
     MOODLE = "ddwtos"
@@ -374,14 +382,14 @@ class QDaDText(_CombinedFdbk, _QuestionMT):
         pass
 
 
-class QDaDImage(_CombinedFdbk, _QuestionMT):
+class QDaDImage(_QHasOptions):
     """Drag and Drop items onto drop zones, where the items are custom images.
     """
     MOODLE = "ddimageortext"
     QNAME = "Drag and Drop Image"
     ANS_TYPE = DragImage
 
-    def __init__(self, background: B64File = None,
+    def __init__(self, background: File = None,
                  zones: List[DropZone] = None, **kwargs):
         super().__init__(**kwargs)
         self.background = background
@@ -434,7 +442,7 @@ class QEssay(_Question):
         self.template = template
 
 
-class QMatching(_CombinedFdbk, _QuestionMT):
+class QMatching(_QHasOptions):
     """Represents a Matching question, in which the goal is to find matchs.
     """
     MOODLE = "matching"
@@ -442,7 +450,7 @@ class QMatching(_CombinedFdbk, _QuestionMT):
     ANS_TYPE = Subquestion
 
 
-class QRandomMatching(_CombinedFdbk, _QuestionMT):
+class QRandomMatching(_QHasOptions):
     """A Random Match question. Unlike to other MTCS questions, it does not
     have options, reusing other questions randomly instead. It was implemented
     more targetting Moodle, since other platforms dont store this in databases.
@@ -458,7 +466,7 @@ class QRandomMatching(_CombinedFdbk, _QuestionMT):
         self.subcats = subcats
 
 
-class QMissingWord(_CombinedFdbk, _QuestionMT):
+class QMissingWord(_QHasOptions):
     """A Missing Word question.
     """
     MOODLE = "gapselect"
@@ -498,7 +506,7 @@ class QMissingWord(_CombinedFdbk, _QuestionMT):
         return "".join(text)
 
 
-class QMultichoice(_CombinedFdbk, _QuestionMT):
+class QMultichoice(_QHasOptions):
     """A Multiple choice question.
     """
     MOODLE = "multichoice"
@@ -514,7 +522,7 @@ class QMultichoice(_CombinedFdbk, _QuestionMT):
         self.use_dropdown = use_dropdown
 
 
-class QNumerical(_UnitHandling, _QuestionMT):
+class QNumerical(_QHasUnits, _QHasOptions):
     """
     This class represents 'Numerical Question' question type.
     """
@@ -527,7 +535,7 @@ class QNumerical(_UnitHandling, _QuestionMT):
         self.units = [] if units is None else units
 
 
-class QShortAnswer(_QuestionMT):
+class QShortAnswer(_QHasOptions):
     """This class represents 'Short answer' question.
     """
     MOODLE = "shortanswer"
@@ -540,7 +548,8 @@ class QShortAnswer(_QuestionMT):
 
 
 class QTrueFalse(_Question):
-    """This class represents true/false question.
+    """This class represents true/false question. It could be child of
+    _QHasOptions, but due to its simplificity, it was derived from _Question
     """
     MOODLE = "truefalse"
     QNAME = "True or False"

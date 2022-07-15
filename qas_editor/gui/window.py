@@ -479,22 +479,22 @@ class Editor(QMainWindow):
         sframe = QFrame(self)
         sframe.setStyleSheet(".QFrame{border:1px solid rgb(41, 41, 41);"
                              "background-color: #e4ebb7}")
-        layout.addWidget(sframe)
-        _content = QGridLayout(sframe)
-        self._items.append(GTextEditor(self.toolbar, "if_correct"))
-        self._items[-1].setToolTip("Feedback for correct answer")
-        _content.addWidget(self._items[-1], 0, 0)
-        self._items.append(GTextEditor(self.toolbar, "if_incomplete"))
-        self._items[-1].setToolTip("Feedback for incomplete answer")
-        _content.addWidget(self._items[-1], 0, 1)
-        self._items.append(GTextEditor(self.toolbar, "if_incorrect"))
-        self._items[-1].setToolTip("Feedback for incorrect answer")
-        _content.addWidget(self._items[-1], 0, 2)
-        self._items.append(GCheckBox("show_num", "Show the number of correct r"
-                                     "esponses once the question has finished",
-                                     self))
-        _content.addWidget(self._items[-1], 2, 0, 1, 3)
-        _content.setColumnStretch(3, 1)
+        # layout.addWidget(sframe)
+        # _content = QGridLayout(sframe)
+        # self._items.append(GTextEditor(self.toolbar, "if_correct"))
+        # self._items[-1].setToolTip("Feedback for correct answer")
+        # _content.addWidget(self._items[-1], 0, 0)
+        # self._items.append(GTextEditor(self.toolbar, "if_incomplete"))
+        # self._items[-1].setToolTip("Feedback for incomplete answer")
+        # _content.addWidget(self._items[-1], 0, 1)
+        # self._items.append(GTextEditor(self.toolbar, "if_incorrect"))
+        # self._items[-1].setToolTip("Feedback for incorrect answer")
+        # _content.addWidget(self._items[-1], 0, 2)
+        # self._items.append(GCheckBox("show_num", "Show the number of correct r"
+        #                              "esponses once the question has finished",
+        #                              self))
+        # _content.addWidget(self._items[-1], 2, 0, 1, 3)
+        # _content.setColumnStretch(3, 1)
 
     def _block_template(self) -> None:
         collapsible = GCollapsible(self, "Templates")

@@ -28,11 +28,11 @@ from ..question import QCalculated, QCalculatedMC, QDescription, QDaDImage,\
 from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
                     ShapeType, Grading, Status, TolFormat, TolType,\
                     Distribution, ShowAnswer
-from ..utils import gen_hier, Dataset, Hint, TList, FText, B64File, Unit, \
+from ..utils import gen_hier, Dataset, Hint, TList, FText, File, Unit, \
                     EXTRAS_FORMULAE, nxt, serialize_fxml
 if TYPE_CHECKING:
     from ..category import Category
-
+    from ..question import _QHasOptions, _QHasUnits
 
 def get_sympy(string: str) -> str:
     """This function suposse that at least once the 
@@ -107,7 +107,7 @@ def _from_xml(root: et.Element, tags: dict) -> dict:
 
 
 def _from_B64File(root: et.Element, *_):
-    return B64File(root.get("name"), root.get("path"), root.text)
+    return File(root.get("name"), root.get("path"), root.text)
 
 
 def _from_DatasetItems(root: et.Element, *_):
@@ -266,7 +266,12 @@ def _from_question_mtcs(root: et.Element, tags: dict):
     tags["incorrectfeedback"] = (_from_FText, "if_incorrect")
     tags["shownumcorrect"] = (bool, "show_ans")
     tags["shuffleanswers"] = (bool, "shuffle")
-    return _from_question_mt(root, tags)
+    data = _from_question_mt(root, tags)
+    data["feedbacks"] = {}
+    data["feedbacks"][0.0] = data.pop("correctfeedback")
+    data["feedbacks"][50.0] = data.pop("partiallycorrectfeedback")
+    data["feedbacks"][100.0] = data.pop("incorrectfeedback")
+    return data
 
 
 def _from_question_mtuh(root: et.Element, tags: dict):
@@ -417,11 +422,11 @@ def _from_QTrueFalse(root: et.Element, tags: dict):
 # -----------------------------------------------------------------------------
 
 
-def _to_b64file(b64file) -> et.Element:
+def _to_b64file(b64file: File) -> et.Element:
     bfile = et.Element("file", {"name": b64file.name, "encoding": "base64"})
     if b64file.path:
         bfile.set("path", b64file.path)
-    bfile.text = b64file.bfile
+    bfile.text = b64file.source
     return bfile
 
 
@@ -455,8 +460,8 @@ def _to_dataset(dset) -> et.Element:
     return dataset_def
 
 
-def _to_ftext(ftext: FText) -> None:
-    elem = et.Element(ftext.name, {"format": ftext.formatting.value})
+def _to_ftext(ftext: FText, name: str) -> None:
+    elem = et.Element(name, {"format": ftext.formatting.value})
     txt = et.SubElement(elem, "text")
     txt.text = ftext.text
     for bfile in ftext.bfile:
@@ -498,7 +503,7 @@ def _to_answer(ans: Answer) -> et.Element:
         answer.set("format", ans.formatting.value)
     et.SubElement(answer, "text").text = ans.text
     if ans.feedback:
-        answer.append(_to_ftext(ans.feedback))
+        answer.append(_to_ftext(ans.feedback, "feedback"))
     return answer
 
 
@@ -562,9 +567,9 @@ def _to_question(question) -> et.Element:
     elem = et.Element("question", {"type": question.MOODLE})
     name = et.SubElement(elem, "name")
     et.SubElement(name, "text").text = question.name
-    elem.append(_to_ftext(question.question))
+    elem.append(_to_ftext(question.question, "questiontext"))
     if question.feedback:
-        elem.append(_to_ftext(question.feedback))
+        elem.append(_to_ftext(question.feedback, "generalfeedback"))
     et.SubElement(elem, "defaultgrade").text = question.default_grade
     # et.SubElement(question, "hidden").text = "0"
     if question.dbid is not None:
@@ -574,9 +579,9 @@ def _to_question(question) -> et.Element:
     return elem
 
 
-def _to_question_mt(qst, opt_callback) -> et.Element:
+def _to_question_mt(qst: "_QHasOptions", opt_callback) -> et.Element:
     question = _to_question(qst)
-    for hint in qst.hints:
+    for hint in qst.fail_hints:
         question.append(_to_hint(hint))
     et.SubElement(question, "penalty").text = 1/qst.max_tries
     if opt_callback:  # Workaround for QRandomMatching.
@@ -585,11 +590,13 @@ def _to_question_mt(qst, opt_callback) -> et.Element:
     return question
 
 
-def _to_question_mtcs(qst, opt_callback) -> et.Element:
+def _to_question_mtcs(qst: "_QHasOptions", opt_callback) -> et.Element:
     question = _to_question_mt(qst, opt_callback)
-    question.append(_to_ftext(qst.if_correct))
-    question.append(_to_ftext(qst.if_incomplete))
-    question.append(_to_ftext(qst.if_incorrect))
+    question.append(_to_ftext(qst.feedbacks.get(0, ""), "correctfeedback"))
+    for key in qst.feedbacks:
+        if 0 < key < 100:
+            question.append(_to_ftext(qst.feedbacks[key], "partiallycorrectfeedback"))
+    question.append(_to_ftext(qst.feedbacks.get(0, ""), "incorrectfeedback"))
     if qst.show_ans != ShowAnswer.NEVER:
         et.SubElement(question, "shownumcorrect")
     if hasattr(qst, "shuffle") and qst.shuffle:    # Workaround for
@@ -597,7 +604,7 @@ def _to_question_mtcs(qst, opt_callback) -> et.Element:
     return question
 
 
-def _to_question_mtuh(qst, opt_callback) -> et.Element:
+def _to_question_mtuh(qst: "_QHasUnits", opt_callback) -> et.Element:
     question = _to_question_mt(qst, opt_callback)
     et.SubElement(question, "unitgradingtype").text = qst.grading_type.value
     et.SubElement(question, "unitpenalty").text = qst.unit_penalty
@@ -819,7 +826,7 @@ def read_moodle_backup(cls, file_path: str) -> "Category":
         data = ifile.extract("questions.xml")
         top_quiz: Category = read_moodle(cls, data)
         data = ifile.extract("moodle_backup.xml")
-        top_quiz.data["moodle_course"] = file_path
+        top_quiz.metadata["moodle_course"] = file_path
 
 # -----------------------------------------------------------------------------
 

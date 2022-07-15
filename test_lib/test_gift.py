@@ -32,7 +32,7 @@ def test_read_all() -> None:
     assert control.get_size(True) == 22
     mq = control["Multichoice"]
     question = mq.get_question(2)
-    assert question.feedback.text == ("<p><span style\\=\"font-size\: 14px;\">"
+    assert question.remarks.text == ("<p><span style\\=\"font-size\: 14px;\">"
             "Remember - the developer docs Release notes are your friend!"
             "&nbsp;</span><a href\\=\"http\://docs.moodle.org/dev/Releases\""
             " style\\=\"font-size\\: 14px;\">http\\://docs.moodle.org/dev/"

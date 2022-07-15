@@ -20,7 +20,7 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from .utils import Serializable
+from .utils import Serializable, File
 from .question import _Question
 from .enums import Status
 from ._parsers import aiken, cloze, gift, json, kahoot, latex, markdown, moodle
@@ -70,8 +70,9 @@ class Category(Serializable):  # pylint: disable=R0904
         self.__categories: Dict[str, Category] = {}
         self.__name = name if name else "$course$"
         self.__parent = None
-        self.data = {}
-        self.info = None
+        self.metadata: Dict[str, str] = {}
+        self.resources: Dict[str, File] = {}
+        self.info: str = ""
 
     def __iter__(self):
         return self.__categories.__iter__()
@@ -82,7 +83,7 @@ class Category(Serializable):  # pylint: disable=R0904
     def __len__(self):
         return len(self.__categories)
 
-    def __str__(self) -> str:
+    def __str__(self):
         return f"Category: '{self.name}' @{hex(id(self))}"
 
     @property

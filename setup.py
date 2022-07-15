@@ -12,7 +12,9 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GPL-3.0 license",
         "Operating System :: OS Independent",
-        'Development Status :: 3 - Alpha'
+        'Development Status :: 3 - Alpha',
+        "Topic :: Education",
+        "Topic :: Software Development :: Libraries"
     ],
     python_requires=">=3.7",
     install_requires=[],

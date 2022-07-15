@@ -16,17 +16,23 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+import os
+import subprocess
 import base64
 import copy
 import logging
+import shutil
+import tempfile
 from io import BytesIO
+from xml.sax import saxutils
+from html.parser import HTMLParser
 from importlib import util
 from urllib import request
 from typing import TYPE_CHECKING
-from .enums import FileType, TextFormat, Status, Distribution, MathType
+from .enums import FileType, TextFormat, Status, Distribution, MathType, MediaType
 
 if TYPE_CHECKING:
-    from typing import List
+    from typing import Dict, List, Callable
 
 LOG = logging.getLogger(__name__)
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
@@ -112,34 +118,63 @@ def _escape_attrib_html(data):
         data = data.replace("\"", "&quot;")
     return data
 
-
-def sympy_to_image(s: str, wrap: bool, color='Black', scale=1.0):
+_latex_cache: Dict[str, str] = {}
+def render_latex(latex: str, ftype: FileType, scale=1.0):
+    """TODO optimize. It has just too many calls. But at least it works...
     """
+    key = saxutils.escape(latex, entities={'[': '(', ']': ')'})
+    if key in _latex_cache:
+        return _latex_cache[key]
+    res = None
+    name = f"eq{len(_latex_cache): 05}.svg"
+    if latex[:2] == "$$":
+        attr = {'style':'vertical-align:middle;'}
+    else:
+        attr = {'style':'display:block;margin-left:auto;margin-right:auto;'}
+    if shutil.which("dvisvgm"):
+        with tempfile.TemporaryDirectory() as workdir:
+            def run_me(cmd):
+                flag = 0x08000000 if os.name == 'nt' else 0
+                return subprocess.run(cmd, stdout=subprocess.PIPE, check=True, 
+                                    creationflags=flag, cmd=workdir)
 
-    # TODO optimize. It has just too many calls. But at least it works...
-    """
-    try:
+            with open(f"{workdir}/texput.tex", 'w', encoding='utf-8') as fh:
+                fh.write("\\documentclass[varwidth,12pt]{standalone}"
+                         "\n\\usepackage{amsmath}\n\\usepackage{amsmath}\n\n"
+                         "\\begin{document}\n"+ latex + "\n\n\\end{document}")
+            run_me(['latex', '-halt-on-error', '-interaction=nonstopmode',
+                    'text.tex'])
+            if ftype == FileType.B64:
+                res = run_me(["dvisvgm", "--no-fonts", "--stdout", "text.dvi"])
+                res = str(base64.b64encode(res.stdout), "utf-8")
+            else:
+                run_me("dvisvgm", "--no-fonts", "-o", name, "text.dvi")
+                shutil.move(f"{workdir}/{name}", ".")
+                res = File(name, FileType.LOCAL, name, MediaType.IMAGE, **attr)
+    elif EXTRAS_FORMULAE:
         from matplotlib import figure, font_manager, mathtext
         from matplotlib.backends import backend_agg
         from pyparsing import ParseFatalException  # Part of matplotlib package
-    except ImportError:
-        return None
-    s = s.replace('$$', '$')
-    if wrap:
-        s = u'${0}$'.format(s)
-    try:
-        prop = font_manager.FontProperties(size=12)
-        dpi = 120 * scale
-        buffer = BytesIO()
-        parser = mathtext.MathTextParser("path")
-        width, height, depth, _, _ = parser.parse(s, dpi=72, prop=prop)
-        fig = figure.Figure(figsize=(width / 72, height / 72))
-        fig.text(0, depth / height, s, fontproperties=prop, color=color)
-        backend_agg.FigureCanvasAgg(fig)  # set the canvas used
-        fig.savefig(buffer, dpi=dpi, format="png", transparent=True)
-        return str(base64.b64encode(buffer.getvalue()), "utf-8")
-    except (ValueError, RuntimeError, ParseFatalException):
-        return None
+        try:
+            prop = font_manager.FontProperties(size=12)
+            dpi = 120 * scale
+            parser = mathtext.MathTextParser("path")
+            width, height, depth, _, _ = parser.parse(latex, dpi=72, prop=prop)
+            fig = figure.Figure(figsize=(width / 72, height / 72))
+            fig.text(0, depth / height, latex, fontproperties=prop, color='Black')
+            backend_agg.FigureCanvasAgg(fig)  # set the canvas used
+            if ftype != FileType.B64:
+                fig.savefig(name, dpi=dpi, format="svg", transparent=True)
+                res = File(name, FileType.LOCAL, name, MediaType.IMAGE, **attr)
+            else:
+                buffer = BytesIO()
+                fig.savefig(name, dpi=dpi, format="svg", transparent=True)
+                buffer.close()
+                res = str(base64.b64encode(buffer.getvalue()), "utf-8")
+        except (ValueError, RuntimeError, ParseFatalException):
+            return None
+    _latex_cache[key] = res
+    return res
 
 
 
@@ -249,18 +284,21 @@ class AnswerError(Exception):
 # -----------------------------------------------------------------------------
 
 
-class B64File(Serializable):
+class File(Serializable):
     """File used in questions. Can be either a local path, an URL, a B64
     encoded string. TODO May add PIL in the future too. Currently is always
     converted into B64 to be embedded. May also change in the future.
     """
 
-    def __init__(self, name: str, ftype: FileType, source: str):
+    def __init__(self, name: str, ftype: FileType, source: str = None,
+                media: MediaType = MediaType.FILE, **kwargs):
         super().__init__()
         self.name = name
         self.source = source
+        self.metadata = kwargs
         self.path = source if ftype in (FileType.LOCAL, FileType.URL) else "/"
         self._type = ftype
+        self._media = media
 
     def set_type(self, value: FileType):
         """Update the resource type and modify it to match that type. FileType
@@ -289,10 +327,22 @@ class B64File(Serializable):
                 self.source = self.path
         return
 
+    def get_link(self, link: str) -> str:
+        tag = "img" if self._media is MediaType.IMAGE else "file"
+        output_bb = f'<{tag} src="{link}"'
+        for key, value in self.metadata.items():
+            output_bb += f' {key}="{value}"'
+        return output_bb + '>'
+
     def moodle_link(self) -> str:
-        """Returns a string that acts like a link in Moodle text.
+        """Returns a moodle like for a embedded (base64) file.
         """
         return f"@@PLUGINFILE@@/{self.name}"
+
+    def edx_link(self, xid) -> str:
+        """Returns a string that acts like a link in EdX text.
+        """
+        return f"@X@EmbeddedFile.requestUrlStub@X@bbcswebdav/xid-{xid}"
 
 
 class Dataset(Serializable):
@@ -323,16 +373,34 @@ class Dataset(Serializable):
         return f"{self.status.name} > {self.name} ({hex(id(self))})"
 
 
+class _HTMLResourceParser(HTMLParser):
+    """TODO
+    """
+
+    def __init__(self, *, convert_charrefs: bool = ...) -> None:
+        super().__init__(convert_charrefs=convert_charrefs)
+        self.data = []
+    
+    def handle_starttag(self, tag, attrs):
+        if tag == "img":
+            pass
+        else:
+            self.data.append(f"<img")
+
+    def handle_data(self, data):
+        self.data.append(data)
+
+
 class FText(Serializable):
-    """A
+    """A formated text. 
     """
 
     def __init__(self, name: str, text="", formatting: TextFormat = None,
-                 bfile: List[B64File] = None):
+                 bfile: List[File] = None):
         super().__init__()
         self.name = name
-        self._text = text
         self.formatting = TextFormat.AUTO if formatting is None else formatting
+        self._text = text
         self.bfile = bfile if bfile else []
         self.math_type = MathType.PLAIN
 
@@ -341,27 +409,42 @@ class FText(Serializable):
         return self._text
 
     @text.getter
-    def text(self):
-        if EXTRAS_FORMULAE:
-            from sympy.printing import mathml, latex, pretty
-            data = ""
-            for item in self._text:  # Suposse few item, so no poor performance
-                if isinstance(item, str) or self.math_type == MathType.PLAIN:
-                    data += str(item)
-                elif self.math_type == MathType.LATEX:
-                    data += f"$${latex(item)}$$"
-                elif self.math_type == MathType.MATHJAX:
-                    data += f"[mathjax]{latex(item)}[/mathjax]"
-                elif self.math_type == MathType.MATHML:
-                    data += mathml(item)
-                elif self.math_type == MathType.ASCII:
-                    data += pretty(item)
-        else:
-            return self._text
+    def text(self) -> str:
+        return self._text
 
     @text.setter
     def text(self, value):
-        self._text = value
+        if EXTRAS_FORMULAE:
+            if isinstance(value, str):
+                self._text = [value]
+        else:
+            self._text = value
+
+    def get_string(self, resource_callback: Callable):
+        if not EXTRAS_FORMULAE:
+            return self._text
+        from sympy import printing, Symbol
+        data = ""
+        for item in self._text:  # Suposse few item, so no poor performance
+            if isinstance(item, str) or self.math_type == MathType.PLAIN:
+                data += str(item)
+            elif EXTRAS_FORMULAE and isinstance(item, Symbol):
+                if self.math_type == MathType.LATEX:
+                    data += f"$${printing.latex(item)}$$"
+                elif self.math_type == MathType.MATHJAX:
+                    data += f"[mathjax]{printing.latex(item)}[/mathjax]"
+                elif self.math_type == MathType.MATHML:
+                    data += printing.mathml(item)
+                elif self.math_type == MathType.ASCII:
+                    data += printing.pretty(item)
+                elif self.math_type == MathType.FILE:
+                    res = render_latex(printing.latex(item), FileType.LOCAL)
+                    resource_callback(res)
+            elif isinstance(item, File):
+                pass
+            else:
+                raise TypeError()
+        return data
 
     @staticmethod
     def prop(attr: str, doc: str=""):

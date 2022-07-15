@@ -21,7 +21,7 @@ from enum import Enum
 from ..enums import ClozeFormat, Direction, Distribution, Grading, RespFormat,\
                     ShapeType, Synchronise, TolType, TolFormat, Status,\
                     ShowUnits, TextFormat, Numbering
-from ..utils import B64File, Dataset, FText, Hint, TList, Unit
+from ..utils import File, Dataset, FText, Hint, TList, Unit
 from ..answer import ACalculated, ANumerical, Answer, ClozeItem, DragItem,\
                      ACrossWord, DropZone, SelectOption, DragGroup, DragImage,\
                      Subquestion
@@ -39,7 +39,7 @@ def _from_json(data: dict, cls):
 
 
 def _from_b64file(data: dict):
-    return _from_json(data, B64File)
+    return _from_json(data, File)
 
 
 def _from_dataset(data: dict):
