@@ -23,7 +23,10 @@ import random
 from zipfile import ZipFile, ZIP_DEFLATED
 from xml.etree import ElementTree as etree
 from typing import TYPE_CHECKING
-from ..question import QMultichoice, QTrueFalse, QNumerical, QMultichoice
+
+from qas_editor.enums import ShuffleType
+from ..question import QMultichoice, QShortAnswer, QTrueFalse, QNumerical,\
+                       QMultichoice, QCloze
 from ..utils import serialize_fxml, render_latex
 if TYPE_CHECKING:
     from typing import Dict
@@ -98,10 +101,10 @@ class Pool:
         etree.SubElement(mat_extension, 'mat_formattedtext',
                          {'type':'HTML'}).text = text
 
-    def metadata(self, node: etree.Element, name, typename='Pool',
+    def metadata(self, node: etree.Element, name: str, typename='Pool',
                  qtype='Multiple Choice', scoremax=0, weight=0,
                  sectiontype='Subsection', instructor_notes='',
-                 partialcredit='false'):
+                 partialcredit='false', negpoints='N', ntype='none'):
         md = etree.SubElement(node, name.lower()+'metadata')
         for key, val in [
                 ('bbmd_asi_object_id', '_'+str(self.pkg.bbid())+'_1'),
@@ -111,10 +114,10 @@ class Pool:
                 ('bbmd_questiontype', qtype),
                 ('bbmd_is_from_cartridge', 'false'),
                 ('bbmd_is_disabled', 'false'),
-                ('bbmd_negative_points_ind', 'N'),
+                ('bbmd_negative_points_ind', negpoints),
                 ('bbmd_canvas_fullcrdt_ind', 'false'),
                 ('bbmd_all_fullcredit_ind', 'false'),
-                ('bbmd_numbertype', 'none'),
+                ('bbmd_numbertype', ntype),
                 ('bbmd_partialcredit', partialcredit),
                 ('bbmd_orientationtype', 'vertical'),
                 ('bbmd_is_extracredit', 'false'),
@@ -130,7 +133,8 @@ class Pool:
                                 etree.tostring(self.questestinterop, 
                                                pretty_print=False).decode('utf-8'))
               
-    def _question(self, qst: _Question, qtype: str):
+    def _question(self, qst: _Question, qtype: str, partialcredit='false',
+                  negpoints='N', ntype='none'):
         if 0.0 in qst.feedbacks:
             ifdbk = qst.feedbacks[0.0].get_string(self.embed_file)
         else:
@@ -139,37 +143,40 @@ class Pool:
             cfdbk = qst.feedbacks[100.0].get_string(self.embed_file)
         else:
             cfdbk = ""
-        item = etree.SubElement(self.section, 'item', title = qst.name,
+        item = etree.SubElement(self.section, 'item', title = qst.name, 
                                 maxattempts=qst.max_tries)
         self.metadata(item, 'Item', 'Pool',  qtype, qst.default_grade, 1,
-                      'Subsection', qst.notes, 'false')
+                      'Subsection', qst.notes, partialcredit, negpoints, ntype)
         presentation = etree.SubElement(item, 'presentation')
-        flow1 = etree.SubElement(presentation, 'flow', {'class':'Block'})
-        flow = etree.SubElement(flow1, 'flow', {'class':'QUESTION_BLOCK'})
-        flow = etree.SubElement(flow, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
-        self.material(flow, qst.question.get_string(self.pkg.embed_file))
-        resp_flow = etree.SubElement(flow1, 'flow', {'class':'RESPONSE_BLOCK'})
-        resprocessing = etree.SubElement(item, 'resprocessing',
+        block = etree.SubElement(presentation, 'flow', {'class':'Block'})
+        qblock = etree.SubElement(block, 'flow', {'class':'QUESTION_BLOCK'})
+        ftblock = etree.SubElement(qblock, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
+        self.material(ftblock, qst.question.get_string(self.pkg.embed_file))
+        rblock = etree.SubElement(block, 'flow', {'class':'RESPONSE_BLOCK'})
+        resp_proc = etree.SubElement(item, 'resprocessing',
                                          scoremodel='SumOfScores')
         fdbk = etree.SubElement(item, 'itemfeedback', ident='correct', view='All')
         self.flow_mat2(fdbk, cfdbk) 
         fdbk = etree.SubElement(item, 'itemfeedback', ident='incorrect', view='All')
         self.flow_mat2(fdbk, ifdbk)
-        return item, resp_flow, resprocessing
+        return item, block, rblock, resp_proc
 
-    def _hasoptions(self, qst: _QHasOptions):
-        item, flow2, resprocessing = self._question(qst, 'Numeric')
-        resp = etree.SubElement(flow2, 'response_lid', ident='response',
-                                rcardinality='Single', rtiming='No')
-        render_choice = etree.SubElement(resp, 'render_choice', shuffle='No',
+    def _hasoptions(self, qst: _QHasOptions, qtype: str):
+        item, _, flow2, resprocessing = self._question(qst, qtype)
+        resp = etree.SubElement(flow2, 'response_lid', ident='response', rtiming='No')
+        render_choice = etree.SubElement(resp, 'render_choice', 
                                          minnumber='0', maxnumber='0')
-        a_uuids = []
+        if qst.shuffle != ShuffleType.NEVER:
+            render_choice.attrib["shuffle"] = 'Yes' 
+        else:
+            render_choice.attrib["shuffle"] = 'No'                        
         flow_label = etree.SubElement(render_choice, 'flow_label', {'class':'Block'})
+        non_zero = 0
         for opt in qst.options:
             luuid = uuid.uuid4().hex
             label = etree.SubElement(flow_label, 'response_label',
-                                     {'ident':a_uuids, 'shuffle':'Yes', 
-                                      'rarea':'Ellipse', 'rrange':'Exact'})
+                                     ident=luuid, shuffle='Yes', 
+                                     rarea='Ellipse', rrange='Exact')
             flow_mat = etree.SubElement(label, 'flow_mat', {'class':'Block'})
             material = etree.SubElement(flow_mat, 'material')
             etree.SubElement(material, 'mattext', {'charset':'us-ascii',
@@ -179,6 +186,8 @@ class Pool:
             etree.SubElement(conditionvar, 'varequal', {'respident':luuid, 'case':'No'})
             etree.SubElement(respcondition, 'setvar', variablename='SCORE',
                              action='Set').text = opt.fraction
+            if opt.fraction != 0:
+                non_zero += 1
             etree.SubElement(respcondition, 'displayfeedback', linkrefid=luuid,
                              feedbacktype='Response')
             itemfeedback = etree.SubElement(item, 'itemfeedback', ident=luuid,
@@ -187,11 +196,21 @@ class Pool:
                                         feedbackstyle='Complete')
             solutionmaterial = etree.SubElement(solution, 'solutionmaterial')
             self.flow_mat2(solutionmaterial, '')
+        if non_zero == 1:
+            resp.attrib["rcardinality"] = "Single"
+        elif qst.ordered:
+            resp.attrib["rcardinality"] = "Ordered"
+        else:
+            resp.attrib["rcardinality"] = "Multiple"
+        return item, flow2, resprocessing
         
     def addNumQ(self, qst: QNumerical):
+        """Numeric
+        Done
+        """
         errlow = float(qst.options[0].text) - qst.options[0].tolerance
         errhigh = float(qst.options[0].text) + qst.options[0].tolerance
-        flow2, resprocessing = self._question(qst, 'Numeric')
+        _, _, flow2, resprocessing = self._question(qst, 'Numeric')
         response_num = etree.SubElement(flow2, 'response_num', ident='response',
                                         rcardinality='Single', rtiming='No')
         etree.SubElement(response_num, 'render_fib', charset='us-ascii',
@@ -210,231 +229,59 @@ class Pool:
         etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '0'
         etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'incorrect', 'feedbacktype':'Response'})
  
-    def addMCQ(self, qst:QMultichoice, correct=0, shuffle_ans=True):
-        flow2, resprocessing = self._question(qst, 'Multiple Choice')
-        response_lid = etree.SubElement(flow2, 'response_lid', ident='response',
-                                        rcardinality='Single', rtiming='No')
-        render_choice = etree.SubElement(response_lid, 'render_choice',
-                                         shuffle='Yes' if shuffle_ans else 'No',
-                                         minnumber='0', maxnumber='0')
-        a_uuids = []
-        flow_label = etree.SubElement(render_choice, 'flow_label', {'class':'Block'})
+    def addMCQ_multchoice(self, qst:QMultichoice):
+        """Multiple Choice
+        Done
+        """
+        self._hasoptions(qst, 'Multiple Choice')
+
+    def addSRQ(self, qst: QShortAnswer, rows=3, maxchars=0):
+        """Short Response
+        Done
+        """
+        item, _, flow2, resprocessing = self._question(qst, "Short Response")
+        
+        response_str = etree.SubElement(flow2, 'response_str', ident='response', 
+                                        cardinality='Single', rtiming='No')
+        etree.SubElement(response_str, 'render_fib', charset='us-ascii',
+                         encoding='UTF_8', rows='{:d}'.format(rows),
+                         columns='127', maxchars='{:d}'.format(maxchars), 
+                         prompt='Box', fibtype='String', minnumber='0', 
+                         maxnumber='0')
+        outcomes = etree.SubElement(resprocessing, 'outcomes', {})
+        etree.SubElement(outcomes, 'decvar', varname='SCORE',
+                         vartype='Decimal', defaultval='0', minvalue='0')
+        
+        respcondition = etree.SubElement(resprocessing, 'respcondition', 
+                                         title='correct')
+        conditionvar = etree.SubElement(respcondition, 'conditionvar')
+        etree.SubElement(respcondition, 'setvar', variablename='SCORE',
+                        action='Set').text = 'SCORE.max'
+        etree.SubElement(respcondition, 'displayfeedback', linkrefid='correct',
+                         feedbacktype='Response')
+        respcondition = etree.SubElement(resprocessing, 'respcondition',
+                                         title='incorrect')
+        conditionvar = etree.SubElement(respcondition, 'conditionvar')
+        etree.SubElement(conditionvar, 'other')
+        etree.SubElement(respcondition, 'setvar', variablename='SCORE',
+                         action='Set').text = '0'
+        etree.SubElement(respcondition, 'displayfeedback', linkrefid='incorrect',
+                         feedbacktype='Response')
         for opt in qst.options:
-            a_uuids.append(uuid.uuid4().hex)
-            response_label = etree.SubElement(flow_label, 'response_label',
-                                              ident=a_uuids[-1], shuffle='Yes',
-                                              rarea='Ellipse', rrange='Exact')
-            self.flow_mat1(response_label, opt.text.get_string(self.pkg.embed_file))
-            respcondition = etree.SubElement(resprocessing, 'respcondition')
-            conditionvar = etree.SubElement(respcondition, 'conditionvar')
-            etree.SubElement(conditionvar, 'varequal', {'respident':luuid, 'case':'No'})
-            if idx == correct:
-                etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '100'
-            else:
-                etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '0'
-            etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':luuid, 'feedbacktype':'Response'})
-            
-        outcomes = etree.SubElement(resprocessing, 'outcomes', {})
-        etree.SubElement(outcomes, 'decvar', varname='SCORE', vartype='Decimal',
-                         defaultva='0', minvalue='0')
-        
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'correct'})
-        conditionvar = etree.SubElement(respcondition, 'conditionvar')
-        etree.SubElement(conditionvar, 'varequal', {'respident':'response', 'case':'No'}).text = a_uuids[correct]
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = 'SCORE.max'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'correct', 'feedbacktype':'Response'})
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'incorrect'})
-        conditionvar = etree.SubElement(respcondition, 'conditionvar')
-        etree.SubElement(conditionvar, 'other')
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '0'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'incorrect', 'feedbacktype':'Response'})
-
-        for idx, luuid in enumerate(a_uuids):
-            itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':luuid, 'view':'All'})
-            solution = etree.SubElement(itemfeedback, 'solution', {'view':'All', 'feedbackstyle':'Complete'})
+            itemfeedback = etree.SubElement(item, 'itemfeedback', ident='solution',
+                                            view='All')
+            solution = etree.SubElement(itemfeedback, 'solution', view='All',
+                                        feedbackstyle='Complete')
             solutionmaterial = etree.SubElement(solution, 'solutionmaterial')
-            self.flow_mat2(solutionmaterial, '')
-    
-    def addMAQ(self, title, text, answers, correct=[0], positive_feedback="Good work", negative_feedback="That's not correct", shuffle_ans=True, weights=None):
-        # BH: added this
-        # correct -> a list with the indices of the correct solutions
-        # weights -> optional argument for specifying partial marks
-                
-        # Set sensible default weights if not specified
-        if weights is None:
-            na = len(answers)
-            nc = len(correct)
-            wc = +100/nc
-            wi = -100/(na-nc)
-            weights = [(wc if i in correct else wi) for i in range(na)]
-        else:
-            assert len(weights)==len(answers)
-        
-        #Add the question to the list of questions
-        item = etree.SubElement(self.section, 'item', {'title':title, 'maxattempts':'0'})
-        md = etree.SubElement(item, 'itemmetadata')
-        for key, val in [
-                ('bbmd_asi_object_id', '_'+str(self.pkg.bbid())+'_1'),
-                ('bbmd_asitype', 'Item'),
-                ('bbmd_assessmenttype', 'Pool'),
-                ('bbmd_sectiontype', 'Subsection'),
-                ('bbmd_questiontype', 'Multiple Answer'),
-                ('bbmd_is_from_cartridge', 'false'),
-                ('bbmd_is_disabled', 'false'),
-                ('bbmd_negative_points_ind', 'Q'), # 'Q' allows negative within the question, but not in the final grade?
-                ('bbmd_canvas_fullcrdt_ind', 'false'),
-                ('bbmd_all_fullcredit_ind', 'false'),
-                ('bbmd_numbertype', 'none'),
-                ('bbmd_partialcredit', 'true'),
-                ('bbmd_orientationtype', 'vertical'),
-                ('bbmd_is_extracredit', 'false'),
-                ('qmd_absolutescore_max', '-1.0'),
-                ('qmd_weighting', '0'),
-                ('qmd_instructornotes', ''),
-        ]:
-            etree.SubElement(md, key).text = val
-        
-        presentation = etree.SubElement(item, 'presentation')
-        flow1 = etree.SubElement(presentation, 'flow', {'class':'Block'})
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'QUESTION_BLOCK'})
-        flow3 = etree.SubElement(flow2, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
-
-        bb_question_text, html_question_text = self.pkg.process_string(text)
-        self.material(flow3, bb_question_text)
-
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'RESPONSE_BLOCK'})
-        response_lid = etree.SubElement(flow2, 'response_lid', {'ident':'response', 'rcardinality':'Multiple', 'rtiming':'No'})
-        render_choice = etree.SubElement(response_lid, 'render_choice', {'shuffle':'Yes' if shuffle_ans else 'No', 'minnumber':'0', 'maxnumber':'0'})
-
-        a_uuids = []
-        for idx,text in enumerate(answers):
-            flow_label = etree.SubElement(render_choice, 'flow_label', {'class':'Block'})
-            a_uuids.append(uuid.uuid4().hex)
-            response_label = etree.SubElement(flow_label, 'response_label', {'ident':a_uuids[-1], 'shuffle':'Yes', 'rarea':'Ellipse', 'rrange':'Exact'})
-            bb_answer_text, html_answer_text = self.pkg.process_string(text)
-            self.flow_mat1(response_label, bb_answer_text)
-            classname = "correct" if idx in correct else "incorrect"
+            flow = etree.SubElement(solutionmaterial, 'flow_mat', {'class':'Block'})
+            self.material(flow, opt.get_string(self.pkg.embed_file))
             
-        resprocessing = etree.SubElement(item, 'resprocessing', {'scoremodel':'SumOfScores'})
-        outcomes = etree.SubElement(resprocessing, 'outcomes', {})
-        decvar = etree.SubElement(outcomes, 'decvar', {'varname':'SCORE', 'vartype':'Decimal', 'defaultval':'0', 'minvalue':'0'})
-        
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'correct'})
-        conditionvar = etree.SubElement(respcondition, 'conditionvar')
-        and_ = etree.SubElement(conditionvar, 'and')
-        for i in range(len(answers)):
-            if i in correct:
-                etree.SubElement(and_, 'varequal', {'respident':'response', 'case':'No'}).text = a_uuids[i]
-            else:
-                not_ = etree.SubElement(and_, 'not')
-                etree.SubElement(not_, 'varequal', {'respident':'response', 'case':'No'}).text = a_uuids[i]
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = 'SCORE.max'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'correct', 'feedbacktype':'Response'})
-        
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'incorrect'})
-        conditionvar = etree.SubElement(respcondition, 'conditionvar')
-        etree.SubElement(conditionvar, 'other')
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '0'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'incorrect', 'feedbacktype':'Response'})
-        
-        for idx, luuid in enumerate(a_uuids):
-            respcondition = etree.SubElement(resprocessing, 'respcondition')
-            conditionvar = etree.SubElement(respcondition, 'conditionvar')
-            etree.SubElement(conditionvar, 'varequal', {'respident':luuid, 'case':'No'})
-            etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '{:.3f}'.format(weights[idx])
-            #etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':luuid, 'feedbacktype':'Response'}) # leave out
+    def addTFQ_truefalse(self, qst: QTrueFalse):
+        """True/False
+            Done
+        """
+        _, _, flow2, resprocessing = self._question(qst, "True/False")
 
-        for idx, luuid in enumerate(a_uuids):
-            itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':luuid, 'view':'All'})
-            solution = etree.SubElement(itemfeedback, 'solution', {'view':'All', 'feedbackstyle':'Complete'})
-            solutionmaterial = etree.SubElement(solution, 'solutionmaterial')
-            self.flow_mat2(solutionmaterial, '')
-        
-        print("Added MAQ "+repr(title))
-            
-    def addSRQ(self, title, text, answer='', positive_feedback="Good work", negative_feedback="That's not correct", rows=3, maxchars=0):
-        # BH: added this, need thorough testing...
-        # answers - an optional sample answer
-        # rows - number of lines/rows to provide for text entry
-        # maxchars - limit the number of characters (0 means no limit)
-        
-        #Add the question to the list of questions
-        item = etree.SubElement(self.section, 'item', {'title':title, 'maxattempts':'0'})
-        md = etree.SubElement(item, 'itemmetadata')
-        for key, val in [
-                ('bbmd_asi_object_id', '_'+str(self.pkg.bbid())+'_1'),
-                ('bbmd_asitype', 'Item'),
-                ('bbmd_assessmenttype', 'Pool'),
-                ('bbmd_sectiontype', 'Subsection'),
-                ('bbmd_questiontype', 'Short Response'),
-                ('bbmd_is_from_cartridge', 'false'),
-                ('bbmd_is_disabled', 'false'),
-                ('bbmd_negative_points_ind', 'N'),
-                ('bbmd_canvas_fullcrdt_ind', 'false'),
-                ('bbmd_all_fullcredit_ind', 'false'),
-                ('bbmd_numbertype', 'none'),
-                ('bbmd_partialcredit', 'false'),
-                ('bbmd_orientationtype', 'vertical'),
-                ('bbmd_is_extracredit', 'false'),
-                ('qmd_absolutescore_max', '-1.0'),
-                ('qmd_weighting', '0'),
-                ('qmd_instructornotes', ''),
-        ]:
-            etree.SubElement(md, key).text = val
-        
-        presentation = etree.SubElement(item, 'presentation')
-        flow1 = etree.SubElement(presentation, 'flow', {'class':'Block'})
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'QUESTION_BLOCK'})
-        flow3 = etree.SubElement(flow2, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
-
-        bb_question_text, html_question_text = self.pkg.process_string(text)
-        self.material(flow3, bb_question_text)
-
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'RESPONSE_BLOCK'})
-        response_str = etree.SubElement(flow2, 'response_str', {'ident':'response', 'rcardinality':'Single', 'rtiming':'No'})
-        render_fib = etree.SubElement(response_str, 'render_fib', {'charset':'us-ascii', 'encoding':'UTF_8', 'rows':'{:d}'.format(rows), 'columns':'127', 'maxchars':'{:d}'.format(maxchars), 'prompt':'Box', 'fibtype':'String', 'minnumber':'0', 'maxnumber':'0'})
-            
-        resprocessing = etree.SubElement(item, 'resprocessing', {'scoremodel':'SumOfScores'})
-        outcomes = etree.SubElement(resprocessing, 'outcomes', {})
-        decvar = etree.SubElement(outcomes, 'decvar', {'varname':'SCORE', 'vartype':'Decimal', 'defaultval':'0', 'minvalue':'0'})
-        
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'correct'})
-        conditionvar = etree.SubElement(respcondition, 'conditionvar')
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = 'SCORE.max'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'correct', 'feedbacktype':'Response'})
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'incorrect'})
-        conditionvar = etree.SubElement(respcondition, 'conditionvar')
-        etree.SubElement(conditionvar, 'other')
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '0'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'incorrect', 'feedbacktype':'Response'})
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'correct', 'view':'All'})
-        bb_pos_feedback_text, html_pos_feedback_text = self.pkg.process_string(positive_feedback)
-        self.flow_mat2(itemfeedback, bb_pos_feedback_text)
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'incorrect', 'view':'All'})
-        bb_neg_feedback_text, html_neg_feedback_text = self.pkg.process_string(negative_feedback)
-        self.flow_mat2(itemfeedback, bb_neg_feedback_text)
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'solution', 'view':'All'})
-        solution = etree.SubElement(itemfeedback, 'solution', {'view':'All', 'feedbackstyle':'Complete'})
-        solutionmaterial = etree.SubElement(solution, 'solutionmaterial')
-        flow = etree.SubElement(solutionmaterial, 'flow_mat', {'class':'Block'})
-        bb_answer_text, html_answer_text = self.pkg.process_string(answer)
-        self.material(flow,bb_answer_text)
-        print("Added SRQ "+repr(title)) ## changed
-            
-    def addTFQ(self, qst: QTrueFalse):
-        
-        item = etree.SubElement(self.section, 'item', title = qst.name, maxattempts=0)
-        self.metadata(item, "Item", 'Pool',  'True/False', -1.0, 0,
-                      'Subsection', '', 'false')
-        presentation = etree.SubElement(item, 'presentation')
-        flow1 = etree.SubElement(presentation, 'flow', {'class':'Block'})
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'QUESTION_BLOCK'})
-        flow3 = etree.SubElement(flow2, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
-        self.material(flow3, qst.question.get_string(self.pkg.embed_file))
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'RESPONSE_BLOCK'})
         resp = etree.SubElement(flow2, 'response_lid', ident='response',
                                 rcardinality='Single', rtiming='No')
         render_choice = etree.SubElement(resp, 'render_choice', shuffle='No',
@@ -442,335 +289,111 @@ class Pool:
         flow_label = etree.SubElement(render_choice, 'flow_label', {'class':'Block'})
         for response in ['true','false']:
             label = etree.SubElement(flow_label, 'response_label',
-                                     {'ident':response, 'shuffle':'Yes', 
-                                      'rarea':'Ellipse', 'rrange':'Exact'})
+                                     ident=response, shuffle='Yes', 
+                                     rarea='Ellipse', rrange='Exact')
             flow_mat = etree.SubElement(label, 'flow_mat', {'class':'Block'})
             material = etree.SubElement(flow_mat, 'material')
-            etree.SubElement(material, 'mattext', {'charset':'us-ascii',
-                             'texttype':'text/plain'}).text = response
+            etree.SubElement(material, 'mattext', charset='us-ascii',
+                             texttype='text/plain').text = response
         
-        resprocessing = etree.SubElement(item, 'resprocessing',
-                                         {'scoremodel':'SumOfScores'})
         outcomes = etree.SubElement(resprocessing, 'outcomes', {})
         etree.SubElement(outcomes, 'decvar', varname='SCORE', 
                          vartype='Decimal', defaultval='0', minvalue='0')
         
         respcondition = etree.SubElement(resprocessing, 'respcondition',
-                                         {'title':'correct'})
+                                         title='correct')
         conditionvar = etree.SubElement(respcondition, 'conditionvar')
-        etree.SubElement(conditionvar, 'varequal', {'respident':'response',
-                         'case':'No'}).text = 'true' if qst.correct else 'false'
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE',
-                         'action':'Set'}).text = 'SCORE.max'
+        etree.SubElement(conditionvar, 'varequal', respident='response',
+                         case='No').text = 'true' if qst.correct else 'false'
+        etree.SubElement(respcondition, 'setvar', variablename='SCORE',
+                         action='Set').text = 'SCORE.max'
         etree.SubElement(respcondition, 'displayfeedback', linkrefid='correct',
                          feedbacktype='Response')
+
         respcondition = etree.SubElement(resprocessing, 'respcondition',
-                                        {'title': 'incorrect'})
+                                        title='incorrect')
         conditionvar = etree.SubElement(respcondition, 'conditionvar')
         etree.SubElement(conditionvar, 'other')
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE',
-                        'action':'Set'}).text = '0'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'incorrect',
-                        'feedbacktype':'Response'})
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'correct',
-                                        'view':'All'})
-        self.flow_mat2(itemfeedback, qst.true_feedback.text)
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback',
-                                        ident='incorrect', view='All')
-        self.flow_mat2(itemfeedback, qst.false_feedback.get_string(self.pkg.embed_file))
-    
-    def addOQ(self, title, text, answers, positive_feedback="Good work", negative_feedback="That's not correct", shuffle_inds=None):
-        # BH: added this, needs thorough testing...
-        # The provided order of answers is assumed to be the correct order.
-        # The display order will be shuffled here, unless shuffle_inds is specified.
-        # (shuffle_inds must be a permutation of the indices 0,1,...,len(answers)-1)
-        
-        if shuffle_inds is None:
-            shuffle_inds = list(range(len(answers)))
-            random.shuffle(shuffle_inds) # in-place
-        
-        #Add the question to the list of questions
-        item = etree.SubElement(self.section, 'item', {'title':title, 'maxattempts':'0'})
-        md = etree.SubElement(item, 'itemmetadata')
-        for key, val in [
-                ('bbmd_asi_object_id', '_'+str(self.pkg.bbid())+'_1'),
-                ('bbmd_asitype', 'Item'),
-                ('bbmd_assessmenttype', 'Pool'),
-                ('bbmd_sectiontype', 'Subsection'),
-                ('bbmd_questiontype', 'Ordering'),
-                ('bbmd_is_from_cartridge', 'false'),
-                ('bbmd_is_disabled', 'false'),
-                ('bbmd_negative_points_ind', 'N'),
-                ('bbmd_canvas_fullcrdt_ind', 'false'),
-                ('bbmd_all_fullcredit_ind', 'false'),
-                ('bbmd_numbertype', 'letter_lower'), # other options may be desirable...
-                ('bbmd_partialcredit', 'true'), # false may be preferable...
-                ('bbmd_orientationtype', 'vertical'),
-                ('bbmd_is_extracredit', 'false'),
-                ('qmd_absolutescore_max', '-1.0'),
-                ('qmd_weighting', '0'),
-                ('qmd_instructornotes', ''),
-        ]:
-            etree.SubElement(md, key).text = val
-        
-        presentation = etree.SubElement(item, 'presentation')
-        flow1 = etree.SubElement(presentation, 'flow', {'class':'Block'})
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'QUESTION_BLOCK'})
-        flow3 = etree.SubElement(flow2, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
+        etree.SubElement(respcondition, 'setvar', variablename='SCORE',
+                         action='Set').text = '0'
+        etree.SubElement(respcondition, 'displayfeedback', linkrefid='incorrect',
+                         feedbacktype='Response')
 
-        bb_question_text, html_question_text = self.pkg.process_string(text)
-        self.material(flow3, bb_question_text)
+    def addOQ_ordering(self, qst: QMultichoice):
+        """Ordering. Done
+        Args:
+            qst (QMultichoice): _description_
+        """
+        _, _, flow2, resprocessing = self._question(qst, "Ordering")
+        outcomes = etree.SubElement(resprocessing, 'outcomes')
+        etree.SubElement(outcomes, 'decvar', varname='SCORE', vartype='Decimal',
+                         defaultval='0', minvalue='0')
 
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'RESPONSE_BLOCK'})
-        response_lid = etree.SubElement(flow2, 'response_lid', {'ident':'response', 'rcardinality':'Ordered', 'rtiming':'No'})
-        render_choice = etree.SubElement(response_lid, 'render_choice', {'shuffle':'No', 'minnumber':'0', 'maxnumber':'0'}) # can shuffle be changed to Yes?
+        response_lid = etree.SubElement(flow2, 'response_lid', ident='response',
+                                        rcardinality='Ordered', rtiming='No')
+        render_choice = etree.SubElement(response_lid, 'render_choice', shuffle='No',
+                                         minnumber='0', maxnumber='0')
 
-        a_uuids = [uuid.uuid4().hex for _ in range(len(answers))]
-        for idx in shuffle_inds:
-            flow_label = etree.SubElement(render_choice, 'flow_label', {'class':'Block'})
-            response_label = etree.SubElement(flow_label, 'response_label', {'ident':a_uuids[idx], 'shuffle':'Yes', 'rarea':'Ellipse', 'rrange':'Exact'})
-            bb_answer_text, html_answer_text = self.pkg.process_string(answers[idx])
-            self.flow_mat1(response_label, bb_answer_text)
-            
-        resprocessing = etree.SubElement(item, 'resprocessing', {'scoremodel':'SumOfScores'})
-        outcomes = etree.SubElement(resprocessing, 'outcomes', {})
-        decvar = etree.SubElement(outcomes, 'decvar', {'varname':'SCORE', 'vartype':'Decimal', 'defaultval':'0', 'minvalue':'0'})
-        
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'correct'})
+        respcondition = etree.SubElement(resprocessing, 'respcondition', title='correct')
+        setvar = etree.SubElement(respcondition, 'setvar', variablename='SCORE',
+                                  action='Set')
+        setvar.text = 'SCORE.max'
+        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'correct', 'feedbacktype':'Response'})
         conditionvar = etree.SubElement(respcondition, 'conditionvar')
         and_ = etree.SubElement(conditionvar, 'and')
-        for i in range(len(answers)):
-            etree.SubElement(and_, 'varequal', {'respident':'response', 'case':'No'}).text = a_uuids[i]
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = 'SCORE.max'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'correct', 'feedbacktype':'Response'})
-        
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'incorrect'})
-        conditionvar = etree.SubElement(respcondition, 'conditionvar')
-        etree.SubElement(conditionvar, 'other')
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '0'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'incorrect', 'feedbacktype':'Response'})
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'correct', 'view':'All'})
-        bb_pos_feedback_text, html_pos_feedback_text = self.pkg.process_string(positive_feedback)
-        self.flow_mat2(itemfeedback, bb_pos_feedback_text)
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'incorrect', 'view':'All'})
-        bb_neg_feedback_text, html_neg_feedback_text = self.pkg.process_string(negative_feedback)
-        self.flow_mat2(itemfeedback, bb_neg_feedback_text)
-        
-        print("Added OQ "+repr(title))
-    
-    def addMQ(self, title, text, answer_pairs, unmatched=[], positive_feedback="Good work", negative_feedback="That's not correct", neg_weight=0):
-        # BH: added this, needs thorough testing... this is somewhat complex...
-        # TODO: consider how the question is displayed this in the html file
-        # neg_weight: can specify a penalty % for incorrect matches
-        
-        pos_weight = 100/len(answer_pairs)
-        
-
-        #Add the question to the list of questions
-        item = etree.SubElement(self.section, 'item', {'title':title, 'maxattempts':'0'})
-        md = etree.SubElement(item, 'itemmetadata')
-        for key, val in [
-                ('bbmd_asi_object_id', '_'+str(self.pkg.bbid())+'_1'),
-                ('bbmd_asitype', 'Item'),
-                ('bbmd_assessmenttype', 'Pool'),
-                ('bbmd_sectiontype', 'Subsection'),
-                ('bbmd_questiontype', 'Matching'),
-                ('bbmd_is_from_cartridge', 'false'),
-                ('bbmd_is_disabled', 'false'),
-                ('bbmd_negative_points_ind', 'Q'), # negative allowed in question only
-                ('bbmd_canvas_fullcrdt_ind', 'false'),
-                ('bbmd_all_fullcredit_ind', 'false'),
-                ('bbmd_numbertype', 'letter_upper'), # other options may be desirable...
-                ('bbmd_partialcredit', 'true'),
-                ('bbmd_orientationtype', 'vertical'),
-                ('bbmd_is_extracredit', 'false'),
-                ('qmd_absolutescore_max', '-1.0'),
-                ('qmd_weighting', '0'),
-                ('qmd_instructornotes', ''),
-        ]:
-            etree.SubElement(md, key).text = val
-        
-        presentation = etree.SubElement(item, 'presentation')
-        flow1 = etree.SubElement(presentation, 'flow', {'class':'Block'})
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'QUESTION_BLOCK'})
-        flow3 = etree.SubElement(flow2, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
-
-        bb_question_text, html_question_text = self.pkg.process_string(text)
-        self.material(flow3, bb_question_text)
-
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'RESPONSE_BLOCK'})
-        a_uuids = []
-        sub_uuids = []
-        for idx,pair in enumerate(answer_pairs):
-            # need a uuid here (in place of 'response')
-            flow3 = etree.SubElement(flow2, 'flow', {'class':'Block'})
-            a_uuids.append(uuid.uuid4().hex)
-            response_lid = etree.SubElement(flow3, 'response_lid', {'ident':a_uuids[-1], 'rcardinality':'Single', 'rtiming':'No'})
-            render_choice = etree.SubElement(response_lid, 'render_choice', {'shuffle':'Yes', 'minnumber':'0', 'maxnumber':'0'})
+        for opt in qst.options:
+            luuid = uuid.uuid4().hex
             flow_label = etree.SubElement(render_choice, 'flow_label', {'class':'Block'})
-            b_uuids = []
-            for _ in answer_pairs+unmatched:
-                b_uuids.append(uuid.uuid4().hex)
-                response_label = etree.SubElement(flow_label, 'response_label', {'ident':b_uuids[-1], 'shuffle':'Yes', 'rarea':'Ellipse', 'rrange':'Exact'})
-            sub_uuids.append(b_uuids)
-            bb_answer_text, html_answer_text = self.pkg.process_string(pair[0])
-            flow4 = etree.SubElement(flow3, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
-            self.material(flow4, bb_answer_text)
-            bb_answer_text, html_answer_text = self.pkg.process_string(pair[1])
-            
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'RIGHT_MATCH_BLOCK'})
-        for idx,pair in enumerate(answer_pairs):
-            bb_right_match_text, html_right_match_text = self.pkg.process_string(pair[1])
-            flow3 = etree.SubElement(flow2, 'flow', {'class':'Block'})
-            flow4 = etree.SubElement(flow3, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
-            self.material(flow4, bb_right_match_text)
-        for text in unmatched:
-            bb_right_match_text, html_right_match_text = self.pkg.process_string(text)
-            flow3 = etree.SubElement(flow2, 'flow', {'class':'Block'})
-            flow4 = etree.SubElement(flow3, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
-            self.material(flow4, bb_right_match_text)
-        
-        resprocessing = etree.SubElement(item, 'resprocessing', {'scoremodel':'SumOfScores'})
-        outcomes = etree.SubElement(resprocessing, 'outcomes', {})
-        decvar = etree.SubElement(outcomes, 'decvar', {'varname':'SCORE', 'vartype':'Decimal', 'defaultval':'0', 'minvalue':'0'})
-        
-        for idx in range(len(answer_pairs)):
-            respcondition = etree.SubElement(resprocessing, 'respcondition')
-            conditionvar = etree.SubElement(respcondition, 'conditionvar')
-            etree.SubElement(conditionvar, 'varequal', {'respident':a_uuids[idx], 'case':'No'}).text = sub_uuids[idx][idx]
-            etree.SubElement(respcondition, 'setvar', {'PartialCreditPercent':'SCORE', 'action':'Set'}).text = '{:.2f}'.format(pos_weight)
-            etree.SubElement(respcondition, 'setvar', {'NegativeCreditPercent':'SCORE', 'action':'Set'}).text = '{:.2f}'.format(neg_weight)
-            etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'correct', 'feedbacktype':'Response'})
-            # sample export had the above two lines repeated, probably redundant though
-        
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'incorrect'})
+            response_label = etree.SubElement(flow_label, 'response_label',
+                                              ident=luuid, rarea='Ellipse',
+                                              rrange='Exact')
+            bb_answer_text = self.pkg.process_string(opt.text)
+            etree.SubElement(and_, 'varequal', respident='response', case='No').text = luuid
+            self.flow_mat1(response_label, bb_answer_text)
+        respcondition = etree.SubElement(resprocessing, 'respcondition', title='incorrect')
         conditionvar = etree.SubElement(respcondition, 'conditionvar')
         etree.SubElement(conditionvar, 'other')
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '0'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'incorrect', 'feedbacktype':'Response'})
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'correct', 'view':'All'})
-        bb_pos_feedback_text, html_pos_feedback_text = self.pkg.process_string(positive_feedback)
-        self.flow_mat2(itemfeedback, bb_pos_feedback_text)
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'incorrect', 'view':'All'})
-        bb_neg_feedback_text, html_neg_feedback_text = self.pkg.process_string(negative_feedback)
-        self.flow_mat2(itemfeedback, bb_neg_feedback_text)
-        
-        print("Added MQ "+repr(title))
+        setvar = etree.SubElement(respcondition, 'setvar', variablename='SCORE', action='Set')
+        setvar.text = '0'
+        etree.SubElement(respcondition, 'displayfeedback', linkrefid='incorrect',
+                         feedbacktype='Response')
 
-    def addFITBQ(self, title, text, answers, positive_feedback="Good work", negative_feedback="That's not correct"):
-        """Fill in the blank questions"""
-        item = etree.SubElement(self.section, 'item', {'title':title, 'maxattempts':'0'})
-        md = etree.SubElement(item, 'itemmetadata')
-        for key, val in [
-                ('bbmd_asi_object_id', '_'+str(self.pkg.bbid())+'_1'),
-                ('bbmd_asitype', 'Item'),
-                ('bbmd_assessmenttype', 'Pool'),
-                ('bbmd_sectiontype', 'Subsection'),
-                ('bbmd_questiontype', 'Fill in the Blank Plus'),
-                ('bbmd_is_from_cartridge', 'false'),
-                ('bbmd_is_disabled', 'false'),
-                ('bbmd_negative_points_ind', 'N'),
-                ('bbmd_canvas_fullcrdt_ind', 'false'),
-                ('bbmd_all_fullcredit_ind', 'false'),
-                ('bbmd_numbertype', 'none'),
-                ('bbmd_partialcredit', 'true'),
-                ('bbmd_orientationtype', 'vertical'),
-                ('bbmd_is_extracredit', 'false'),
-                ('qmd_absolutescore_max', '-1.0'),
-                ('qmd_weighting', '0'),
-                ('qmd_instructornotes', ''),
-        ]:
-            etree.SubElement(md, key).text = val
-        
-        presentation = etree.SubElement(item, 'presentation')
-        flow1 = etree.SubElement(presentation, 'flow', {'class':'Block'})
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'QUESTION_BLOCK'})
-        flow3 = etree.SubElement(flow2, 'flow', {'class':'FORMATTED_TEXT_BLOCK'})
-        bb_question_text, html_question_text = self.pkg.process_string(text)
-        self.material(flow3, bb_question_text)
-
-        flow2 = etree.SubElement(flow1, 'flow', {'class':'RESPONSE_BLOCK'})
-        for ans_key in answers:
-            response_str = etree.SubElement(flow2, 'response_str', {'ident':ans_key, 'rcardinality':'Single', 'rtiming':'No'})
-            render_fib = etree.SubElement(response_str, 'render_choice', {'charset':'us-ascii', "columns":"0", 'encoding':'UTF_8', 'fibtype':'String', 'maxchars':'0', 'maxnumber':'0', 'minnumber':'0', 'prompt':'Box', 'rows':'0'})
-
-        resprocessing = etree.SubElement(item, 'resprocessing', {'scoremodel':'SumOfScores'})
+    def addFITBQ_cloze(self, qst: QCloze):
+        """Fill in the blank questions
+        Done
+        """
+        _, _, flow2, resprocessing = self._question(qst, "Fill in the Blank Plus", "true")
         outcomes = etree.SubElement(resprocessing, 'outcomes', {})
-        decvar = etree.SubElement(outcomes, 'decvar', {'varname':'SCORE', 'vartype':'Decimal', 'defaultval':'0', 'minvalue':'0'})
+        etree.SubElement(outcomes, 'decvar', {'varname':'SCORE', 'vartype':'Decimal', 'defaultval':'0', 'minvalue':'0'})
         
         respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'correct'})
         conditionvar = etree.SubElement(respcondition, 'conditionvar')
         and_tag = etree.SubElement(conditionvar, 'and')
-        for ans_key, regex_exprs in answers.items():
+        for opt in qst.options:
+            luuid = uuid.uuid4().hex
+            response_str = etree.SubElement(flow2, 'response_str', ident=luuid,
+                                            rcardinality='Single', rtiming='No')
+            etree.SubElement(response_str, 'render_choice', charset='us-ascii',
+            columns="0", encoding='UTF_8', fibtype='String', maxchars='0',
+            maxnumber='0', minnumber='0', prompt='Box', rows='0')
             or_tag = etree.SubElement(and_tag, 'or')
-            for regex in regex_exprs:
-                etree.SubElement(or_tag, 'varsubset', {'respident':ans_key, 'setmatch':'Matches'}).text = regex
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = 'SCORE.max'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'correct', 'feedbacktype':'Response'})
+            for regex in opt.opts:
+                etree.SubElement(or_tag, 'varsubset', respident=luuid,
+                                 setmatch='Matches').text = regex.text
+        etree.SubElement(respcondition, 'setvar', variablename='SCORE',
+                         action='Set').text = 'SCORE.max'
+        etree.SubElement(respcondition, 'displayfeedback', linkrefid='correct',
+                         feedbacktype='Response')
 
-        respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'incorrect'})
+        respcondition = etree.SubElement(resprocessing, 'respcondition',
+                                         title='incorrect')
         conditionvar = etree.SubElement(respcondition, 'conditionvar')
         etree.SubElement(conditionvar, 'other')
-        etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '0'
-        etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'incorrect', 'feedbacktype':'Response'})
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'correct', 'view':'All'})
-        bb_pos_feedback_text, html_pos_feedback_text = self.pkg.process_string(positive_feedback)
-        self.flow_mat2(itemfeedback, bb_pos_feedback_text)
-        
-        itemfeedback = etree.SubElement(item, 'itemfeedback', {'ident':'incorrect', 'view':'All'})
-        bb_neg_feedback_text, html_neg_feedback_text = self.pkg.process_string(negative_feedback)
-        self.flow_mat2(itemfeedback, bb_neg_feedback_text)
-        
-        print("Added FITBQ "+repr(title))
+        etree.SubElement(respcondition, 'setvar', variablename='SCORE',
+                         action='Set').text = '0'
+        etree.SubElement(respcondition, 'displayfeedback', linkrefid='incorrect', 
+                         feedbacktype='Response')
 
-    def addCalcNumQ(self, title, text, xs, count, calc, errfrac=None, erramt=None, errlow=None, errhigh=None, positive_feedback="Good work", negative_feedback="That's not correct"):
-        #This fancy loop goes over all permutations of the variables in xs
-        i = 0
-        while True:
-            if i >= count:
-                break;
-            x = {}
-            # Calculate all random variables
-            for xk in xs:
-                if hasattr(xs[xk][0], 'rvs'):
-                    x[xk] =  roundSF(xs[xk][0].rvs(1)[0], xs[xk][1]) #round to given S.F.
-                elif isinstance(xs[xk][0], list):
-                    x[xk] = random.choice(xs[xk][0]) #Random choice from list
-                else:
-                    raise RuntimeError("Unrecognised distribution/list for the question")
-
-            # Run the calculation
-            x = calc(x)
-            
-            if x is None:
-                continue
-
-            if 'erramt' in x:
-                erramt = x['erramt']
-            
-            i += 1
-            
-            t = text
-            pos = positive_feedback
-            neg = negative_feedback
-            for var, val in x.items():
-                if isinstance(val, sympy.Basic):
-                    t = t.replace('['+var+']', sympy.latex(val))
-                    pos = pos.replace('['+var+']', sympy.latex(val))
-                    neg = neg.replace('['+var+']', sympy.latex(val))
-                else:
-                    t = t.replace('['+var+']', str(val))
-                    pos = pos.replace('['+var+']', str(val))
-                    neg = neg.replace('['+var+']', str(val))
-            
-            self.addNumQ(title=title, text=t, answer=x['answer'], errfrac=errfrac, erramt=erramt, errlow=errlow, errhigh=errhigh, positive_feedback=pos, negative_feedback=neg)
-      
     def flow_mat2(self, node, text):
         flow = etree.SubElement(node, 'flow_mat', {'class':'Block'})
         self.flow_mat1(flow, text)
@@ -778,7 +401,7 @@ class Pool:
     def flow_mat1(self, node, text):
         flow = etree.SubElement(node, 'flow_mat', {'class':'FORMATTED_TEXT_BLOCK'})
         self.material(flow, text)
-        
+
        
 class Package:
 
@@ -973,7 +596,9 @@ def read_blackboard(self, file_path: str) -> None:
     """
     raise NotImplementedError("Blackboard not implemented")
 
+
 # -----------------------------------------------------------------------------
+
 
 def _txrecursive(cat: Category, path: str):
     for question in cat.questions:
