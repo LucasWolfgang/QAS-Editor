@@ -177,9 +177,9 @@ def render_latex(latex: str, ftype: FileType, scale=1.0):
     return res
 
 
-
 class Serializable:
-    """An abstract class to be used as base for all serializable classes
+    """An abstract class to be used as base for all serializable classes. Its
+    main usage is to verify equality, and not to do the process itself.
     """
 
     def __str__(self) -> str:
@@ -420,8 +420,8 @@ class FText(Serializable):
         else:
             self._text = value
 
-    def get_string(self, resource_callback: Callable):
-        if not EXTRAS_FORMULAE:
+    def get_string(self, resource_callback: Callable) -> str:
+        if not EXTRAS_FORMULAE and isinstance(self._text, str):
             return self._text
         from sympy import printing, Symbol
         data = ""

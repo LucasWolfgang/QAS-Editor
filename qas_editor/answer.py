@@ -44,14 +44,9 @@ class Answer(Serializable):
 
 
 class ANumerical(Answer):
-    """
-    This class represents a numerical answer.
-    This inherits the Answer class and the answer is still
-    a string.
-
-    This class additionally includes tolerance, currently only
-    the absolute tolerance can be specified via tol method
-    when initializing.
+    """This class represents a numerical answer. It inherits the Answerclass
+    and additionally includes tolerance, currently only the absolute tolerance
+    can be specified via tol method when initializing.
     """
 
     def __init__(self, tolerance=0.1, **kwargs):

@@ -193,6 +193,7 @@ class TextFormat(EnhancedEnum):
     AUTO = "moodle_auto_format", "Auto"
     PLAIN = "plain_text", "Plain"
     MD = "markdown", "Markdown"
+    LATEX = "latex", "LaTEX"
 
 
 class TolType(EnhancedEnum):

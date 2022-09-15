@@ -27,8 +27,9 @@ setup(
         # For users that need to use the GUI. Includes:
         #   PyQt5-Qt5, PyQt5-sip
 
-        # "docx": ["python-docx", "odfpy"]
-        # Not sure yet if it is better use ODT or DOCX
+        # "docx": ["odfpy"]
+        # For users that need convert ODF files. Includes:
+        #   TODO
     },
 
     # Other configurations

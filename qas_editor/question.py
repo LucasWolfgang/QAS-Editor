@@ -140,12 +140,13 @@ class _QHasOptions(_Question):
     ANS_TYPE = None
 
     def __init__(self, options: list = None, hints: List[Hint] = None,
-                 max_tries=-1, shuffle: ShuffleType = None,
-                 show_ans: ShowAnswer | bool = None, **kwargs):
+                 max_tries=-1, shuffle: ShuffleType | bool = None,
+                 show_ans: ShowAnswer | bool = None, ordered=True, **kwargs):
         super().__init__(**kwargs)
         self.max_tries = int(max_tries)
         self._fail_hints = [] if hints is None else hints
         self._options = TList(self.ANS_TYPE, options)
+        self.ordered = ordered
         if isinstance(show_ans, ShowAnswer):
             self.show_ans = show_ans
         else:
@@ -258,7 +259,6 @@ class QCalculatedMC(_QHasOptions):
 class QCloze(_QHasOptions):
     """This is a very simples class that hold cloze data. All data is compressed
     inside the question text, so no further implementation is necessary.
-    TODO This class may be removed in the future and replaced by QProblem
     """
     MOODLE = "cloze"
     QNAME = "Cloze"
@@ -341,19 +341,6 @@ class QProblem(_Question):
         super().__init__(**kwargs)
         self.children = children if children else TList(qtype)
         self.numbering = Numbering.ALF_LR if numbering is None else numbering
-
-
-class QDotConnect(_QHasOptions):
-    """Connect the dots questions. In the question the student need to
-    connect multiple nodes with one or more connection. Similar to the
-    <code>QMatching</code> question.
-    """
-    QNAME = "Dot Connect"
-    ANS_TYPE = Subquestion
-
-    def __init__(self, ordered=False, **kwargs):
-        super().__init__(**kwargs)
-        self.ordered = ordered
 
 
 class QDaDText(_QHasOptions):
@@ -468,6 +455,7 @@ class QRandomMatching(_QHasOptions):
 
 class QMissingWord(_QHasOptions):
     """A Missing Word question.
+    TODO: Fully replace it with QCloze, since it a simplified version of it.
     """
     MOODLE = "gapselect"
     QNAME = "Missing Word"
@@ -537,6 +525,7 @@ class QNumerical(_QHasUnits, _QHasOptions):
 
 class QShortAnswer(_QHasOptions):
     """This class represents 'Short answer' question.
+    TODO: Fully replace it with QCloze, since it a simplified version of it.
     """
     MOODLE = "shortanswer"
     QNAME = "Short Answer"
