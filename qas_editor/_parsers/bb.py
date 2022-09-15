@@ -18,8 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import re
 import os
 import uuid
-import sympy
-import random
 from zipfile import ZipFile, ZIP_DEFLATED
 from xml.etree import ElementTree as etree
 from typing import TYPE_CHECKING
@@ -41,38 +39,9 @@ __doc__= """BlackBoard uses a modified version of QTI Content Package v1.2.
             https://www.imsglobal.org/question/qtiv1p2/imsqti_asi_outv1p2.html
             """
 
-def roundSF(val, sf):
-    return float('{:.{p}g}'.format(val, p=sf))
-
-def regexSF(val, sf):
-    #This is not really functional. It will match floats but not with rounding restrictions!
-    #Match the start of the string and any initial whitespace
-    regex="^[ ]*" 
-
-    #Match the sign of the variable
-    if val < 0:
-        regex = regex +'-' #negative is required
-    else:
-        regex = regex +'\+?' #plus is optional
-
-    #Round the figure to the required S.F.
-    val = str(roundSF(abs(val), sf))
-    
-    didx=val.find('.')
-    if didx == -1:
-        didx = len(val)
-    
-    if val[0]=='0':
-        regex += re.search('(0\.[0]*[0-9]{0,'+str(sf)+'})', val).group(0) + "[0-9]*[ ]*"
-    elif didx>=sf:
-        regex += val[:sf]+"[0-9]{"+str(didx-sf)+'}(.|($|[ ]+))'
-    else:
-        regex += val[:sf+1].replace('.', r'\.')
-    return regex
-
 class Pool:
 
-    def __init__(self, package: "Package", cat: "Category", instructions=""):
+    def __init__(self, package: "_Importer", cat: "Category", instructions=""):
         """Initialises a question pool
         """
         self.pkg = package
@@ -132,7 +101,15 @@ class Pool:
                                 '<?xml version="1.0" encoding="UTF-8"?>\n' + 
                                 etree.tostring(self.questestinterop, 
                                                pretty_print=False).decode('utf-8'))
-              
+
+    def flow_mat2(self, node, text):
+        flow = etree.SubElement(node, 'flow_mat', {'class':'Block'})
+        self.flow_mat1(flow, text)
+
+    def flow_mat1(self, node, text):
+        flow = etree.SubElement(node, 'flow_mat', {'class':'FORMATTED_TEXT_BLOCK'})
+        self.material(flow, text)
+
     def _question(self, qst: _Question, qtype: str, partialcredit='false',
                   negpoints='N', ntype='none'):
         if 0.0 in qst.feedbacks:
@@ -229,13 +206,13 @@ class Pool:
         etree.SubElement(respcondition, 'setvar', {'variablename':'SCORE', 'action':'Set'}).text = '0'
         etree.SubElement(respcondition, 'displayfeedback', {'linkrefid':'incorrect', 'feedbacktype':'Response'})
  
-    def addMCQ_multchoice(self, qst:QMultichoice):
+    def addMCQ_multichoice(self, qst:QMultichoice):
         """Multiple Choice
         Done
         """
         self._hasoptions(qst, 'Multiple Choice')
 
-    def addSRQ(self, qst: QShortAnswer, rows=3, maxchars=0):
+    def addSRQ_shortanswer(self, qst: QShortAnswer, rows=3, maxchars=0):
         """Short Response
         Done
         """
@@ -347,7 +324,7 @@ class Pool:
             response_label = etree.SubElement(flow_label, 'response_label',
                                               ident=luuid, rarea='Ellipse',
                                               rrange='Exact')
-            bb_answer_text = self.pkg.process_string(opt.text)
+            bb_answer_text = opt.text.get_string(self.embed_file)
             etree.SubElement(and_, 'varequal', respident='response', case='No').text = luuid
             self.flow_mat1(response_label, bb_answer_text)
         respcondition = etree.SubElement(resprocessing, 'respcondition', title='incorrect')
@@ -394,48 +371,31 @@ class Pool:
         etree.SubElement(respcondition, 'displayfeedback', linkrefid='incorrect', 
                          feedbacktype='Response')
 
-    def flow_mat2(self, node, text):
-        flow = etree.SubElement(node, 'flow_mat', {'class':'Block'})
-        self.flow_mat1(flow, text)
 
-    def flow_mat1(self, node, text):
-        flow = etree.SubElement(node, 'flow_mat', {'class':'FORMATTED_TEXT_BLOCK'})
-        self.material(flow, text)
+# ----------------------------------------------------------------------------
 
-       
-class Package:
 
-    def __init__(self, courseID="IMPORT"):
+class _Importer:
+
+    def __init__(self, cat: Category):
         """Initialises a Blackboard package
         """
-        self.courseID = courseID
+        self.courseID = cat.name
         self.embedded_files: Dict[str, tuple] = {}
         self.zf = ZipFile(self.courseID+'.zip', mode='w', compression=ZIP_DEFLATED)
         self.next_xid = 1000000
-        self.equation_counter = 0
-        self.resource_counter = 0
+        self.equation_counter = self.resource_counter = 0
         self.embedded_paths = {}
-        #Create the manifest file
-        self.xmlNS = "http://www.w3.org/XML/1998/namespace"
         self.bbNS = 'http://www.blackboard.com/content-packaging/'
         self.manifest = etree.Element("manifest", {'identifier':'man00001'}, nsmap={'bb':self.bbNS})
         self.resources = etree.SubElement(self.manifest, 'resources')
-
         self.idcntr = 3191882
-        self.latex_kwargs = dict()
+        self.latex_kwargs = {}
         self.latex_cache = {}
         
     def bbid(self):
         self.idcntr += 1
         return self.idcntr
-
-    def create_unique_filename(self, base, ext):
-        count = 0
-        while True:
-            fname = base+'_'+str(count)+ext
-            if not os.path.isfile(fname):
-                return fname
-            count += 1
     
     def close(self):
         #Write additional data to implement the course name
@@ -448,14 +408,11 @@ class Package:
         self.zf.writestr('.bb-package-info', open(os.path.join(os.path.dirname(__file__), '.bb-package-info')).read())
         self.zf.close()
 
-    def createPool(self, pool_name, *args, **kwargs):
-        return Pool(pool_name, self, *args, **kwargs)
-
     def embed_resource(self, title, type, content):
         self.resource_counter += 1
         name = 'res'+format(self.resource_counter, '05')
         resource = etree.SubElement(self.resources, 'resource', {'identifier':name, 'type':type})
-        resource.attrib[etree.QName(self.xmlNS, 'base')] = name
+        resource.attrib[etree.QName("http://www.w3.org/XML/1998/namespace", 'base')] = name
         resource.attrib[etree.QName(self.bbNS, 'file')] = name+'.dat'
         resource.attrib[etree.QName(self.bbNS, 'title')] = title
         self.zf.writestr(name+'.dat', content)
@@ -502,7 +459,7 @@ class Package:
                 path[i] = embedded_paths[path[i]][0]
             else:
                 #Path not processed, add it
-                descriptor_node = etree.Element("lom") #attrib = {'xmlns':, 'xmlns:xsi':'http://www.w3.org/2001/XMLSchema-instance', 'xsi:schemaLocation':'http://www.imsglobal.org/xsd/imsmd_rootv1p2p1 imsmd_rootv1p2p1.xsd'}
+                descriptor_node = etree.Element("lom")
                 relation = etree.SubElement(descriptor_node, 'relation')
                 resource = etree.SubElement(relation, 'resource')
 
@@ -530,7 +487,7 @@ class Package:
         filepath = os.path.join('csfiles/home_dir/', path)
         self.zf.writestr(filepath, content)
         
-        descriptor_node = etree.Element("lom") #attrib = {'xmlns':, 'xmlns:xsi':'http://www.w3.org/2001/XMLSchema-instance', 'xsi:schemaLocation':'http://www.imsglobal.org/xsd/imsmd_rootv1p2p1 imsmd_rootv1p2p1.xsd'}
+        descriptor_node = etree.Element("lom")
         relation = etree.SubElement(descriptor_node, 'relation')
         resource = etree.SubElement(relation, 'resource')
         etree.SubElement(resource, 'identifier').text = str(self.next_xid) + '#' + '/courses/'+self.courseID+'/'+path
@@ -579,11 +536,6 @@ class Package:
         self.embedded_files[fname] = (xid, path)
         return xid, path
 
-    def process_string(self, text: FText):
-        """Scan a string for LaTeX equations, image tags, etc, and process them.
-        """
-        return text.get_string(self.embed_file)
-
 
 # ----------------------------------------------------------------------------
 
@@ -600,19 +552,33 @@ def read_blackboard(self, file_path: str) -> None:
 # -----------------------------------------------------------------------------
 
 
-def _txrecursive(cat: Category, path: str):
+_QTYPE = {
+    QCloze: "addFITBQ_cloze",
+    QTrueFalse: "addTFQ_truefalse",
+    QShortAnswer: "addSRQ_shortanswer",
+    QMultichoice: "addMCQ_multichoice",
+    QNumerical: "addNumQ"
+}
+
+
+def _txrecursive(cat: Category, path: str, importer: _Importer):
+    pool = Pool(importer, cat)
     for question in cat.questions:
-        pass
+        if isinstance(question, QMultichoice) and question.ordered:
+            pool.addOQ_ordering(question)
+        else:
+            _QTYPE.get(type(question), None)
     for name in cat:
-        _txrecursive(cat[name])
+        _txrecursive(cat[name], path, importer)
 
 
-def write_blackboard(self: Category, file_path: str, courseID) -> None:
+def write_blackboard(self: Category, file_path: str) -> None:
     """_summary_
 
     Args:
         file_path (str): _description_
     """
-    pck = Package()
-
+    pck = _Importer()
+    _txrecursive(self, file_path, pck)
+    pck.close()
     
