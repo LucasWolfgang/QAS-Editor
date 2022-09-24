@@ -14,6 +14,11 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Flatex based on https://github.com/nennigb/amc2moodle.
+Copyright, 2016  Benoit Nennig (benoit.nennig@supmeca.fr)
+Distributed under the terms of the GNU General Public License
+See http://www.gnu.org/licenses/gpl.txt for details.
 """
 import re
 import os
@@ -163,21 +168,20 @@ _TEMPLATES = {
 
 
 class Flatex:
-    """ Merge all included tex files in one and remove magic comments.
+    """ Merge all included tex files in one.
     """
 
-    def __init__(self, base_file, output_file,
-                 noline=False, magic_flag=True):
+    TEX_INPUT = re.compile(r"(^[^\%]*\\input{[^}]*})|(^[^\%]*\\include{[^}]*})")
+
+    def __init__(self, base_file: str, noline=False, magic_flag=True):
         """Create a new Flatex instance.
         Args:
             base_file (_type_): Input tex filename.
-            output_file (_type_): Output tex file name.
             noline (bool, optional): Add blank line after include/input Defaults to False.
             magic_flag (bool, optional): Remove or not the magic comment tag. Defaults to True.
         """
         # store
         self.base_file = base_file
-        self.output_file = output_file
         self.noline = noline
         self.magic_flag = magic_flag
 
@@ -189,57 +193,39 @@ class Flatex:
         self._included_files_list = [base_file]
 
     @staticmethod
-    def is_input(line):
-        """Determines whether or not a read in line contains an uncommented out
-        \input{} statement. Allows only spaces between start of line and
-        '\input{}'.
-        """
-        # tex_input_re = r"""^\s*\\input{[^}]*}""" # input only
-        # match 'input' or 'include'
-        tex_input_re = r"""(^[^\%]*\\input{[^}]*})|(^[^\%]*\\include{[^}]*})"""
-        return re.search(tex_input_re, line)
-
-    @staticmethod
-    def get_input(line):
+    def _get_input(line):
         """ Gets the file name from a line containing an input statement.
         """
         tex_input_filename_re = r"""{[^}]*"""
         m = re.search(tex_input_filename_re, line)
         return m.group()[1:]
 
-    def magic_filter(self, line):
-        """ Remove magic tag from a line.
-        """
-        return line.replace(self.magictag, '')
-
     @staticmethod
-    def combine_path(base_path, relative_ref):
+    def _combine_path(base_path, relative_ref):
         """ Return the absolute filename path of the included tex file.
         """
         # check for absolute path
-        if not(os.path.isabs(relative_ref)):
+        if not os.path.isabs(relative_ref):
             abs_path = os.path.join(base_path, relative_ref)
         else:
             abs_path = relative_ref
         # Handle if .tex is supplied directly with file name or not
         if not relative_ref.endswith('.tex'):
             abs_path += '.tex'
-
         return abs_path
 
-    def expand_file(self, base_file, current_path):
-        """
-        Recursively-defined function that takes as input a file and returns it
-        with all the inputs replaced with the contents of the referenced file.
+    def _expand_file(self, base_file, current_path):
+        """ Recursively-defined function that takes as input a file and returns
+        it with all the inputs replaced with the contents of the referenced file.
         """
         output_lines = []
         with open(base_file, "r") as f:
             for line in f:
                 # test if it contains an '\include' or '\input'
-                if self.is_input(line):
-                    new_base_file = self.combine_path(current_path,
-                                                      self.get_input(line))
-                    output_lines += self.expand_file(new_base_file, current_path)
+                if self.TEX_INPUT.search(line):
+                    new_base_file = self._combine_path(current_path,
+                                                      self._get_input(line))
+                    output_lines += self._expand_file(new_base_file, current_path)
                     self._included_files_list.append(new_base_file)
                     if self.noline:
                         pass
@@ -248,7 +234,7 @@ class Flatex:
                         output_lines.append('\n')
                 # test if magic coment
                 elif self.magic_flag and line.lstrip().startswith(self.magictag):
-                    output_lines += self.magic_filter(line)
+                    output_lines += line.replace(self.magictag, '')
                     # count it
                     self._magic_comments_number += 1
                 # else append line
@@ -256,17 +242,15 @@ class Flatex:
                     output_lines.append(line)
         return output_lines
 
-    def expand(self):
+    def expand(self) -> str:
         """ This "flattens" a LaTeX document by replacing all \\input{X} lines
         with the text actually contained in X.
         """
         current_path = os.path.split(self.base_file)[0]
-        with open(self.output_file, "w") as g:
-            g.write(''.join(self.expand_file(self.base_file,
-                                             current_path)))
-        return 0
-
-
+        data = ''.join(self._expand_file(self.base_file, current_path))
+        _LOG.info(f"{self._magic_comments_number} magic comments found, in "
+                  f"{len(self._included_files_list)} tex files.")
+        return data
 
 
 def read_latex(cls, file_name) -> "Category":
