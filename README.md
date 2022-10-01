@@ -12,7 +12,7 @@
 ## Description
 Question and Answer Sheet Editor is a desktop-focused python API and a UI utility to automate/help with tasks related to the creation, deletion, update, organization and convertion of question databases.
  
-The structure of the class is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle). Some code was reused from [moodle2edx-0.1.0](https://github.com/mitocw/moodle2edx), [BlackboardQuizMaker](https://github.com/toastedcrumpets/BlackboardQuizMaker), [text2qti](https://github.com/gpoore/text2qti) and [amc2moodle](https://github.com/nennigb/amc2moodle) too.
+The structure of the class is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle). Some code was reused from [moodle2edx-0.1.0](https://github.com/mitocw/moodle2edx),[text2qti](https://github.com/gpoore/text2qti) and [amc2moodle](https://github.com/nennigb/amc2moodle) too.
 
 The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/).
 
@@ -56,21 +56,21 @@ Besides repos listed above, some testcases were also taken from [moodle test web
  | Aiken    |   :o:  |   :o:  |  :o: | Markdown (MCQ)    |   :o:  |   :x:  |  :x: |
  | CSV Card |   :o:  |   :o:  |  :x: | Moodle XML        |   :o:  |   :o:  |  :o: |
  | QTI 2.1  |   :x:  |   :x:  |  :x: | QAS JSON          |   :o:  |   :o:  |  :o: |
- | QTI 3.0  |   :x:  |   :x:  |  :x: | BB pool ZIP       |   :x:  |   :x:  |  :x: |
- | Cloze    |   :o:  |   :x:  |  :x: | Tex (AMQ)         |   :x:  |   :x:  |  :x: |
- | GIFT     |   :o:  |   :x:  |  :x: | Tex (moodlexport) |   :o:  |   :x:  |  :x: |
- | ODF      |   :x:  |   :x:  |  :x: | Tex (MCexam)      |   :x:  |   :x:  |  :x: |
- | EDX ZIP  |   :x:  |   :x:  |  :x: | Tex (alterqcm)    |   :x:  |   :x:  |  :x: |
+ | QTI 3.0  |   :x:  |   :x:  |  :x: | Tex (AMQ)         |   :x:  |   :x:  |  :x: |
+ | Cloze    |   :o:  |   :x:  |  :x: | Tex (moodlexport) |   :o:  |   :x:  |  :x: |
+ | GIFT     |   :o:  |   :x:  |  :x: | Tex (MCexam)      |   :x:  |   :x:  |  :x: |
+ | ODF      |   :x:  |   :x:  |  :x: | Tex (alterqcm)    |   :x:  |   :x:  |  :x: |
+ | EDX ZIP  |   :x:  |   :x:  |  :x: | 
  | KahootCSV  |   :x:  |   :x:  |  :x: 
 </center ><br/>
 
   - Which are used by many platforms.
  <center>
 
- |            |              |          |          |
- | ---------- | ------------ | -------- | -------- |
- | Anki       | Brightspace  | Kahoot!  | Moodle   |
- | BlackBoard | Canvas LMS   | Quizlet  | NEO LMS  |
+ |          |              |          |          |
+ | -------- | ------------ | -------- | -------- |
+ | Anki     | Brightspace  | Kahoot!  | Moodle   |
+ | NEO LMS  | Canvas LMS   | Quizlet  |          |
 </center ><br/>
 
 ## Database
