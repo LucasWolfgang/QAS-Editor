@@ -395,10 +395,9 @@ class FText(Serializable):
     """A formated text. 
     """
 
-    def __init__(self, name: str, text="", formatting: TextFormat = None,
+    def __init__(self, text="", formatting: TextFormat = None,
                  bfile: List[File] = None):
         super().__init__()
-        self.name = name
         self.formatting = TextFormat.AUTO if formatting is None else formatting
         self._text = text
         self.bfile = bfile if bfile else []
@@ -452,8 +451,7 @@ class FText(Serializable):
         """
         def setter(self, value):
             data = getattr(self, attr)
-            print(data, value)
-            if isinstance(value, FText) and value.name == data.name:
+            if isinstance(value, FText):
                 setattr(self, attr, value)
             elif isinstance(value, str):
                 data.text = value

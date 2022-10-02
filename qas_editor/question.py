@@ -31,7 +31,7 @@ if TYPE_CHECKING:
     from typing import List, Dict
     from .enums import Direction
     from .category import Category
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 
 
 QNAME: Dict[str, _Question] = {}
@@ -52,10 +52,9 @@ class _Question(Serializable):
             QNAME[cls.QNAME] = cls
 
     def __init__(self, name="qstn", default_grade=1.0, question: FText = None,
-                 dbid: int = None, feedback: FText = None, tags: TList = None,
-                 time_lim: int = 60):
-        """
-        [summary]
+                 dbid: int = None, remarks: FText = None, tags: TList = None,
+                 feedbacks: Dict[float, FText] = None, time_lim: int = 60):
+        """[summary]
 
         Args:
             name (str): name of the question
@@ -71,32 +70,39 @@ class _Question(Serializable):
         self.resettable = False
         self.scripts: str = ""
         self.notes: str = ""
-        self._question = FText("questiontext")
+        self._question = FText()
         self.question = question
-        self._remarks = FText("generalfeedback")
-        self.remarks = feedback
-        self._feedbacks: Dict[float, FText] = {}
+        self._remarks = FText()
+        self.remarks = remarks
+        self._feedbacks: Dict[float, FText] = feedbacks if feedbacks else {}
         self._tags = TList(str, tags)
         self._free_hints = TList(str, tags)
         self.__parent = None
+        _LOG.debug("New question (%s) created.", self)
 
     def __str__(self) -> str:
         return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
 
     question = FText.prop("_question", "Question text")
-    remarks = FText.prop("_feedback", "Solution or global feedback")
-
-    @property
-    def parent(self) -> Category:
-        """_summary_
-        """
-        return self.__parent
+    remarks = FText.prop("_remarks", "Solution or global feedback")
 
     @property
     def feedbacks(self) -> Dict[float, FText]:
         """
         """
         return self._feedbacks
+
+    @property
+    def free_hints(self) -> TList:
+        """
+        """
+        return self._free_hints
+
+    @property
+    def parent(self) -> Category:
+        """_summary_
+        """
+        return self.__parent
 
     @parent.setter
     def parent(self, value):
@@ -105,18 +111,13 @@ class _Question(Serializable):
             raise ValueError("This attribute can't be assigned directly. Use "
                              "parent's add/pop_question functions instead.")
         self.__parent = value
+        _LOG.debug("Added (%s) to parent (%s).", self, value)
 
     @property
     def tags(self) -> TList:
         """_summary_
         """
         return self._tags
-
-    @property
-    def free_hints(self) -> TList:
-        """
-        """
-        return self._free_hints
 
     def check(self):
         """Check if the instance parameters have valid values. Call this method
@@ -547,9 +548,9 @@ class QTrueFalse(_Question):
                  false_feedback: FText | str, **kwargs) -> None:
         super().__init__(**kwargs)
         self.correct = correct
-        self._true_feedback = FText("feedback")
+        self._true_feedback = FText()
         self.true_feedback = true_feedback
-        self._false_feedback = FText("feedback")
+        self._false_feedback = FText()
         self.false_feedback = false_feedback
 
     true_feedback = FText.prop("_true_feedback")

@@ -159,7 +159,7 @@ class Editor(QMainWindow):
         """TODO Method used for debugg...
         """
         self.path = "./test_lib/datasets/moodle/all.xml"
-        self.top_quiz = Category.read_files([self.path])
+        self.top_quiz = Category.read_files([self.path], "DEBUG")
         gtags = {}
         self.top_quiz.get_tags(gtags)
         self.tagbar.set_gtags(gtags)

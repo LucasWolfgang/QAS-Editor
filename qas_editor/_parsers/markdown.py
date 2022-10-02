@@ -49,7 +49,7 @@ def _from_QMultichoice(lines: list, form: DefaultMD, name: str):
     while lines and match is None:
         data += lines.pop().strip()
         match = re.match(form.ANS, lines[-1])
-    text = FText("questiontext", data,  TextFormat.MD, None)
+    text = FText(data,  TextFormat.MD, None)
     question = QMultichoice(name=name, question=text)
     regex_exp = f"({form.QST})|({form.ANS})"
     while lines:

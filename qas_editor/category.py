@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 from .utils import Serializable, File
 from .question import _Question
 from .enums import Status
-from ._parsers import aiken, cloze, gift, json, kahoot, latex, markdown, moodle
+from ._parsers import aiken, cloze, gift, json, kahoot, latex, markdown, moodle, olx
 if TYPE_CHECKING:
     from typing import Dict, List   # pylint: disable=C0412
 _LOG = logging.getLogger(__name__)
@@ -34,6 +34,7 @@ SERIALIZERS = {
     "gift": ("read_gift", "write_gift"),
     "json": ("read_json", "write_json"),
     "md": ("read_markdown", "write_markdown"),
+    "olx": ("read_olx", "write_olx"),
     "pdf": ("read_pdf", "write_pdf"),
     "tex": ("read_latex", "write_latex"),
     "txt": ("read_aiken", "write_aiken"),
@@ -55,15 +56,17 @@ class Category(Serializable):  # pylint: disable=R0904
     read_markdown = classmethod(markdown.read_markdown)
     read_moodle = classmethod(moodle.read_moodle)
     read_moodle_backup = classmethod(moodle.read_moodle_backup)
+    read_olx = classmethod(olx.read_olx)
 
     write_aiken = aiken.write_aiken
     write_cloze = cloze.write_cloze
+    write_gift = gift.write_gift
     write_json = json.write_json
     write_kahoot = kahoot.write_kahoot
-    write_gift = gift.write_gift
     write_latex = latex.write_latex
     write_markdown = markdown.write_markdown
     write_moodle = moodle.write_moodle
+    write_olx = olx.write_olx
 
     def __init__(self, name: str = None):
         self.__questions: List[_Question] = []
@@ -251,16 +254,17 @@ class Category(Serializable):  # pylint: disable=R0904
         """
         to_pop = []
         for cat in child:
-            if child[cat].name not in self.__categories:
-                _LOG.warning("Merge: Question %s ignored.", cat)
+            if child[cat].name in self.__categories:
+                _LOG.warning("Question %s not merged. Name %s already in use",
+                             cat, child[cat].name)
             elif child[cat].parent is not None:
                 to_pop.append(cat)
         for question in child.questions:
             self.add_question(question)
-        for cat in to_pop:
-            child.pop_subcat(child[cat].name)
-            self.__categories[child[cat].name] = child[cat]
-            child[cat].parent = self
+        for cat_name in to_pop:
+            cat = child.pop_subcat(cat_name)
+            self.__categories[cat_name] = cat
+            cat.parent = self
         del child
         return True
 

@@ -35,6 +35,10 @@ def main():
     handler.setFormatter(formatter)
     handler.setLevel(logging.DEBUG)
     log.addHandler(handler)
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    handler.setLevel(logging.INFO)
+    log.addHandler(handler)
     app = QApplication(sys.argv)
     edit = Editor()
 

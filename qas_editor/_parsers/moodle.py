@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import logging
 import zipfile
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as et
@@ -33,6 +34,8 @@ from ..utils import gen_hier, Dataset, Hint, TList, FText, File, Unit, \
 if TYPE_CHECKING:
     from ..category import Category
     from ..question import _QHasOptions, _QHasUnits
+_LOG = logging.getLogger(__name__)
+
 
 def get_sympy(string: str) -> str:
     """This function suposse that at least once the 
@@ -130,7 +133,7 @@ def _from_Datasets(root: et.Element, tags: dict):
         tags["maximum"] = (str, "maximum")
         tags["decimals"] = (str, "decimals")
         tags["dataset_items"] = (_from_DatasetItems, "items")
-        data.append(Dataset(**_from_xml(obj, tags, None)))
+        data.append(Dataset(**_from_xml(obj, tags)))
     return data
 
 
@@ -139,7 +142,7 @@ def _from_FText(root: et.Element, tags: dict):
     tags["file"] = (_from_B64File, "bfile", True)
     data = _from_xml(root, tags)
     data["formatting"] = TextFormat(root.get("format"))
-    return FText(root.tag, **data)
+    return FText(**data)
 
 
 def _from_Hint(root: et.Element, tags: dict) -> "Hint":
@@ -189,8 +192,8 @@ def _from_Answer(root: et.Element, tags: dict, go_up=False):
     tags["text"] = (str, "text")
     tags["feedback"] = (_from_FText, "feedback")
     data = _from_xml(root, tags)
-    data["formatting"] = TextFormat(root.get("format"))
-    data["fraction"] = float("fraction")
+    data["formatting"] = TextFormat(root.get("format", "plain_text"))
+    data["fraction"] = float(root.get("fraction", 0))
     return data if go_up else Answer(**data)
 
 
@@ -242,7 +245,7 @@ def _from_dropzone(root: et.Element, *_):
 def _from_question(root: et.Element, tags: dict):
     tags["name"] = (str, "name")
     tags["questiontext"] = (_from_FText, "question")
-    tags["generalfeedback"] = (_from_FText, "feedback")
+    tags["generalfeedback"] = (_from_FText, "remarks")
     tags["defaultgrade"] = (float, "default_grade")
     tags["idnumber"] = (int, "dbid")
     tags["tags"] = (_from_Tags, "tags")
@@ -253,7 +256,7 @@ def _from_question_mt(root: et.Element, tags: dict):
     tags["hint"] = (_from_Hint, "hints", True)
     tags["max_tries"] = (float, "penalty")
     res = _from_question(root, tags)
-    if res["max_tries"] is None:
+    if res.get("max_tries") is None:
         res["max_tries"] = -1
     else:
         res["max_tries"] = int(1/res["max_tries"])
@@ -268,9 +271,9 @@ def _from_question_mtcs(root: et.Element, tags: dict):
     tags["shuffleanswers"] = (bool, "shuffle")
     data = _from_question_mt(root, tags)
     data["feedbacks"] = {}
-    data["feedbacks"][0.0] = data.pop("correctfeedback")
-    data["feedbacks"][50.0] = data.pop("partiallycorrectfeedback")
-    data["feedbacks"][100.0] = data.pop("incorrectfeedback")
+    data["feedbacks"][0.0] = data.pop("if_correct")
+    data["feedbacks"][50.0] = data.pop("if_incomplete")
+    data["feedbacks"][100.0] = data.pop("if_incorrect")
     return data
 
 
@@ -811,8 +814,9 @@ def read_moodle(cls, file_path: str, category: str = None) -> "Category":
         elif elem.get("type") not in _QTYPE:
             raise TypeError(f"Type {elem.get('type')} not implemented")
         else:
-            question = _QTYPE[elem.get("type")][0](elem, {}, {})
+            question = _QTYPE[elem.get("type")][0](elem, {})
             quiz.add_question(question)
+    _LOG.debug("Parsed %s questions from %s.", top_quiz.get_size(True), file_path)
     return top_quiz
 
 

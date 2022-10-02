@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 import codecs
 import os
 import re
@@ -218,6 +219,13 @@ def _to_qmultichoice(qst: QMultichoice) -> et.Element:
 # -----------------------------------------------------------------------------
 
 
+def read_olx(cls,  file_path: str):
+    pass
+
+
+# -----------------------------------------------------------------------------
+
+
 _QTYPE = {
     QMultichoice: _to_qmultichoice
 }
@@ -235,7 +243,7 @@ def _txrecursive(cat: "Category", dbids: dict):
         _txrecursive(cat[name], dbids)
 
 
-def write_edx(self: "Category", file_path: str, pretty=False, org="QAS"):
+def write_olx(self: "Category", file_path: str, pretty=False, org="QAS"):
     """[summary]
     Returns:
         [type]: [description]

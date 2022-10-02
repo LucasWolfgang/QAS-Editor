@@ -101,7 +101,7 @@ class _PkgGuillaume():
         self._document()
 
     def _question(self, qtype):
-        params = {"question": FText("questiontext")}
+        params = {"question": FText()}
         options = []
         for line in self.buf:
             tmp = line.strip()

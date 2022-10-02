@@ -37,7 +37,7 @@ class Answer(Serializable):
         self.fraction = fraction
         self.formatting = TextFormat.AUTO if formatting is None else formatting
         self.text = text
-        self._feedback = FText("feedback")
+        self._feedback = FText()
         self.feedback = feedback
 
     feedback = FText.prop("_feedback")

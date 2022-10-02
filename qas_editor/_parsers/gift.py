@@ -203,7 +203,7 @@ def _from_question(qst_blk: str):
     while stt[0] < len(qst_blk) and qst_blk[stt[0]] != "{" or stt[1]:
         _nxt(stt, qst_blk)
     text = qst_blk[start:stt[0]].replace("\\", "")
-    header = FText("questiontext", text.strip("\\"), cformat)
+    header = FText(text.strip("\\"), cformat)
     if stt[0] < len(qst_blk) and qst_blk[stt[0]] == "{":
         result = _from_block(name, header, stt, qst_blk)
     else:

@@ -47,7 +47,7 @@ def _from_question(buffer, line: str, name: str):
             answers[ord(_line[8].upper())-65].fraction = 100.0
             break
         answers.append(Answer(0.0, match[1], None, TextFormat.PLAIN))
-    question = FText("questiontext", header.strip(), TextFormat.PLAIN)
+    question = FText(header.strip(), TextFormat.PLAIN)
     return QMultichoice(name=name, options=answers, question=question)
 
 
