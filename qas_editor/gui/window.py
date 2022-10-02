@@ -75,8 +75,7 @@ class Editor(QMainWindow):
     """
 
     FORMATS = ("Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;JSON (*.json);;"
-               "LaTex (*.tex);;Markdown (*.md);;PDF (*.pdf);;Moodle (*.xml);;"
-               "BlackBoard (*.xml)")
+               "LaTex (*.tex);;Markdown (*.md);;PDF (*.pdf);;Moodle (*.xml)")
 
     SHORTCUTS = {
         "Create file": Qt.CTRL + Qt.Key_N,
