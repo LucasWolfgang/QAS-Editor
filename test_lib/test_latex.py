@@ -78,6 +78,7 @@ _EXPR =[['nothing', 'nothing', ''],  # variable
         r'\[\begin{equation}\int x dx =3\end{equation}\] \FPprint{\x }',''] #\[ ... \[)] + var
     ]
 
+
 def test_render():
     """ Tests if input XML file yields reference LaTeX file and warning are
     printed.
@@ -98,3 +99,21 @@ def test_render():
             warn = fake_out.getvalue()
             if warn:
                 self.assertIn(expectedwarn, warn)
+
+
+def test_name_Qmult_Aucune(self):
+    """ Check specific element for question 'Qmult:Aucune'.
+    """
+    # question name
+    qname = 'Qmult:Aucune'
+
+    # Test shuffleanswers, should be 'false', ie keep order
+    # Test local scoring, ie local scoring \bareme{e=-0.5,b=1,m=-1.,p=-0.5}
+    # Test question multiple ie target_single='false'
+    ok = self.question_fields(qname=qname,
+                                target_ans_sum=0,
+                                target_shuffleanswers='false',
+                                target_single='false')
+
+    # the test is ok if ok==0
+    self.assertEqual(ok, 0)

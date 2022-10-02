@@ -26,7 +26,6 @@ SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 def test_read():
     EXAMPLE = f"{TEST_PATH}/datasets/aiken/aiken_1.txt"
     control = category.Category.read_aiken(EXAMPLE)
-    print(control)
     assert control.get_size() == 5
     question = control.get_question(1)
     assert question.QNAME == 'Multichoice'

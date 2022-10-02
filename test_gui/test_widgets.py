@@ -39,10 +39,8 @@ def test_gfield_update(qtbot: "QtBot"):
     obj.content = "other text"
     assert gfield.text() != "other text"   # obj updates dont change widget
     gfield.clear()
-    print(gfield.hasFocus())
     QApplication.setActiveWindow(gfield)
     qtbot.keyClicks(QApplication.focusWidget(), "last one")
-    print(gfield.hasFocus())
     assert gfield.text() == "last one"     # Widget text should update, but it 
     assert obj.content != "last one"       # should not dont change obj content    
     # QApplication.setActiveWindow(other)

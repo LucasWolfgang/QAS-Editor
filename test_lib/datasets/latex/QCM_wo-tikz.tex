@@ -1,0 +1,93 @@
+\documentclass[a4paper]{article}
+
+
+%#########################################################################
+\usepackage[utf8]{inputenc}
+%\usepackage[T1]{fontenc}
+%\usepackage[francais]{babel}
+\usepackage[hmargin=4cm, vmargin=2cm, includeheadfoot]{geometry}
+\usepackage{alltt}
+\usepackage{multicol}
+\usepackage{amsmath,amssymb}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage[francais,bloc,completemulti]{automultiplechoice}     % Mandatory for conversion
+\usepackage{mhchem} % needed for chemical equations
+\usepackage{fp}
+%\usepackage{tikz}
+
+% Example of user macro
+\providecommand{\abs}[1]{\lvert#1\rvert}
+%#########################################################################
+% Header
+%#########################################################################
+
+% Add test for graphic path [it works but fails if the compilation is performed from another folder]
+% it could be fixer using TEXINPUTS
+%\graphicspath{{Figures/other/}} 
+
+\title{Test de conversion AMC vers moodle}
+\author{amc2moodle team}
+
+
+
+%#########################################################################
+% Document
+%#########################################################################
+\begin{document}
+
+% Define test level scoring
+% e=incohérence; b=bonne; m=mauvaise; p planché (on ne descent pas en dessous)
+\baremeDefautS{e=-0.5,b=1,m=-0.5}% never put b<1,
+\baremeDefautM{e=-0.5,b=1,m=-0.25,p=-0.5}% never put b<1, with amc2moodle m correspond to the grade if all the wrong answers are ticked, b correspond to the grade if all the good answers are ticked
+
+% Include tex file containing the questions
+\include{common-bank} % cat1, cat2, english, mhchem, num, open, desc
+%\include{tikz} % tikz
+
+
+% #################################################################
+% C R E A T I O N  D E S  C O P I E S
+% #################################################################
+\exemplaire{1}{    	% nombre de sujet différent
+  %debut de l'en-tête des copies :    
+  \vspace*{.5cm}
+  \begin{minipage}{.4\linewidth}
+    \centering\large\bf Test
+  \end{minipage}
+  \champnom{\fbox{
+      \begin{minipage}{.5\linewidth}
+        Nom et prénom :
+
+        \vspace*{.5cm}\dotfill
+        \vspace*{1mm}
+      \end{minipage}
+    }}
+
+  \begin{flushleft}
+Illustration of \texttt{amc2moodle} capabilities. All these questions can be converted \emph{automatically} to \texttt{moodle} with the same layout.
+    \begin{center}
+      \Large{\textsc{Multiple choice tests using AMC Latex Format}}\\
+      \normalsize
+    \end{center}
+  \end{flushleft}
+
+
+  % mélange et catégorie (groupe dans AMC)
+  \cleargroup{BigGroupe}
+  \copygroup{cat1}{BigGroupe}
+  \copygroup{cat2}{BigGroupe}
+  \copygroup{english}{BigGroupe}
+  %\copygroup{tikz}{BigGroupe}
+  \copygroup{mhchem}{BigGroupe}
+  \copygroup{num}{BigGroupe}
+  \copygroup{open}{BigGroupe}
+  \copygroup{desc}{BigGroupe}
+  \copygroup{calc}{BigGroupe}  
+  % not usefull for testing !
+  %\melangegroupe{BigGroupe}
+  \restituegroupe{BigGroupe}
+}
+
+
+\end{document}
