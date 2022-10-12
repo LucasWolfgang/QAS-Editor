@@ -32,7 +32,7 @@ from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
 from ..utils import gen_hier, Dataset, Hint, TList, FText, File, Unit, \
                     EXTRAS_FORMULAE, nxt, serialize_fxml
 if TYPE_CHECKING:
-    from ..category import Category
+    from ..category import Category, _Question
     from ..question import _QHasOptions, _QHasUnits
 _LOG = logging.getLogger(__name__)
 
@@ -566,13 +566,13 @@ def _to_selectOption(opt) -> et.Element:
     return select_option
 
 
-def _to_question(question) -> et.Element:
+def _to_question(question: "_Question") -> et.Element:
     elem = et.Element("question", {"type": question.MOODLE})
     name = et.SubElement(elem, "name")
     et.SubElement(name, "text").text = question.name
     elem.append(_to_ftext(question.question, "questiontext"))
-    if question.feedback:
-        elem.append(_to_ftext(question.feedback, "generalfeedback"))
+    if question.remarks:
+        elem.append(_to_ftext(question.remarks, "generalfeedback"))
     et.SubElement(elem, "defaultgrade").text = question.default_grade
     # et.SubElement(question, "hidden").text = "0"
     if question.dbid is not None:
@@ -717,9 +717,9 @@ def _to_qessay(qst) -> et.Element:
     if qst.file_types:
         et.SubElement(question, "filetypeslist").text = qst.file_types
     if qst.grader_info:
-        question.append(_to_ftext(qst.grader_info))
+        question.append(_to_ftext(qst.grader_info, "graderinfo"))
     if qst.template:
-        question.append(_to_ftext(qst.template))
+        question.append(_to_ftext(qst.template, "responsetemplate"))
     return question
 
 

@@ -31,7 +31,7 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
                             QScrollArea, QHBoxLayout, QGroupBox, QShortcut,\
                             QPushButton, QLineEdit, QComboBox, QDialog,\
                             QMessageBox, QListWidget, QCheckBox
-from ..category import Category, SERIALIZERS
+from ..category import Category, EXTS
 from ..question import _Question, QNAME
 from ..utils import TList
 from ..enums import Numbering, Grading, ShowUnits, RespFormat, Synchronise,\
@@ -57,7 +57,7 @@ def action_handler(function: Callable) -> Callable:
     """
     def wrapper(*args, **kwargs):
         try:
-            function(*args, **kwargs)
+            return function(*args, **kwargs)
         except Exception:   # pylint: disable=W0703
             LOG.exception(f"Error calling function {function.__name__}")
             self_arg = args[0]      # Needs to exists
@@ -73,9 +73,6 @@ def action_handler(function: Callable) -> Callable:
 class Editor(QMainWindow):
     """This is the main class.
     """
-
-    FORMATS = ("Aiken (*.txt);;Cloze (*.cloze);;GIFT (*.gift);;JSON (*.json);;"
-               "LaTex (*.tex);;Markdown (*.md);;PDF (*.pdf);;Moodle (*.xml)")
 
     SHORTCUTS = {
         "Create file": Qt.CTRL + Qt.Key_N,
@@ -97,7 +94,7 @@ class Editor(QMainWindow):
 
         self._items: List[QWidget] = []
         self._main_editor = None
-        self.path: str = None
+        self.path: tuple = None
         self.top_quiz = Category()
         self.cxt_menu = QMenu(self)
         self.cxt_item: QStandardItem = None
@@ -158,8 +155,9 @@ class Editor(QMainWindow):
     def debug_me(self):
         """TODO Method used for debugg...
         """
-        self.path = "./test_lib/datasets/moodle/all.xml"
-        self.top_quiz = Category.read_files([self.path], "DEBUG")
+        self.path = ("./test_lib/datasets/moodle/all.xml", "Moodle")
+        #self.path = "./test_lib/datasets/olx/test.olx"
+        self.top_quiz = Category.read_moodle(self.path[0], "DEBUG")
         gtags = {}
         self.top_quiz.get_tags(gtags)
         self.tagbar.set_gtags(gtags)
@@ -235,8 +233,7 @@ class Editor(QMainWindow):
 
     @action_handler
     def _append_category(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open file", "",
-                                              self.FORMATS)
+        path, key = QFileDialog.getOpenFileName(self, "Open file", "", EXTS)
         if not path:
             return
         quiz = Category.read_files([path], path.rsplit("/", 1)[-1])
@@ -478,22 +475,22 @@ class Editor(QMainWindow):
         sframe = QFrame(self)
         sframe.setStyleSheet(".QFrame{border:1px solid rgb(41, 41, 41);"
                              "background-color: #e4ebb7}")
-        # layout.addWidget(sframe)
-        # _content = QGridLayout(sframe)
-        # self._items.append(GTextEditor(self.toolbar, "if_correct"))
-        # self._items[-1].setToolTip("Feedback for correct answer")
-        # _content.addWidget(self._items[-1], 0, 0)
-        # self._items.append(GTextEditor(self.toolbar, "if_incomplete"))
-        # self._items[-1].setToolTip("Feedback for incomplete answer")
-        # _content.addWidget(self._items[-1], 0, 1)
-        # self._items.append(GTextEditor(self.toolbar, "if_incorrect"))
-        # self._items[-1].setToolTip("Feedback for incorrect answer")
-        # _content.addWidget(self._items[-1], 0, 2)
-        # self._items.append(GCheckBox("show_num", "Show the number of correct r"
-        #                              "esponses once the question has finished",
-        #                              self))
-        # _content.addWidget(self._items[-1], 2, 0, 1, 3)
-        # _content.setColumnStretch(3, 1)
+        layout.addWidget(sframe)
+        _content = QGridLayout(sframe)
+        self._items.append(GTextEditor(self.toolbar, "if_correct"))
+        self._items[-1].setToolTip("Feedback for correct answer")
+        _content.addWidget(self._items[-1], 0, 0)
+        self._items.append(GTextEditor(self.toolbar, "if_incomplete"))
+        self._items[-1].setToolTip("Feedback for incomplete answer")
+        _content.addWidget(self._items[-1], 0, 1)
+        self._items.append(GTextEditor(self.toolbar, "if_incorrect"))
+        self._items[-1].setToolTip("Feedback for incorrect answer")
+        _content.addWidget(self._items[-1], 0, 2)
+        self._items.append(GCheckBox("show_num", "Show the number of correct r"
+                                      "esponses once the question has finished",
+                                      self))
+        _content.addWidget(self._items[-1], 2, 0, 1, 3)
+        _content.setColumnStretch(3, 1)
 
     def _block_template(self) -> None:
         collapsible = GCollapsible(self, "Templates")
@@ -625,19 +622,18 @@ class Editor(QMainWindow):
 
     @action_handler
     def _read_file(self, _):
-        files, _ = QFileDialog.getOpenFileNames(self, "Open file", "",
-                                                self.FORMATS)
+        files, key = QFileDialog.getOpenFileNames(self, "Open file", "", EXTS)
         if not files:
             return
-        if len(files) == 1:
-            self.path = files[0]
-        self.top_quiz = Category.read_files(files)
-        gtags = {}
-        self.top_quiz.get_tags(gtags)
-        self.tagbar.set_gtags(gtags)
-        self.root_item.clear()
-        self._update_tree_item(self.top_quiz, self.root_item)
-        self.data_view.expandAll()
+        # if len(files) == 1:
+        #     self.path = files[0]
+        # self.top_quiz = Category.read_files(files)
+        # gtags = {}
+        # self.top_quiz.get_tags(gtags)
+        # self.tagbar.set_gtags(gtags)
+        # self.root_item.clear()
+        # self._update_tree_item(self.top_quiz, self.root_item)
+        # self.data_view.expandAll()
 
     @action_handler
     def _read_folder(self, _):
@@ -674,7 +670,7 @@ class Editor(QMainWindow):
         if isinstance(item, _Question):
             for key in self._items:
                 attr = key.get_attr()
-                if attr in item.__dict__:
+                if attr in item.__dict__ or attr in dir(item):
                     key.setEnabled(True)
                     key.from_obj(item)
                 else:
@@ -698,20 +694,19 @@ class Editor(QMainWindow):
     @action_handler
     def _write_quiz(self, quiz: Category, save_as: bool):
         if save_as or self.path is None:
-            path, _ = QFileDialog.getSaveFileName(self, "Save file", "",
-                                                  self.FORMATS)
+            path, ext = QFileDialog.getSaveFileName(self, "Save file", "", EXTS)
             if not path:
-                return None
+                return (None, None)
         else:
-            path = self.path
-        ext = path.rsplit('.', 1)[-1]
-        getattr(quiz, SERIALIZERS[ext][1])(path)
-        return path
+            path, ext = self.path
+        quiz.write(ext.strip(), path)
+        return path, ext
 
+    @action_handler
     def _write_file(self, save_as: bool) -> None:
-        path = self._write_quiz(self.top_quiz, save_as)
-        if path:
-            self.path = path
+        data = self._write_quiz(self.top_quiz, save_as)
+        if data and data[0]:
+            self.path = data
 
 
 class PopupDataset(QWidget):

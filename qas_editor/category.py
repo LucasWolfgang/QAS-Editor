@@ -23,23 +23,25 @@ from typing import TYPE_CHECKING
 from .utils import Serializable, File
 from .question import _Question
 from .enums import Status
-from ._parsers import aiken, cloze, gift, json, kahoot, latex, markdown, moodle, olx
+from ._parsers import aiken, cloze, gift, json, kahoot, latex, markdown, \
+                      moodle, olx, qti_1_2_canvas
 if TYPE_CHECKING:
     from typing import Dict, List   # pylint: disable=C0412
 _LOG = logging.getLogger(__name__)
 
 
 SERIALIZERS = {
-    "cloze": ("read_cloze", "write_cloze"),
-    "gift": ("read_gift", "write_gift"),
-    "json": ("read_json", "write_json"),
-    "md": ("read_markdown", "write_markdown"),
-    "olx": ("read_olx", "write_olx"),
-    "pdf": ("read_pdf", "write_pdf"),
-    "tex": ("read_latex", "write_latex"),
-    "txt": ("read_aiken", "write_aiken"),
-    "xml": ("read_moodle", "write_moodle")
+    "Aiken": ("read_aiken", "write_aiken", "txt"),
+    "Cloze": ("read_cloze", "write_cloze", "cloze"),
+    "GIFT": ("read_gift", "write_gift", "gift"),
+    "JSON": ("read_json", "write_json", "json"),
+    "Markdown": ("read_markdown", "write_markdown", "md"),
+    "OLX": ("read_olx", "write_olx", "olx"),
+    "QTI2.1": ("read_qti12", "write_qti12", "xml"),
+    "LaTex": ("read_latex", "write_latex", "tex"),
+    "Moodle": ("read_moodle", "write_moodle", "xml")
 }
+EXTS = ";;".join(f"{k}(*.{v[2]})" for k,v in SERIALIZERS.items())
 
 
 class Category(Serializable):  # pylint: disable=R0904
@@ -57,6 +59,7 @@ class Category(Serializable):  # pylint: disable=R0904
     read_moodle = classmethod(moodle.read_moodle)
     read_moodle_backup = classmethod(moodle.read_moodle_backup)
     read_olx = classmethod(olx.read_olx)
+    read_qti12 = qti_1_2_canvas.read
 
     write_aiken = aiken.write_aiken
     write_cloze = cloze.write_cloze
@@ -67,6 +70,7 @@ class Category(Serializable):  # pylint: disable=R0904
     write_markdown = markdown.write_markdown
     write_moodle = moodle.write_moodle
     write_olx = olx.write_olx
+    write_qti12 = qti_1_2_canvas.write
 
     def __init__(self, name: str = None):
         self.__questions: List[_Question] = []
@@ -322,9 +326,20 @@ class Category(Serializable):  # pylint: disable=R0904
         """
         top_quiz = cls(category)
         for _path in files:
-            try:
-                ext = _path.rsplit(".", 1)[-1]
-                top_quiz.merge(getattr(cls, SERIALIZERS[ext][0])(_path))
-            except (ValueError, KeyError):
-                _LOG.exception(f"Failed to parse file {_path}.")
+            ext = _path.rsplit(".", 1)[-1]
+            for parser in SERIALIZERS.values():
+                try:
+                    if parser[2] == ext:
+                        obj = getattr(cls, parser[0])(_path)
+                        if obj:
+                            top_quiz.merge(obj)
+                            break
+                except (ValueError, KeyError, TypeError):
+                    pass
+            else:
+                _LOG.error("Failed to parse file %s. No valid parser"
+                           " found for %s.", _path, ext)
         return top_quiz
+
+    def write(self, ext: str, path: str):
+        getattr(self, SERIALIZERS[ext][1])(path)

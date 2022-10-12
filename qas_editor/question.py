@@ -28,7 +28,7 @@ from .answer import ACalculated, ACrossWord, Answer, ClozeItem, ANumerical,\
                     DragGroup, DragImage, SelectOption, Subquestion,\
                     DropZone, DragItem
 if TYPE_CHECKING:
-    from typing import List, Dict
+    from typing import List, Dict, Tuple
     from .enums import Direction
     from .category import Category
 _LOG = logging.getLogger(__name__)
@@ -258,8 +258,7 @@ class QCalculatedMC(_QHasOptions):
 
 
 class QCloze(_QHasOptions):
-    """This is a very simples class that hold cloze data. All data is compressed
-    inside the question text, so no further implementation is necessary.
+    """An embedded question
     """
     MOODLE = "cloze"
     QNAME = "Cloze"
@@ -275,10 +274,10 @@ class QCloze(_QHasOptions):
                 raise AnswerError("All answer options have 0 grade")
 
     @staticmethod
-    def get_items(text: str):
+    def get_items(ftext: list) -> Tuple[list, list]:
         """Return a tuple with the Marked text and the data extracted.
         """
-        gui_text = []
+        text = ftext.pop()
         start = 0
         options = []
         for match in QCloze._PATTERN.finditer(text):
@@ -302,22 +301,23 @@ class QCloze(_QHasOptions):
                 opts.append(Answer(frac, tmp, feedback, TextFormat.PLAIN))
             item = ClozeItem(int(match[1]), ClozeFormat(match[2]), opts)
             options.append(item)
-            gui_text.append(text[start: match.start()])
+            ftext.append(text[start: match.start()])
+            ftext.append(MARKER_INT)
             start = match.end()
-        gui_text.append(text[start:])
-        return chr(MARKER_INT).join(gui_text), options
+        ftext.append(text[start:])
+        return ftext, options
 
     def pure_text(self, embedded_name) -> str:
         """Return the text formatted as expected by the end-tool, which is
         currently only moodle.
         """
         char = chr(MARKER_INT)
-        find = self.question.text.find(char)
+        find = self.question.get().find(char)
         text = [self.name, "\n", self.question.text[:find]] if \
             embedded_name else [self.question.text[:find]]
         for question in self.options:
             text.append(question.to_text())
-            end = self.question.text.find(char, find + 1)
+            end = self.question.get().find(char, find + 1)
             text.append(self.question.text[find + 1: end])
             find = end
         text.append(self.question.text[-1])  # Wont be included by default
@@ -468,16 +468,17 @@ class QMissingWord(_QHasOptions):
             raise MarkerError("Incorrect number of marker in text.")
 
     @staticmethod
-    def get_items(text):
+    def get_items(text) -> Tuple[list, list]:
         """Return a tuple with the Marked text and the data extracted.
         """
-        gui_text = []
+        ftext = []
         start = 0
         for match in re.finditer(r"\[\[[0-9]+\]\]", text):
-            gui_text.append(text[start: match.start()])
+            ftext.append(text[start: match.start()])
+            ftext.append(MARKER_INT)
             start = match.end()
-        gui_text.append(text[start:])
-        return chr(MARKER_INT).join(gui_text), None
+        ftext.append(text[start:])
+        return ftext, None
 
     def pure_text(self):
         """Return the text formatted as expected by the end-tool, which is

@@ -47,7 +47,7 @@ class _AutoUpdate():
     """ Helper class to abstract interface for auto updatable Widgets.
     """
 
-    _get_data: Callable = None
+    _get_data: str = None
 
     def __init__(self, attribute, *args):
         super().__init__(*args)
@@ -72,17 +72,17 @@ class _AutoUpdate():
     def focusOutEvent(self, event):             # pylint: disable=C0103
         """Method overwritten. Updates the data in the target object.
         """
-        if self.__obj is not None and callable(self._get_data):
+        if self.__obj is not None and self._get_data:
             setattr(self.__obj, self.__attr,
-                    self._get_data())           # pylint: disable=E1102
-        return super().focusOutEvent(event)     # pylint: disable=E1101
+                    getattr(self, self._get_data)) # pylint: disable=E1102
+        return super().focusOutEvent(event)        # pylint: disable=E1101
 
 
 class GDropbox(_AutoUpdate, QComboBox):
     """An auto updatable QComboBox
     """
 
-    _get_data = QComboBox.currentData
+    _get_data = "currentData"
 
     def __init__(self, attribute: str, parent: QWidget, group: EnhancedEnum):
         super().__init__(attribute, parent)
@@ -105,7 +105,7 @@ class GField(_AutoUpdate, QLineEdit):
     """An auto updatable QLineEdit
     """
 
-    _get_data = QLineEdit.text
+    _get_data = "text"
 
     def __init__(self, attribute, parent, cast_type):
         super().__init__(attribute, parent)
@@ -121,11 +121,7 @@ class GCheckBox(_AutoUpdate, QCheckBox):
     """An auto updatable QCheckBox
     """
 
-    _get_data = QCheckBox.isChecked
-
-    def __init__(self, attribute, text, parent):
-        super().__init__(attribute, text, parent)
-        self._get_data = self.isChecked
+    _get_data = "isChecked"
 
     def from_obj(self, obj):
         self.setChecked(bool(super().from_obj(obj)))
@@ -286,7 +282,7 @@ class GTextEditor(QTextEdit):
         if self.__obj.formatting == TextFormat.MD:
             self.setMarkdown(self.__obj.text)
         elif self.__obj.formatting == TextFormat.HTML:
-            self.setHtml(self.__obj.text)
+            self.setHtml(str(self.__obj))
         else:
             self.setPlainText(self.__obj.text)
 
