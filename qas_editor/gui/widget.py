@@ -29,9 +29,9 @@ from PyQt5.QtWidgets import QWidget, QActionGroup, QCompleter, QTextEdit,\
                             QFrame, QPushButton, QLabel, QAction, QLineEdit,\
                             QCheckBox, QListWidget, QGridLayout
 from ..question import MARKER_INT
-from ..answer import Answer, ACalculated, DragGroup, ClozeItem, DropZone,\
+from ..answer import Answer, ACalculated, DragGroup, EmbeddedItem, DropZone,\
                      SelectOption
-from ..enums import ClozeFormat, TextFormat, TolType, TolFormat
+from ..enums import EmbeddedFormat, TextFormat, TolType, TolFormat
 from ..utils import FText, Hint
 if TYPE_CHECKING:
     from typing import Callable
@@ -561,12 +561,12 @@ class GCloze(QFrame):
         super().__init__()
         _layout = QHBoxLayout(self)
         _layout.setSpacing(2)
-        self.__obj: ClozeItem = None
+        self.__obj: EmbeddedItem = None
         self._grade = GField("grade", self, int)
         self._grade.setFixedWidth(30)
         self._grade.setToolTip("Grade for the given answer")
         _layout.addWidget(self._grade, 0)
-        self._form = GDropbox("cformat", self, ClozeFormat)
+        self._form = GDropbox("cformat", self, EmbeddedFormat)
         self._form.setToolTip("Cloze format")
         self._form.setMinimumWidth(160)
         _layout.addWidget(self._form, 1)
@@ -593,7 +593,7 @@ class GCloze(QFrame):
         _layout.addWidget(self._pop, 0)
         _layout.setContentsMargins(2, 2, 2, 2)
         if option is None:
-            option = ClozeItem(0.0, ClozeFormat.MC)
+            option = EmbeddedItem(0.0, EmbeddedFormat.MC)
             question.append(option)
         self.from_obj(option)
 
@@ -626,7 +626,7 @@ class GCloze(QFrame):
             self.__obj.opts.pop()
             self._opts.removeItem(self._opts.count()-1)
 
-    def from_obj(self, obj: ClozeItem) -> None:
+    def from_obj(self, obj: EmbeddedItem) -> None:
         """_summary_
 
         Args:

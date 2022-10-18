@@ -20,7 +20,7 @@ from PyQt5.QtCore import QPoint, QPointF
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout, QPushButton, QLabel,\
                             QFrame, QApplication
 from PyQt5.QtGui import QColor, QPainter
-from ..answer import Answer, DragImage, DragItem, DragGroup, ClozeItem, \
+from ..answer import Answer, DragImage, DragItem, DragGroup, EmbeddedItem, \
                      ACalculated, ANumerical
 from ..utils import Hint
 from .widget import GCalculated, GCloze, GDrag, GAnswer, GHint, GCheckBox
@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 _TYPE_MAP = {
     ACalculated: GCalculated,
-    ClozeItem: GCloze,
+    EmbeddedItem: GCloze,
     DragGroup: GDrag,
     DragItem: GDrag,
     DragImage: GDrag,
