@@ -30,7 +30,7 @@ def test_read_essay():
     qst = control.get_question(0)
     assert qst.default_grade == 1.1
     assert qst.lines == 3
-    assert qst.question.text == 'Explain in few words the aim of this course.<br>' 
+    assert qst.question.get() == 'Explain in few words the aim of this course.<br>' 
     assert qst.atts_required == False
 
 

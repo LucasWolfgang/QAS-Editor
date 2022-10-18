@@ -16,16 +16,17 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import json
+import logging
 from typing import TYPE_CHECKING
 from enum import Enum
-from ..enums import ClozeFormat, Direction, Distribution, Grading, RespFormat,\
+from ..enums import EmbeddedFormat, Direction, Distribution, Grading, RespFormat,\
                     ShapeType, Synchronise, TolType, TolFormat, Status,\
                     ShowUnits, TextFormat, Numbering
-from ..utils import File, Dataset, FText, Hint, TList, Unit
-from ..answer import ACalculated, ANumerical, Answer, ClozeItem, DragItem,\
+from ..utils import File, Dataset, FText, Hint, Serializable, TList, Unit, MediaType, FileType
+from ..answer import ACalculated, ANumerical, Answer, EmbeddedItem, DragItem,\
                      ACrossWord, DropZone, SelectOption, DragGroup, DragImage,\
                      Subquestion
-from ..question import _Question, QCalculatedMC, QCrossWord, QCloze,\
+from ..question import _Question, QCalculatedMC, QCrossWord, QEmbedded,\
                         QTrueFalse, QCalculated, QCalculatedSimple, QEssay,\
                         QDaDImage, QDaDMarker, QMissingWord, QDescription,\
                         QMatching, QDaDText, QMultichoice, QRandomMatching,\
@@ -34,15 +35,34 @@ if TYPE_CHECKING:
     from ..category import Category
 
 
+_LOG = logging.getLogger(__name__)
+
 def _from_json(data: dict, cls):
-    return cls(**data) if isinstance(data, dict) else None
+    # all_cls = list(cls.__mro__[:-1]) # Removed Object class
+    # all_cls.pop(Serializable) # Pop Serializable class if it exists
+    # all_args = [_cls.__init__.__code__.co_varnames for _cls in all_cls]
+    if isinstance(data, dict):
+        # for key in list(data):
+        #     if key not in all_args:
+        #         data.pop(key)
+        #         _LOG.debug("Removed argument %s for %s __init__.", key, cls)
+        item = cls(**data)
+        return item
+    return None
 
 
 def _from_b64file(data: dict):
+    if data is None:
+        return None
+    data["ftype"] = FileType(data.pop("_type"))
+    if "_media" in data:
+        data["_media"] = MediaType(data["_media"])
     return _from_json(data, File)
 
 
 def _from_dataset(data: dict):
+    if data is None:
+        return None
     data["status"] = Status(data["status"])
     data["distribution"] = Distribution(data["distribution"])
     tmp = {}  # Convertion of keys from string to int
@@ -53,22 +73,31 @@ def _from_dataset(data: dict):
 
 
 def _from_ftext(data: dict):
+    if data is None:
+        return None
     data["formatting"] = TextFormat(data["formatting"])
+    data["text"] = data.pop("_text")
     for index in range(len(data["bfile"])):
         data["bfile"][index] = _from_b64file(data["bfile"][index])
     return _from_json(data, FText)
 
 
 def _from_hint(data: dict):
+    if data is None:
+        return None
     data["formatting"] = TextFormat(data["formatting"])
     return _from_json(data, Hint)
 
 
 def _from_tags(data: list):
+    if data is None:
+        return None
     return TList(str, data)
 
 
 def _from_unit(data: dict):
+    if data is None:
+        return None
     return _from_json(data, Unit)
 
 
@@ -76,53 +105,73 @@ def _from_unit(data: dict):
 
 
 def _from_answer(data: dict, cls=None):
+    if data is None:
+        return None
     data["formatting"] = TextFormat(data["formatting"])
     data["feedback"] = _from_ftext(data.pop("_feedback"))
     return _from_json(data, cls if cls else Answer)
 
 
 def _from_anumerical(data: dict, cls=None):
+    if data is None:
+        return None
     return _from_answer(data, cls if cls else ANumerical)
 
 
 def _from_acalculated(data: dict):
+    if data is None:
+        return None
     data["ttype"] = TolType(data["ttype"])
     data["aformat"] = TolFormat(data["aformat"])
     return _from_anumerical(data, ACalculated)
 
 
 def _from_clozeitem(data: dict):
-    data["cformat"] = ClozeFormat(data["cformat"])
+    if data is None:
+        return None
+    data["cformat"] = EmbeddedFormat(data["cformat"])
     for i in range(len(data["opts"])):
         data["opts"][i] = _from_answer(data["opts"][i])
-    return _from_json(data, ClozeItem)
+    return _from_json(data, EmbeddedItem)
 
 
 def _from_dragitem(data: dict):
+    if data is None:
+        return None
     return DragItem(**data)
 
 
 def _from_draggroup(data: dict):
+    if data is None:
+        return None
     return DragGroup(**data)
 
 
 def _from_dragimage(data: dict):
+    if data is None:
+        return None
     data["image"] = _from_b64file(data["image"])
     return DragImage(**data)
 
 
 def _from_dropzone(data: dict):
+    if data is None:
+        return None
     if data["shape"] is not None:
         data["shape"] = ShapeType(data["shape"])
     return _from_json(data, DropZone)
 
 
 def _from_acrossword(data: dict):
+    if data is None:
+        return None
     data["direction"] = Direction(data["direction"])
     return _from_json(data, ACrossWord)
 
 
 def _from_subquestion(data: dict):
+    if data is None:
+        return None
     data["formatting"] = TextFormat(data["formatting"])
     return _from_json(data, Subquestion)
 
@@ -136,26 +185,24 @@ def _from_selectoption(data: dict):
 
 def _from_question(data: dict, cls):
     data["question"] = _from_ftext(data.pop("_question"))
-    data["feedback"] = _from_ftext(data.pop("_feedback"))
+    data["remarks"] = _from_ftext(data.pop("_remarks"))
     data["tags"] = _from_tags(data.pop("_tags"))
-    return cls(**data)
+    for key in data["_feedbacks"]:
+        data["_feedbacks"][key] = _from_ftext(data["_feedbacks"][key])
+    data["feedbacks"] = data.pop("_feedbacks")
+    data["free_hints"] = data.pop("_free_hints")
+    return _from_json(data, cls)
 
 
 def _from_question_mt(data: dict, cls, opt_callback):
-    for i in range(len(data["hints"])):
-        data["hints"][i] = _from_hint(data["hints"][i])
+    for i in range(len(data["_fail_hints"])):
+        data["_fail_hints"][i] = _from_hint(data["_fail_hints"][i])
+    data["hints"] = data.pop("_fail_hints")
     if opt_callback is not None:
         for i in range(len(data["_options"])):
             data["_options"][i] = opt_callback(data["_options"][i])
         data["options"] = data.pop("_options")
     return _from_question(data, cls)
-
-
-def _from_question_mtcs(data: dict, cls, opt_callback):
-    data["if_correct"] = _from_ftext(data.pop("_if_correct"))
-    data["if_incomplete"] = _from_ftext(data.pop("_if_incomplete"))
-    data["if_incorrect"] = _from_ftext(data.pop("_if_incorrect"))
-    return _from_question_mt(data, cls, opt_callback)
 
 
 def _from_question_mtuh(data: dict, cls, opt_callback):
@@ -183,11 +230,11 @@ def _from_qcalculatedmc(data: dict):
     data["synchronize"] = Synchronise(data["synchronize"])
     for i in range(len(data["datasets"])):
         data["datasets"][i] = _from_dataset(data["datasets"][i])
-    return _from_question_mtcs(data, QCalculatedMC, _from_acalculated)
+    return _from_question_mt(data, QCalculatedMC, _from_acalculated)
 
 
 def _from_qcloze(data: dict):
-    return _from_question_mt(data, QCloze, _from_clozeitem)
+    return _from_question_mt(data, QEmbedded, _from_clozeitem)
 
 
 def _from_qdescription(data: dict):
@@ -195,7 +242,7 @@ def _from_qdescription(data: dict):
 
 
 def _from_qdraganddroptext(data: dict):
-    return _from_question_mtcs(data, QDaDText, _from_draggroup)
+    return _from_question_mt(data, QDaDText, _from_draggroup)
 
 
 def _from_qdraganddropimage(data: dict, cls=None, callback=None):
@@ -203,7 +250,7 @@ def _from_qdraganddropimage(data: dict, cls=None, callback=None):
     for i in range(len(data["_zones"])):
         data["_zones"][i] = _from_dropzone(data["_zones"][i])
     data["zones"] = data.pop("_zones")
-    return _from_question_mtcs(data, cls if cls else QDaDImage,
+    return _from_question_mt(data, cls if cls else QDaDImage,
                                callback if callback else _from_dragimage)
 
 
@@ -219,15 +266,15 @@ def _from_qessay(data: dict):
 
 
 def _from_qmatching(data: dict):
-    return _from_question_mtcs(data, QMatching, _from_subquestion)
+    return _from_question_mt(data, QMatching, _from_subquestion)
 
 
 def _from_qrandommatching(data: dict):
-    return _from_question_mtcs(data, QRandomMatching, None)
+    return _from_question_mt(data, QRandomMatching, None)
 
 
 def _from_qmissingword(data: dict):
-    return _from_question_mtcs(data, QMissingWord, _from_selectoption)
+    return _from_question_mt(data, QMissingWord, _from_selectoption)
 
 
 def _from_qcrossword(data: dict):
@@ -238,7 +285,7 @@ def _from_qcrossword(data: dict):
 
 def _from_qmultichoice(data: dict):
     data["numbering"] = Numbering(data["numbering"])
-    return _from_question_mtcs(data, QMultichoice, _from_answer)
+    return _from_question_mt(data, QMultichoice, _from_answer)
 
 
 def _from_qnumerical(data: dict):
@@ -264,7 +311,7 @@ _QTYPE = {
     "QCalculated": _from_qcalculated,
     "QCalculatedSimple": _from_qcalculatedsimple,
     "QCalculatedMC": _from_qcalculatedmc,
-    "QCloze": _from_qcloze,
+    "QEmbedded": _from_qcloze,
     "QDescription": _from_qdescription,
     "QDaDText": _from_qdraganddroptext,
     "QDaDImage": _from_qdraganddropimage,

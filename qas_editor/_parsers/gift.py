@@ -60,7 +60,7 @@ def _from_qtruefalse(name: str, header: FText, stt: list, qst_blk: str):
     if qst_blk[stt[0]] != "}":
         fdbk_general = _next(stt, qst_blk, ("}"), 1)[3:]
     return QTrueFalse(correct, fdbk_true, fdbk_false, name=name,
-                      question=header, feedback=fdbk_general)
+                      question=header, remarks=fdbk_general)
 
 
 def _set_value_tolerance(mtype: str, val: str, tol: str):

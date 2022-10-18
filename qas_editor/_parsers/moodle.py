@@ -23,7 +23,7 @@ from xml.etree import ElementTree as et
 from ..answer import ACalculated, ANumerical, Answer, DragItem, DragGroup, \
                      DragImage, DropZone, Subquestion, SelectOption
 from ..question import QCalculated, QCalculatedMC, QDescription, QDaDImage,\
-                       QCalculatedSimple, QCloze, QMissingWord, QTrueFalse,\
+                       QCalculatedSimple, QEmbedded, QMissingWord, QTrueFalse,\
                        QDaDMarker, QNumerical, QDaDText, QEssay, QMatching,\
                        QMultichoice, QRandomMatching, QShortAnswer
 from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
@@ -42,7 +42,7 @@ def get_sympy(string: str) -> str:
     """
     if EXTRAS_FORMULAE:
         from sympy.parsing.sympy_parser import parse_expr 
-    result = []
+    ftext = []
     _vars = set()
     last = 0
     counter = 0
@@ -51,7 +51,7 @@ def get_sympy(string: str) -> str:
         if string[stt[0]] == "{" and not stt[1]:
             nxt(stt, string)
             if counter == 0:
-                result.append(string[last: stt[0]-1])
+                ftext.append(string[last: stt[0]-1])
                 last = stt[0]
                 if string[stt[0]] == "=" and not stt[1]:
                     last +=1
@@ -68,10 +68,11 @@ def get_sympy(string: str) -> str:
                     last = stt[0] + 1
                 elif expr.isalpha():
                     _vars |= expr
-                result.append(expr)
+                ftext.append(expr)
         nxt(stt, string)
-    result.append(string[last:])
-    return _vars, result
+    ftext.append(string[last:])
+    return _vars, ftext
+
 
 # -----------------------------------------------------------------------------
 
@@ -309,10 +310,10 @@ def _from_qcalcmultichoice(root: et.Element, tags: dict):
 
 def _from_qcloze(root: et.Element, tags: dict):
     data = _from_question_mt(root, tags)
-    text, opts = QCloze.get_items(data["question"].text)
+    text, opts = QEmbedded.get_items(data["question"].text)
     data["question"].text = text
     data["options"] = opts
-    return QCloze(**data)
+    return QEmbedded(**data)
 
 
 def _from_qdescription(root: et.Element, tags: dict):
@@ -640,9 +641,9 @@ def _to_qcalcmultichoice(qst: QCalculatedMC) -> et.Element:
     return question
 
 
-def _to_qcloze(qst: QCloze) -> et.Element:
+def _to_qcloze(qst: QEmbedded) -> et.Element:
     tmp = qst.question.text
-    qst.question.text = qst.pure_text(False)
+    qst.question.text = qst.to_cloze_text(False)
     question = _to_question_mt(qst, None)
     qst.question.text = tmp
     return question

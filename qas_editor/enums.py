@@ -29,7 +29,7 @@ class EnhancedEnum(Enum):
         obj = object.__new__(cls)
         obj._value_ = values[0]
         obj._comment_ = values[-1]
-        for other_value in values[1:-1]:
+        for other_value in values[1:]:
             cls._value2member_map_[other_value] = obj  # pylint: disable=E1101
         obj._all_values = values
         return obj
@@ -46,7 +46,7 @@ class EnhancedEnum(Enum):
         return self._comment_
 
 
-class ClozeFormat(EnhancedEnum):
+class EmbeddedFormat(EnhancedEnum):
     """Enumerates Cloze formats
     """
     SA = "SHORTANSWER", "MW", "SA", "Short, Case Insensitive"
@@ -78,9 +78,9 @@ class Distribution(EnhancedEnum):
 class FileType(Enum):
     """Define how a File class should behave.
     """
-    LOCAL = 1
-    B64 = 2
-    URL = 3
+    LOCAL = "Local"
+    EMBEDDED = "Embedded"
+    URL = "URL"
 
 
 class Grading(EnhancedEnum):
@@ -133,14 +133,14 @@ class ShapeType(Enum):
 class ShowAnswer(EnhancedEnum):
     """
     """
-    ALWAYS = "always"
+    ALWAYS = True, "always"
     ANSWERED = "answered"
     ATTEMPTED = "attempted"
     CLOSED = "closed"
     COR_PAST = "correct_or_past_due"
     FINISHED = "finished"
     PAST_DUE = "past_due"
-    NEVER = "never"
+    NEVER = False, "never"
 
 
 class ShowUnits(EnhancedEnum):
@@ -155,9 +155,9 @@ class ShowUnits(EnhancedEnum):
 class ShuffleType(EnhancedEnum):
     """
     """
-    ALWAYS = "always"
+    ALWAYS = True, "always"
     RESET = "on_reset"
-    NEVER = "never"
+    NEVER = False, "never"
     STUDENT = "per_student"
 
 

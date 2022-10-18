@@ -15,9 +15,10 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
-from ..question import QCloze
+from ..question import QEmbedded
 if TYPE_CHECKING:
     from ..category import Category
 
@@ -32,8 +33,8 @@ def _from_QCloze(buffer, embedded_name):
     else:
         name = "Cloze"
         text = data
-    text, opts = QCloze.get_items(text.strip())
-    return QCloze(name=name, question=text, options=opts)
+    text, opts = QEmbedded.from_cloze_text(text.strip())
+    return QEmbedded(name=name, question=text, options=opts)
 
 
 # -----------------------------------------------------------------------------
@@ -56,19 +57,20 @@ def read_cloze(cls, file_path: str, embedded_name=False) -> "Category":
     return top_quiz
 
 
-def write_cloze(cat, file_path: str, embedded_name=False):
+def write_cloze(cat: Category, file_path: str, embedded_name=False):
     """_summary_
 
     Args:
         file_path (str): _description_
     """
-    def _to_cloze(path, counter=0):
-        for question in cat.questions:
-            if isinstance(question, QCloze):
+    def _to_cloze(path: str, counter=0):
+        for item in cat.questions:
+            if isinstance(item, QEmbedded):
                 name = f"{path}_{counter}.cloze"
                 with open(name, "w", encoding="utf-8") as ofile:
-                    ofile.write(f"{question.pure_text(embedded_name)}\n")
+                    text = item.to_cloze_text(embedded_name)
+                    ofile.write(f"{text}\n")
                     counter += 1
         for child in cat:
-            _to_cloze(cat[child], f"{path}_{child.name}", counter)
+            _to_cloze(cat[child], f"{path}_{child}", counter)
     _to_cloze(file_path.rsplit(".", 1)[0])

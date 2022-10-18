@@ -20,11 +20,11 @@ from __future__ import annotations
 import re
 import logging
 from typing import TYPE_CHECKING
-from .enums import ClozeFormat, Grading, RespFormat, ShowUnits, ShowAnswer, ShuffleType,\
+from .enums import EmbeddedFormat, Grading, RespFormat, ShowUnits, ShowAnswer, ShuffleType,\
                    Distribution, Numbering, Synchronise, TextFormat, Status
 from .utils import Serializable, MarkerError, AnswerError, File, Dataset, \
                    FText, Hint, Unit, TList
-from .answer import ACalculated, ACrossWord, Answer, ClozeItem, ANumerical,\
+from .answer import ACalculated, ACrossWord, Answer, EmbeddedItem, ANumerical,\
                     DragGroup, DragImage, SelectOption, Subquestion,\
                     DropZone, DragItem
 if TYPE_CHECKING:
@@ -53,9 +53,9 @@ class _Question(Serializable):
 
     def __init__(self, name="qstn", default_grade=1.0, question: FText = None,
                  dbid: int = None, remarks: FText = None, tags: TList = None,
-                 feedbacks: Dict[float, FText] = None, time_lim: int = 60):
+                 feedbacks: Dict[float, FText] = None, time_lim: int = 60,
+                 notes: str = "", free_hints: list = None):
         """[summary]
-
         Args:
             name (str): name of the question
             question (FText): text of the question
@@ -67,16 +67,14 @@ class _Question(Serializable):
         self.default_grade = float(default_grade)
         self.time_lim = int(time_lim)
         self.dbid = int(dbid) if dbid else None
-        self.resettable = False
-        self.scripts: str = ""
-        self.notes: str = ""
+        self.notes = str(notes)
         self._question = FText()
         self.question = question
         self._remarks = FText()
         self.remarks = remarks
         self._feedbacks: Dict[float, FText] = feedbacks if feedbacks else {}
         self._tags = TList(str, tags)
-        self._free_hints = TList(str, tags)
+        self._free_hints = TList(str, free_hints)
         self.__parent = None
         _LOG.debug("New question (%s) created.", self)
 
@@ -141,8 +139,8 @@ class _QHasOptions(_Question):
     ANS_TYPE = None
 
     def __init__(self, options: list = None, hints: List[Hint] = None,
-                 max_tries=-1, shuffle: ShuffleType | bool = None,
-                 show_ans: ShowAnswer | bool = None, ordered=True, **kwargs):
+                 max_tries=-1, shuffle: ShuffleType | bool = False,
+                 show_ans: ShowAnswer | bool = False, ordered=True, **kwargs):
         super().__init__(**kwargs)
         self.max_tries = int(max_tries)
         self._fail_hints = [] if hints is None else hints
@@ -151,11 +149,11 @@ class _QHasOptions(_Question):
         if isinstance(show_ans, ShowAnswer):
             self.show_ans = show_ans
         else:
-            self.show_ans = ShowAnswer.ALWAYS if show_ans else ShowAnswer.NEVER
+            self.show_ans = ShowAnswer(show_ans)
         if isinstance(shuffle, ShuffleType):
             self.shuffle = shuffle
         else:
-            self.shuffle = ShuffleType.ALWAYS if shuffle else ShuffleType.NEVER
+            self.shuffle = ShuffleType(shuffle)
 
     @property
     def options(self) -> TList:
@@ -197,9 +195,8 @@ class QCalculated(_QHasUnits, _QHasOptions):
     QNAME = "Calculated"
     ANS_TYPE = ACalculated
 
-    def __init__(self, datasets: List[Dataset] = None,
-                 units: List[Unit] = None, synchronize: Synchronise = None,
-                 **kwargs):
+    def __init__(self, datasets: List[Dataset] = None, units: List[Unit] = None,
+                 synchronize: Synchronise = None, **kwargs):
         """[summary]
 
         Args:
@@ -257,13 +254,14 @@ class QCalculatedMC(_QHasOptions):
         self.datasets.append(data)
 
 
-class QCloze(_QHasOptions):
-    """An embedded question
+class QEmbedded(_QHasOptions):
+    """An embedded question. Questions are marked on the text list using a 
+    Marker defined using MARKER_INT.
     """
     MOODLE = "cloze"
     QNAME = "Cloze"
-    ANS_TYPE = ClozeItem
-    _PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
+    ANS_TYPE = EmbeddedItem
+    _CLOZE_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
 
     def check(self):
         markers = self.question.text.count(chr(MARKER_INT))
@@ -274,13 +272,13 @@ class QCloze(_QHasOptions):
                 raise AnswerError("All answer options have 0 grade")
 
     @staticmethod
-    def get_items(ftext: list) -> Tuple[list, list]:
+    def from_cloze_text(text: str) -> Tuple[list, list]:
         """Return a tuple with the Marked text and the data extracted.
         """
-        text = ftext.pop()
+        ftext = []
         start = 0
-        options = []
-        for match in QCloze._PATTERN.finditer(text):
+        items = []
+        for match in QEmbedded._CLOZE_PATTERN.finditer(text):
             opts = []
             for opt in match[3].split("~"):
                 if not opt:
@@ -297,30 +295,26 @@ class QCloze(_QHasOptions):
                 elif tmp[0] == "%":
                     frac, tmp = tmp[1:].split("%")
                     frac = float(frac)
-                feedback = FText("feedback", fdb, TextFormat.PLAIN)
+                feedback = FText("", fdb, TextFormat.PLAIN)
                 opts.append(Answer(frac, tmp, feedback, TextFormat.PLAIN))
-            item = ClozeItem(int(match[1]), ClozeFormat(match[2]), opts)
-            options.append(item)
+            item = EmbeddedItem(int(match[1]), EmbeddedFormat(match[2]), opts)
+            items.append(item)
             ftext.append(text[start: match.start()])
-            ftext.append(MARKER_INT)
+            ftext.append(item)
             start = match.end()
         ftext.append(text[start:])
-        return ftext, options
+        return ftext, items
 
-    def pure_text(self, embedded_name) -> str:
+    def to_cloze_text(self, embedded_name: bool) -> str:
         """Return the text formatted as expected by the end-tool, which is
         currently only moodle.
         """
-        char = chr(MARKER_INT)
-        find = self.question.get().find(char)
-        text = [self.name, "\n", self.question.text[:find]] if \
-            embedded_name else [self.question.text[:find]]
-        for question in self.options:
-            text.append(question.to_text())
-            end = self.question.get().find(char, find + 1)
-            text.append(self.question.text[find + 1: end])
-            find = end
-        text.append(self.question.text[-1])  # Wont be included by default
+        tmp = self.question.text.copy()
+        text = [self.name, "\n", *tmp] if embedded_name else tmp
+        for idx in range(len(text)):
+            item = text[idx]
+            if isinstance(item, EmbeddedItem):
+                text[idx] = item.to_cloze()
         return "".join(text)
 
 
@@ -413,9 +407,8 @@ class QEssay(_Question):
     def __init__(self, lines=10, attachments=0, max_bytes=0, file_types="",
                  rsp_required=True, atts_required=False,
                  min_words: int = None, max_words: int = None,
-                 grader_info: FText = None,
-                 template: FText = None, rsp_format=RespFormat.HTML,
-                 **kwargs):
+                 grader_info: FText = None, template: FText = None,
+                 rsp_format=RespFormat.HTML, **kwargs):
         super().__init__(**kwargs)
         self.rsp_format = rsp_format
         self.rsp_required = rsp_required
@@ -468,7 +461,7 @@ class QMissingWord(_QHasOptions):
             raise MarkerError("Incorrect number of marker in text.")
 
     @staticmethod
-    def get_items(text) -> Tuple[list, list]:
+    def get_items(text: str) -> Tuple[list, list]:
         """Return a tuple with the Marked text and the data extracted.
         """
         ftext = []

@@ -31,7 +31,7 @@ def test_read():
     assert question.QNAME == 'Multichoice'
     assert question.default_grade == 1.0
     assert question.name == 'aiken_1'
-    assert question.question.text == ("During the month of September 2013, "
+    assert question.question.get() == ("During the month of September 2013, "
                             "Moodle ran a successful MOOC for teachers new " 
                             "to Moodle. What was the name of the course?")
     assert len(question.options) == 3

@@ -118,6 +118,7 @@ def _escape_attrib_html(data):
         data = data.replace("\"", "&quot;")
     return data
 
+
 _latex_cache: Dict[str, str] = {}
 def render_latex(latex: str, ftype: FileType, scale=1.0):
     """TODO optimize. It has just too many calls. But at least it works...
@@ -144,7 +145,7 @@ def render_latex(latex: str, ftype: FileType, scale=1.0):
                          "\\begin{document}\n"+ latex + "\n\n\\end{document}")
             run_me(['latex', '-halt-on-error', '-interaction=nonstopmode',
                     'text.tex'])
-            if ftype == FileType.B64:
+            if ftype == FileType.EMBEDDED:
                 res = run_me(["dvisvgm", "--no-fonts", "--stdout", "text.dvi"])
                 res = str(base64.b64encode(res.stdout), "utf-8")
             else:
@@ -163,7 +164,7 @@ def render_latex(latex: str, ftype: FileType, scale=1.0):
             fig = figure.Figure(figsize=(width / 72, height / 72))
             fig.text(0, depth / height, latex, fontproperties=prop, color='Black')
             backend_agg.FigureCanvasAgg(fig)  # set the canvas used
-            if ftype != FileType.B64:
+            if ftype != FileType.EMBEDDED:
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
                 res = File(name, FileType.LOCAL, name, MediaType.IMAGE, **attr)
             else:
@@ -236,7 +237,7 @@ class TList(list):
     native we could use instead, it is worthy an PR to update.
     """
 
-    def __init__(self, obj_type: object, iterable=None):
+    def __init__(self, obj_type: type, iterable=None):
         super().__init__()
         self.__type = obj_type
         if iterable is not None:
@@ -291,14 +292,14 @@ class File(Serializable):
     """
 
     def __init__(self, name: str, ftype: FileType, source: str = None,
-                media: MediaType = MediaType.FILE, **kwargs):
+                 media: MediaType = None, **kwargs):
         super().__init__()
         self.name = name
         self.source = source
         self.metadata = kwargs
         self.path = source if ftype in (FileType.LOCAL, FileType.URL) else "/"
         self._type = ftype
-        self._media = media
+        self._media = media if media else MediaType.FILE
 
     def set_type(self, value: FileType):
         """Update the resource type and modify it to match that type. FileType
@@ -307,7 +308,7 @@ class File(Serializable):
         """
         if value in (FileType.URL, self._type):
             return  # We dont care about ANY or if the value is the same
-        elif value == FileType.B64:
+        elif value == FileType.EMBEDDED:
             if self._type == FileType.URL:
                 with request.urlopen(self.path) as ifile:
                     self.source = str(base64.b64encode(ifile.read()), "utf-8")
@@ -317,7 +318,7 @@ class File(Serializable):
         elif value == FileType.LOCAL:
             if self.path == "/":
                 with open(self.name, "w", "utf-8") as ifile:
-                    if value == FileType.B64:
+                    if value == FileType.EMBEDDED:
                         ifile.write(base64.b64decode(self.source))
                     elif value == FileType.URL:
                         with request.urlopen(self.path) as ofile:
@@ -373,74 +374,169 @@ class Dataset(Serializable):
         return f"{self.status.name} > {self.name} ({hex(id(self))})"
 
 
-class _HTMLResourceParser(HTMLParser):
+class QHTMLParser(HTMLParser):
     """TODO
     """
+    STARTEND = ["img", "input", "br", "hr", "meta"]
+
+    class Element:
+
+        def __init__(self, tag, attrib):
+            self.tag = tag
+            self.attrib = attrib
+            self._children = []
+            self.text = []
+
+        def __repr__(self):
+            return "<%s %r at %#x>" % (self.__class__.__name__, self.tag, id(self))
+
+        def __len__(self):
+            return len(self._children)
+
+        def __getitem__(self, index):
+            return self._children[index]
+
+        def __setitem__(self, index, element):
+            if isinstance(index, slice):
+                for elt in element:
+                    self._assert_is_element(elt)
+            else:
+                self._assert_is_element(element)
+            self._children[index] = element
+
+        def __delitem__(self, index):
+            del self._children[index]
+
 
     def __init__(self, *, convert_charrefs: bool = ...) -> None:
         super().__init__(convert_charrefs=convert_charrefs)
-        self.data = []
-    
-    def handle_starttag(self, tag, attrs):
-        if tag == "img":
-            pass
-        else:
-            self.data.append(f"<img")
+        self.data = QHTMLParser.Element("top")
+        self._current = self.data
+        self._parent: List[QHTMLParser.Element] = []
 
     def handle_data(self, data):
-        self.data.append(data)
+        if not self._current.text:
+            self._current.text = data
+        else:
+            self._current.tail = data
+
+    def handle_starttag(self, tag, attrs):
+        #print(f"{'-':>{len(self._parent)}}Start: {tag} {attrs}")
+        attrs = {k:v for k, v in attrs}
+        if tag not in self.STARTEND:
+            self._parent.append(self._current)
+            self._current = QHTMLParser.Element(tag, **attrs)
+            self._parent[-1].append(self._current)
+
+    def handle_endtag(self, tag: str) -> None:
+        self._current = self._parent.pop()
+        #print(f"{'-':>{len(self._parent)}}End: {tag}")
+
+    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]):
+        attrs = {k:v for k, v in attrs}
+        #print(f"{'.':>{len(self._parent)}}Startend: {tag}")
+        self._parent[-1].append(QHTMLParser.Element(tag, **attrs))
+
+    def handle_entityref(self, name: str) -> None:
+        print(f"Enti {name}")
+
+    def handle_charref(self, name: str) -> None:
+        print(f"Char {name}")
+
+    def handle_comment(self, data: str) -> None:
+        print(f"Comm {data}")
+
+    def handle_decl(self, decl: str) -> None:
+        print(f"Decl {decl}")
+
+    def handle_pi(self, data: str) -> None:
+        print(f"Pi {data}")
+
+    @staticmethod
+    def parse():
+        data = """<?xml version='1.0' encoding='utf-8'?>
+<p>a link <a href="https://github.com/nennigb/amc2moodle">here </a>and an image <img src="@@PLUGINFILE@@/4.png" alt="" role="presentation" style="" />and an equation \( \int_{2\pi} x^2 \mathrm{d} x \)</p>
+<p style="text-align: center;">centered text</p>
+<p style="text-align: left;">flush left text</p>
+<p style="text-align: right;">flush right text</p>
+<p style="text-align: left;">In moodle editor, there is also <sub>exponent</sub> and <sup>indice</sup> and <strike>that</strike></p>
+<p style="text-align: left;">and svg file <img src="@@PLUGINFILE@@/dessin.svg" alt="escargot" style="vertical-align: text-bottom; margin: 0 0.5em;" class="img-responsive" width="100" height="141" /><br /></p>
+"""
+        parser = QHTMLParser()
+        parser.feed(data)
+        parser.close()
+    #     return parser.data
+
+    # def write(self):
+        with open("test.xml", "w") as ofile:
+            ofile.write("<?xml version='1.0' encoding='utf-8'?>\n")
+            serialize_fxml(ofile.write, parser.data, True, True)
 
 
 class FText(Serializable):
     """A formated text. 
     """
 
-    def __init__(self, text="", formatting: TextFormat = None,
+    def __init__(self, text: str = "", formatting: TextFormat = None,
                  bfile: List[File] = None):
         super().__init__()
         self.formatting = TextFormat.AUTO if formatting is None else formatting
-        self._text = text
+        self._text = [text] if isinstance(text, str) else text
         self.bfile = bfile if bfile else []
-        self.math_type = MathType.PLAIN
+
+    def __str__(self) -> str:
+        return self.get()
 
     @property
     def text(self):
         return self._text
 
     @text.getter
-    def text(self) -> str:
+    def text(self) -> list:
         return self._text
 
     @text.setter
     def text(self, value):
-        if EXTRAS_FORMULAE:
-            if isinstance(value, str):
-                self._text = [value]
-        else:
+        if isinstance(value, str):
+            self._text = [value]
+        elif isinstance(value, list):
             self._text = value
+        else:
+            raise ValueError()
 
-    def get_string(self, resource_callback: Callable) -> str:
-        if not EXTRAS_FORMULAE and isinstance(self._text, str):
-            return self._text
+    def get(self, math_type: MathType = MathType.PLAIN,
+            resource_callback: Callable = None) -> str:
+        """_summary_
+        Args:
+            math_type (MathType, optional): _description_. Defaults to MathType.PLAIN.
+            resource_callback (Callable, optional): _description_. Defaults to None.
+        Raises:
+            TypeError: _description_
+        Returns:
+            str: _description_
+        """
+        if len(self._text) == 1 or not EXTRAS_FORMULAE:
+            return self._text[0]
         from sympy import printing, Symbol
         data = ""
         for item in self._text:  # Suposse few item, so no poor performance
-            if isinstance(item, str) or self.math_type == MathType.PLAIN:
+            if isinstance(item, str) or math_type == MathType.PLAIN:
                 data += str(item)
+            elif hasattr(item, "MARKER_INT"):
+                data += chr(item.MAKER_INT)
             elif EXTRAS_FORMULAE and isinstance(item, Symbol):
-                if self.math_type == MathType.LATEX:
+                if math_type == MathType.LATEX:
                     data += f"$${printing.latex(item)}$$"
-                elif self.math_type == MathType.MATHJAX:
+                elif math_type == MathType.MATHJAX:
                     data += f"[mathjax]{printing.latex(item)}[/mathjax]"
-                elif self.math_type == MathType.MATHML:
-                    data += printing.mathml(item)
-                elif self.math_type == MathType.ASCII:
-                    data += printing.pretty(item)
-                elif self.math_type == MathType.FILE:
+                elif math_type == MathType.MATHML:
+                    data += str(printing.mathml(item))
+                elif math_type == MathType.ASCII:
+                    data += str(printing.pretty(item))
+                elif math_type == MathType.FILE:
                     res = render_latex(printing.latex(item), FileType.LOCAL)
-                    resource_callback(res)
-            elif isinstance(item, File):
-                pass
+                    if callable(resource_callback):
+                        resource_callback(res)
             else:
                 raise TypeError()
         return data
@@ -453,7 +549,7 @@ class FText(Serializable):
             data = getattr(self, attr)
             if isinstance(value, FText):
                 setattr(self, attr, value)
-            elif isinstance(value, str):
+            elif isinstance(value, (list, str)):
                 data.text = value
             elif value is not None:
                 raise ValueError(f"Can't assign {value} to {attr}")

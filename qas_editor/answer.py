@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
-from .enums import TolFormat, TextFormat, ShapeType, ClozeFormat, Direction,\
+from .enums import TolFormat, TextFormat, ShapeType, EmbeddedFormat, Direction,\
                    TolType
 from .utils import Serializable, File, FText, TList
 if TYPE_CHECKING:
@@ -66,25 +66,26 @@ class ACalculated(ANumerical):
         self.alength = alength
 
 
-class ClozeItem(Serializable):
+class EmbeddedItem(Serializable):
     """A cloze item. It is embedded in parts of the question text marked by
     the <code>MARKER_INT</code> from the questions.py file. This item defile
     a question, which possible types are enumerated in <code>ClozeFormat</code>
     """
+    MARKER_INT = 9635
 
-    def __init__(self, grade: int, cformat: ClozeFormat,
+    def __init__(self, grade: int, cformat: EmbeddedFormat,
                  opts: List[Answer] = None):
         self.cformat = cformat
         self.grade = grade
         self.opts = TList(Answer, opts)
 
-    def to_text(self) -> str:
+    def to_cloze(self) -> str:
         """A
         """
         text = ["{", f"{self.grade}:{self.cformat.value}:"]
-        opt = self.opts[0]
+        opt: Answer = self.opts[0]
         text.append(f"{'=' if opt.fraction == 100 else ''}{opt.text}#"
-                    f"{opt.feedback.text if opt.feedback else ''}")
+                    f"{opt.feedback.get() if opt.feedback else ''}")
         for opt in self.opts[1:]:
             if opt.fraction == 100:
                 fraction = "="
@@ -92,7 +93,7 @@ class ClozeItem(Serializable):
                 fraction = ""
             else:
                 fraction = f"%{int(opt.fraction)}%"
-            feedback = opt.feedback.text if opt.feedback else ''
+            feedback = opt.feedback.get() if opt.feedback else ''
             text.append(f"~{fraction}{opt.text}#{feedback}")
         text.append("}")
         return "".join(text)

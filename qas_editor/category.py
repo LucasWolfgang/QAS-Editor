@@ -175,7 +175,7 @@ class Category(Serializable):  # pylint: disable=R0904
         for question in self.__questions:
             if (title is None or re.search(title, question.name)) and \
                  (tags is None or set(tags).issubset(set(question.tags))) and\
-                 (text is None or re.search(text, question.question.text)) and\
+                 (text is None or re.search(text, question.question.get())) and\
                  (qtype is None or isinstance(question, qtype)) and \
                  (dbid is None or dbid == question.dbid):
                 results.append(question)

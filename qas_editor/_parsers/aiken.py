@@ -85,7 +85,7 @@ def write_aiken(category: "Category", file_path: str) -> None:
     def _to_aiken(cat: "Category", writer) -> str:
         for question in cat.questions:
             if isinstance(question, QMultichoice):
-                writer(f"{question.question.text}\n")
+                writer(f"{question.question.get()}\n")
                 correct = "ANSWER: None\n\n"
                 for num, ans in enumerate(question.options):
                     writer(f"{chr(num+65)}) {ans.text}\n")
