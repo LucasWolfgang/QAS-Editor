@@ -3,15 +3,13 @@
         {
             "name": "Essai1",
             "_question": {
-              "name": "questiontext",
-              "text": "Explain in few words the aim of this course.<br>",
+              "_text": "Explain in few words the aim of this course.<br>",
               "formatting": "html",
               "bfile": []
             },
             "default_grade": 1.1,
-            "_feedback": {
-              "name": "generalfeedback",
-              "text": "",
+            "_remarks": {
+              "_text": "",
               "formatting": "html",
               "bfile": []
             },
@@ -25,14 +23,12 @@
             "max_bytes": 0,
             "file_types": "",
             "grader_info": {
-              "name": "graderinfo",
-              "text": "",
+              "_text": "",
               "formatting": "html",
               "bfile": []
             },
             "template": {
-              "name": "responsetemplate",
-              "text": "",
+              "_text": "",
               "formatting": "html",
               "bfile": []
             },
