@@ -151,7 +151,7 @@ def render_latex(latex: str, ftype: FileType, scale=1.0):
             else:
                 run_me("dvisvgm", "--no-fonts", "-o", name, "text.dvi")
                 shutil.move(f"{workdir}/{name}", ".")
-                res = File(name, FileType.LOCAL, name, MediaType.IMAGE, **attr)
+                res = File(name, FileType.LOCAL, name, **attr)
     elif EXTRAS_FORMULAE:
         from matplotlib import figure, font_manager, mathtext
         from matplotlib.backends import backend_agg
@@ -166,7 +166,7 @@ def render_latex(latex: str, ftype: FileType, scale=1.0):
             backend_agg.FigureCanvasAgg(fig)  # set the canvas used
             if ftype != FileType.EMBEDDED:
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
-                res = File(name, FileType.LOCAL, name, MediaType.IMAGE, **attr)
+                res = File(name, FileType.LOCAL, name, **attr)
             else:
                 buffer = BytesIO()
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
@@ -291,15 +291,22 @@ class File(Serializable):
     converted into B64 to be embedded. May also change in the future.
     """
 
-    def __init__(self, name: str, ftype: FileType, source: str = None,
-                 media: MediaType = None, **kwargs):
+    MEDIA_TYPES = {("jpeg", "jpg", "png", "svg"): MediaType.IMAGE}
+
+    def __init__(self, name: str, ftype: FileType, source: str = None, **kwargs):
         super().__init__()
         self.name = name
         self.source = source
         self.metadata = kwargs
         self.path = source if ftype in (FileType.LOCAL, FileType.URL) else "/"
         self._type = ftype
-        self._media = media if media else MediaType.FILE
+        ext = name.rsplit(".", 1)[-1]
+        for media_ext in self.MEDIA_TYPES:
+            if ext in media_ext:
+                self._media = self.MEDIA_TYPES[media_ext]
+                break
+        else:
+            self._media = MediaType.File
 
     def set_type(self, value: FileType):
         """Update the resource type and modify it to match that type. FileType

@@ -51,12 +51,15 @@ def _from_json(data: dict, cls):
     return None
 
 
-def _from_b64file(data: dict):
+def _from_file(data: dict):
     if data is None:
         return None
     data["ftype"] = FileType(data.pop("_type"))
     if "_media" in data:
         data["_media"] = MediaType(data["_media"])
+    data.pop("path")
+    if data["metadata"]:
+        data.update(data.pop("metadata"))
     return _from_json(data, File)
 
 
@@ -78,7 +81,7 @@ def _from_ftext(data: dict):
     data["formatting"] = TextFormat(data["formatting"])
     data["text"] = data.pop("_text")
     for index in range(len(data["bfile"])):
-        data["bfile"][index] = _from_b64file(data["bfile"][index])
+        data["bfile"][index] = _from_file(data["bfile"][index])
     return _from_json(data, FText)
 
 
@@ -150,7 +153,7 @@ def _from_draggroup(data: dict):
 def _from_dragimage(data: dict):
     if data is None:
         return None
-    data["image"] = _from_b64file(data["image"])
+    data["image"] = _from_file(data["image"])
     return DragImage(**data)
 
 
@@ -246,7 +249,7 @@ def _from_qdraganddroptext(data: dict):
 
 
 def _from_qdraganddropimage(data: dict, cls=None, callback=None):
-    data["background"] = _from_b64file(data["background"])
+    data["background"] = _from_file(data["background"])
     for i in range(len(data["_zones"])):
         data["_zones"][i] = _from_dropzone(data["_zones"][i])
     data["zones"] = data.pop("_zones")
