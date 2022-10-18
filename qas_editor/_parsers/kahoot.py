@@ -56,7 +56,7 @@ def write_kahoot(self, file_path: str):
             if not isinstance(qst, QMultichoice):
                 continue
             qst.check()
-            data = [str(num), qst.question.text]
+            data = [str(num), qst.question.get()]
             correct = []
             if len(qst.options) > 4:
                 _LOG.warning("Kahoot: question %s has more than 4 options. "

@@ -126,7 +126,7 @@ class _Question(Serializable):
                 or (self.dbid is not None and not isinstance(self.dbid, int))
                 or self.default_grade < 0):
             raise ValueError("Invalid value(s).")
-        for key, value in self._feedback.items():
+        for key, value in self._feedbacks.items():
             if not isinstance(key, float) or not isinstance(value, FText):
                 raise TypeError()
 
