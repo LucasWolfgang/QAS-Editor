@@ -1,0 +1,81 @@
+{
+    "_Category__questions": [
+        {
+            "name": "Drag and Drop Text and Image",
+            "_question": {
+                "_text": "<p><em>Six sentences have been removed from the article. Choose from sentences A - G the one which first each gap. There is one extra sentence which you do not need to use.</em></p>\n      <h4 style=\"text-align: center;\">How a music festival turned into a money-making monster</h4>\n      <p><span style=\"background-color: #ffff00; font-size: x-small;\">A.</span> When the American 90s rock band Pearl Jam put on a concert in the dried-up, baking-hot Coachella Valley in California, it was an attempt to prove that they could break away from the monopoly of the concert giant TicketMaster, who, they believed, was using its considerable power to exploit music fans by continually increasing prices. Their concert was well attended and inspired the idea for a future, more ambitious event. Naturally, nobody could have predicted quite how important Coachella would eventually become.</p>\n      <p><span style=\"background-color: #ffff00; font-size: x-small;\">B.</span> Six years later, in 1999, the same venue hosted its first weekend-long music festival. Although initially making a loss, this was blamed on the unbearably high temperatures and the lack of available campsite facilities. [[1]] What's more, it took only a few more years until its quality line-ups, from small bands to headliners, were attracting worldwide attention.</p>\n      <p><span style=\"background-color: #ffff00; font-size: x-small;\">C.</span> </span><span>\u00a0If one band is responsible for confirming Coachella's arrival on the world stage, it is Daft Punk's iconic appearance there in 2006.<span>\u00a0[[2]]</span> As a direct result of the festival's success, promoters expanded it to a three-day event, and in 2009, Coachella presented its most mainstream line-up, including Paul McCartney, the Killers, and The Cure. The following year Jay-Z became the first rap headliner and by 2012 such was the popularity of Coachella that it had developed into two weekends of three-day shows.</p>\n      <p><span><span style=\"background-color: #ffff00; font-size: x-small;\">D.</span> </span>In an effort to attract America's impoverished younger generation to an expensive annual visit to the desert, the promoters made two clever decisions. One smart move was to get a much-missed band or singer such as Rage Against the Machine to reform every year. Most notable was a holographic representation of the late rapper 2Pac in 2012.\u00a0<span>[[3]]</span> ln a stroke of genius, they decided to cater for the section of the audience who adored the music that used to be labelled electronic and who flocked to dance in big tents to their favourite DJs.</p>\n      <p><span style=\"background-color: #ffff00; font-size: x-small;\">E.</span> </span>By keeping its cool musical reputation, the festival would go from strength to strength. In 2016, half a million fans bought their tickets in under 20 minutes, and each year around 100,000 attendees a day now splash out around $375 on admission. Of course, the costs don't stop there. <span>[[4]]\u00a0</span>It is now the most profitable festival in the world.</p>\n      <p><span style=\"background-color: #ffff00; font-size: x-small;\">F.</span> </span>Just two hours from Los Angeles, Coachella swiftly became the place to see and be seen. <span>[[5]]\u00a0</span>The presence of models and other celebrities soon began to attract style bloggers, drawn by the fashion rather than the music. Which, in turn, has made Coachella irresistible to fashion houses, beauty companies and other lifestyle labels.</p>\n      <p><span style=\"background-color: #ffff00; font-size: x-small;\">G.</span> Although for several years luxury brands have been hosting free concerts and pool parties for invited guests and photographing Instagram stars modelling designer clothes, this has until recently been outside festival hours. <span>[[6]]\u00a0</span>As a result, they are now effectively separate events, to the point that 'No-chella' as it has become known, is, in the opinion of some, in danger of overshadowing the 'real' festival.</p>\n      <p>Coachella has certainly come a long way from the original anti-establishment Pearl Jam gig.</p>",
+                "formatting": "html",
+                "bfile": []
+            },
+            "default_grade": 6.0,
+            "dbid": null,
+            "shuffle": true,
+            "tags": null,
+            "_remarks": {
+                "_text": "",
+                "formatting": "html",
+                "bfile": []
+            },
+            "_fail_hints": [],
+            "_feedbacks": {
+                "100": {
+                    "text": "<p>Your answer is correct.</p>",
+                    "formatting": "html",
+                    "bfile": []
+                },
+                "50": {
+                    "text": "<p>Your answer is partially correct.</p>",
+                    "formatting": "html",
+                    "bfile": []
+                },
+                "0": {
+                    "text": "<p>Your answer is incorrect.</p>",
+                    "formatting": "html",
+                    "bfile": []
+                }
+            },
+            "show_ans": true,
+            "max_tries": 3,
+            "_options": [
+                {
+                    "text": "E. Fortunately, these issues were soon resolved.",
+                    "group": 1,
+                    "no_of_drags": 1
+                },
+                {
+                    "text": "C. Fear of missing out on another such memorable performance caused huge demand for tickets the following year.",
+                    "group": 1,
+                    "no_of_drags": 1
+                },
+                {
+                    "text": "G. Their other idea was even more brilliant.",
+                    "group": 1,
+                    "no_of_drags": 1
+                },
+                {
+                    "text": "B. When refreshments, merchandise, transport and accommodation are taken into account, the expense of attending rises dramatically.",
+                    "group": 1,
+                    "no_of_drags": 1
+                },
+                {
+                    "text": "A. The appeal of its location - palm trees, guaranteed sunshine, warm temperatures - is not difficult to understand.",
+                    "group": 1,
+                    "no_of_drags": 1
+                },
+                {
+                    "text": "D. Lately, however, increasingly extravagant marketing by the fashion industry means that attendees are now preferring to stay away from the music concert itself.",
+                    "group": 1,
+                    "no_of_drags": 1
+                },
+                {
+                    "text": "F. On this occasion, medical professionals treated numerous audience members for heatstroke.",
+                    "group": 1,
+                    "no_of_drags": 1
+                }
+            ],
+            "__clsname__": "QDaDText"
+        }
+    ],
+    "_Category__categories": {},
+    "_Category__name": "$course$"
+}

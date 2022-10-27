@@ -1,0 +1,975 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<quiz>
+  <question type="category">
+    <category>
+      <text>qas editor/Some descriptions</text>
+    </category>
+    <info format="moodle_auto_format">
+      <text>Some comments</text>
+    </info>
+    <idnumber></idnumber>
+  </question>
+
+  <question type="description">
+    <name>
+      <text>Test description</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of a description question type - which is not so much a question as a description.</p>
+<p>It serves as a space to give an explanation of a point or to provide some resources such as image, video which might be used over several other questions.</p>
+<p>This quiz is about the history of Moodle. You will find it very useful to refer to <a href="http://docs.moodle.org/history" target="_blank">http://docs.moodle.org/en/History</a></p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>0.0000000</defaultgrade>
+    <penalty>0.0000000</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+  </question>
+
+  <question type="category">
+    <category>
+      <text>qas editor/Some Essays</text>
+    </category>
+    <info format="moodle_auto_format">
+      <text>Some comments</text>
+    </info>
+    <idnumber></idnumber>
+  </question>
+
+  <question type="essay">
+    <name>
+      <text>Test Essay 1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of an essay question. It has to be manually graded and so you won't get the final grade for this quiz.</p>
+<p>In 50 words, explain which question type you think you will use the most &nbsp;-and why - and then which question type you will use the least - and why?</p>
+<p> Upload a screenshot (in an appropriate image format) of a question you have designed. </p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.0000000</penalty>
+    <hidden>0</hidden>
+    <idnumber>432</idnumber>
+    <responseformat>editor</responseformat>
+    <responserequired>1</responserequired>
+    <responsefieldlines>15</responsefieldlines>
+    <minwordlimit></minwordlimit>
+    <maxwordlimit></maxwordlimit>
+    <attachments>1</attachments>
+    <attachmentsrequired>0</attachmentsrequired>
+    <maxbytes>1048576</maxbytes>
+    <filetypeslist>image</filetypeslist>
+    <graderinfo format="html">
+      <text><![CDATA[<p dir="ltr" style="text-align: left;">grader info<br></p>]]></text>
+    </graderinfo>
+    <responsetemplate format="html">
+      <text><![CDATA[<h4>Most useful question type:</h4>
+<h4>Least useful question type:</h4>]]></text>
+    </responsetemplate>
+
+  <question type="essay">
+    <name>
+      <text>Test Essay 1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of an essay question. It has to be manually graded and so you won't get the final grade for this quiz.</p>
+<p>In 50 words, explain which question type you think you will use the most &nbsp;-and why - and then which question type you will use the least - and why?</p>
+<p> Upload a screenshot (in an appropriate image format) of a question you have designed. </p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p dir="ltr" style="text-align: left;">test123<br></p>]]></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.0000000</penalty>
+    <hidden>0</hidden>
+    <idnumber>432</idnumber>
+    <responseformat>editor</responseformat>
+    <responserequired>1</responserequired>
+    <responsefieldlines>15</responsefieldlines>
+    <minwordlimit></minwordlimit>
+    <maxwordlimit></maxwordlimit>
+    <attachments>1</attachments>
+    <attachmentsrequired>0</attachmentsrequired>
+    <maxbytes>1048576</maxbytes>
+    <filetypeslist>image</filetypeslist>
+    <graderinfo format="html">
+      <text><![CDATA[<p dir="ltr" style="text-align: left;">grader info<br></p>]]></text>
+    </graderinfo>
+    <responsetemplate format="html">
+      <text><![CDATA[<h4>Most useful question type:</h4>
+<h4>Least useful question type:</h4>]]></text>
+    </responsetemplate>
+
+  <question type="category">
+    <category>
+      <text>qas editor/Some True-False</text>
+    </category>
+    <info format="moodle_auto_format">
+      <text>Some comments</text>
+    </info>
+    <idnumber></idnumber>
+  </question>
+
+   <!-- question: 1004  -->
+  <question type="truefalse">
+    <name>
+      <text>Test TF 1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This <em>True/False</em> question has a ‘Check’ button that allows you to obtain feedback on your response straightaway therefore this question is not operating in <em>deferred feedback</em> mode.</p>
+<p>Is this statement true or false? Select your choice and press Check.</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p>This question is operating with <em>Interactive with multiple tries</em> behaviour – but, of course, there’s little sense in offering multiple tries at a True/False question and as we’re sensible we don’t.</p>
+<p>But you do get instant feedback and I suggest that you have read this text before looking at your mark. <em>Interactive</em> questions have been designed so that the student's focus is on the feedback.</p>
+<p>Please take a moment to look around the components of this question now that you have completed it. In the grey status panel you will see</p>
+<ul>
+<li>The question number, '1'.</li>
+<li>The question status, correct or incorrect depending on your answer.</li>
+<li>And your mark.</li>
+</ul>
+<p>And in the question area you will see</p>
+<ul>
+<li>The Question – on blue</li>
+<li>Your response – now on a green background if your answer was correct; red if it was incorrect</li>
+<li>The Specific feedback to your response – at the beginning of the yellow area</li>
+<li>The General feedback that is shown to all students when the question completes – this text, also on yellow</li>
+</ul>
+<p>These seven features are common to all questions.</p>]]></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>1.0000000</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <answer fraction="100" format="moodle_auto_format">
+      <text>true</text>
+      <feedback format="html">
+        <text><![CDATA[<p>Your answer is correct and this is the instant feedback to prove it.</p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="0" format="moodle_auto_format">
+      <text>false</text>
+      <feedback format="html">
+        <text><![CDATA[<p>Your answer is incorrect. By pressing check you receive immediate feedback and learn that this question is not exhibiting <em>deferred feedback</em> behaviour.</p>]]></text>
+      </feedback>
+    </answer>
+  </question>
+
+   <!-- question: 1004  -->
+  <question type="truefalse">
+    <name>
+      <text>Test TF 2</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This <em>True/False</em> question has a ‘Check’ button that allows you to obtain feedback on your response straightaway therefore this question is not operating in <em>deferred feedback</em> mode.</p>
+<p>Is this statement true or false? Select your choice and press Check.</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>1.0000000</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <answer fraction="100" format="moodle_auto_format">
+      <text>true</text>
+      <feedback format="html">
+        <text></text>
+      </feedback>
+    </answer>
+    <answer fraction="0" format="moodle_auto_format">
+      <text>false</text>
+      <feedback format="html">
+        <text></text>
+      </feedback>
+    </answer>
+  </question>
+
+<!-- question: 1390  -->
+  <question type="truefalse">
+    <name>
+      <text>Test TF 3</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[This is an example of a True/False question type.
+
+This picture represents the release of  Moodle 2.1. True or false?<br><img src="@@PLUGINFILE@@/moodlewhich.jpg" alt="" role="presentation" style="vertical-align:text-bottom; margin: 0 .5em;" class="img-responsive" height="178" width="250"><br>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>1.0000000</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <answer fraction="100" format="moodle_auto_format">
+      <text>true</text>
+      <feedback format="html">
+        <text><![CDATA[Yes. Did you just know? Or did you know the secret signs? Each new version of Moodle until Moodle 3.5&nbsp; brought a new photo of Martin's children.
+
+The correct answer is 'True'.]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="0" format="moodle_auto_format">
+      <text>false</text>
+      <feedback format="html">
+        <text><![CDATA[Each new version of Moodle until Moodle 3.5&nbsp; brought a new photo of Martin's children. The correct answer is 'True'.]]></text>
+      </feedback>
+    </answer>
+
+   <!-- question: 1390  -->
+  <question type="truefalse">
+    <name>
+      <text>Test TF 4</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[This is an example of a True/False question type.
+
+This picture represents the release of  Moodle 2.1. True or false?<br><img src="@@PLUGINFILE@@/moodlewhich.jpg" alt="" role="presentation" style="vertical-align:text-bottom; margin: 0 .5em;" class="img-responsive" height="178" width="250"><br>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>1.0000000</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <answer fraction="0" format="moodle_auto_format">
+      <text>true</text>
+      <feedback format="html">
+        <text></text>
+      </feedback>
+    </answer>
+    <answer fraction="100" format="moodle_auto_format">
+      <text>false</text>
+      <feedback format="html">
+        <text></text>
+      </feedback>
+    </answer>
+
+  <question type="category">
+    <category>
+      <text>qas editor/Some Numericals</text>
+    </category>
+    <info format="moodle_auto_format">
+      <text>Some comments</text>
+    </info>
+    <idnumber></idnumber>
+  </question>
+
+<!-- question: 989  -->
+  <question type="numerical">
+    <name>
+      <text>Test Numerical: 1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of a simple numerical question.</p>
+<p>When did mojitos become the official Moodle Moot drink?</p>
+<p><img src="@@PLUGINFILE@@/Mojito.jpg" alt="from Keno Wikipedia" width="106" height="200" /></p>
+<p>(<a href="http://commons.wikimedia.org/wiki/File:Mojito.jpg">image thanks to Keno</a>)</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.0000000</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <answer fraction="100" format="moodle_auto_format">
+      <text>2006</text>
+      <feedback format="html">
+        <text><![CDATA[<p>Well they were first drunk at the Spanish Moot in 2005 and although we're not quite sure when they made the transition to "official" they were certainly official by 2007. So we're giving you some freedom here :)</p>]]></text>
+      </feedback>
+      <tolerance>1</tolerance>
+    </answer>
+    <answer fraction="0" format="moodle_auto_format">
+      <text>*</text>
+      <feedback format="html">
+        <text><![CDATA[<p>Although it's not quite sure which exact year they became official, your choice is definitely not one of the possible years.</p>]]></text>
+      </feedback>
+      <tolerance>0</tolerance>
+    </answer>
+    <unitgradingtype>0</unitgradingtype>
+    <unitpenalty>0.1000000</unitpenalty>
+    <showunits>3</showunits>
+    <unitsleft>0</unitsleft>
+    <hint format="html">
+      <text><![CDATA[<p>Look in the Moodle History page we referenced before!</p>]]></text>
+    </hint>
+  </question>
+
+<!-- question: 1002  -->
+  <question type="numerical">
+    <name>
+      <text>Test Numerical: 2</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p><span style="text-decoration: underline;">This is a <em>Numerical</em> question.</span></p>
+<p>Solve $$x^2 + 3x - 28 = 0$$<br /><br />Enter either of the possible answers.</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p>The quadratic equation is $$\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$</p>
+<p>a = 1, b = 3 and c = -28.</p>
+<p>$$x = \frac{-3 \pm \sqrt{3^2 - 4\times 1\times(-28)}}{2\times a}$$<br /><br />$$x = \frac{-3 \pm \sqrt{9 + 112}}{2}$$<br /><br /> $$x = \frac{-3 \pm \sqrt{121}}{2}$$<br /><br /> $$x = \frac{-3 \pm 11}{2}$$<br /><br /> $$x = \frac{-14}{2}$$ or $$\frac{8}{2}$$</p>
+<p>and the solutions are x = -7 and x = 4.</p>
+<p>We can prove these are correct by substituting the values into the original equation.</p>
+<p>$$(-7)^2 + 3\times(-7) - 28 = 49 - 21 - 28 = 0$$</p>
+<p>$$4^2 + 3\times4 - 28 = 16 + 12 -28 = 0$$</p>]]></text>
+      </feedback>
+      <tolerance>0</tolerance>
+    </answer>
+    <answer fraction="100" format="moodle_auto_format">
+      <text>4</text>
+      <feedback format="html">
+        <text><![CDATA[<p>Your answer is correct.</p>]]></text>
+      </feedback>
+      <tolerance>0</tolerance>
+    </answer>
+    <answer fraction="0" format="moodle_auto_format">
+      <text>*</text>
+      <feedback format="html">
+        <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>
+      </feedback>
+      <tolerance>0</tolerance>
+    </answer>
+    <unitgradingtype>0</unitgradingtype>
+    <unitpenalty>0.0000000</unitpenalty>
+    <showunits>3</showunits>
+    <unitsleft>0</unitsleft>
+    <hint format="html">
+      <text><![CDATA[<p>You may need to be reminded of the quadratic formula<br />$$\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$</p>]]></text>
+    </hint>
+    <hint format="html">
+      <text><![CDATA[<p>You will need to substitute for a, b and c in the quadratic formula<br />$$\frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$<br /><br />a is the coefficient for $$x^2$$, b is coefficient for $$x$$ and c is the constant.</p>]]></text>
+    </hint>
+  </question>
+
+   <question type="numerical">
+      <name>
+         <text>Test Numerical: 3</text>
+      </name>
+      <questiontext format="moodle_auto_format">
+         <text>What is a number from 1 to 5?</text>
+      </questiontext>
+      <generalfeedback format="moodle_auto_format">
+         <text></text>
+      </generalfeedback>
+      <defaultgrade>1</defaultgrade>
+      <penalty>0.3333333</penalty>
+      <hidden>0</hidden>
+      <idnumber></idnumber>
+      <answer fraction="100" format="moodle_auto_format">
+         <text>3</text>
+         <feedback format="moodle_auto_format">
+         <text></text>
+         </feedback>
+         <tolerance>2</tolerance>
+      </answer>
+      <unitgradingtype>0</unitgradingtype>
+      <unitpenalty>1.0000000</unitpenalty>
+      <showunits>3</showunits>
+      <unitsleft>0</unitsleft>
+  </question>
+
+   <question type="numerical">
+      <name>
+         <text>Test Numerical: 4</text>
+      </name>
+      <questiontext format="moodle_auto_format">
+         <text>What is a number from 1 to 5?</text>
+      </questiontext>
+      <generalfeedback format="moodle_auto_format">
+         <text></text>
+      </generalfeedback>
+      <defaultgrade>1</defaultgrade>
+      <penalty>0.3333333</penalty>
+      <hidden>0</hidden>
+      <idnumber></idnumber>
+      <answer fraction="100" format="moodle_auto_format">
+         <text>3</text>
+         <feedback format="moodle_auto_format">
+         <text></text>
+         </feedback>
+         <tolerance>2</tolerance>
+      </answer>
+      <unitgradingtype>0</unitgradingtype>
+      <unitpenalty>1.0000000</unitpenalty>
+      <showunits>3</showunits>
+      <unitsleft>0</unitsleft>
+   </question>
+
+  <question type="category">
+    <category>
+      <text>qas editor/Some Missing Words</text>
+    </category>
+    <info format="moodle_auto_format">
+      <text>Some comments</text>
+    </info>
+    <idnumber></idnumber>
+  </question>
+
+   <question type="gapselect">
+    <name>
+      <text>MW Test</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p dir="ltr" style="text-align: left;">This is a [[1]] kind of question<br></p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p dir="ltr" style="text-align: left;">Generic feedback<br></p>]]></text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <shuffleanswers>1</shuffleanswers>
+    <correctfeedback format="html">
+      <text>Your answer is correct.</text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text>Your answer is partially correct.</text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text>Your answer is incorrect.</text>
+    </incorrectfeedback>
+    <shownumcorrect/>
+    <selectoption>
+      <text>Missing Word</text>
+      <group>1</group>
+    </selectoption>
+    <selectoption>
+      <text>Not Missing Word</text>
+      <group>1</group>
+    </selectoption>
+    <selectoption>
+      <text>Another thing</text>
+      <group>1</group>
+    </selectoption>
+    <selectoption>
+      <text>And a Test</text>
+      <group>1</group>
+    </selectoption>
+    <hint format="html">
+      <text><![CDATA[<p dir="ltr" style="text-align: left;">A hint<br></p>]]></text>
+      <clearwrong/>
+    </hint>
+    <hint format="html">
+      <text></text>
+      <shownumcorrect/>
+    </hint>
+   </question>
+
+   <question type="multichoice">
+      <name>
+         <text>Moodle costs _____ to download from moodle.org.</text>
+      </name>
+      <questiontext format="moodle_auto_format">
+         <text>Moodle costs _____ to download from moodle.org.</text>
+      </questiontext>
+      <generalfeedback format="moodle_auto_format">
+         <text></text>
+      </generalfeedback>
+      <defaultgrade>1</defaultgrade>
+      <penalty>0.3333333</penalty>
+      <hidden>0</hidden>
+      <idnumber></idnumber>
+      <single>true</single>
+      <shuffleanswers>true</shuffleanswers>
+      <answernumbering>abc</answernumbering>
+      <showstandardinstruction>0</showstandardinstruction>
+      <correctfeedback format="moodle_auto_format">
+         <text></text>
+      </correctfeedback>
+      <partiallycorrectfeedback format="moodle_auto_format">
+         <text></text>
+      </partiallycorrectfeedback>
+      <incorrectfeedback format="moodle_auto_format">
+         <text></text>
+      </incorrectfeedback>
+      <answer fraction="0" format="moodle_auto_format">
+         <text>lots of money</text>
+         <feedback format="moodle_auto_format">
+         <text></text>
+         </feedback>
+      </answer>
+      <answer fraction="100" format="moodle_auto_format">
+         <text>nothing</text>
+         <feedback format="moodle_auto_format">
+         <text></text>
+         </feedback>
+      </answer>
+      <answer fraction="0" format="moodle_auto_format">
+         <text>a small amount</text>
+         <feedback format="moodle_auto_format">
+         <text></text>
+         </feedback>
+      </answer>
+   </question>
+
+  <question type="category">
+    <category>
+      <text>qas editor/Matching</text>
+    </category>
+    <info format="moodle_auto_format">
+      <text>Some comments</text>
+    </info>
+    <idnumber></idnumber>
+  </question>
+
+  <question type="matching">
+    <name>
+      <text>h1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Match the cool Moodle features with the version in which they first appeared:</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <shuffleanswers>true</shuffleanswers>
+    <correctfeedback format="html">
+      <text><![CDATA[<p>Your answer is correct.</p>]]></text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is partially correct.</p>]]></text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>
+    </incorrectfeedback>
+    <shownumcorrect/>
+    <subquestion format="html">
+      <text><![CDATA[<p>Drag and drop files</p>]]></text>
+      <answer>
+        <text>Moodle 2.3</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p>Groupings</p>]]></text>
+      <answer>
+        <text>Moodle 1.9</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p>Repositories</p>]]></text>
+      <answer>
+        <text>Moodle 2.0</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text></text>
+      <answer>
+        <text>Moodle 2.5</text>
+      </answer>
+    </subquestion>
+  </question>
+
+  <question type="matching">
+    <name>
+      <text>matching</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of a matching question type.</p><p><span style="font-size: 14px;">Match the Moodle features to the versions they appeared in:</span><br></p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">You can use the&nbsp;http://docs.moodle.org/dev/Releases to help you locate the features and versions.</span><br></p>]]></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.0000000</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <shuffleanswers>true</shuffleanswers>
+    <correctfeedback format="html">
+      <text>Your answer is correct.</text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text>Your answer is partially correct.</text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text>Your answer is incorrect.</text>
+    </incorrectfeedback>
+    <shownumcorrect/>
+    <subquestion format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">H5P was first added as standard (with limited functionality) in&nbsp;</span></p>]]></text>
+      <answer>
+        <text>Moodle 3.8</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">Adding sound and video in the Atto editor was first added in</span></p>]]></text>
+      <answer>
+        <text>Moodle 3.5</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">A new Activity chooser was added in</span></p>]]></text>
+      <answer>
+        <text>Moodle 3.9</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p>Forum grading was implemented in</p>]]></text>
+      <answer>
+        <text>Moodle 3.8</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">A Download course content button first appeared in&nbsp;</span></p>]]></text>
+      <answer>
+        <text>Moodle 3.10</text>
+      </answer>
+    </subquestion>
+    <hint format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">Go and look at&nbsp;http://docs.moodle.org/dev/Releases and click on the Release notes links</span><br></p>]]></text>
+      <shownumcorrect/>
+      <clearwrong/>
+    </hint>
+    <hint format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">Well if the developer documentation and release notes didn't help you, then perhaps you could look at the New features links in the user documentation? Click on&nbsp;http://docs.moodle.org/26/en/Category:New_features and then change the 26 to the other versions to see summaries of the new features in each of those versions.</span><br></p>]]></text>
+      <shownumcorrect/>
+      <clearwrong/>
+    </hint>
+  </question>
+
+   <question type="category">
+      <category>
+         <text>qas editor/Shorts</text>
+      </category>
+      <info format="moodle_auto_format">
+         <text>Some comments</text>
+      </info>
+      <idnumber></idnumber>
+   </question>
+
+  <question type="shortanswer">
+    <name>
+      <text>(tour stage 08) Q5 SA</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>And the final behaviour is usually reserved for essay questions but could, if you so wished (but why would you?) be used for all questions. In this behaviour questions are  _______ graded. What is the missing word?</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p><em>Essays</em> have to be marked by hand. They are <em>manually graded.</em></p>
+<p>The full list of question behaviours is therefore</p>
+<ul>
+<li>deferred feedback with and without Certainty Based Marking</li>
+<li>interactive with multiple tries</li>
+<li>immediate feedback with and without Certainty Based Marking</li>
+<li>manually graded</li>
+</ul>
+<p>All within one quiz system.</p>]]></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <usecase>0</usecase>
+    <answer fraction="100" format="moodle_auto_format">
+      <text>*manually*</text>
+      <feedback format="html">
+        <text><![CDATA[<p>Your answer is correct.</p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="0" format="moodle_auto_format">
+      <text>*manual*</text>
+      <feedback format="html">
+        <text><![CDATA[<p>You are on the right lines but don't have quite the correct terminology.</p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="0" format="moodle_auto_format">
+      <text>*</text>
+      <feedback format="html">
+        <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>
+      </feedback>
+    </answer>
+    <hint format="html">
+      <text><![CDATA[<p>Essays have to be marked by hand. So they are said to be ...</p>]]></text>
+    </hint>
+  </question>
+
+   <question type="shortanswer">
+      <name>
+         <text>Q3</text>
+      </name>
+      <questiontext format="moodle_auto_format">
+         <text>Two plus _____ equals four.</text>
+      </questiontext>
+      <generalfeedback format="moodle_auto_format">
+         <text></text>
+      </generalfeedback>
+      <defaultgrade>1</defaultgrade>
+      <penalty>0.3333333</penalty>
+      <hidden>0</hidden>
+      <idnumber></idnumber>
+      <usecase>0</usecase>
+      <answer fraction="100" format="moodle_auto_format">
+         <text>two</text>
+         <feedback format="moodle_auto_format">
+         <text></text>
+         </feedback>
+      </answer>
+      <answer fraction="100" format="moodle_auto_format">
+         <text>2</text>
+         <feedback format="moodle_auto_format">
+         <text></text>
+         </feedback>
+      </answer>
+  </question>
+
+  <question type="shortanswer">
+    <name>
+      <text>h3</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Type in the name of the ISLAND where the first ever Moodle Research conference was held.</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <usecase>0</usecase>
+    <answer fraction="100" format="moodle_auto_format">
+      <text>Crete</text>
+      <feedback format="html">
+        <text><![CDATA[<p>Correct. Well done! More information on Moodle Research conferences on the<a href="http://research.moodle.net/" title="Moodle Research site"> Moodle Research site.</a></p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="0" format="moodle_auto_format">
+      <text>Greece</text>
+      <feedback format="html">
+        <text><![CDATA[<p>That is the correct country, but we want the island.</p>]]></text>
+      </feedback>
+    </answer>
+  </question>
+
+   <question type="category">
+      <category>
+         <text>qas editor/Multichoice</text>
+      </category>
+      <info format="moodle_auto_format">
+         <text>Some comments</text>
+      </info>
+      <idnumber></idnumber>
+   </question>
+
+  <question type="multichoice">
+    <name>
+      <text>h1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Why is the 20th August an important date? (You may choose more than one answer.)</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>3.0000000</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <single>false</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <showstandardinstruction>1</showstandardinstruction>
+    <correctfeedback format="html">
+      <text><![CDATA[<p>Your answer is correct.</p>]]></text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is partially correct.</p>]]></text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>
+    </incorrectfeedback>
+    <shownumcorrect/>
+    <answer fraction="33.33333" format="html">
+      <text><![CDATA[<p>It is World Mosquito Day</p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>Yes it is! But that doesn't have much to do with Moodle so....</p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="33.33333" format="html">
+      <text><![CDATA[<p>It is the date of the first official release of Moodle in 2002.</p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>Correct. But the date has other significances too.</p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="33.33333" format="html">
+      <text><![CDATA[<p>It is the birthday of the founder of Moodle, Martin Dougiamas.</p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>Correct! But the date has other significances too.</p>]]></text>
+      </feedback>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name>
+      <text>h6</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>During the month of September 2013, Moodle ran a successful MOOC for teachers new to Moodle. What was the name of the course?</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <showstandardinstruction>1</showstandardinstruction>
+    <correctfeedback format="html">
+      <text><![CDATA[<p>Your answer is correct.</p>]]></text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is partially correct.</p>]]></text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>
+    </incorrectfeedback>
+    <shownumcorrect/>
+    <answer fraction="100" format="html">
+      <text><![CDATA[<p>Teaching with Moodle</p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>Correct! Check out the site <a href="http://learn.moodle.net/">http://learn.moodle.net/</a> available until January 2014 to see the archive.</p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text><![CDATA[<p>Moodle MOOC</p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>No; that is not correct.</p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text><![CDATA[<p>Moodle for Teachers</p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>No; that is not correct.</p>]]></text>
+      </feedback>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name>
+      <text>mc1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p style="font-size: 14px;">This is an example of a multiple choice question with only one answer.</p><p style="font-size: 14px;">When was Moodle 3.0 released?</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">Remember - the developer docs Release notes are your friend!&nbsp;</span><a href="http://docs.moodle.org/dev/Releases" style="font-size: 14px;">http://docs.moodle.org/dev/Releases</a><br></p>]]></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <single>true</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <showstandardinstruction>1</showstandardinstruction>
+    <correctfeedback format="html">
+      <text>Your answer is correct.</text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text>Your answer is partially correct.</text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text>Your answer is incorrect.</text>
+    </incorrectfeedback>
+    <shownumcorrect/>
+    <answer fraction="0" format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">November 2020</span><br></p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p><span style="font-size: 14px;">You haven't been paying attention. Please go back and look again.</span><br></p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="100" format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">November 2015</span><br></p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p><span style="font-size: 14px;">Correct! Easy when you know or when you can use the references provided correctly.</span><br></p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="0" format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">May 2020</span><br></p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p><span style="font-size: 14px;">No. You haven't been paying attention. Please go back and look again.</span><br></p>]]></text>
+      </feedback>
+    </answer>
+  </question>
+
+  <question type="multichoice">
+    <name>
+      <text>Test 4</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of a multiple choice question where there is more than one correct answer.</p>\n<p>Several of these statements are correct. Select the ones which are correct.</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0000000</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <idnumber></idnumber>
+    <single>false</single>
+    <shuffleanswers>true</shuffleanswers>
+    <answernumbering>abc</answernumbering>
+    <showstandardinstruction>1</showstandardinstruction>
+    <correctfeedback format="html">
+      <text>Your answer is correct.</text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text>Your answer is partially correct.</text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text>Your answer is incorrect.</text>
+    </incorrectfeedback>
+    <shownumcorrect/>
+    <answer fraction="33.33333" format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">The word Moodle is a registered trademark.</span><br></p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p><span style="font-size: 14px;">See&nbsp;http://docs.moodle.org/dev/License</span><br></p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="-33.33333" format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">Moodle documentation is in the Public Domain</span><br></p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p><span style="font-size: 14px;">Check out the footer in the Moodle documentation.</span></p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="33.33333" format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">The first ever Moodle course was called "Internet Overview"</span><br></p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p><span style="font-size: 14px;">See&nbsp;https://otl.curtin.edu.au/events/conferences/tlf/tlf2000/dougiamas.html</span><br></p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="-33.33333" format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">The first contributed module was the Quiz module in 2003.</span><br></p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p><span style="font-size: 14px;">Check out the Moodle history page as &nbsp;you were told to!</span><br></p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="-33.33333" format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">The first ever Global MoodleMoot took place in Perth, Australia, in November 2018</span></p>]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>Read the docs: https://docs.moodle.org/en/History</p>]]></text>
+      </feedback>
+    </answer>
+    <answer fraction="33.33333" format="html">
+      <text><![CDATA[<p><span style="font-size: 14px;">Mount Orange and Sandbox are two demonstration sites</span></p>]]></text>
+      <feedback format="html">
+        <text>Well done! Did you find them on https://moodle.org/demo ?</text>
+      </feedback>
+    </answer>
+  </question>
+
+</quiz>
