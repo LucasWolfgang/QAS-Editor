@@ -75,7 +75,7 @@ class Distribution(EnhancedEnum):
     LOG = "loguniform", "Log"
 
 
-class FileType(Enum):
+class FileAddr(Enum):
     """Define how a File class should behave.
     """
     LOCAL = "Local"
@@ -94,11 +94,11 @@ class Grading(EnhancedEnum):
 class MathType(Enum):
     """Enumerates ways to represent math function in questions' test
     """
-    PLAIN = "Plain"
     MATHML = "MathML"
     LATEX = "LaTex"
     MATHJAX = "MathJax"
     ASCII = "ASCII"
+    MOODLE = "moodle"
     FILE = "File"
 
 
@@ -190,7 +190,7 @@ class TextFormat(EnhancedEnum):
     """Enumerates text format types
     """
     HTML = "html", "HTML"
-    AUTO = "moodle_auto_format", "Auto"
+    AUTO = "auto", "moodle_auto_format", "Auto"
     PLAIN = "plain_text", "Plain"
     MD = "markdown", "Markdown"
     LATEX = "latex", "LaTEX"

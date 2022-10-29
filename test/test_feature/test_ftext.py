@@ -56,9 +56,9 @@ def test_empty():
     assert _ftext.text == ref
 
 
-def test_var_plain():
+def test_var_ascii():
     _vars, _results = utils.FText.from_string('var {x}')
-    _results = _results.get(MathType.PLAIN)
+    _results = _results.get(MathType.ASCII)
     assert _results == "var x"
     assert _vars == {X}
 

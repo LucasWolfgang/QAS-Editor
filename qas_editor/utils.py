@@ -16,6 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+import re
 import os
 import subprocess
 import base64
@@ -23,20 +24,25 @@ import copy
 import logging
 import shutil
 import tempfile
+import hashlib
+import unicodedata
 from io import BytesIO
 from xml.sax import saxutils
-from html.parser import HTMLParser
 from importlib import util
 from urllib import request
 from typing import TYPE_CHECKING
-from .enums import FileType, TextFormat, Status, Distribution, MathType, MediaType
+from .enums import FileAddr, TextFormat, Status, Distribution, MathType, MediaType
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Callable
+    from typing import Dict, List, Tuple
 
 LOG = logging.getLogger(__name__)
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 EXTRAS_GUI = util.find_spec("PyQt5") is not None
+                # moodle, sympy, latex
+MDL_FUNCTION = {('arctan', 'atan'), ('arcsin', 'asin'), ('arccos', 'acos'),
+                ('arctan', 'atan'), ('root', 'sqrt'), ('clip', ''), ('neg', '-')}
+_INVALID_HTML_TAG_RE = re.compile(r'<(?!/?[a-zA-Z0-9]+(?: .*|/?)>)(?:.|\n)*?>')
 
 
 def gen_hier(cls, top, category: str):
@@ -50,17 +56,6 @@ def gen_hier(cls, top, category: str):
         quiz.add_subcat(cls(i))
         quiz = quiz[i]
     return quiz
-
-
-def nxt(stt: list, string: str):
-    """A help function to parse text char by char.
-    
-    Args:
-        stt (list): 0 - index, 1 - if escaped
-        string (str): the string being parsed
-    """
-    stt[1] = (string[stt[0]] == "\\") and not stt[1]
-    stt[0] += 1
 
 
 def serialize_fxml(write, elem, short_empty, pretty, level=0):
@@ -120,7 +115,7 @@ def _escape_attrib_html(data):
 
 
 _latex_cache: Dict[str, str] = {}
-def render_latex(latex: str, ftype: FileType, scale=1.0):
+def render_latex(latex: str, ftype: FileAddr, scale=1.0):
     """TODO optimize. It has just too many calls. But at least it works...
     """
     key = saxutils.escape(latex, entities={'[': '(', ']': ')'})
@@ -145,13 +140,13 @@ def render_latex(latex: str, ftype: FileType, scale=1.0):
                          "\\begin{document}\n"+ latex + "\n\n\\end{document}")
             run_me(['latex', '-halt-on-error', '-interaction=nonstopmode',
                     'text.tex'])
-            if ftype == FileType.EMBEDDED:
+            if ftype == FileAddr.EMBEDDED:
                 res = run_me(["dvisvgm", "--no-fonts", "--stdout", "text.dvi"])
                 res = str(base64.b64encode(res.stdout), "utf-8")
             else:
                 run_me("dvisvgm", "--no-fonts", "-o", name, "text.dvi")
                 shutil.move(f"{workdir}/{name}", ".")
-                res = File(name, FileType.LOCAL, name, **attr)
+                res = File(name, FileAddr.LOCAL, name, **attr)
     elif EXTRAS_FORMULAE:
         from matplotlib import figure, font_manager, mathtext
         from matplotlib.backends import backend_agg
@@ -164,9 +159,9 @@ def render_latex(latex: str, ftype: FileType, scale=1.0):
             fig = figure.Figure(figsize=(width / 72, height / 72))
             fig.text(0, depth / height, latex, fontproperties=prop, color='Black')
             backend_agg.FigureCanvasAgg(fig)  # set the canvas used
-            if ftype != FileType.EMBEDDED:
+            if ftype != FileAddr.EMBEDDED:
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
-                res = File(name, FileType.LOCAL, name, **attr)
+                res = File(name, FileAddr.LOCAL, name, **attr)
             else:
                 buffer = BytesIO()
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
@@ -176,6 +171,20 @@ def render_latex(latex: str, ftype: FileType, scale=1.0):
             return None
     _latex_cache[key] = res
     return res
+
+
+def clean_q_name(string: str):
+    """ Cleanup a string to conformed to AMC labels.
+    """
+    nfkd_form = unicodedata.normalize('NFKD', string)
+    remap = {ord('œ'): 'oe', ord('Œ'): 'OE', ord('æ'): 'ae', ord('Æ'): 'AE',
+             ord('€'): ' Euros', ord('ß'): 'ss', ord('¿'): '?'}
+    out = u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    out = out.translate(remap)
+    out = re.sub(r'[^0-9a-zA-Z:\-]+', ' ', out)
+    return out.strip()
+
+# -----------------------------------------------------------------------------
 
 
 class Serializable:
@@ -215,6 +224,28 @@ class Serializable:
         elif __a != __b:
             return False
         return True
+
+    @staticmethod
+    def check_hash(path1: str, path2: str):
+        """Return the md5 sum after removing all withspace.
+        Args:
+            path1 (str): File name 1.
+            path2 (str): File name 2.
+        Returns:
+            bool: if the checksum are equal.
+        """
+        ignored_exp = [' ', '\t', '\n']
+        with open(path1) as f1:
+            content1 = f1.read()
+            for exp in ignored_exp:
+                content1 = content1.replace(exp, '')
+        with open(path2) as f2:
+            content2 = f2.read()
+            for exp in ignored_exp:
+                content2 = content2.replace(exp, '')
+        h1 = hashlib.md5(content1.encode()).hexdigest()
+        h2 = hashlib.md5(content2.encode()).hexdigest()
+        return h1 == h2
 
     def compare(self, __o: object, path: list) -> bool:
         """A
@@ -286,71 +317,80 @@ class AnswerError(Exception):
 
 
 class File(Serializable):
-    """File used in questions. Can be either a local path, an URL, a B64
-    encoded string. TODO May add PIL in the future too. Currently is always
-    converted into B64 to be embedded. May also change in the future.
+    """File used in questions. Can be either a local path, an URL, a Embedded
+    encoded string. TODO May add PIL in the future too.
     """
 
     MEDIA_TYPES = {("jpeg", "jpg", "png", "svg"): MediaType.IMAGE}
 
-    def __init__(self, name: str, ftype: FileType, source: str = None, **kwargs):
+    def __init__(self, path: str, data: str = None, **kwargs):
         super().__init__()
-        self.name = name
-        self.source = source
+        self.source = data
         self.metadata = kwargs
-        self.path = source if ftype in (FileType.LOCAL, FileType.URL) else "/"
-        self._type = ftype
-        ext = name.rsplit(".", 1)[-1]
+        if path.startswith("@@PLUGINFILE@@") or data is not None:
+            self._type = FileAddr.EMBEDDED
+        elif os.path.exists(path):
+            self._type = FileAddr.LOCAL
+        else:
+            try:
+                with request.urlopen(self.path) as ifile:
+                    ifile.read()
+                self._type = FileAddr.URL
+            except Exception:
+                self._type = FileAddr.EMBEDDED
+        self.path = path
+        ext = path.rsplit(".", 1)[-1]
         for media_ext in self.MEDIA_TYPES:
             if ext in media_ext:
                 self._media = self.MEDIA_TYPES[media_ext]
                 break
         else:
-            self._media = MediaType.File
+            self._media = MediaType.FILE
 
-    def set_type(self, value: FileType):
-        """Update the resource type and modify it to match that type. FileType
-        URL is not a valid value because the idea is to keep data local if it
-        is already local.
-        """
-        if value in (FileType.URL, self._type):
-            return  # We dont care about ANY or if the value is the same
-        elif value == FileType.EMBEDDED:
-            if self._type == FileType.URL:
+    def __eq__(self, __o: object) -> bool:
+        if not (isinstance(__o, File) and __o._media == self._media
+                and __o._type == self._type):
+            return False
+        if self._type == FileAddr.EMBEDDED:
+            tmp1 = self.path.replace("@@PLUGINFILE@@/", "")
+            tmp2 = __o.path.replace("@@PLUGINFILE@@/", "")
+        return tmp1 == tmp2
+
+    def get_file(self):
+        if self._type is FileAddr.LOCAL:
+            return self.path
+        name = self.path.rsplit("/",1)[1]
+        if self._type == FileAddr.URL:
+            with request.urlopen(self.path) as ifile, open(name) as ofile:
+                ofile.write(ifile.read())
+        elif self._type == FileAddr.EMBEDDED:
+            with open(name) as ofile:
+                ofile.write(base64.b64decode(self.source))
+        return name
+
+    def get_tag(self) -> str:
+        if self.source is None:
+            if self._type == FileAddr.URL:
                 with request.urlopen(self.path) as ifile:
                     self.source = str(base64.b64encode(ifile.read()), "utf-8")
-            elif self._type == FileType.LOCAL:
+            elif self._type == FileAddr.LOCAL:
                 with open(self.path, "rb") as ifile:
                     self.source = str(base64.b64encode(ifile.read()), "utf-8")
-        elif value == FileType.LOCAL:
-            if self.path == "/":
-                with open(self.name, "w", "utf-8") as ifile:
-                    if value == FileType.EMBEDDED:
-                        ifile.write(base64.b64decode(self.source))
-                    elif value == FileType.URL:
-                        with request.urlopen(self.path) as ofile:
-                            ifile.write(ofile.read())
-                self.source = self.path = self.name
-            else:
-                self.source = self.path
-        return
+        name = self.path.rsplit("/",1)[1]
+        return f'<file encoding="base64" name="{name}">{self.source}</file>'
 
-    def get_link(self, link: str) -> str:
-        tag = "img" if self._media is MediaType.IMAGE else "file"
-        output_bb = f'<{tag} src="{link}"'
+    def get_reftag(self) -> str:
+        output_bb = f'<img src="{self.path}"'
         for key, value in self.metadata.items():
             output_bb += f' {key}="{value}"'
-        return output_bb + '>'
+        return output_bb + '/>'
 
     def moodle_link(self) -> str:
         """Returns a moodle like for a embedded (base64) file.
         """
-        return f"@@PLUGINFILE@@/{self.name}"
-
-    def edx_link(self, xid) -> str:
-        """Returns a string that acts like a link in EdX text.
-        """
-        return f"@X@EmbeddedFile.requestUrlStub@X@bbcswebdav/xid-{xid}"
+        if self.path.startswith("@@PLUGINFILE@@/"):
+            return self.path
+        return f"@@PLUGINFILE@@/{self.path}"
 
 
 class Dataset(Serializable):
@@ -381,110 +421,11 @@ class Dataset(Serializable):
         return f"{self.status.name} > {self.name} ({hex(id(self))})"
 
 
-class QHTMLParser(HTMLParser):
-    """TODO
-    """
-    STARTEND = ["img", "input", "br", "hr", "meta"]
-
-    class Element:
-
-        def __init__(self, tag, attrib):
-            self.tag = tag
-            self.attrib = attrib
-            self._children = []
-            self.text = []
-
-        def __repr__(self):
-            return "<%s %r at %#x>" % (self.__class__.__name__, self.tag, id(self))
-
-        def __len__(self):
-            return len(self._children)
-
-        def __getitem__(self, index):
-            return self._children[index]
-
-        def __setitem__(self, index, element):
-            if isinstance(index, slice):
-                for elt in element:
-                    self._assert_is_element(elt)
-            else:
-                self._assert_is_element(element)
-            self._children[index] = element
-
-        def __delitem__(self, index):
-            del self._children[index]
-
-
-    def __init__(self, *, convert_charrefs: bool = ...) -> None:
-        super().__init__(convert_charrefs=convert_charrefs)
-        self.data = QHTMLParser.Element("top")
-        self._current = self.data
-        self._parent: List[QHTMLParser.Element] = []
-
-    def handle_data(self, data):
-        if not self._current.text:
-            self._current.text = data
-        else:
-            self._current.tail = data
-
-    def handle_starttag(self, tag, attrs):
-        #print(f"{'-':>{len(self._parent)}}Start: {tag} {attrs}")
-        attrs = {k:v for k, v in attrs}
-        if tag not in self.STARTEND:
-            self._parent.append(self._current)
-            self._current = QHTMLParser.Element(tag, **attrs)
-            self._parent[-1].append(self._current)
-
-    def handle_endtag(self, tag: str) -> None:
-        self._current = self._parent.pop()
-        #print(f"{'-':>{len(self._parent)}}End: {tag}")
-
-    def handle_startendtag(self, tag: str, attrs: list[tuple[str, str | None]]):
-        attrs = {k:v for k, v in attrs}
-        #print(f"{'.':>{len(self._parent)}}Startend: {tag}")
-        self._parent[-1].append(QHTMLParser.Element(tag, **attrs))
-
-    def handle_entityref(self, name: str) -> None:
-        print(f"Enti {name}")
-
-    def handle_charref(self, name: str) -> None:
-        print(f"Char {name}")
-
-    def handle_comment(self, data: str) -> None:
-        print(f"Comm {data}")
-
-    def handle_decl(self, decl: str) -> None:
-        print(f"Decl {decl}")
-
-    def handle_pi(self, data: str) -> None:
-        print(f"Pi {data}")
-
-    @staticmethod
-    def parse():
-        data = """<?xml version='1.0' encoding='utf-8'?>
-<p>a link <a href="https://github.com/nennigb/amc2moodle">here </a>and an image <img src="@@PLUGINFILE@@/4.png" alt="" role="presentation" style="" />and an equation \( \int_{2\pi} x^2 \mathrm{d} x \)</p>
-<p style="text-align: center;">centered text</p>
-<p style="text-align: left;">flush left text</p>
-<p style="text-align: right;">flush right text</p>
-<p style="text-align: left;">In moodle editor, there is also <sub>exponent</sub> and <sup>indice</sup> and <strike>that</strike></p>
-<p style="text-align: left;">and svg file <img src="@@PLUGINFILE@@/dessin.svg" alt="escargot" style="vertical-align: text-bottom; margin: 0 0.5em;" class="img-responsive" width="100" height="141" /><br /></p>
-"""
-        parser = QHTMLParser()
-        parser.feed(data)
-        parser.close()
-    #     return parser.data
-
-    # def write(self):
-        with open("test.xml", "w") as ofile:
-            ofile.write("<?xml version='1.0' encoding='utf-8'?>\n")
-            serialize_fxml(ofile.write, parser.data, True, True)
-
-
 class FText(Serializable):
     """A formated text. 
     """
 
-    def __init__(self, text: str = "", formatting: TextFormat = None,
+    def __init__(self, text: str|list = "", formatting: TextFormat = None,
                  bfile: List[File] = None):
         super().__init__()
         self.formatting = TextFormat.AUTO if formatting is None else formatting
@@ -511,29 +452,105 @@ class FText(Serializable):
         else:
             raise ValueError()
 
-    def get(self, math_type: MathType = MathType.PLAIN,
-            resource_callback: Callable = None) -> str:
+    @classmethod
+    def from_string(cls, string: str, exps=("{",), expe=("}",),
+                    check_tags=True) -> Tuple[set, FText]:
+        """This function suposse that at least once the 
+        """
+        def nxt(stt: list, string: str):
+            stt[1] = (string[stt[0]] == "\\") and not stt[1]
+            stt[0] += 1
+
+        def get_exp(stt: list, varset: str, ftext: list, cnt=0):
+            nxt(stt, string)
+            if cnt == 0:
+                ftext.append(string[stt[2]: stt[0]-1])
+                stt[2] = stt[0]
+                if string[stt[0]] == "=" and not stt[1]:
+                    stt[2] +=1
+            while all(string[stt[0]:stt[0]+len(en)] != en for en in expe):
+                start = any(string[stt[0]:stt[0]+len(st)] == st for st in exps)
+                if start and not stt[1]:
+                    get_exp(stt, _vars, ftext, cnt+1)
+                nxt(stt, string)
+            if cnt == 0:
+                expr = string[stt[2]: stt[0]]
+                if EXTRAS_FORMULAE:
+                    expr = expr.replace("{","").replace("}","")
+                    expr = expr.replace("pi()","pi")
+                    expr = parse_expr(expr)
+                    varset |= expr.free_symbols
+                    stt[2] = stt[0] + 1
+                elif expr.isalpha():
+                    varset |= expr
+                ftext.append(expr)  
+
+        def get_file(stt: list, ftext: list, stack: list):
+            init = stt[0]
+            while string[stt[0]] != ">":
+                nxt(stt, string)
+                if string[stt[0]] == "<":
+                    init = stt[0]
+            tag = string[init+1: stt[0]].split(" ", 1)[0]
+            if tag == "img":
+                dta = re.findall(r"(.+?)=\"(.+?)\"[ />]", string[init+5: stt[0]])
+                dta = {k:v for k,v in dta}
+                path = dta.pop("src")
+                ftext.append(string[stt[2]: init])
+                ftext.append(File(path, **dta))
+                stt[2] = stt[0] + 1
+            elif tag == "video":
+                pass
+            elif tag[0] == "/":
+                tmp = stack.pop()
+                if check_tags and tmp != tag[1:]:
+                    raise ValueError()
+            elif tag[-1] != "/":
+                stack.append(tag)
+
+        if EXTRAS_FORMULAE:
+            from sympy.parsing.sympy_parser import parse_expr 
+        ftext = []
+        _vars = set()
+        stack = []
+        stt = [0, False, 0]  # Pointer, is escaped, last
+        while stt[0] < len(string):
+            if any(string[stt[0]:stt[0]+len(st)] == st for st in exps) and not stt[1]:
+                get_exp(stt, _vars, ftext)
+            elif string[stt[0]] == "<" and not stt[1]:
+                get_file(stt, ftext, stack)
+            nxt(stt, string)
+        if string[stt[2]:]:
+            ftext.append(string[stt[2]:])
+        if len(stack) != 0:
+            raise ValueError()
+        return _vars, cls(ftext)
+
+    def get(self, math_type: MathType = MathType.ASCII) -> str:
         """_summary_
         Args:
             math_type (MathType, optional): _description_. Defaults to MathType.PLAIN.
-            resource_callback (Callable, optional): _description_. Defaults to None.
         Raises:
             TypeError: _description_
         Returns:
             str: _description_
         """
-        if len(self._text) == 1 or not EXTRAS_FORMULAE:
-            return self._text[0]
-        from sympy import printing, Symbol
+        from sympy.core import Pow
+        if EXTRAS_FORMULAE:
+            from sympy import printing, Expr
         data = ""
         for item in self._text:  # Suposse few item, so no poor performance
-            if isinstance(item, str) or math_type == MathType.PLAIN:
+            if isinstance(item, str):
                 data += str(item)
             elif hasattr(item, "MARKER_INT"):
                 data += chr(item.MAKER_INT)
-            elif EXTRAS_FORMULAE and isinstance(item, Symbol):
+            elif isinstance(item, File):
+                data += item.get_reftag()
+            elif EXTRAS_FORMULAE and isinstance(item, Expr):
                 if math_type == MathType.LATEX:
                     data += f"$${printing.latex(item)}$$"
+                elif math_type == MathType.MOODLE:
+                    data += "{" + ("" if item.is_Atom else "=") + printing.latex(item) + "}"
                 elif math_type == MathType.MATHJAX:
                     data += f"[mathjax]{printing.latex(item)}[/mathjax]"
                 elif math_type == MathType.MATHML:
@@ -541,11 +558,9 @@ class FText(Serializable):
                 elif math_type == MathType.ASCII:
                     data += str(printing.pretty(item))
                 elif math_type == MathType.FILE:
-                    res = render_latex(printing.latex(item), FileType.LOCAL)
-                    if callable(resource_callback):
-                        resource_callback(res)
+                    data += render_latex(printing.latex(item), FileAddr.LOCAL)
             else:
-                raise TypeError()
+                raise TypeError(f"Item has unknown type {type(item)}")
         return data
 
     @staticmethod
