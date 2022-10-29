@@ -23,16 +23,15 @@ setup(
         # For users that need to work with formulae and graphs. Includes:
         #   cycler, fonttools, kiwisolver, numpy, packaging, pillow, pyparsing,
         #   mpmath, python-dateutil
-        "gui": ["PyQt5 >= 5.15.0"]
+        "gui": ["PyQt5 >= 5.15.0"],
         # For users that need to use the GUI. Includes:
         #   PyQt5-Qt5, PyQt5-sip
-
-        # "docx": ["odfpy"]
+        "docx": ["odfpy"],
         # For users that need convert ODF files. Includes:
         #   TODO
+        "test": ["pytest", "pytestqt"]
+        # For users that want to run tests.
     },
-
-    # Other configurations
     zip_safe=False,     # TODO Need to update the resource management
     platforms='any'
 )

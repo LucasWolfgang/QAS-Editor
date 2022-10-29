@@ -26,7 +26,7 @@ from .enums import Status
 from ._parsers import aiken, cloze, gift, json, kahoot, latex, markdown, \
                       moodle, olx, qti_1_2_canvas
 if TYPE_CHECKING:
-    from typing import Dict, List   # pylint: disable=C0412
+    from typing import Dict, List, Iterator   # pylint: disable=C0412
 _LOG = logging.getLogger(__name__)
 
 
@@ -94,7 +94,7 @@ class Category(Serializable):  # pylint: disable=R0904
         return f"Category: '{self.name}' @{hex(id(self))}"
 
     @property
-    def questions(self):
+    def questions(self) -> Iterator:
         """_summary_
         """
         return iter(self.__questions)

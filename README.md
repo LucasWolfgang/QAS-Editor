@@ -16,7 +16,7 @@ The structure of the class is based on the Moodle XML. The initial source code w
 
 The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/).
 
-Besides repos listed above, some testcases were also taken from [moodle test website](https://school.moodledemo.net/) and [edx4edx_lite](https://github.com/mitocw/edx4edx_lite).
+Besides repos listed above, some testcases were also taken from [moodle test website](https://school.moodledemo.net/), [qti-examples](https://github.com/IMSGlobal/qti-examples) and [edx4edx_lite](https://github.com/mitocw/edx4edx_lite).
 
 ## Requirements
 - Requires at least Python 3. If using all dependencies, at least Python 3.6.

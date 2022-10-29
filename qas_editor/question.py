@@ -143,9 +143,9 @@ class _QHasOptions(_Question):
                  show_ans: ShowAnswer | bool = False, ordered=True, **kwargs):
         super().__init__(**kwargs)
         self.max_tries = int(max_tries)
-        self._fail_hints = [] if hints is None else hints
+        self._fail_hints = TList(Hint, hints)
         self._options = TList(self.ANS_TYPE, options)
-        self.ordered = ordered
+        self.ordered = bool(ordered)
         if isinstance(show_ans, ShowAnswer):
             self.show_ans = show_ans
         else:
@@ -163,14 +163,16 @@ class _QHasOptions(_Question):
 
     @property
     def fail_hints(self) -> TList:
-        """
+        """_summary_
         """
         return self._fail_hints
 
     def check(self):
         super().check()
-        if not isinstance(self.max_tries, int):
-            raise TypeError()
+        fnum =  len(self._fail_hints)
+        if self.max_tries > 0 and fnum > self.max_tries:
+            raise ValueError(f"Number of Fail Hints ({fnum}) should be smaller"
+                             f" than max_tries ({self.max_tries})")
 
 
 class _QHasUnits:
