@@ -1,0 +1,1899 @@
+%%% Copyright (c) 2017 Jorre Vannieuwenhuyze.
+%%%
+%%% Permission is granted to copy, distribute and/or modify this
+%%% software under the terms of the LaTeX Project Public License
+%%% (LPPL), version 1.3c or any later version.
+%%%
+%%% This software is provided 'as is', without warranty of any kind,
+%%% either expressed or implied, including, but not limited to, the
+%%% implied warranties of merchantability and fitness for a
+%%% particular purpose.
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%  SECTION 0. SET-UP PACKAGE
+%%%  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+%%%  0.1 Packages
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{xkeyval}
+\RequirePackage{etoolbox}
+\RequirePackage{environ}
+\RequirePackage{newfile}
+\RequirePackage{enumitem}
+\RequirePackage{longtable}
+\RequirePackage{pgffor}
+\RequirePackage{xstring}
+
+
+
+
+
+
+
+%%%   0.2 Define package and options
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{mcexam}[2021/09/12 v0.5 LaTeX package for creating randomized Multiple Choice questions]
+
+% package option: output
+\newbool{mc@concept}
+\newbool{mc@exam}
+\newbool{mc@key}
+\newbool{mc@answers}
+\newbool{mc@analysis}
+\booltrue{mc@concept}
+\def\mc@setAllOutputFalse{
+  \boolfalse{mc@concept}
+  \boolfalse{mc@exam}
+  \boolfalse{mc@key}
+  \boolfalse{mc@answers}
+  \boolfalse{mc@analysis} 
+  }
+\define@key{mcexam.sty}{output}[concept]{
+  \ifstrequal{#1}{concept} {\mc@setAllOutputFalse\booltrue{mc@concept} }{
+  \ifstrequal{#1}{exam}    {\mc@setAllOutputFalse\booltrue{mc@exam}    }{
+  \ifstrequal{#1}{key}     {\mc@setAllOutputFalse\booltrue{mc@key}     }{
+  \ifstrequal{#1}{answers} {\mc@setAllOutputFalse\booltrue{mc@answers} }{
+  \ifstrequal{#1}{analysis}{\mc@setAllOutputFalse\booltrue{mc@analysis}}{  
+  \PackageError{mcexam}{Invalid argument for package option output.}{Make sure the output type is either 'concept', 'exam', 'key', 'answers' or 'analysis'.}
+    }}}}}}
+  
+% package option: number of versions
+\def\mc@totalNumberOfVersions{4} 
+\define@key{mcexam.sty}{numberofversions}[4]{
+  \ifnum0<#1\relax\else\PackageError{mcexam}{Invalid argument for package option numberofversions.}{Make sure the numberofversions is a positive integer.}\fi
+  \def\mc@totalNumberOfVersions{#1}
+  }  
+  
+% package option: version
+\newcounter{mcversion}
+\setcounter{mcversion}{1}
+\newcommand\mc@theVersion{1}
+\define@key{mcexam.sty}{version}[1]{
+  \ifnum0<#1\relax\else\PackageError{mcexam}{Invalid argument for package option version.}{Make sure the version is a positive integer smaller than the total number of versions.}\fi
+  \ifnum\mc@totalNumberOfVersions<#1\relax\PackageError{mcexam}{Package option version too large.}
+    {Make sure the version is a positive integer smaller than the total number of versions.}\fi
+  \setcounter{mcversion}{#1}
+  \renewcommand\mc@theVersion{#1}
+  }  
+
+% package option: seed
+\define@key{mcexam.sty}{seed}[]{
+  \ifnum0<#1\relax\else\PackageError{mcexam}{Invalid argument for package option seed.}{Make sure the seed is a positive integer}\fi
+  \pgfmathsetseed{#1}
+  }
+
+% package option: randomize questions
+\newbool{mc@randomizeQuestions}
+\booltrue{mc@randomizeQuestions}
+\define@key{mcexam.sty}{randomizequestions}[true]{
+  \ifstrequal{#1}{true}{\setbool{mc@randomizeQuestions}{#1}}{
+  \ifstrequal{#1}{false}{\setbool{mc@randomizeQuestions}{#1}}{ 
+  \PackageError{mcexam}{Invalid argument for package option randomizequestions.}{Make sure randomizequestions is either 'true' or 'false'.}
+  }}}
+
+% package option: randomize answers
+\newbool{mc@randomizeAnswers}
+\booltrue{mc@randomizeAnswers}
+\define@key{mcexam.sty}{randomizeanswers}[true]{
+  \ifstrequal{#1}{true}{\setbool{mc@randomizeAnswers}{#1}}{
+  \ifstrequal{#1}{false}{\setbool{mc@randomizeAnswers}{#1}}{ 
+  \PackageError{mcexam}{Invalid argument for package option randomizeanswers.}{Make sure randomizeanswers is either 'true' or 'false'.}
+  }}}
+
+% package option: write R file
+\newbool{mc@writeRfile}
+\booltrue{mc@writeRfile}
+\define@key{mcexam.sty}{writeRfile}[true]{ 
+  \ifstrequal{#1}{true}{\setbool{mc@writeRfile}{#1}}{
+  \ifstrequal{#1}{false}{\setbool{mc@writeRfile}{#1}}{ 
+  \PackageError{mcexam}{Invalid argument for package option writeRfile.}{Make sure writeRfile is either 'true' or 'false'.}
+  }}}
+
+  
+%%% Process Options
+\def\mcexamoptions#1{\setkeys{mcexam.sty}{#1}}
+\AtBeginDocument{\def\mcexamoptions#1{\PackageError{mcexam}{\protect\mcexamoptions\space can only be used in preamble.}{}}}
+\ProcessOptionsX<mcexam.sty>
+
+
+%%%% Warning if neither answers nor questions are randomized
+\AtBeginDocument{
+  \ifboolexpr{bool{mc@randomizeQuestions} or bool{mc@randomizeAnswers}}{}{
+    \PackageWarning{mcexam}{Neither questions nor answers are randomized!}{}
+    }
+  }
+
+
+
+
+%%%   0.3 Set output booleans
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newbool{mc@showPerVersion}
+\newbool{mc@showQuestionPermutationtable}
+\newbool{mc@showQuestionsAnalysis}
+\newbool{mc@showQuestionList}
+\newbool{mc@showCorrectAnswers}
+\newbool{mc@showAnswerPoints}
+\newbool{mc@showExplanation}
+\newbool{mc@showAnswerPermutationTable}
+\newbool{mc@showAnswersAnalysis}
+\newbool{mc@showNotes}
+\newbool{mc@showKeytable}
+   
+\define@key{mc@show}{showPerVersion}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showPerVersion}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showPerVersion}}{
+   \PackageError{mcexam}{Invalid argument for showPerVersion.}{Make sure showPerVersion is either 'true' or 'false'.}
+   }}}
+\define@key{mc@show}{showQuestionPermutationtable}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showQuestionPermutationtable}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showQuestionPermutationtable}}{
+   \PackageError{mcexam}{Invalid argument for showQuestionPermutationtable.}{Make sure showQuestionPermutationtable is either 'true' or 'false'.}
+   }}}   
+\define@key{mc@show}{showQuestionsAnalysis}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showQuestionsAnalysis}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showQuestionsAnalysis}}{
+   \PackageError{mcexam}{Invalid argument for showQuestionsAnalysis.}{Make sure showQuestionsAnalysis is either 'true' or 'false'.}
+   }}}   
+\define@key{mc@show}{showQuestionList}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showQuestionList}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showQuestionList}}{
+   \PackageError{mcexam}{Invalid argument for showQuestionList.}{Make sure showQuestionList is either 'true' or 'false'.}
+   }}}      
+\define@key{mc@show}{showCorrectAnswers}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showCorrectAnswers}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showCorrectAnswers}}{
+   \PackageError{mcexam}{Invalid argument for showCorrectAnswers.}{Make sure showCorrectAnswers is either 'true' or 'false'.}
+   }}} 
+\define@key{mc@show}{showAnswerPoints}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showAnswerPoints}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showAnswerPoints}}{
+   \PackageError{mcexam}{Invalid argument for showAnswerPoints.}{Make sure showAnswerPoints is either 'true' or 'false'.}
+   }}} 
+\define@key{mc@show}{showExplanation}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showExplanation}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showExplanation}}{
+   \PackageError{mcexam}{Invalid argument for showExplanation.}{Make sure showExplanation is either 'true' or 'false'.}
+   }}} 
+\define@key{mc@show}{showAnswerPermutationTable}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showAnswerPermutationTable}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showAnswerPermutationTable}}{
+   \PackageError{mcexam}{Invalid argument for showAnswerPermutationTable.}{Make sure showAnswerPermutationTable is either 'true' or 'false'.}
+   }}}   
+\define@key{mc@show}{showAnswersAnalysis}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showAnswersAnalysis}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showAnswersAnalysis}}{
+   \PackageError{mcexam}{Invalid argument for showAnswersAnalysis.}{Make sure showAnswersAnalysis is either 'true' or 'false'.}
+   }}}
+\define@key{mc@show}{showNotes}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showNotes}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showNotes}}{
+   \PackageError{mcexam}{Invalid argument for showNotes.}{Make sure showNotes is either 'true' or 'false'.}
+   }}}  
+\define@key{mc@show}{showKeytable}[true]{
+   \ifstrequal{#1}{true}{\booltrue{mc@showKeytable}}{
+   \ifstrequal{#1}{false}{\boolfalse{mc@showKeytable}}{
+   \PackageError{mcexam}{Invalid argument for showKeytable.}{Make sure showKeytable is either 'true' or 'false'.}
+   }}}  
+
+\def\mcsetupConcept#1{\AtBeginDocument{\ifbool{mc@concept}{\setkeys{mc@show}{#1}}{}}}
+\def\mcsetupExam#1{\AtBeginDocument{\ifbool{mc@exam}{\setkeys{mc@show}{#1}}{}}}
+\def\mcsetupKey#1{\AtBeginDocument{\ifbool{mc@key}{\setkeys{mc@show}{#1}}{}}}
+\def\mcsetupAnswers#1{\AtBeginDocument{\ifbool{mc@answers}{\setkeys{mc@show}{#1}}{}}}
+\def\mcsetupAnalysis#1{\AtBeginDocument{\ifbool{mc@analysis}{\setkeys{mc@show}{#1}}{}}}
+
+\AtBeginDocument{\def\mcsetupConcept#1{\PackageError{mcexam}{\protect\mcsetupConcept can only be used in preamble.}{}}}
+\AtBeginDocument{\def\mcsetupExam#1{\PackageError{mcexam}{\protect\mcsetupExam can only be used in preamble.}{}}}
+\AtBeginDocument{\def\mcsetupKey#1{\PackageError{mcexam}{\protect\mcsetupKey can only be used in preamble.}{}}}
+\AtBeginDocument{\def\mcsetupAnswers#1{\PackageError{mcexam}{\protect\mcsetupAnswers can only be used in preamble.}{}}}
+\AtBeginDocument{\def\mcsetupAnalysis#1{\PackageError{mcexam}{\protect\mcsetupAnalysis can only be used in preamble.}{}}}
+
+\mcsetupConcept{showPerVersion=false
+               ,showQuestionPermutationtable=true
+               ,showQuestionsAnalysis=false
+               ,showQuestionList=true
+               ,showCorrectAnswers=true
+               ,showAnswerPoints=true
+               ,showExplanation=true
+               ,showAnswerPermutationTable=true
+               ,showAnswersAnalysis=false
+               ,showNotes=true
+               ,showKeytable=false
+               }
+\mcsetupExam{showPerVersion=true
+            ,showQuestionPermutationtable=false
+            ,showQuestionsAnalysis=false
+            ,showQuestionList=true
+            ,showCorrectAnswers=false
+            ,showAnswerPoints=false
+            ,showExplanation=false
+            ,showAnswerPermutationTable=false
+            ,showAnswersAnalysis=false
+            ,showNotes=false
+            ,showKeytable=false
+            }
+\mcsetupKey{showPerVersion=false
+           ,showQuestionPermutationtable=false
+           ,showQuestionsAnalysis=false
+           ,showQuestionList=false
+           ,showCorrectAnswers=false
+           ,showAnswerPoints=false
+           ,showExplanation=false
+           ,showAnswerPermutationTable=false
+           ,showAnswersAnalysis=false
+           ,showNotes=false
+           ,showKeytable=true
+           }               
+\mcsetupAnswers{showPerVersion=true
+               ,showQuestionPermutationtable=false
+               ,showQuestionsAnalysis=false
+               ,showQuestionList=true
+               ,showCorrectAnswers=true
+               ,showAnswerPoints=true
+               ,showExplanation=true
+               ,showAnswerPermutationTable=false
+               ,showAnswersAnalysis=false
+               ,showNotes=false
+               ,showKeytable=false
+               }  
+\mcsetupAnalysis{showPerVersion=false
+                ,showQuestionPermutationtable=true
+                ,showQuestionsAnalysis=true
+                ,showQuestionList=true
+                ,showCorrectAnswers=true
+                ,showAnswerPoints=true
+                ,showExplanation=true
+                ,showAnswerPermutationTable=true
+                ,showAnswersAnalysis=true
+                ,showNotes=true
+                ,showKeytable=false
+                }           
+           
+
+
+
+
+  
+%%%   0.4 Define \mcifoutput
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%   
+
+\newcommand\mcifoutput[3][]{
+  \ifstrempty{#1}{}{\PackageError{mcexam}{\protect\mcifoutput\space cannot have optional version argument in preamble.}{}}
+  \gdef\mc@ifoutput@outputs{}
+  \renewcommand*\do[1]{
+    \ifstrequal{##1}{concept}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \ifstrequal{##1}{key}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \ifstrequal{##1}{analysis}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \ifstrequal{##1}{exam}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \ifstrequal{##1}{answers}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \PackageWarning{mcexam}{Invalid output-type in \noexpand\mcifoutput: ##1. It is ignored.}{}
+    }}}}}  
+    }  
+  \docsvlist{#2}
+  \ifbool{mc@concept}{\ifinlist{concept}{\mc@ifoutput@outputs}{#3}{}}{}
+  \ifbool{mc@exam}{\ifinlist{exam}{\mc@ifoutput@outputs}{#3}{}}{}
+  \ifbool{mc@answers}{\ifinlist{answers}{\mc@ifoutput@outputs}{#3}{}}{}
+  \ifbool{mc@key}{\ifinlist{key}{\mc@ifoutput@outputs}{#3}{}}{}
+  \ifbool{mc@analysis}{\ifinlist{analysis}{\mc@ifoutput@outputs}{#3}{}}{} 
+  }
+\AtBeginDocument{\renewcommand\mcifoutput[3][]{
+  \gdef\mc@ifoutput@versions{}
+  \renewcommand*\do[1]{
+    \IfInteger{##1}{
+    \ifnumcomp{0}{<}{##1}{
+    \ifnumcomp{\mc@totalNumberOfVersions}{<}{##1}{
+    \PackageWarning{mcexam}{Invalid version number in \noexpand\mcifoutput: ##1. It is ignored.}{}
+    }{\listgadd{\mc@ifoutput@versions}{##1}}
+    }{\PackageWarning{mcexam}{Invalid version number in \noexpand\mcifoutput: ##1. It is ignored.}{}}
+    }{\PackageWarning{mcexam}{Invalid version number in \noexpand\mcifoutput: ##1. It is ignored.}{}}   
+    }  
+  \docsvlist{#1}
+  \gdef\mc@ifoutput@outputs{}
+  \renewcommand*\do[1]{
+    \ifstrequal{##1}{concept}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \ifstrequal{##1}{key}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \ifstrequal{##1}{analysis}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \ifstrequal{##1}{exam}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \ifstrequal{##1}{answers}{\listgadd{\mc@ifoutput@outputs}{##1}}{
+    \PackageWarning{mcexam}{Invalid output-type in \noexpand\mcifoutput: ##1. It is ignored.}{}
+    }}}}}  
+    }  
+  \docsvlist{#2}
+  \ifbool{mc@concept}{\ifinlist{concept}{\mc@ifoutput@outputs}{
+    \ifbool{mc@showPerVersion}{
+      \ifstrempty{#1}{#3}{}
+      \xifinlist{\mc@theVersion}{\mc@ifoutput@versions}{#3}{}
+      }{#3}  
+    }{}}{}
+  \ifbool{mc@exam}{\ifinlist{exam}{\mc@ifoutput@outputs}{
+    \ifbool{mc@showPerVersion}{
+      \ifstrempty{#1}{#3}{}
+      \xifinlist{\mc@theVersion}{\mc@ifoutput@versions}{#3}{}
+      }{#3}  
+    }{}}{}
+  \ifbool{mc@answers}{\ifinlist{answers}{\mc@ifoutput@outputs}{
+    \ifbool{mc@showPerVersion}{
+      \ifstrempty{#1}{#3}{}
+      \xifinlist{\mc@theVersion}{\mc@ifoutput@versions}{#3}{}
+      }{#3}  
+    }{}}{}
+  \ifbool{mc@key}{\ifinlist{key}{\mc@ifoutput@outputs}{
+    \ifbool{mc@showPerVersion}{
+      \ifstrempty{#1}{#3}{}
+      \xifinlist{\mc@theVersion}{\mc@ifoutput@versions}{#3}{}
+      }{#3}  
+    }{}}{}
+  \ifbool{mc@analysis}{\ifinlist{analysis}{\mc@ifoutput@outputs}{
+    \ifbool{mc@showPerVersion}{
+      \ifstrempty{#1}{#3}{}
+      \xifinlist{\mc@theVersion}{\mc@ifoutput@versions}{#3}{}
+      }{#3}  
+    }{}}{} 
+  }}
+
+
+
+
+%%%   0.5 Initialize internal package commands
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newbool{mc@correct}
+\newbool{mc@points}
+\newcommand\mc@questionOption[1][]{}
+\newcommand\mc@answerOption[1][]{}
+\newcounter{mc@counter}
+\newcounter{mc@mcquestions}
+\newbox\mc@qbox
+\newbox\mc@abox
+
+
+
+
+
+
+
+
+
+
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%   SECTION 1. MAIN COMMANDS 
+%%%  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+  
+
+
+  
+%%%   1.1 The mcquestions environment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+\NewEnviron{mcquestions}[1][]{
+  %%% Save mcquestions option
+  \xdef\mc@mcquestionsOption{#1}
+  %%% Reset booleans for the marks
+  \global\boolfalse{mc@correct}
+  \global\boolfalse{mc@points}
+  %%% Set internal commands
+  \NewEnviron{mcquestioninstruction}{}
+  \NewEnviron{mcanswers}[1][]{}
+  \NewEnviron{mcanswerslist}[1][]{}
+  \NewEnviron{mcexplanation}{}
+  \NewEnviron{mcnotes}{}  
+  %%% Processing commands
+  \mc@collectmcquestionsBody      %%% SECTION 2
+  \mc@setQuestionAndAnswerNumbers %%% SECTION 3
+  \mc@writeRFile                  %%% SECTION 4
+  \mc@typesetContent              %%% SECTION 5
+  }
+ 
+
+
+
+
+
+%%%   1.2 Define lay-out of mcquestions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+\newcommand\mcversionlabelfmt[1]{\Roman{#1}} 
+\newcommand\mcquestionlabelfmt[1]{\arabic{#1}}
+\newcommand\mcanswerlabelfmt[1]{(\alph{#1})}
+
+\newlist{setmcquestions}{enumerate}{1}
+\setlist[setmcquestions]{label=\mcquestionlabelfmt{*}.
+                        ,ref=\mcquestionlabelfmt{*}
+                        ,itemsep=2\baselineskip   
+                        ,topsep=2\baselineskip 
+                        }
+  
+\newlist{setmcanswerslist}{enumerate}{1}
+\setlist[setmcanswerslist]{label=\mcanswerlabelfmt{*}
+                          ,noitemsep
+                          }     
+                      
+\newlist{setmcquestioninfo}{description}{1}
+\setlist[setmcquestioninfo]{before=\footnotesize\sffamily
+                           } 
+                           
+\newenvironment{setmcquestioninstruction}{
+  \noindent
+  }{  
+  }
+\newenvironment{setmcquestion}{
+  }{  
+  }  
+\newenvironment{setmcanswers}{
+  \vspace{\baselineskip}
+  }{  
+  }   
+  
+\newenvironment{setmcquestionpermutationtable}{
+  \begin{center}
+  \footnotesize\sffamily
+  \setlength{\tabcolsep}{15pt}
+  }{
+  \end{center}
+  }  
+\newenvironment{setmcanswerpermutationtable}{
+  \begin{center}
+  \setlength{\tabcolsep}{10pt} 
+  }{
+  \end{center}
+  }
+  
+\newenvironment{setmcquestionanalysistable}{
+  \begin{center}
+  \setlength{\tabcolsep}{10pt} 
+  \footnotesize\sffamily
+  }{
+  \end{center}
+  }  
+\newenvironment{setmcansweranalysistable}{
+  \begin{center}
+  \setlength{\tabcolsep}{10pt} 
+  }{
+  \end{center}
+  }
+  
+\newenvironment{setmckeytable}{
+  \begin{center}
+  \setlength{\tabcolsep}{10pt} 
+  }{
+  \end{center}
+  }
+
+
+  
+  
+% %%%   1.3 Babel
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+% English
+\def\mc@babel@Concept@version{Concept version}
+\def\mc@babel@Version{Version}
+\def\mc@babel@Analysis{Analysis}
+\def\mc@babel@Question{Question}
+\def\mc@babel@Question@permutation@table{Question permutation table}
+\def\mc@babel@Answer@permutations{Answer permutations}
+\def\mc@babel@All@answers@permuted{All answers permuted}
+\def\mc@babel@All@answers@permuted@except@last@answer{All answers permuted, except last answer}
+\def\mc@babel@Order@of@answers@permuted{Order of answers permuted}
+\def\mc@babel@No@answers@permuted{No answers permuted}
+\def\mc@babel@Answers@permuted@by@user{Answers permuted by user}
+\def\mc@babel@Answer{Answer}
+\def\mc@babel@Correct@answers{Correct answers} 
+\def\mc@babel@Answer@points{Answer points}
+\def\mc@babel@Explanation{Explanation}
+\def\mc@babel@Analysis{Analysis}
+\def\mc@babel@Notes{Notes}
+\def\mc@babel@point{point} 
+\def\mc@babel@points{points}  
+\def\mc@babel@total{total}
+\def\mc@babel@Proportion@correct{Proportion correct}
+\def\mc@babel@Corrected@proportion{Corrected proportion correct}
+\def\mc@babel@Mean@points{Mean points}
+\def\mc@babel@Item@rest@correlation{Item-rest-correlation}
+\def\mc@babel@Question@follows@previous{Question follows previous}
+\def\mc@babel@pt{pt}  
+\def\mc@babel@pts{pts}  
+\def\mc@babel@Answer@Key{Answer Key}
+\def\mc@babel@Answers{Answers}
+\def\mc@babel@Mean{Mean}
+\def\mc@babel@Proportion{Proportion}
+\def\mc@babel@correct{correct}
+\def\mc@babel@Corrected{Corrected}
+\def\mc@babel@proportion{proportion}
+\def\mc@babel@Item@rest{Item-rest}
+\def\mc@babel@correlation{correlation}
+\def\mc@babel@Number@of@students{Number of students}
+  
+% Dutch
+\AtBeginDocument{\@ifpackagewith{babel}{dutch}{
+  \def\mc@babel@Concept@version{Concept versie}
+  \def\mc@babel@Version{Versie}
+  \def\mc@babel@Analysis{Analyse}
+  \def\mc@babel@Question{Vraag}
+  \def\mc@babel@Question@permutation@table{Vraag-permutatie tabel} 
+  \def\mc@babel@Answer@permutations{Antwoord permutaties}
+  \def\mc@babel@All@answers@permuted{Alle antwoorden gerandomiseerd}
+  \def\mc@babel@All@answers@permuted@except@last@answer{Alle antwoorden gerandomiseerd, behalve de laatste}
+  \def\mc@babel@Order@of@answers@permuted{Volgorde van de antwoorden gerandomiseerd}
+  \def\mc@babel@No@answers@permuted{Antwoorden niet gerandomiseerd}
+  \def\mc@babel@Answers@permuted@by@user{Antwoorden gerandomiseerd door gebruiker}
+  \def\mc@babel@Answer{Antwoord}
+  \def\mc@babel@Correct@answers{Correcte antwoorden} 
+  \def\mc@babel@Answer@points{Punten}
+  \def\mc@babel@Explanation{Uitleg}
+  \def\mc@babel@Analysis{Analyse}
+  \def\mc@babel@Notes{Nota's}  
+  \def\mc@babel@point{punt} 
+  \def\mc@babel@points{punten}  
+  \def\mc@babel@total{totaal}
+  \def\mc@babel@Proportion@correct{Proportie correct}
+  \def\mc@babel@Corrected@proportion{Gecorrigeerde proportie correct}
+  \def\mc@babel@Mean@points{Gemiddelde punten}
+  \def\mc@babel@Item@rest@correlation{Item-rest-correlatie}  
+  \def\mc@babel@Question@follows@previous{Vraag volgt op voorgaande}
+  \def\mc@babel@pt{pt}
+  \def\mc@babel@pts{ptn} 
+  \def\mc@babel@Answer@Key{Antwoord Sleutel}
+  \def\mc@babel@Answers{Antwoorden}
+  \def\mc@babel@Mean{Gemiddelde}
+  \def\mc@babel@Proportion{Proportie}
+  \def\mc@babel@correct{juist}
+  \def\mc@babel@Corrected{Gecorrigeerde}
+  \def\mc@babel@proportion{proportie}
+  \def\mc@babel@Item@rest{Item-rest}
+  \def\mc@babel@correlation{correlatie}
+  \def\mc@babel@Number@of@students{Aantal studenten}
+  }{}}
+  
+  
+  
+
+  
+  
+%%%   1.4 Define \mctheversion
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+\def\mctheversion{%
+  \ifbool{mc@concept}{\mc@babel@Concept@version\ifbool{mc@showPerVersion}{\ \mcversionlabelfmt{mcversion}}{}}{}%
+  \ifbool{mc@exam}{\ifbool{mc@showPerVersion}{\mc@babel@Version\  \mcversionlabelfmt{mcversion}}{}}{}%
+  \ifbool{mc@answers}{\mc@babel@Answers\ifbool{mc@showPerVersion}{\ \mc@babel@Version\  \mcversionlabelfmt{mcversion}}{}}{}%
+  \ifbool{mc@key}{\mc@babel@Answer@Key\ifbool{mc@showPerVersion}{\ \mc@babel@Version\  \mcversionlabelfmt{mcversion}}{}}{}%
+  \ifbool{mc@analysis}{\mc@babel@Analysis\ifbool{mc@showPerVersion}{\ \mc@babel@Version\  \mcversionlabelfmt{mcversion}}{}}{}%
+  }
+
+
+  
+  
+  
+  
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%   SECTION 2. COMMANDS THAT COLLECT THE QUESTIONS AND ANSWERS
+%%%  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% 
+
+
+
+\def\mc@collectmcquestionsBody{
+  \mc@collectmcquestionsBody@collectQuestions
+  \mc@collectmcquestionsBody@collectQuestioninstructions
+  \mc@collectmcquestionsBody@collectQuestionOptions
+  \mc@collectmcquestionsBody@collectAnswers
+  \mc@collectmcquestionsBody@checkPermutationtypes
+  \mc@collectmcquestionsBody@collectAnswerOptions
+  \mc@collectmcquestionsBody@collectExplanation
+  \mc@collectmcquestionsBody@collectNotes
+  }
+
+ 
+ 
+\def\mc@collectmcquestionsBody@collectQuestions{{
+  %% collect the questions in control sequences mc@question1 to mc@questionN with N the number of questions
+  %% control sequences mc@question0 includes everything before the first mcquestion
+  \setcounter{mc@counter}{-1}
+  \DeclareListParser{\mc@collectQuestions}{\question}
+  \renewcommand\do[1]{
+    \refstepcounter{mc@counter}
+    \long\csgdef{mc@question\arabic{mc@counter}}{\mc@questionOption##1}
+    }
+  \expandafter\mc@collectQuestions\expandafter{\expandafter\@empty\BODY}
+  %% Store the number of questions in \mc@totalNumberOfQuestions
+  \xdef\mc@totalNumberOfQuestions{\arabic{mc@counter}}
+  %% Give an error if environment doen't start with an \mcquestion or a \begin{mcquestioninstruction} 
+  {{\RenewEnviron{mcanswers}[1][]{X}
+    \RenewEnviron{mcanswerslist}[1][]{X}
+    \RenewEnviron{mcexplanation}{X}
+    \RenewEnviron{mcnotes}{X}
+    \setbox0=\hbox{\csuse{mc@question0}\unskip}
+    \ifdim\wd0=0pt\else
+      \PackageError{mcexam}{Something's missing here! Add a \mcquestion or a \begin{questioninstruction}.} 
+        {add a \mcquestion or a \begin{questioninstruction}...\end{questioninstruction} at the start of the mcquestions environment.}
+      \fi
+    }}    
+  }}
+
+  
+
+\def\mc@collectmcquestionsBody@collectQuestioninstructions{{
+  %%% The mcquestioninstruction environments are stored in the previous mcquestion, we store them in seperate 
+  %%% control sequences mc@questioninstruction1 to mc@questioninstructionN 
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{{
+    \csgdef{mc@questionInstruction\q}{}
+    \RenewEnviron{mcquestioninstruction}{
+      \long\csxappto{mc@questionInstruction\q}{\expandonce\BODY} 
+      }
+    \numdef\prevq{\q-1}  
+    \setbox\mc@qbox\vbox{\csuse{mc@question\prevq}}
+    }}
+  %%% Give error if there is a mcquestioninstruction environment in last question
+  {{\RenewEnviron{mcquestioninstruction}{
+      \PackageError{mcexam}{mcquestioninstruction after last question not allowed}{}
+      }
+    \setbox\mc@qbox\vbox{\csuse{mc@question\mc@totalNumberOfQuestions}}
+    }}
+  }}
+  
+  
+  
+\def\mc@collectmcquestionsBody@collectQuestionOptions{{
+  %%% check question options and collect in mc@questionOption1 to mc@questionOptionN
+  \setcounter{mc@counter}{0} 
+  \renewcommand\mc@questionOption[1][]{    
+    \csxdef{mc@questionOption\q}{##1}
+    \ifcsempty{mc@questionOption\q}{
+      \refstepcounter{mc@counter}   
+      }{
+      \ifcsstring{mc@questionOption\q}{follow}{
+        \ifnumequal{\q}{1}{
+          \PackageError{mcexam}{Question \q: invalid option for \protect\question, first question cannot follow}{}
+          }{}
+        }{
+        \PackageError{mcexam}{Question \q: Invalid question option: should be 'follow' or empty}{}
+        }
+      }    
+    }
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    \setbox\mc@qbox\vbox{\csuse{mc@question\q}}
+    }   
+  % Store the number of questionblocks in \mc@totalNumberOfQuestionblocks
+  \xdef\mc@totalNumberOfQuestionblocks{\arabic{mc@counter}}     
+  }}
+
+ 
+  
+\def\mc@collectmcquestionsBody@collectAnswers{{
+  %%% collect the answers of mcanswers(list) environments for question 1 in control sequences mc@answerQ1A1 to mc@answerQ1AN 
+  %%% with N the number of answers, answers for question 2 in control sequences mc@answerQ2A1 to mc@answerQ1AN, etc. 
+  \DeclareListParser{\mc@collectAnswers}{\answer}
+  \renewcommand\do[1]{
+    \refstepcounter{mc@counter}
+    \long\csgdef{mc@answerQ\q A\arabic{mc@counter}}{\mc@answerOption##1}
+    }      
+  \RenewEnviron{mcanswerslist}[1][permuteall]{
+    \ifnumcomp{\mc@check}{=}{1}{\PackageError{mcexam}{multiple mcanswers(list) environments defined for question \q}{}}{}  
+    \gdef\mc@check{1}
+    \csgdef{mc@answerPermuteTypeQ\q}{##1}
+    \expandafter\mc@collectAnswers\expandafter{\expandafter\@empty\BODY}
+    \setbox0=\hbox{\csuse{mc@answerQ\q A0}\unskip}
+    \ifdim\wd0=0pt\else
+      \PackageError{mcexam}{Something's missing here! Add an \protect\answer\space in the answerlist environment of question \q.}{}
+      \fi    
+    } 
+  \RenewEnviron{mcanswers}[1][permuteall]{
+    \ifnumcomp{\mc@check}{=}{1}{\PackageError{mcexam}{multiple mcanswers(list) environments defined for question \q}{}}{} 
+    \gdef\mc@check{1}
+    \csgdef{mc@answerPermuteTypeQ\q}{##1}
+    \providecommand\answer[3][]{}
+    \renewcommand\answer[3][]{
+      \IfInteger{####2}{}{\PackageError{mcexam}{Question \q: ####2\space is not a valid answer number in the \protect\answer\space command}{}}
+      \ifnumcomp{0}{<}{####2}{}{\PackageError{mcexam}{Question \q: ####2\space is not a valid answer number in the \protect\answer\space command}{}}
+      \listgadd\mc@answerVals{####2}
+      \ifnumcomp{\arabic{mc@counter}}{<}{####2}{\setcounter{mc@counter}{####2}}{}     
+      \long\csgdef{mc@answerQ\q A####2}{\mc@answerOption[####1]####3}
+      }
+    \providecommand\answernum[1]{}
+    \renewcommand\answernum[1]{
+      \IfInteger{####1}{}{\PackageError{mcexam}{Question \q: ####1\space is not a valid answer number in the \protect\answernum\space command}{}}
+      \ifnumcomp{0}{<}{####1}{}{\PackageError{mcexam}{Question \q: ####1\space is not a valid answer number in the \protect\answernum\space command}{}}
+      \listgadd\mc@answernumVals{####1}
+      \ifnumcomp{\arabic{mc@counter}}{<}{####1}{\setcounter{mc@counter}{####1}}{}
+      } 
+    \setbox\mc@abox\vbox{\BODY}   
+    \foreach \a in {1,...,\arabic{mc@counter}}{
+      \xifinlist{\a}{\mc@answerVals}{}{\PackageError{mcexam}{Question \q: answer \a\space is not specified.}{}}
+      \xifinlist{\a}{\mc@answernumVals}{}{\PackageError{mcexam}{Question \q: answernum \a\space is not specified.}{}}
+      }    
+    }   
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    \gdef\mc@check{0}
+    \setcounter{mc@counter}{-1}
+    \csgdef{mc@answerPermuteTypeQ\q}{}
+    \setbox\mc@qbox\vbox{\csuse{mc@question\q}}
+    \ifnum\mc@check=0 
+      \ifbool{mc@writeRfile}
+        {
+        \PackageError{mcexam}{No answers for question \q}{}
+        }{
+        \PackageWarning{mcexam}{No answers for question \q}{}
+        }
+      \fi      
+    \csxdef{mc@totalNumberOfAnswersQ\q}{\arabic{mc@counter}}
+    }  
+  }}
+  
+  
+  
+\def\mc@collectmcquestionsBody@checkPermutationtypes{{
+%%% Check mc@answerPermuteTypeQ1 to mc@answerPermuteTypeQN
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    \ifcsempty{mc@answerPermuteTypeQ\q}{}{
+    \ifcsstring{mc@answerPermuteTypeQ\q}{permuteall}{}{
+    \ifcsstring{mc@answerPermuteTypeQ\q}{fixlast}{}{
+    \ifcsstring{mc@answerPermuteTypeQ\q}{ordinal}{}{
+    \ifcsstring{mc@answerPermuteTypeQ\q}{permutenone}{}{
+      \setcounter{mc@counter}{0}
+      \renewcommand*{\do}[1]{
+        \refstepcounter{mc@counter}
+        \csxdef{mc@userPermutationQ\q P\arabic{mc@counter}}{####1}
+        }
+      \letcs\@temp{mc@answerPermuteTypeQ\q}    
+      \expandafter\docsvlist\expandafter{\@temp}
+      \csxdef{mc@totalNumberOfUserPermutationsQ\q}{\arabic{mc@counter}}
+      %Error if less than 2 permutation list defined
+      \ifnumcomp{\csuse{mc@totalNumberOfUserPermutationsQ\q}}{<}{2}{
+        \PackageError{mcexam}{Question \q: invalid user defined permutation list, add at least two permutations}{}
+        }{}  
+      %create a list with all values that should be in the permutation lists
+      \gdef\mc@checkAnswerValues{}
+      \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+        \listxadd\mc@checkAnswerValues{\a}
+        }   
+      \foreach \p in {1,...,\csuse{mc@totalNumberOfUserPermutationsQ\q}}{
+        \letcs\@temp{mc@userPermutationQ\q P\p}
+        %check if all values in the permutations are valid answers  
+        \renewcommand*{\do}[1]{
+          \IfInteger{########1}{
+          \ifnumcomp{########1}{>}{0}{
+          \ifinlist{########1}{\mc@checkAnswerValues}{
+          }{\PackageError{mcexam}{Question \q: ########1\space is not a valid permutation option, only \csuse{mc@totalNumberOfAnswersQ\q} answers present}{}}
+          }{\PackageError{mcexam}{Question \q: ########1\space is not a valid permutation option, should be a positive integer}{}}
+          }{\PackageError{mcexam}{Question \q: ########1\space is not a valid permutation option, should be an integer}{}}
+          }
+        \expandafter\docsvlist\expandafter{\@temp}  
+        %check if there are not too many numbers in the permutation
+        \setcounter{mc@counter}{0}
+        \renewcommand*{\do}[1]{
+          \refstepcounter{mc@counter}
+          }
+        \expandafter\docsvlist\expandafter{\@temp} 
+        \ifnumcomp{\csuse{mc@totalNumberOfAnswersQ\q}}{<}{\arabic{mc@counter}}{\PackageError{mcexam}{Question \q: too many numbers in permutation \p}{}}{}
+        %check if all answer numbers are in the permutations
+        \def\mc@userpermvals{}
+        \renewcommand*{\do}[1]{\listadd\mc@userpermvals{########1}}
+        \expandafter\docsvlist\expandafter{\@temp}
+        \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+          \expandafter\ifinlist\expandafter{\a}{\mc@userpermvals}{}{\PackageError{mcexam}{Question \q: answer \a\space is not in permutation \p}{}}
+          }
+        }      
+      }}}}}      
+    }    
+  }}
+  
+  
+  
+  
+\def\mc@collectmcquestionsBody@collectAnswerOptions{{  
+  %%% Check and save answer options in mc@answerOptionQ1A1 to mc@answerOptionQNAN
+  \renewcommand\mc@answerOption[1][]{
+    \csgdef{mc@answerOptionQ\q A\a}{##1}
+    }
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    \ifnum\csuse{mc@totalNumberOfAnswersQ\q}>0
+    \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+      \setbox\mc@abox\vbox{\csuse{mc@answerQ\q A\a}}
+      \ifcsempty{mc@answerOptionQ\q A\a}{}{
+      \ifcsstring{mc@answerOptionQ\q A\a}{correct}{
+        \ifbool{mc@points}{}{
+          \global\booltrue{mc@correct}
+          }
+        }{
+        \IfDecimal{\csuse{mc@answerOptionQ\q A\a}}{
+          \global\boolfalse{mc@correct}
+          \global\booltrue{mc@points}
+          }{
+          \PackageError{mcexam}{Question \q, answer \a: Invalid option, should be 'correct' or a number}{}
+          }        
+        }}
+      }
+    \fi
+    }     
+  }}
+  
+
+  
+
+  
+  
+  
+\def\mc@collectmcquestionsBody@collectExplanation{{
+  \RenewEnviron{mcexplanation}{
+    \csxappto{mc@questionExplanationQ\q}{
+      \expandonce\BODY
+      }
+    }
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    \setbox\mc@qbox\vbox{\csuse{mc@question\q}}
+    }   
+  }}
+
+  
+  
+\def\mc@collectmcquestionsBody@collectNotes{{
+  \RenewEnviron{mcnotes}{
+    \csxappto{mc@questionNotesQ\q}{
+      \expandonce\BODY
+      }
+    }
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    \setbox\mc@qbox\vbox{\csuse{mc@question\q}}
+    }       
+  }}
+  
+  
+    
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%   3. COMMANDS THAT GIVE THE QUESTIONS AND ANSWERS
+%%%      A (RANDOMIZED) ORDERED NUMBER
+%%%  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+  
+  
+\def\mc@setQuestionAndAnswerNumbers{
+  \mc@setQuestionNumbers  %%% Subsection 3.1   
+  \mc@setAnswerNumbers    %%% Subsection 3.2
+  } 
+  
+  
+  
+
+%%%   3.1 QUESTIONS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+\def\mc@setQuestionNumbers{
+  \ifbool{mc@randomizeQuestions}{\mc@randomizeQuestions}{\mc@doNotRandomizeQuestions}
+  } 
+  
+
+\def\mc@doNotRandomizeQuestions{{  
+  \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+    \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+      \csxdef{mc@randomQuestionNumberV\v Q\q}{\q}
+      \csxdef{mc@originalQuestionNumberV\v Q\q}{\q}   
+      }
+    }
+  }}
+
+  
+\def\mc@randomizeQuestions{{    
+  % Make the mcquestionblock control sequences which include macro's to set the randomization question counters 
+  \setcounter{mc@counter}{0}
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    \ifcsstring{mc@questionOption\q}{follow}{}{
+      \refstepcounter{mc@counter}
+      \csgdef{mc@questionblock\arabic{mc@counter}}{}
+      }
+    \csxappto{mc@questionblock\arabic{mc@counter}}{
+      \noexpand\refstepcounter{mc@counter}
+      \noexpand\csxdef{mc@randomQuestionNumberV\noexpand\v Q\q}{\noexpand\arabic{mc@counter}}
+      \noexpand\csxdef{mc@originalQuestionNumberV\noexpand\v Q\noexpand\arabic{mc@counter}}{\q}        
+      }  
+    }
+  % randomize question blocks
+  \numdef\@numberofswaps{\mc@totalNumberOfQuestionblocks-1}
+  \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+    \foreach \q in {1,...,\@numberofswaps}{
+      \pgfmathrandominteger{\r}{\q}{\@numberofswaps}
+      \numdef\r{\r+1}
+      \global\letcs\@swap{mc@questionblock\r}
+      \global\csletcs{mc@questionblock\r}{mc@questionblock\q}  
+      \global\cslet{mc@questionblock\q}{\@swap}
+      }
+    \setcounter{mc@counter}{0}  
+    \foreach \q in {1,...,\mc@totalNumberOfQuestionblocks}{  
+      \csuse{mc@questionblock\q}
+      }
+    }  
+  }}
+ 
+
+
+ 
+ 
+
+
+%%%   3.2 ANSWERS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+
+
+\def\mc@setAnswerNumbers{
+  \ifbool{mc@randomizeAnswers}{\mc@randomizeAnswers  }{\mc@doNotRandomizeAnswers  }
+  }
+
+  
+
+\def\mc@doNotRandomizeAnswers{  
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    \ifnumgreater{\csuse{mc@totalNumberOfAnswersQ\q}}{0}{
+      \foreach \v in {1,...,\mc@totalNumberOfVersions}{  
+        \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+           \csxdef{mc@randomAnswerNumberV\v Q\q A\a}{\a}
+           \csxdef{mc@originalAnswerNumberV\v Q\q A\a}{\a}   
+          } 
+        }
+      }{}
+    }
+  }
+   
+   
+   
+\def\mc@randomizeAnswers{  
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    \ifnumgreater{\csuse{mc@totalNumberOfAnswersQ\q}}{0}{
+      \ifcsempty{mc@answerPermuteTypeQ\q}{\mc@randomizeAnswers@permuteall}{
+      \ifcsstring{mc@answerPermuteTypeQ\q}{permuteall}{\mc@randomizeAnswers@permuteall}{
+      \ifcsstring{mc@answerPermuteTypeQ\q}{fixlast}{\mc@randomizeAnswers@fixlast}{
+      \ifcsstring{mc@answerPermuteTypeQ\q}{ordinal}{\mc@randomizeAnswers@ordinal}{
+      \ifcsstring{mc@answerPermuteTypeQ\q}{permutenone}{\mc@randomizeAnswers@permutenone}{
+        \mc@randomizeAnswers@userdefined}}}}}
+      }{}
+    }
+  }
+
+   
+  
+\def\mc@randomizeAnswers@permuteall{
+  \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+     \csxdef{mc@answerTempnum\a}{\a}
+     }
+  \numdef\@numberofpermuteanswers{\csuse{mc@totalNumberOfAnswersQ\q}}
+  \numdef\@numberofswaps{\csuse{mc@totalNumberOfAnswersQ\q}-1}   
+  \foreach \v in {1,...,\mc@totalNumberOfVersions}{  
+    \foreach \x in {1,...,\@numberofswaps}{
+      \pgfmathrandominteger{\r}{\x}{\@numberofpermuteanswers}
+      \letcs\@temp{mc@answerTempnum\x}   
+      \global\csletcs{mc@answerTempnum\x}{mc@answerTempnum\r}
+      \global\cslet{mc@answerTempnum\r}{\@temp}
+      }
+    \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+       \csxdef{mc@randomAnswerNumberV\v Q\q A\a}{\csuse{mc@answerTempnum\a}}
+       \csxdef{mc@originalAnswerNumberV\v Q\q A\csuse{mc@answerTempnum\a}}{\a}      
+      }
+    }
+  }
+    
+  
+  
+\def\mc@randomizeAnswers@fixlast{
+  \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+     \csxdef{mc@answerTempnum\a}{\a}
+     }
+  \numdef\@numberofpermuteanswers{\csuse{mc@totalNumberOfAnswersQ\q}-1}
+  \numdef\@numberofswaps{\@numberofpermuteanswers-1}   
+  \foreach \v in {1,...,\mc@totalNumberOfVersions}{  
+    \foreach \x in {1,...,\@numberofswaps}{
+      \pgfmathrandominteger{\r}{\x}{\@numberofpermuteanswers}
+      \letcs\@temp{mc@answerTempnum\x}   
+      \global\csletcs{mc@answerTempnum\x}{mc@answerTempnum\r}
+      \global\cslet{mc@answerTempnum\r}{\@temp}    
+      }
+    \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+       \csxdef{mc@randomAnswerNumberV\v Q\q A\a}{\csuse{mc@answerTempnum\a}}
+       \csxdef{mc@originalAnswerNumberV\v Q\q A\csuse{mc@answerTempnum\a}}{\a}     
+      }
+    }
+  }
+  
+  
+  
+\def\mc@randomizeAnswers@ordinal{
+  \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+    \ifnumodd{\v}{\csgdef{mc@answerTempnum\v}{keep}}{\csgdef{mc@answerTempnum\v}{reorder}}
+    }
+  \numdef\@numberofswaps{\mc@totalNumberOfVersions-1}
+  \foreach \x in {1,...,\@numberofswaps}{    
+    \pgfmathrandominteger{\r}{\x}{\mc@totalNumberOfVersions}
+    \letcs\@temp{mc@answerTempnum\x}   
+    \global\csletcs{mc@answerTempnum\x}{mc@answerTempnum\r}
+    \global\cslet{mc@answerTempnum\r}{\@temp}    
+    }
+  \foreach \v in {1,...,\mc@totalNumberOfVersions}{  
+    \ifcsstring{mc@answerTempnum\v}{keep}{
+      \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{   
+         \csxdef{mc@randomAnswerNumberV\v Q\q A\a}{\a}
+         \csxdef{mc@originalAnswerNumberV\v Q\q A\a}{\a}       
+        }
+      }{
+      \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{  
+        \numdef\@temp{\csuse{mc@totalNumberOfAnswersQ\q}+1-\a}
+        \csxdef{mc@randomAnswerNumberV\v Q\q A\a}{\@temp}
+        \csxdef{mc@originalAnswerNumberV\v Q\q A\@temp}{\a}                
+        }
+      }
+    }      
+  }
+
+  
+  
+\def\mc@randomizeAnswers@permutenone{
+  \foreach \v in {1,...,\mc@totalNumberOfVersions}{  
+    \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{ 
+      \csxdef{mc@randomAnswerNumberV\v Q\q A\a}{\a}
+      \csxdef{mc@originalAnswerNumberV\v Q\q A\a}{\a}      
+      }
+    }
+  }  
+
+  
+
+\def\mc@randomizeAnswers@userdefined{
+  \numdef\@numberofpermuteanswers{\csuse{mc@totalNumberOfUserPermutationsQ\q}}
+  \numdef\@numberofswaps{\csuse{mc@totalNumberOfUserPermutationsQ\q}-1}
+  \gdef\mc@cntr{0}  
+  \renewcommand*{\do}[1]{
+    \global\numdef\a{\a+1}
+    \csxdef{mc@randomAnswerNumberV\v Q\q A\a}{##1}
+    \csxdef{mc@originalAnswerNumberV\v Q\q A##1}{\a}      
+    }  
+  \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+    \ifnumequal{\mc@cntr}{0}{
+      \foreach \p in {1,...,\@numberofswaps}{
+        \pgfmathrandominteger{\r}{\p}{\@numberofpermuteanswers}
+        \letcs\@temp{mc@userPermutationQ\q P\p}
+        \global\csletcs{mc@userPermutationQ\q P\p}{mc@userPermutationQ\q P\r}
+        \global\cslet{mc@userPermutationQ\q P\r}{\@temp}
+        }
+      }{}    
+    \global\numdef\mc@cntr{\mc@cntr+1}
+    \gdef\a{0}
+    \letcs\@temp{mc@userPermutationQ\q P\mc@cntr} 
+    \expandafter\docsvlist\expandafter{\@temp}
+    \ifnumequal{\mc@cntr}{\csuse{mc@totalNumberOfUserPermutationsQ\q}}{
+      \gdef\mc@cntr{0}
+      }{}
+    }
+  }  
+
+
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%   4. Create R file
+%%%  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+  
+  
+  
+\edef\@hashsign{\string#} 
+\edef\@lbracesign{\string{} 
+\edef\@rbracesign{\string}}   
+\newoutputstream{@Rfile}
+
+\def\mc@writeRFile{
+  \ifbool{mc@writeRfile}{
+    %%% specify the output file
+    \refstepcounter{mc@mcquestions}
+    \ifdefempty\mc@mcquestionsOption{
+      \ifnumequal{\arabic{mc@mcquestions}}{1}{
+        \xdef\mc@themcquestions{}
+        }{
+        \xdef\mc@themcquestions{-\Alph{mc@mcquestions}}
+        }      
+      }{
+      \xdef\mc@themcquestions{-\mc@mcquestionsOption}
+      }   
+    %%% Open the output file
+    \openoutputfile{\jobname\mc@themcquestions.r}{@Rfile}
+    \addtostream{@Rfile}{mcprocessanswers <- function(ID,versions,answers,path=getwd()) \@lbracesign } 
+    \addtostream{@Rfile}{ }
+    %%% Options checks
+    \addtostream{@Rfile}{tol <- .Machine$double.eps^0.5 }
+    \addtostream{@Rfile}{if(! is.numeric(answers)) stop("non-numeric value(s) in answers, mcprocessanswers stopped") }
+    \addtostream{@Rfile}{if(min(answers > tol)==0) stop("non-positive value(s) in answers, mcprocessanswers stopped")  }               
+    \addtostream{@Rfile}{if(min(abs(answers - round(answers)) < tol)==0) stop("non-integer value(s) in answers, mcprocessanswers stopped") }
+    \addtostream{@Rfile}{if(! is.numeric(versions)) stop("non-numeric value(s) in versions, mcprocessanswers stopped")  }
+    \addtostream{@Rfile}{if(min(versions > tol)==0) stop("non-positive value(s) in versions, mcprocessanswers stopped")    }             
+    \addtostream{@Rfile}{if(min(abs(versions - round(versions)) < tol)==0) stop("non-integer value(s) in versions, mcprocessanswers stopped") }
+    \addtostream{@Rfile}{if(min(versions-\mc@totalNumberOfVersions  < tol)==0) stop("value(s) in versions too large, maximum possible value is \mc@totalNumberOfVersions,
+                         mcprocessanswers stopped") }
+    \addtostream{@Rfile}{ }    
+    %%% Write the question dictionary
+    \gdef\mc@tempV{}
+    \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+      \gdef\mc@tempQ{}
+      \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+        \ifdefempty\mc@tempQ{}{\xappto\mc@tempQ{,}}
+        \xappto\mc@tempQ{\csuse{mc@randomQuestionNumberV\v Q\q}}    
+        }
+      \ifdefempty\mc@tempV{}{\xappto\mc@tempV{,}}
+      \xappto\mc@tempV{c(\mc@tempQ)}
+      }
+    \addtostream{@Rfile}{questiondictionary=list(\mc@tempV)}     
+    \addtostream{@Rfile}{ } 
+    %%% Write the answer dictionary
+    \addtostream{@Rfile}{randomizedanswersdictionary=list(}  
+    \gdef\mc@temp{0}
+    \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+      \gdef\mc@tempQ{}
+      \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+        \gdef\mc@tempA{}
+        \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+          \ifdefempty\mc@tempA{}{\xappto\mc@tempA{,}}
+          \xappto\mc@tempA{\csuse{mc@originalAnswerNumberV\v Q\q A\a}}  
+          } 
+        \ifdefempty\mc@tempQ{}{\xappto{\mc@tempQ}{,}}
+        \xappto{\mc@tempQ}{c(\mc@tempA)}  
+        }
+      \ifdefstring\mc@temp{0}{    
+        \addtostream{@Rfile}{ list(\mc@tempQ)}
+        \gdef\mc@temp{1}
+        }{
+        \addtostream{@Rfile}{ ,list(\mc@tempQ)}
+        }
+      }
+    \addtostream{@Rfile}{ )}        
+    \addtostream{@Rfile}{ }   
+    %%% Write points library
+    \gdef\mc@tempQ{}
+    \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+      \gdef\mc@tempA{}
+      \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\q}}{
+        \ifdefempty\mc@tempA{}{\xappto\mc@tempA{,}}
+        \ifcsempty{mc@answerOptionQ\q A\a}{
+          \xappto\mc@tempA{0}
+          }{
+        \ifcsstring{mc@answerOptionQ\q A\a}{correct}{
+          \xappto\mc@tempA{1}
+          }{
+          \xappto\mc@tempA{\csuse{mc@answerOptionQ\q A\a}}
+          }}       
+        }
+      \ifdefempty\mc@tempQ{}{\xappto\mc@tempQ{,}}
+      \xappto\mc@tempQ{c(\mc@tempA)}
+      }
+    \addtostream{@Rfile}{correctiondictionary=list(\mc@tempQ)}
+    \addtostream{@Rfile}{ } 
+    %%% write number information
+    \addtostream{@Rfile}{Nversions=\mc@totalNumberOfVersions; } 
+    \addtostream{@Rfile}{Nquestions=\mc@totalNumberOfQuestions;} 
+    \gdef\mc@tempQ{}
+    \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+      \ifdefempty\mc@tempQ{}{\xappto\mc@tempQ{,}}
+      \xappto\mc@tempQ{\csuse{mc@totalNumberOfAnswersQ\q}}
+      }
+    \addtostream{@Rfile}{Nanswers=c(\mc@tempQ);}   
+    \addtostream{@Rfile}{Nstudents=nrow(answers);} 
+    \addtostream{@Rfile}{ }     
+    %%% determine answers to otiginal question, obtain points, calculate total
+    \addtostream{@Rfile}{Q <- matrix(NA,nrow=Nstudents,ncol=Nquestions); }
+    \addtostream{@Rfile}{P <- matrix(NA,nrow=Nstudents,ncol=Nquestions); }
+    \addtostream{@Rfile}{for ( student in 1:Nstudents )\@lbracesign }
+    \addtostream{@Rfile}{ for (question in 1:Nquestions)\@lbracesign }
+    \addtostream{@Rfile}{  R <- randomizedanswersdictionary[[versions[student]]][[question]]; }
+    \addtostream{@Rfile}{  Q[student,question] <- R[answers[student,questiondictionary[[versions[student]]][question]]]; }
+    \addtostream{@Rfile}{  P[student,question] <- correctiondictionary[[question]][Q[student,question]]; }
+    \addtostream{@Rfile}{  P[student,question] <- ifelse(is.na(P[student,question]),0,P[student,question]); }
+    \addtostream{@Rfile}{  \@rbracesign\@rbracesign }
+    \addtostream{@Rfile}{Points=apply(P,1,sum); } 
+    \addtostream{@Rfile}{outputdata <- data.frame(ID=ID,versions=versions,originalQuestion=Q,pointsQuestion=P,total=Points); }
+    \addtostream{@Rfile}{ }  
+    %%% Calculate mean of points 
+    \addtostream{@Rfile}{p     <- apply(P,2,mean); }
+    %%% Calculate corrected proportion correct
+    \ifbool{mc@correct}{
+      \addtostream{@Rfile}{p.cor <- apply(P,2,mean) - (1-apply(P,2,mean))/(Nanswers-unlist(lapply(correctiondictionary,sum))); }
+      }{}
+    %%% Calculate item rest correlaction  
+    \addtostream{@Rfile}{r.cor <- NULL; }
+    \addtostream{@Rfile}{for (i in 1:Nquestions)\@lbracesign }
+    \addtostream{@Rfile}{  r.cor[i] <- ifelse(var(P[,i])==0,0,cor(P[,i],apply(P[,-i],1,sum))); }
+    \addtostream{@Rfile}{  \@rbracesign  }
+    \addtostream{@Rfile}{ } 
+    %%% Calculate reliability  
+    \addtostream{@Rfile}{Nquestions.cor <- sum(apply(P,2,var)>0); }
+    \addtostream{@Rfile}{alpha <- (Nquestions.cor/(Nquestions.cor-1))*(1-(sum(apply(P,2,var))/var(Points))); }
+    \addtostream{@Rfile}{ } 
+    %%% Open output file .ana
+    \addtostream{@Rfile}{outputfilename=file.path(path,"\jobname.ana"); }
+    \addtostream{@Rfile}{write("\\makeatletter",outputfilename) ; }
+    \addtostream{@Rfile}{ }   
+    %%% Write question analysis table
+    \addtostream{@Rfile}{formatnumber <- function(x) \@lbracesign }
+    \addtostream{@Rfile}{  y <- gsub("(?<![0-9.])0+","", sprintf("\@percentchar  .3f",x),perl = TRUE) }
+    \addtostream{@Rfile}{  n <- nchar(y) }
+    \addtostream{@Rfile}{  y <- gsub(" ","\\\\phantom\@lbracesign -\@rbracesign ",y) }
+    \addtostream{@Rfile}{  y <- paste0(strrep("\\phantom\@lbracesign 0\@rbracesign ",max(n)-n),y) }
+    \addtostream{@Rfile}{  y }
+    \addtostream{@Rfile}{  \@rbracesign ; }
+    \addtostream{@Rfile}{write(c( }
+    \addtostream{@Rfile}{  "\\gdef\\mc@questionAnalysisTable\@lbracesign ", }
+    \addtostream{@Rfile}{  "  \\begin\@lbracesign setmcquestionanalysistable\@rbracesign ", }
+    \ifbool{mc@correct}{
+      \addtostream{@Rfile}{  "  \\begin\@lbracesign longtable\@rbracesign \@lbracesign cccc\@rbracesign ", }
+      \addtostream{@Rfile}{  "    & \\mc@babel@Proportion & \\mc@babel@Corrected  & \\mc@babel@Item@rest   \\\\", }
+      \addtostream{@Rfile}{  "    & \\mc@babel@correct    & \\mc@babel@proportion & \\mc@babel@correlation \\\\", }
+      \addtostream{@Rfile}{  "  \\hline", }
+      \addtostream{@Rfile}{  "  \\mc@babel@Question \\\\", }
+      \addtostream{@Rfile}{  "  \\endhead", }
+      \addtostream{@Rfile}{  "  \\hline", }
+      \addtostream{@Rfile}{  "  \\endfoot", }  
+      \addtostream{@Rfile}{  "  \\hline", }
+      \addtostream{@Rfile}{  paste0("  \\multicolumn\@lbracesign 4\@rbracesign \@lbracesign l\@rbracesign \@lbracesign \\mc@babel@Number@of@students\\ = ",Nstudents,"\@rbracesign  \\\\"), }
+      \addtostream{@Rfile}{  paste0("  \\multicolumn\@lbracesign 4\@rbracesign \@lbracesign l\@rbracesign \@lbracesign Cronbach's alpha = ",sprintf("\@percentchar  .3f",alpha),"\@rbracesign  \\\\"), }
+      \addtostream{@Rfile}{  "  \\endlastfoot                                     ", }
+      \addtostream{@Rfile}{  paste0("  \\setcounter\@lbracesign mc@counter\@rbracesign \@lbracesign ",1:ncol(answers),"\@rbracesign \\mcquestionlabelfmt\@lbracesign mc@counter\@rbracesign  & " }
+      \addtostream{@Rfile}{        ,formatnumber(p)," & ",formatnumber(p.cor)," & ",formatnumber(r.cor)," \\\\"), }
+      \addtostream{@Rfile}{  "  \\end\@lbracesign longtable\@rbracesign ", } 
+      }{}
+    \ifbool{mc@points}{
+      \addtostream{@Rfile}{  "  \\begin\@lbracesign longtable\@rbracesign \@lbracesign ccc\@rbracesign ", }
+      \addtostream{@Rfile}{  "    &                 & \\mc@babel@Item@rest   \\\\", }
+      \addtostream{@Rfile}{  "    & \\mc@babel@Mean & \\mc@babel@correlation \\\\", }
+      \addtostream{@Rfile}{  "  \\hline", }
+      \addtostream{@Rfile}{  "  \\mc@babel@Question \\\\", }
+      \addtostream{@Rfile}{  "  \\endhead", }
+      \addtostream{@Rfile}{  "  \\hline", }
+      \addtostream{@Rfile}{  "  \\endfoot", }  
+      \addtostream{@Rfile}{  "  \\hline", }
+      \addtostream{@Rfile}{  paste0("  \\multicolumn\@lbracesign 3\@rbracesign \@lbracesign l\@rbracesign \@lbracesign \\mc@babel@Number@of@students\\ = ",Nstudents,"\@rbracesign  \\\\"), }
+      \addtostream{@Rfile}{  paste0("  \\multicolumn\@lbracesign 3\@rbracesign \@lbracesign l\@rbracesign \@lbracesign Cronbach's alpha = ",sprintf("\@percentchar  .3f",alpha),"\@rbracesign  \\\\"), }
+      \addtostream{@Rfile}{  "  \\endlastfoot                                     ", }
+      \addtostream{@Rfile}{  paste0("  \\setcounter\@lbracesign mc@counter\@rbracesign \@lbracesign ",1:ncol(answers),"\@rbracesign \\mcquestionlabelfmt\@lbracesign mc@counter\@rbracesign  & " }
+      \addtostream{@Rfile}{        ,formatnumber(p)," & ",formatnumber(r.cor)," \\\\"), }
+      \addtostream{@Rfile}{  "  \\end\@lbracesign longtable\@rbracesign ", }     
+      }{}  
+    \addtostream{@Rfile}{  "  \\end\@lbracesign setmcquestionanalysistable\@rbracesign ", }
+    \addtostream{@Rfile}{  "  \@rbracesign " }
+    \addtostream{@Rfile}{  ),outputfilename,append=TRUE) ; }        
+    \addtostream{@Rfile}{ }   
+    %%% Write answer analysis tables
+    \addtostream{@Rfile}{versions.factor <- factor(versions); }
+    \addtostream{@Rfile}{levels(versions.factor) <- 1:Nversions; }
+    \addtostream{@Rfile}{for (i in 1:Nquestions) \@lbracesign }
+    \addtostream{@Rfile}{ X <- factor(Q[,i],1:Nanswers[i]); }
+    \addtostream{@Rfile}{ props <- cbind(prop.table(table(X,versions.factor,useNA="ifany"),2),prop.table(table(X,useNA="ifany"))); }
+    \addtostream{@Rfile}{ dims <- dim(props); }
+    \addtostream{@Rfile}{ props <- lapply(props,function(x) ifelse(is.na(x),"N.A.",gsub(" ","\\\\phantom\@lbracesign 0\@rbracesign ",paste0(sprintf("\@percentchar 5.1f",x*100),"\\\@percentchar ")))); }
+    \addtostream{@Rfile}{ dim(props) <- dims; }
+    \addtostream{@Rfile}{ props <- apply(props, 1, paste, collapse=" & "); }
+    \addtostream{@Rfile}{ labels <- paste0("  \\setcounter\@lbracesign mc@counter\@rbracesign \@lbracesign ",1:Nanswers[i],"\@rbracesign \\mcanswerlabelfmt\@lbracesign mc@counter\@rbracesign "); }
+    \addtostream{@Rfile}{ labels <- ifelse(is.na(labels[1:dims[1]]),"  invalid",labels[1:dims[1]]) }
+    \addtostream{@Rfile}{write(c( }
+    \addtostream{@Rfile}{  paste0("\\csgdef\@lbracesign mc@answerAnalysisTable",i,"\@rbracesign \@lbracesign "), }
+    \addtostream{@Rfile}{  paste0("  \\begin\@lbracesign tabular\@rbracesign \@lbracesign c",strrep("c",Nversions),"c\@rbracesign "), }
+    \addtostream{@Rfile}{  paste0("  \\multicolumn\@lbracesign 1\@rbracesign \@lbracesign r\@rbracesign \@lbracesign \\mc@babel@Version\@rbracesign  &" }
+    \addtostream{@Rfile}{        ,paste(paste0("\\setcounter\@lbracesign mc@counter\@rbracesign \@lbracesign ",1:Nversions, }
+    \addtostream{@Rfile}{                      "\@rbracesign \\mcversionlabelfmt\@lbracesign mc@counter\@rbracesign "),collapse="&") }
+    \addtostream{@Rfile}{        ,"  & \\mc@babel@total   \\\\"), }
+    \addtostream{@Rfile}{  "  \\hline", }
+    \addtostream{@Rfile}{  "  \\mc@babel@Answer \\\\", }
+    \addtostream{@Rfile}{  paste0(labels," & ",props,"\\\\"), }
+    \addtostream{@Rfile}{  "  \\hline", }
+    \ifbool{mc@correct}{
+      \addtostream{@Rfile}{  paste0("  \\multicolumn\@lbracesign ",Nversions+2,"\@rbracesign \@lbracesign l\@rbracesign \@lbracesign \\mc@babel@Proportion@correct\\ = ", }
+      \addtostream{@Rfile}{         sprintf("\@percentchar  .3f",p[i]),"\@rbracesign  \\\\"), }
+      \addtostream{@Rfile}{  paste0("  \\multicolumn\@lbracesign ",Nversions+2,"\@rbracesign \@lbracesign l\@rbracesign \@lbracesign \\mc@babel@Corrected@proportion\\ = ", }
+      \addtostream{@Rfile}{         sprintf("\@percentchar  .3f",p.cor[i]),"\@rbracesign  \\\\"), }
+      }{}
+    \ifbool{mc@points}{
+      \addtostream{@Rfile}{  paste0("  \\multicolumn\@lbracesign ",Nversions+2,"\@rbracesign \@lbracesign l\@rbracesign \@lbracesign \\mc@babel@Mean\\ = ", }
+      \addtostream{@Rfile}{         sprintf("\@percentchar  .3f",p[i]),"\@rbracesign  \\\\"), }
+      }{}  
+    \addtostream{@Rfile}{  paste0("  \\multicolumn\@lbracesign ",Nversions+2,"\@rbracesign \@lbracesign l\@rbracesign \@lbracesign \\mc@babel@Item@rest@correlation\\ = ", }
+    \addtostream{@Rfile}{         sprintf("\@percentchar  .3f",r.cor[i]),"\@rbracesign  \\\\"),  }       
+    \addtostream{@Rfile}{  "  \\end\@lbracesign tabular\@rbracesign ", }
+    \addtostream{@Rfile}{  "  \@rbracesign " }
+    \addtostream{@Rfile}{  ),outputfilename,append=TRUE) ; }    
+    \addtostream{@Rfile}{ \@rbracesign }
+    \addtostream{@Rfile}{ }
+    %%% Close output file .ana
+    \addtostream{@Rfile}{write("\\makeatother",outputfilename,append=TRUE) ; }
+    \addtostream{@Rfile}{ }    
+    %%% Output the data
+    \addtostream{@Rfile}{outputdata ;  }
+    %%% Close the output file    
+    \addtostream{@Rfile}{ \@rbracesign }
+    \closeoutputstream{@Rfile}   
+    %%% Read the .ana file
+    \ifbool{mc@analysis}{
+      \IfFileExists{\jobname\mc@themcquestions.ana}%
+      {\@input{\jobname\mc@themcquestions.ana}}
+      {\PackageError{mcexam}{File \jobname\mc@themcquestions.ana not present}{Run the R code or ensure the \jobname\mc@themcquestions.ana is in the correct folder.}}    
+      }{}  
+    }{}    
+  } 
+
+
+
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%
+%%%   5. TYPESET CONTENT
+%%%  
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+
+\def\mc@typesetContent{ 
+  \ifbool{mc@showQuestionPermutationtable}{\mc@questionPermutationtable}{}  %%% Subsection 5.1 
+  \ifbool{mc@showQuestionsAnalysis}{\mc@generalAnalysisInfo}{}  %%% Subsection 5.2 
+  \ifbool{mc@showQuestionList}{\mc@questionList}{}  %%% Subsection 5.3 
+  \ifbool{mc@showKeytable}{\mc@keytable}{}   %%% Subsection 5.4          
+  }
+
+  
+  
+  
+
+
+
+
+%%%   4.1 Question Permutation Table 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+
+\def\mc@questionPermutationtable{
+  \ifbool{mc@randomizeQuestions}{
+    \gdef\mc@temp{}
+    \numdef\mc@numcol{\mc@totalNumberOfVersions+2}
+    \gappto\mc@temp{\begin{longtable}{cc*{\mc@totalNumberOfVersions}{c}}}
+    \xappto\mc@temp{\noexpand\multicolumn{\mc@numcol}{@{}l}{\noexpand\textbf{\mc@babel@Question@permutation@table:}}\noexpand\\}
+    \gappto\mc@temp{\multicolumn{2}{r}{\mc@babel@Version}}
+    \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+      \setcounter{mc@counter}{\v}
+      \xappto\mc@temp{&\mcversionlabelfmt{mc@counter}}
+      }
+    \gappto\mc@temp{\\}
+    \gappto\mc@temp{ \hline }
+    \gappto\mc@temp{ \endhead }
+    \gappto\mc@temp{ \hline }
+    \xappto\mc@temp{\noexpand\multicolumn{\mc@numcol}{@{}l}{*: \mc@babel@Question@follows@previous}\noexpand\\}
+    \gappto\mc@temp{ \endfoot }    
+    \gappto\mc@temp{ \mc@babel@Question \\ }
+    \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+      \setcounter{mc@counter}{\q}
+      \xappto\mc@temp{\mcquestionlabelfmt{mc@counter}}
+      \ifcsstring{mc@questionOption\q}{follow}{
+      \ifnumequal{\q}{1}{}{
+        \gappto\mc@temp{\makebox[0pt][l]{*}}
+        }}{}         
+      \gappto\mc@temp{& $\rightarrow$ }
+      \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+        \setcounter{mc@counter}{\csuse{mc@randomQuestionNumberV\v Q\q}}
+	\xappto\mc@temp{ &\mcquestionlabelfmt{mc@counter}}
+	}
+      \gappto\mc@temp{\\}  
+      }
+    \gappto\mc@temp{\end{longtable}}
+    \begin{setmcquestionpermutationtable}
+      \mc@temp
+    \end{setmcquestionpermutationtable}
+    }{}
+  }
+  
+  
+  
+  
+  
+  
+  
+%%%   4.2 General Analysis Info
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+  
+
+\gdef\mc@generalAnalysisInfo{
+   \mc@questionAnalysisTable
+  }
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+%%%   4.3 Question list
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  
+
+\def\mc@questionList{
+  \mc@questionList@setmcanswerslist
+  \mc@questionList@setmcanswers
+  %%%
+  \gdef\mc@questionList@enumerate{}
+  \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+    % Set \theq the question number to be printed.
+    \ifbool{mc@showPerVersion}{
+      \xappto\mc@questionList@enumerate{\noexpand\xdef\noexpand\theq{\csuse{mc@originalQuestionNumberV\mc@theVersion Q\q}}}
+      }{
+      \xappto\mc@questionList@enumerate{\noexpand\xdef\noexpand\theq{\q}}
+      }
+    % Print the question instruction.
+    \ifnumequal{\q}{1}{
+      \gappto\mc@questionList@enumerate{
+        \ifcsempty{mc@questionInstruction\theq}{}{
+          \begin{setmcquestioninstruction}
+          \csuse{mc@questionInstruction\theq}
+          \end{setmcquestioninstruction}
+          }
+        }
+      }{
+      \gappto\mc@questionList@enumerate{
+        \ifcsempty{mc@questionInstruction\theq}{}{
+          \end{setmcquestions}
+          \begin{setmcquestioninstruction}
+          \csuse{mc@questionInstruction\theq}
+          \end{setmcquestioninstruction}
+          \begin{setmcquestions}[resume]
+          }
+        }      
+      }    
+    % At the first question, open the list environment.    
+    \ifnumequal{\q}{1}{\gappto\mc@questionList@enumerate{\begin{setmcquestions}}}{}
+    % Add the question. 
+    \gappto\mc@questionList@enumerate{\item \begin{setmcquestion}\csuse{mc@question\theq}\end{setmcquestion}} 
+    % Add question info
+    \gappto\mc@questionList@enumerate{\mc@questionList@questionInfo}
+    }
+  % Close the list environment after the last question.  
+  \gappto\mc@questionList@enumerate{\end{setmcquestions}}
+  %%%
+  {\@beginparpenalty=10000 \mc@questionList@enumerate}
+  }
+  
+
+
+ 
+  
+\def\mc@questionList@setmcanswerslist{
+  \RenewEnviron{mcanswerslist}[1][]{
+    \gdef\mc@answerslist@enumerate{}
+    \gappto\mc@answerslist@enumerate{\begin{setmcanswerslist}}
+    \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\theq}}{
+      \ifbool{mc@showPerVersion}{
+        \xappto\mc@answerslist@enumerate{\noexpand\xdef\noexpand\thea{\csuse{mc@originalAnswerNumberV\mc@theVersion Q\theq A\a}}}
+        }{
+        \xappto\mc@answerslist@enumerate{\noexpand\xdef\noexpand\thea{\a}}
+        }
+      \gappto\mc@answerslist@enumerate{\item \csuse{mc@answerQ\theq A\thea}}  
+      } 
+    \gappto\mc@answerslist@enumerate{\end{setmcanswerslist}}  
+    \mc@answerslist@enumerate
+    } 
+  }
+  
+  
+  
+\def\mc@questionList@setmcanswers{
+  \RenewEnviron{mcanswers}[1][]{
+    \providecommand\answer[3][]{}
+    \renewcommand\answer[3][]{%
+      \ifbool{mc@showPerVersion}{\xdef\thea{\csuse{mc@originalAnswerNumberV\mc@theVersion Q\theq A####2}}}{\xdef\thea{####2}}%          
+      \csuse{mc@answerQ\theq A\thea}%
+      }
+    \providecommand\answernum[1]{}
+    \renewcommand\answernum[1]{\setcounter{mc@counter}{####1}\mcanswerlabelfmt{mc@counter}} 
+    \par\begin{setmcanswers}\BODY\end{setmcanswers}
+    }    
+  }
+  
+
+ 
+\def\mc@questionList@questionInfo{
+  \gdef\mc@questionInfoBODY{}
+  % Add the correct answer.
+  \ifboolexpr{bool{mc@correct} and bool{mc@showCorrectAnswers} and test{\ifnumgreater{\csuse{mc@totalNumberOfAnswersQ\theq}}{0}}}{  
+    \gappto\mc@questionInfoBODY{\item[\mc@babel@Correct@answers:]}
+    \xdef\mc@temp{0}
+    \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\theq}}{
+      \ifbool{mc@showPerVersion}{
+        \xdef\thea{\csuse{mc@originalAnswerNumberV\mc@theVersion Q\theq A\a}}
+        }{
+        \xdef\thea{\a}
+        }       
+      \ifcsstring{mc@answerOptionQ\theq A\thea}{correct}{
+        \ifdefstring{\mc@temp}{0}{
+          \xappto\mc@questionInfoBODY{\noexpand\setcounter{mc@counter}{\a}}
+          \gappto\mc@questionInfoBODY{\mcanswerlabelfmt{mc@counter}}
+          \xdef\mc@temp{1}
+          }{
+          \xappto\mc@questionInfoBODY{\noexpand\setcounter{mc@counter}{\a}}
+          \gappto\mc@questionInfoBODY{, \mcanswerlabelfmt{mc@counter}}
+          }   
+       }{}
+      }
+    }{}
+  % Add the answer points
+  \ifboolexpr{bool{mc@points} and bool{mc@showAnswerPoints}}{
+    \gappto\mc@questionInfoBODY{\item[\mc@babel@Answer@points:] }
+    \xdef\mc@temp{0}
+    \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\theq}}{
+      \ifbool{mc@showPerVersion}{
+        \xdef\thea{\csuse{mc@originalAnswerNumberV\mc@theVersion Q\theq A\a}}
+        }{
+        \xdef\thea{\a}
+        }        
+      \ifdefstring{\mc@temp}{1}{
+        \gappto\mc@questionInfoBODY{, }
+        }{
+        \xdef\mc@temp{1}  
+        }
+      \xappto\mc@questionInfoBODY{\noexpand\setcounter{mc@counter}{\a}}  
+      \gappto\mc@questionInfoBODY{\mcanswerlabelfmt{mc@counter} = } 
+      \ifcsstring{mc@answerOptionQ\theq A\thea}{correct}{
+        \gappto\mc@questionInfoBODY{1 \mc@babel@point}
+        }{
+      \ifcsstring{mc@answerOptionQ\theq A\thea}{1}{ 
+        \gappto\mc@questionInfoBODY{1 \mc@babel@point}
+        }{
+      \ifcsstring{mc@answerOptionQ\theq A\thea}{-1}{ 
+        \gappto\mc@questionInfoBODY{-1 \mc@babel@point}
+        }{
+      \IfDecimal{\csuse{mc@answerOptionQ\theq A\thea}}{
+        \xappto\mc@questionInfoBODY{\csuse{mc@answerOptionQ\theq A\thea} \mc@babel@points}
+        }{
+        \gappto\mc@questionInfoBODY{0 \mc@babel@points}
+        }}}}    
+      }
+    }{}
+  % Add the exlanation
+  \ifbool{mc@showExplanation}{  
+    \ifcsdef{mc@questionExplanationQ\theq}{
+      \gappto\mc@questionInfoBODY{\item[\mc@babel@Explanation:] \csuse{mc@questionExplanationQ\theq}}
+      }{}
+    }{}
+  % Add the answer permutation table
+  \ifboolexpr{ bool{mc@randomizeAnswers} and bool{mc@showAnswerPermutationTable} and test{\ifnumgreater{\csuse{mc@totalNumberOfAnswersQ\theq}}{0}}}{  
+    \gappto\mc@questionInfoBODY{\item[\mc@babel@Answer@permutations:]}
+    \ifcsempty{mc@answerPermuteTypeQ\theq}{\gappto\mc@questionInfoBODY{(\mc@babel@All@answers@permuted)}}{
+    \ifcsstring{mc@answerPermuteTypeQ\theq}{permuteall}{\gappto\mc@questionInfoBODY{(\mc@babel@All@answers@permuted)}}{
+    \ifcsstring{mc@answerPermuteTypeQ\theq}{fixlast}{\gappto\mc@questionInfoBODY{(\mc@babel@All@answers@permuted@except@last@answer)}}{
+    \ifcsstring{mc@answerPermuteTypeQ\theq}{ordinal}{\gappto\mc@questionInfoBODY{(\mc@babel@Order@of@answers@permuted)}}{
+    \ifcsstring{mc@answerPermuteTypeQ\theq}{permutenone}{\gappto\mc@questionInfoBODY{(\mc@babel@No@answers@permuted)}}{
+                                                         \gappto\mc@questionInfoBODY{(\mc@babel@Answers@permuted@by@user)}}}}}} 
+    \gappto\mc@questionInfoBODY{\par\nobreak\@afterheading}
+    \gappto\mc@questionInfoBODY{\begin{setmcanswerpermutationtable}\begin{tabular}{cc*{\mc@totalNumberOfVersions}{c}}}
+    \gappto\mc@questionInfoBODY{\multicolumn{2}{r}{\mc@babel@Version}}
+    \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+      \setcounter{mc@counter}{\v}
+      \xappto\mc@questionInfoBODY{& \mcversionlabelfmt{mc@counter}}
+      }
+    \gappto\mc@questionInfoBODY{ \\ }
+    \gappto\mc@questionInfoBODY{ \hline }
+    \gappto\mc@questionInfoBODY{ \mc@babel@Answer \\ }
+    \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\theq}}{
+      \setcounter{mc@counter}{\a}
+      \xappto\mc@questionInfoBODY{\mcanswerlabelfmt{mc@counter}}
+      \gappto\mc@questionInfoBODY{& $\rightarrow$ }
+      \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+        \setcounter{mc@counter}{\csuse{mc@randomAnswerNumberV\v Q\theq A\a}}
+        \xappto\mc@questionInfoBODY{ &\mcanswerlabelfmt{mc@counter}}
+        }
+      \gappto\mc@questionInfoBODY{\\}
+      }
+    \gappto\mc@questionInfoBODY{\hline}
+    \gappto\mc@questionInfoBODY{\end{tabular}\end{setmcanswerpermutationtable}}  
+    }{}    
+    % Add the answer analysis
+    \ifbool{mc@showAnswersAnalysis}{{
+       \gappto\mc@questionInfoBODY{\item[\mc@babel@Analysis:]\mbox{}}
+       \gappto\mc@questionInfoBODY{\par\nobreak\@afterheading}       
+       \gappto\mc@questionInfoBODY{\begin{setmcansweranalysistable}}    
+       \xappto\mc@questionInfoBODY{\noexpand\csuse{mc@answerAnalysisTable\theq}}
+       \gappto\mc@questionInfoBODY{\end{setmcansweranalysistable}}
+      }}{}  
+  % Add the notes
+  \ifbool{mc@showNotes}{
+    \ifcsdef{mc@questionNotesQ\theq}{
+      \gappto\mc@questionInfoBODY{\item[\mc@babel@Notes:] \csuse{mc@questionNotesQ\theq}}
+      }{}    
+    }{}
+  % Output the question Info.
+  \ifdefempty\mc@questionInfoBODY{}{
+    \begin{setmcquestioninfo}
+    \mc@questionInfoBODY
+    \end{setmcquestioninfo}  
+    }
+  }
+
+
+
+
+
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+%%%   4.4 Key Table
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+  
+  
+  
+\def\mc@keytable{
+  \ifbool{mc@correct}{\mc@correctkeytable}{}
+  \ifbool{mc@points}{\mc@pointskeytable}{}
+  }
+    
+
+\def\mc@correctkeytable{  
+    \gdef\mc@keytableBODY{}
+    \gappto\mc@keytableBODY{\begin{longtable}{c*{\mc@totalNumberOfVersions}{c}}}
+    \gappto\mc@keytableBODY{\multicolumn{1}{r}{\mc@babel@Version}}
+    \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+      \setcounter{mc@counter}{\v}
+      \xappto\mc@keytableBODY{&\mcversionlabelfmt{mc@counter}}
+      }
+    \gappto\mc@keytableBODY{ \\ }
+    \gappto\mc@keytableBODY{ \hline }
+    \gappto\mc@keytableBODY{\mc@babel@Question \\}
+    \gappto\mc@keytableBODY{ \endhead }
+    \gappto\mc@keytableBODY{ \hline }
+    \gappto\mc@keytableBODY{ \endfoot }    
+    \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+      \setcounter{mc@counter}{\q}
+      \xappto\mc@keytableBODY{\mcquestionlabelfmt{mc@counter}}
+      \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+        \gappto\mc@keytableBODY{& }
+        \xdef\theq{\csuse{mc@originalQuestionNumberV\v Q\q}}
+        \xdef\mc@temp{0}
+        \foreach \a in {1,...,\csuse{mc@totalNumberOfAnswersQ\theq}}{
+          \xdef\thea{\csuse{mc@originalAnswerNumberV\v Q\theq A\a}}%           
+          \ifcsstring{mc@answerOptionQ\theq A\thea}{correct}{
+            \ifdefstring{\mc@temp}{0}{\xdef\mc@temp{1}}{\xappto\mc@keytableBODY{,}}   
+            \setcounter{mc@counter}{\a}
+            \xappto\mc@keytableBODY{\mcanswerlabelfmt{mc@counter}}              
+            }{}
+          }          
+        }
+      \gappto\mc@keytableBODY{\\}  
+      }   
+    \gappto\mc@keytableBODY{\end{longtable}}    
+    \begin{setmckeytable}
+     \mc@keytableBODY
+    \end{setmckeytable}  
+  }
+  
+  
+\def\mc@pointskeytable{  
+  \gdef\mc@keytableBODY{}
+  \gappto\mc@keytableBODY{\begin{longtable}{l*{\mc@totalNumberOfVersions}{c}}}
+    \gappto\mc@keytableBODY{\multicolumn{1}{r}{\mc@babel@Version}}
+    \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+      \setcounter{mc@counter}{\v}
+      \xappto\mc@keytableBODY{&\mcversionlabelfmt{mc@counter}}
+      }
+    \gappto\mc@keytableBODY{ \\ }
+    \gappto\mc@keytableBODY{ \hline }
+    \gappto\mc@keytableBODY{ \endhead }
+    \gappto\mc@keytableBODY{ \hline }
+    \gappto\mc@keytableBODY{ \endfoot }    
+    \foreach \q in {1,...,\mc@totalNumberOfQuestions}{
+      \setcounter{mc@counter}{\q}
+      \xappto\mc@keytableBODY{\mc@babel@Question\ \mcquestionlabelfmt{mc@counter}}
+      \gappto\mc@keytableBODY{\\}
+      \xdef\mc@maxNumberOfAnswers{1}
+      \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+        \xdef\theq{\csuse{mc@originalQuestionNumberV\v Q\q}}
+        \ifnumgreater{\csuse{mc@totalNumberOfAnswersQ\theq}}{\mc@maxNumberOfAnswers}{
+          \xdef\mc@maxNumberOfAnswers{\csuse{mc@totalNumberOfAnswersQ\theq}}
+          }{}
+        }
+      \foreach \a in {1,...,\mc@maxNumberOfAnswers}{
+        \setcounter{mc@counter}{\a}
+        \xappto\mc@keytableBODY{\quad\mc@babel@Answer\ \mcanswerlabelfmt{mc@counter}:}
+        \foreach \v in {1,...,\mc@totalNumberOfVersions}{
+          \xdef\theq{\csuse{mc@originalQuestionNumberV\v Q\q}}
+          \xdef\thea{\csuse{mc@originalAnswerNumberV\v Q\theq A\a}}
+          \ifnumgreater{\a}{\csuse{mc@totalNumberOfAnswersQ\theq}}{
+            \gappto\mc@keytableBODY{& ---}
+            }{
+            \ifcsstring{mc@answerOptionQ\theq A\thea}{correct}{
+              \gappto\mc@keytableBODY{& 1\,\mc@babel@pt}
+              }{
+            \ifcsstring{mc@answerOptionQ\theq A\thea}{1}{ 
+              \gappto\mc@keytableBODY{& 1\,\mc@babel@pt}
+              }{
+            \ifcsstring{mc@answerOptionQ\theq A\thea}{-1}{ 
+              \gappto\mc@keytableBODY{& -1\,\mc@babel@pt}
+              }{
+            \IfDecimal{\csuse{mc@answerOptionQ\theq A\thea}}{
+              \xappto\mc@keytableBODY{& \csuse{mc@answerOptionQ\theq A\thea}\noexpand\,\mc@babel@pts}
+              }{
+              \gappto\mc@keytableBODY{& 0\,\mc@babel@pts}
+              }}}}                     
+            }
+          }
+        \gappto\mc@keytableBODY{\\}
+        }
+      }   
+    \gappto\mc@keytableBODY{\end{longtable}}    
+    \begin{setmckeytable}
+     \mc@keytableBODY
+    \end{setmckeytable}  
+  }
+  
+
+ 
+ 
+ 
+ 
+ 
+
+ 
+ 
+ 
+\endinput 
+  
+  
+  
+  
+  
+
+
+
