@@ -47,7 +47,7 @@ class _AutoUpdateVBox(QVBoxLayout):
     logic currently being used.
     """
 
-    def __init__(self, parent, toolbar, otype) -> None:
+    def __init__(self, parent, toolbar, otype):
         super().__init__()
         self.parent = parent
         self._toolbar = toolbar
@@ -68,14 +68,14 @@ class _AutoUpdateVBox(QVBoxLayout):
         super().addWidget(item)
         return item
 
-    def from_obj(self, obj) -> None:
+    def from_obj(self, obj):
         """_summary_
 
         Args:
             obj (MultipleTries): _description_
         """
-        _obj: "TList" = getattr(obj, self.__attr)
-        new_size = len(self.__obj)
+        _obj: "TList" = getattr(obj, self.__type)
+        new_size = len(_obj)
         if self.count() != 0:
             to_rem = 0
             if _TYPE_MAP[_obj.datatype] != _TYPE_MAP[self.__obj.datatype]:
@@ -110,11 +110,12 @@ class GOptions(_AutoUpdateVBox):
     """GUI for GOptions class.
     """
 
-    def __init__(self, parent, toolbar, editor) -> None:
+    def __init__(self, parent, toolbar, editor):
         super().__init__(parent, toolbar, "options")
         self.visible = True
-        self.add_marker_to_text = editor.add_marker
-        self.pop_marker_from_text = editor.pop_marker
+        if editor is not None:
+            self.add_marker_to_text = editor.add_marker
+            self.pop_marker_from_text = editor.pop_marker
         self.setSpacing(5)
 
     def add(self, child=None):
@@ -123,7 +124,7 @@ class GOptions(_AutoUpdateVBox):
             self.add_marker_to_text()
         return item
 
-    def pop(self) -> None:
+    def pop(self):
         """_summary_
         """
         widget = QApplication.focusWidget().parent()

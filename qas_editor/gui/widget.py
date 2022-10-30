@@ -49,7 +49,7 @@ class _AutoUpdate():
 
     _get_data: str = None
 
-    def __init__(self, attribute, *args):
+    def __init__(self, attribute: str, *args):
         super().__init__(*args)
         self.__obj = None
         self.__attr = attribute
@@ -107,7 +107,7 @@ class GField(_AutoUpdate, QLineEdit):
 
     _get_data = "text"
 
-    def __init__(self, attribute, parent, cast_type):
+    def __init__(self, attribute: str, parent, cast_type):
         super().__init__(attribute, parent)
         self._cast = cast_type
 

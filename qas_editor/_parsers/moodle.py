@@ -28,50 +28,13 @@ from ..question import QCalculated, QCalculatedMC, QDescription, QDaDImage,\
                        QMultichoice, QRandomMatching, QShortAnswer
 from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
                     ShapeType, Grading, Status, TolFormat, TolType,\
-                    Distribution, ShowAnswer
+                    Distribution, ShowAnswer, FileAddr, MediaType
 from ..utils import gen_hier, Dataset, Hint, TList, FText, File, Unit, \
-                    EXTRAS_FORMULAE, nxt, serialize_fxml
+                    EXTRAS_FORMULAE, serialize_fxml
 if TYPE_CHECKING:
     from ..category import Category, _Question
     from ..question import _QHasOptions, _QHasUnits
 _LOG = logging.getLogger(__name__)
-
-
-def get_sympy(string: str) -> str:
-    """This function suposse that at least once the 
-    """
-    if EXTRAS_FORMULAE:
-        from sympy.parsing.sympy_parser import parse_expr 
-    ftext = []
-    _vars = set()
-    last = 0
-    counter = 0
-    stt = [0, False]
-    while stt[0] < len(string):
-        if string[stt[0]] == "{" and not stt[1]:
-            nxt(stt, string)
-            if counter == 0:
-                ftext.append(string[last: stt[0]-1])
-                last = stt[0]
-                if string[stt[0]] == "=" and not stt[1]:
-                    last +=1
-            counter += 1
-        elif string[stt[0]] == "}" and not stt[1]:
-            counter -= 1
-            if counter == 0:
-                expr = string[last: stt[0]]
-                if EXTRAS_FORMULAE:
-                    expr = expr.replace("{","").replace("}","")
-                    expr = expr.replace("pi()","pi")
-                    expr = parse_expr(expr)
-                    _vars |= expr.free_symbols
-                    last = stt[0] + 1
-                elif expr.isalpha():
-                    _vars |= expr
-                ftext.append(expr)
-        nxt(stt, string)
-    ftext.append(string[last:])
-    return _vars, ftext
 
 
 # -----------------------------------------------------------------------------
@@ -111,7 +74,7 @@ def _from_xml(root: et.Element, tags: dict) -> dict:
 
 
 def _from_B64File(root: et.Element, *_):
-    return File(root.get("name"), root.get("path"), root.text)
+    return File(root.get("name"), root.text)
 
 
 def _from_DatasetItems(root: et.Element, *_):
@@ -140,10 +103,16 @@ def _from_Datasets(root: et.Element, tags: dict):
 
 def _from_FText(root: et.Element, tags: dict):
     tags["text"] = (str, "text")
-    tags["file"] = (_from_B64File, "bfile", True)
+    tags["file"] = (_from_B64File, "file", True)
     data = _from_xml(root, tags)
     data["formatting"] = TextFormat(root.get("format"))
-    return FText(**data)
+    efiles = data.pop("file", [])
+    ftext = FText(**data)
+    for file in efiles:
+        for tmp in ftext.text:
+            if file == tmp:
+                tmp.source = file.source
+    return ftext
 
 
 def _from_Hint(root: et.Element, tags: dict) -> "Hint":
@@ -272,9 +241,12 @@ def _from_question_mtcs(root: et.Element, tags: dict):
     tags["shuffleanswers"] = (bool, "shuffle")
     data = _from_question_mt(root, tags)
     data["feedbacks"] = {}
-    data["feedbacks"][0.0] = data.pop("if_correct")
-    data["feedbacks"][50.0] = data.pop("if_incomplete")
-    data["feedbacks"][100.0] = data.pop("if_incorrect")
+    if "if_correct" in data:
+        data["feedbacks"][100.0] = data.pop("if_correct")
+    if "if_incomplete" in data:
+        data["feedbacks"][50.0] = data.pop("if_incomplete")
+    if "if_incorrect" in data:
+        data["feedbacks"][0.0] = data.pop("if_incorrect")
     return data
 
 
@@ -310,7 +282,7 @@ def _from_qcalcmultichoice(root: et.Element, tags: dict):
 
 def _from_qcloze(root: et.Element, tags: dict):
     data = _from_question_mt(root, tags)
-    text, opts = QEmbedded.get_items(data["question"].text)
+    text, opts = QEmbedded.from_cloze_text(data["question"].text[0])
     data["question"].text = text
     data["options"] = opts
     return QEmbedded(**data)

@@ -155,7 +155,7 @@ class Editor(QMainWindow):
     def debug_me(self):
         """TODO Method used for debugg...
         """
-        self.path = ("./test_lib/datasets/moodle/all.xml", "Moodle")
+        self.path = ("./test/test_parser/datasets/moodle/all.xml", "Moodle")
         #self.path = "./test_lib/datasets/olx/test.olx"
         self.top_quiz = Category.read_moodle(self.path[0], "DEBUG")
         gtags = {}
@@ -310,10 +310,13 @@ class Editor(QMainWindow):
         self._items[-1].setFixedWidth(50)
         self._items[-1].setText("1.0")
         _content.addWidget(self._items[-1], 0)
-        self._items.append(GField("penalty", self, str))
-        self._items[-1].setToolTip("Penalty")
+        self._items.append(GField("max_tries", self, str))
+        self._items[-1].setToolTip("Max tries")
         self._items[-1].setFixedWidth(50)
-        self._items[-1].setText("0.0")
+        _content.addWidget(self._items[-1], 0)
+        self._items.append(GField("time_lim", self, str))
+        self._items[-1].setToolTip("Time limit (s)")
+        self._items[-1].setFixedWidth(50)
         _content.addWidget(self._items[-1], 0)
         _content.addStretch()
         return group_box
@@ -381,21 +384,17 @@ class Editor(QMainWindow):
         self._items[-1].setText("10000")
         _content.addWidget(self._items[-1], 2, 0)
         self._items.append(GField("attachments", self, int))
-        self._items[-1].setToolTip("Number of attachments allowed. 0 is none."
-                                   " -1 is unlimited. Should be bigger than "
-                                   "field below.")
+        self._items[-1].setToolTip("Number of attachments required. 0 is none."
+                                   " -1 is unlimited.")
         self._items[-1].setText("-1")
         _content.addWidget(self._items[-1], 1, 1)
-        self._items.append(GField("atts_required", self, int))
-        self._items[-1].setToolTip("Number of attachments required. 0 is none."
-                                   " -1 is unlimited. Should be smaller than "
-                                   "field above.")
-        self._items[-1].setText("0")
-        _content.addWidget(self._items[-1], 2, 1)
-        self._items.append(GField("lines", self, int))
-        self._items[-1].setToolTip("Input box size.")
-        self._items[-1].setText("15")
+        self._items.append(GCheckBox("atts_required", "Required", self))
+        self._items[-1].setToolTip("If attachments are allowed.")
         _content.addWidget(self._items[-1], 1, 2)
+        self._items.append(GField("lines", self, int))
+        self._items[-1].setToolTip("Input box lines size.")
+        self._items[-1].setText("15")
+        _content.addWidget(self._items[-1], 2, 1)
         self._items.append(GField("max_bytes", self, int))
         self._items[-1].setToolTip("Maximum file size.")
         self._items[-1].setText("1Mb")
@@ -422,7 +421,6 @@ class Editor(QMainWindow):
         self._items[-1].setText("5")
         self._items[-1].setFixedWidth(85)
         _content.addWidget(self._items[-1])
-
         group_box = QGroupBox("Fill-in", self)
         _wrapper.addWidget(group_box)
         _content = QVBoxLayout(group_box)
@@ -467,30 +465,17 @@ class Editor(QMainWindow):
         self.cframe_vbox.addLayout(collapsible)
         layout = QVBoxLayout()
         collapsible.setLayout(layout)
-        self._items.append(GTextEditor(self.toolbar, "feedback"))
+        self._items.append(GTextEditor(self.toolbar, "remarks"))
         self._items[-1].setMinimumHeight(100)
         self._items[-1].setToolTip("General feedback for the question. May "
                                    "also be used to describe solutions.")
         layout.addWidget(self._items[-1])
-        sframe = QFrame(self)
-        sframe.setStyleSheet(".QFrame{border:1px solid rgb(41, 41, 41);"
-                             "background-color: #e4ebb7}")
-        layout.addWidget(sframe)
-        _content = QGridLayout(sframe)
-        self._items.append(GTextEditor(self.toolbar, "if_correct"))
-        self._items[-1].setToolTip("Feedback for correct answer")
-        _content.addWidget(self._items[-1], 0, 0)
-        self._items.append(GTextEditor(self.toolbar, "if_incomplete"))
-        self._items[-1].setToolTip("Feedback for incomplete answer")
-        _content.addWidget(self._items[-1], 0, 1)
-        self._items.append(GTextEditor(self.toolbar, "if_incorrect"))
-        self._items[-1].setToolTip("Feedback for incorrect answer")
-        _content.addWidget(self._items[-1], 0, 2)
         self._items.append(GCheckBox("show_num", "Show the number of correct r"
-                                      "esponses once the question has finished",
+                                     "esponses once the question has finished",
                                       self))
-        _content.addWidget(self._items[-1], 2, 0, 1, 3)
-        _content.setColumnStretch(3, 1)
+        layout.addWidget(self._items[-1])
+        _content = GOptions(self, self.toolbar, None)
+        layout.addLayout(_content)
 
     def _block_template(self) -> None:
         collapsible = GCollapsible(self, "Templates")
@@ -505,6 +490,10 @@ class Editor(QMainWindow):
         self._items.append(GTextEditor(self.toolbar, "grader_info"))
         self._items[-1].setMinimumHeight(50)
         self._items[-1].setToolTip("Information for graders.")
+        layout.addWidget(self._items[-1])
+        self._items.append(GField("notes", self.toolbar, str))
+        self._items[-1].setMinimumHeight(50)
+        self._items[-1].setToolTip("Notes about the question.")
         layout.addWidget(self._items[-1])
 
     def _block_units(self):
