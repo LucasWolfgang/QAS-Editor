@@ -21,7 +21,7 @@ All rights reserved.
 Licensed under the BSD 3-Clause License:
 http://opensource.org/licenses/BSD-3-Clause
 """
-
+from __future__ import annotations
 from typing import TYPE_CHECKING
 from zipfile import ZipFile, ZipInfo,ZIP_DEFLATED
 if TYPE_CHECKING:
@@ -150,8 +150,6 @@ TEMPLATE_ASSESMENT = '''\
 </quiz>
 '''
 
-
-
 def get_meta(assessment_identifier: str, assignment_group_identifier: str,
                     assignment_identifier: str, title_xml: str, description_html_xml: str,
                     points_possible: Union[int, float], shuffle_answers: str,
@@ -172,9 +170,19 @@ def get_meta(assessment_identifier: str, assignment_group_identifier: str,
                            one_question_at_a_time=one_question_at_a_time,
                            cant_go_back=cant_go_back)
 
+# -----------------------------------------------------------------------------
+
+def read(cls,  file_path: str):
+    return None
+
+# -----------------------------------------------------------------------------
+
+
 def _txrecursive(cat: "Category"):
     assessment = get_assessment(quiz=cat,assessment=f'qti_assessment_{cat.id}',
                                 title_xml=cat.name)
+
+
 
 def write(self: "Category", file_path: str):
     assessment = f'qti_assessment_0000'

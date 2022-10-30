@@ -37,6 +37,26 @@ def test_raw_multargs():
     assert data[0].opts == ["key1=value1, key2=value2", "opt1", "opt2"]
 
 
+def test_raw_subitems():
+    tmp = StringIO("\\element{tikz}{\\begin{name}{arg2}[opt1]"
+                   "A given string\\end{name}}")
+    cat = Category()
+    tex = latex.LaTex(cat, tmp, "")
+    data = tex._document()
+    assert len(data) == 1
+    assert data[0].name == "element"
+    assert data[0].args == ["tikz"]
+    assert data[0].opts == []
+    assert len(data[0].subitems) == 2
+    assert data[0].subitems[0].name =="begin"
+    assert data[0].subitems[0].args[0] =="name"
+    assert data[0].subitems[0].args[1] =="arg2"
+    assert data[0].subitems[0].opts[0] =="opt1"
+    assert data[0].subitems[0].text =="A given string"
+    assert data[0].subitems[1].name =="end"
+    assert data[0].subitems[1].args[0] =="name"
+
+
 def test_latextomoodle_read():
     EXAMPLE = f"{TEST_PATH}/datasets/latex_l2m/read.tex"
     control = Category.read_latex(EXAMPLE)
@@ -54,14 +74,18 @@ def test_latextomoodle_read():
 
 
 def test_latextomoodle_vs_moodle():
-    EXAMPLE = f"{TEST_PATH}/datasets/latex/guillaume_xml.tex"
+    EXAMPLE = f"{TEST_PATH}/datasets/latex_l2m/multichoice.tex"
     data = Category.read_latex(EXAMPLE)
     data.metadata.clear()   # This will always be different
-    XML_TEST = f"{TEST_PATH}/datasets/latex/guillaume_xml.xml"
+    XML_TEST = f"{TEST_PATH}/datasets/latex_l2m/multichoice.xml"
     control = Category.read_moodle(XML_TEST)
 
 
-def test_amc_read():
-    EXAMPLE = f"{TEST_PATH}/datasets/latex/amc_element.tex"
-    data = Category.read_latex(EXAMPLE)
-    data.metadata.clear()   # This will always be different
+def test_amc_element():
+    EXAMPLE = f"{TEST_PATH}/datasets/latex_amc/tikz.tex"
+    cat = Category()
+    with open(EXAMPLE) as ifile:
+        tex = latex._PkgAMQ(cat, ifile, "")
+        result = tex.read()
+    assert result
+    

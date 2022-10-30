@@ -74,9 +74,13 @@ class LaTex():
 
     def read(self):
         while self.line:
-            for cmd in self._document():
-                if isinstance(cmd, _Cmd) and cmd.name == "end" and cmd.args[0] == "document":
-                    return
+            try:
+                for cmd in self._document():
+                    if (isinstance(cmd, _Cmd) and cmd.name == "end" and 
+                        cmd.args[0] == "document"):
+                        return True
+            except StopIteration:
+                return False
 
     def _document(self):
         data = self._parse()
@@ -95,26 +99,41 @@ class LaTex():
         while self.line[self.idx].isalpha():
             self.idx += 1
         cmd = _Cmd(self.line[start: self.idx])
+        size = len(open_groups)
         while self.idx < len(self.line):
             if self.line[self.idx] in ("{", "["):
                 open_groups.append(self.idx)
             elif self.line[self.idx] == "}":
+                if len(open_groups) == size:
+                    self.idx -= 1  # return one step so top can capture
+                    break
                 if self.line[open_groups[-1]] != "{":
                     raise ValueError(f"Incorrect pattern: {self.line}")
                 start = open_groups.pop() + 1
-                cmd.args.append(self.line[start:self.idx])
+                if self.line[start] != "\\":
+                    cmd.args.append(self.line[start:self.idx])
+                start = self.idx + 1
             elif self.line[self.idx] == "]":
+                if len(open_groups) == size:
+                    self.idx -= 1  # return one step so top can capture
+                    break
                 if self.line[open_groups[-1]] != "[":
                     raise ValueError(f"Incorrect pattern: {self.line}")
                 start = open_groups.pop() + 1
                 cmd.opts.append(self.line[start:self.idx])
+                start = self.idx + 1
             elif self.line[self.idx] == "\\":
-                self._parse_cmd(open_groups)
-            elif len(open_groups) == 0 and self.line[self.idx]:
-                break
+                if start < self.idx and self.line[start] != "{":
+                    cmd.text = self.line[start: self.idx]
+                if len(open_groups) == size:
+                    self.idx -= 1  # return one step so top can capture
+                    break
+                else:
+                    cmd.subitems.append(self._parse_cmd(open_groups))
+            self.idx += 1
             if self.idx == len(self.line)-1 and len(open_groups) != 0:
                 self.line += next(self.buf).strip()
-            self.idx += 1
+                self.idx -= 1   # remove the newline char
         return cmd
 
     def _parse(self) -> list:
@@ -123,12 +142,16 @@ class LaTex():
         self.line = next(self.buf)
         while self.idx < len(self.line):
             if self.line[self.idx] == "\\" and self.line[self.idx+1].isalpha():
-                if self.idx > start + 1:
+                if self.line[start: self.idx].strip():
                     data.append(self.line[start: self.idx])
                 data.append(self._parse_cmd([]))
                 start = self.idx + 1
+            elif self.line[self.idx] == "%":
+                start = self.idx
+                break
             self.idx += 1
-        data.append(self.line[start: self.idx])
+        if self.line[start: self.idx].strip() and self.line[start] != "%":
+            data.append(self.line[start: self.idx])
         return data
 
 
@@ -162,6 +185,12 @@ class _PkgAMQ(LaTex):
         \\newcommand{\\feedback}[1]{}
         \\begin{document}
     """
+
+    # def _document(self):
+    #     data = self._parse()
+    #     for cmd in data:
+    #         print(cmd)
+    #     return data
 
 
 class _PkgMcExam(LaTex):
@@ -231,9 +260,6 @@ class _PkgLatexToMoodle(LaTex):
                             params[key] = getattr(self, cast)(value)
                         else:
                             params[key] = cast(value)
-            elif self.line:
-                params["question"].text.append(self.line)
-        params["question"].text = params["question"].get().strip() 
         self.cat.add_question(self._QTYPE[qtype](**params))
 
     def _category(self, name):
@@ -252,9 +278,9 @@ class _PkgLatexToMoodle(LaTex):
                 elif line == "\\end{category}":
                     break
                 else:
-                    raise ValueError("Couldnt map line %s", line)
+                    raise ValueError(f"Couldnt map line {self.line}")
         except ValueError:
-            _LOG.exception("Failed to parse category %s", name)
+            _LOG.exception(f"Failed to parse category {name}")
         self.cat = tmp
 
     def _document(self):
@@ -264,8 +290,8 @@ class _PkgLatexToMoodle(LaTex):
                 self._category(data[0].opts[0])
             elif "question" in data[0].args:
                 self._question(data[0].opts[0])
-        elif self.line:
-            raise ValueError("Couldnt map line:\n\t%s", self.line)
+        elif self.line.strip():
+            raise ValueError(f"Couldnt map line:\n\t{self.line}")
         return data
 
 

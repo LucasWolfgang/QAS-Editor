@@ -22,7 +22,7 @@ from enum import Enum
 from ..enums import EmbeddedFormat, Direction, Distribution, Grading, RespFormat,\
                     ShapeType, Synchronise, TolType, TolFormat, Status,\
                     ShowUnits, TextFormat, Numbering
-from ..utils import File, Dataset, FText, Hint, Serializable, TList, Unit, MediaType, FileType
+from ..utils import File, Dataset, FText, Hint, Serializable, TList, Unit, MediaType, FileAddr
 from ..answer import ACalculated, ANumerical, Answer, EmbeddedItem, DragItem,\
                      ACrossWord, DropZone, SelectOption, DragGroup, DragImage,\
                      Subquestion
@@ -54,10 +54,9 @@ def _from_json(data: dict, cls):
 def _from_file(data: dict):
     if data is None:
         return None
-    data["ftype"] = FileType(data.pop("_type"))
-    if "_media" in data:
-        data["_media"] = MediaType(data["_media"])
-    data.pop("path")
+    data["ftype"] = FileAddr(data.pop("_type"))
+    data.pop("_media", None)
+    data.pop("_type", None)
     if data["metadata"]:
         data.update(data.pop("metadata"))
     return _from_json(data, File)
@@ -79,7 +78,7 @@ def _from_ftext(data: dict):
     if data is None:
         return None
     data["formatting"] = TextFormat(data["formatting"])
-    data["text"] = data.pop("_text")
+    data["text"] = data.pop("_text", "")
     for index in range(len(data["bfile"])):
         data["bfile"][index] = _from_file(data["bfile"][index])
     return _from_json(data, FText)
@@ -189,11 +188,11 @@ def _from_selectoption(data: dict):
 def _from_question(data: dict, cls):
     data["question"] = _from_ftext(data.pop("_question"))
     data["remarks"] = _from_ftext(data.pop("_remarks"))
-    data["tags"] = _from_tags(data.pop("_tags"))
+    data["tags"] = _from_tags(data.pop("_tags", None))
     for key in data["_feedbacks"]:
         data["_feedbacks"][key] = _from_ftext(data["_feedbacks"][key])
     data["feedbacks"] = data.pop("_feedbacks")
-    data["free_hints"] = data.pop("_free_hints")
+    data["free_hints"] = data.pop("_free_hints", None)
     return _from_json(data, cls)
 
 

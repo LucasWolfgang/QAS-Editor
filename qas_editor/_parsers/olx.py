@@ -165,7 +165,7 @@ def _save_as_html(url_name: str, name: str, htmlstr: str, clean_html: bool):
 
 
 def _to_problem(qst: _Question):
-    page = et.Element('problem', show_reset_button=qst.resettable,
+    page = et.Element('problem', show_reset_button=True,
                       weight=qst.default_grade, display_name=qst.name)
     return page
 
@@ -188,7 +188,7 @@ def _to_problem_combfdbk(qst: _QHasOptions, elem: et.Element):
 def _to_question(qst: _Question, elem: et.Element, tag: str):
     item = et.SubElement(elem, tag)
     et.SubElement(item, "label").text = qst.name  # <label> or <text> ?
-    item.append(et.XML(f"<description>{qst.question.text}</description>"))
+    et.SubElement(item, "description").text = qst.question.text
     et.SubElement(item, "solution").text = qst.remarks
     return item
 
@@ -197,13 +197,13 @@ def _to_qmultichoice(qst: QMultichoice) -> et.Element:
     page = _to_problem_mt(qst)
     _to_problem_combfdbk(qst, page)
     if qst.use_dropdown:  
-        item = _to_question(qst, item, "optionresponse")
+        item = _to_question(qst, page, "optionresponse")
         for opt in qst.options:
             opt_item = et.SubElement(item, "option", correct=opt.fraction==100)
             opt_item.text = opt.text
             et.SubElement(opt_item, "optionhint").text = opt.feedback
     else:
-        item = _to_question(qst, item, "multiplechoiceresponse")
+        item = _to_question(qst, page, "multiplechoiceresponse")
         if not qst.single:
             item.set("partial_credit", "points")
         group = et.SubElement(item, "choicegroup", type="MultipleChoice")
@@ -220,8 +220,14 @@ def _to_qmultichoice(qst: QMultichoice) -> et.Element:
 
 
 def read_olx(cls,  file_path: str):
-    pass
-
+    with tarfile.open(file_path, 'r:gz') as tar:
+        for path in tar:
+            if path.isreg():
+                print("a regular file.")
+            elif path.isdir():
+                print("a directory.")
+            else:
+                print("something else.")
 
 # -----------------------------------------------------------------------------
 
@@ -234,7 +240,10 @@ _QTYPE = {
 def _txrecursive(cat: "Category", dbids: dict):
     if cat.get_size() > 0:
         for qst in cat.questions:
-            problem = _QTYPE[qst.__class__](qst)
+            tmp = _QTYPE.get(qst.__class__)
+            if tmp is None:
+                continue
+            problem = tmp(qst)
             with open(f'{_output_dir}/problem/{qst.dbid}.xml', "w") as ofile:
                 ofile.write("<?xml version='1.0' encoding='utf-8'?>\n")
                 serialize_fxml(ofile.write, problem, True, True)
@@ -248,12 +257,13 @@ def write_olx(self: "Category", file_path: str, pretty=False, org="QAS"):
     Returns:
         [type]: [description]
     """
-    global _moodle_dir
+    global _moodle_dir, _output_dir
     self.gen_dbids([])   # We need that each question has a unique dbid
-    path, _ = os.path.splitext(file_path)
+    _output_dir, _ = os.path.splitext(file_path)
+    shutil.rmtree(_output_dir, True)
     for folder in ('about', 'chapter', 'course', 'html', 'problem',
                    'sequential', 'static', 'vertical'):
-        os.makedirs(f"{path}/{folder}")
+        os.makedirs(f"{_output_dir}/{folder}")
     dbids = {}
     _txrecursive(self, dbids)
 
@@ -275,7 +285,7 @@ def write_olx(self: "Category", file_path: str, pretty=False, org="QAS"):
             output = f"/static/{fname.replace(' ', '_')}"
             staticfiles[mfile.get('id')] = (output, fname)
             shutil.copy(f"{_moodle_dir}/files/{fhash[:2]}/{fhash}",
-                        f"{path}/{output}")
+                        f"{_output_dir}/{output}")
 
         xml = et.parse(f'{_moodle_dir}/course/course.xml').getroot()
         name = xml.find('shortname').text
@@ -289,12 +299,12 @@ def write_olx(self: "Category", file_path: str, pretty=False, org="QAS"):
         name = _to_url(info.find('.//original_course_shortname').text, '.')
     else:
         name = "qas_translated"
-    with open(path, "w") as ofile:
+    with open(_output_dir, "w") as ofile:
         ofile.write("<?xml version='1.0' encoding='utf-8'?>\n")
         serialize_fxml(ofile.write, cxml, True, pretty)
-    with open(f"{path}/course.xml", 'w') as ofile:
+    with open(f"{_output_dir}/course.xml", 'w') as ofile:
         ofile.write(f'<course url_name="{name}" course="{name}"/>\n')
 
     with tarfile.open(file_path, 'w:gz') as tar:
-        for _dir in os.listdir(path):
-            tar.add(f"{path}/{_dir}", arcname=os.path.basename(_dir))
+        for _dir in os.listdir(_output_dir):
+            tar.add(f"{_output_dir}/{_dir}", arcname=os.path.basename(_dir))

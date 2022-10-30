@@ -543,7 +543,7 @@ class FText(Serializable):
             if isinstance(item, str):
                 data += str(item)
             elif hasattr(item, "MARKER_INT"):
-                data += chr(item.MAKER_INT)
+                data += chr(item.MARKER_INT)
             elif isinstance(item, File):
                 data += item.get_reftag()
             elif EXTRAS_FORMULAE and isinstance(item, Expr):
