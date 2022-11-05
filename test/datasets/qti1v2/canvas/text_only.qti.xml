@@ -1,0 +1,23 @@
+<item ident="i353f8ee73bfc78d475690f4532f755e6" title="Question">
+  <itemmetadata>
+    <qtimetadata>
+      <qtimetadatafield>
+        <fieldlabel>question_type</fieldlabel>
+        <fieldentry>text_only_question</fieldentry>
+      </qtimetadatafield>
+      <qtimetadatafield>
+        <fieldlabel>points_possible</fieldlabel>
+        <fieldentry>0</fieldentry>
+      </qtimetadatafield>
+      <qtimetadatafield>
+        <fieldlabel>assessment_question_identifierref</fieldlabel>
+        <fieldentry>if47b767d37e06559ff801f2d253307ba</fieldentry>
+      </qtimetadatafield>
+    </qtimetadata>
+  </itemmetadata>
+  <presentation>
+    <material>
+      <mattext texttype="text/html">&lt;div&gt;&lt;p&gt;This is text. Do with it what you will.&lt;/p&gt;&lt;/div&gt;</mattext>
+    </material>
+  </presentation>
+</item>

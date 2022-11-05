@@ -1,0 +1,144 @@
+<item ident="i7e5f3e35e34fd255361e40e035d820b8" title="Question">
+  <itemmetadata>
+    <qtimetadata>
+      <qtimetadatafield>
+        <fieldlabel>question_type</fieldlabel>
+        <fieldentry>multiple_choice_question</fieldentry>
+      </qtimetadatafield>
+      <qtimetadatafield>
+        <fieldlabel>points_possible</fieldlabel>
+        <fieldentry>3.0</fieldentry>
+      </qtimetadatafield>
+      <qtimetadatafield>
+        <fieldlabel>assessment_question_identifierref</fieldlabel>
+        <fieldentry>i2540ea0b8359e073332f4c84e838c149</fieldentry>
+      </qtimetadatafield>
+    </qtimetadata>
+  </itemmetadata>
+  <presentation>
+    <material>
+      <mattext texttype="text/html">&lt;div&gt;&lt;p&gt;Test Multiple Choice, a is to?&lt;/p&gt;&lt;/div&gt;</mattext>
+    </material>
+    <response_lid ident="response1" rcardinality="Single">
+      <render_choice>
+        <response_label ident="1487">
+          <material>
+            <mattext texttype="text/plain">A</mattext>
+          </material>
+        </response_label>
+        <response_label ident="5358">
+          <material>
+            <mattext texttype="text/plain">B</mattext>
+          </material>
+        </response_label>
+        <response_label ident="4197">
+          <material>
+            <mattext texttype="text/plain">C</mattext>
+          </material>
+        </response_label>
+        <response_label ident="4598">
+          <material>
+            <mattext texttype="text/plain">D</mattext>
+          </material>
+        </response_label>
+      </render_choice>
+    </response_lid>
+  </presentation>
+  <resprocessing>
+    <outcomes>
+      <decvar maxvalue="100" minvalue="0" varname="SCORE" vartype="Decimal"/>
+    </outcomes>
+    <respcondition continue="Yes">
+      <conditionvar>
+        <other/>
+      </conditionvar>
+      <displayfeedback feedbacktype="Response" linkrefid="general_fb"/>
+    </respcondition>
+    <respcondition continue="Yes">
+      <conditionvar>
+        <varequal respident="response1">1487</varequal>
+      </conditionvar>
+      <displayfeedback feedbacktype="Response" linkrefid="1487_fb"/>
+    </respcondition>
+    <respcondition continue="Yes">
+      <conditionvar>
+        <varequal respident="response1">5358</varequal>
+      </conditionvar>
+      <displayfeedback feedbacktype="Response" linkrefid="5358_fb"/>
+    </respcondition>
+    <respcondition continue="Yes">
+      <conditionvar>
+        <varequal respident="response1">4197</varequal>
+      </conditionvar>
+      <displayfeedback feedbacktype="Response" linkrefid="4197_fb"/>
+    </respcondition>
+    <respcondition continue="Yes">
+      <conditionvar>
+        <varequal respident="response1">4598</varequal>
+      </conditionvar>
+      <displayfeedback feedbacktype="Response" linkrefid="4598_fb"/>
+    </respcondition>
+    <respcondition continue="No">
+      <conditionvar>
+        <varequal respident="response1">1487</varequal>
+      </conditionvar>
+      <setvar action="Set" varname="SCORE">100</setvar>
+      <displayfeedback feedbacktype="Response" linkrefid="correct_fb"/>
+    </respcondition>
+    <respcondition continue="Yes">
+      <conditionvar>
+        <other/>
+      </conditionvar>
+      <displayfeedback feedbacktype="Response" linkrefid="general_incorrect_fb"/>
+    </respcondition>
+  </resprocessing>
+  <itemfeedback ident="general_fb">
+    <flow_mat>
+      <material>
+        <mattext texttype="text/html">&lt;p&gt;Just plain ol' answer feedback.&lt;/p&gt;</mattext>
+      </material>
+    </flow_mat>
+  </itemfeedback>
+  <itemfeedback ident="correct_fb">
+    <flow_mat>
+      <material>
+        <mattext texttype="text/html">&lt;p&gt;General correct feedback!&lt;/p&gt;</mattext>
+      </material>
+    </flow_mat>
+  </itemfeedback>
+  <itemfeedback ident="general_incorrect_fb">
+    <flow_mat>
+      <material>
+        <mattext texttype="text/html">&lt;p&gt;General incorrect feedback!&lt;/p&gt;</mattext>
+      </material>
+    </flow_mat>
+  </itemfeedback>
+  <itemfeedback ident="1487_fb">
+    <flow_mat>
+      <material>
+        <mattext texttype="text/html">&lt;p&gt;Correct!&lt;/p&gt;</mattext>
+      </material>
+    </flow_mat>
+  </itemfeedback>
+  <itemfeedback ident="5358_fb">
+    <flow_mat>
+      <material>
+        <mattext texttype="text/html">&lt;p&gt;B is not correct.&lt;/p&gt;</mattext>
+      </material>
+    </flow_mat>
+  </itemfeedback>
+  <itemfeedback ident="4197_fb">
+    <flow_mat>
+      <material>
+        <mattext texttype="text/html">&lt;p&gt;C is not correct.&lt;/p&gt;</mattext>
+      </material>
+    </flow_mat>
+  </itemfeedback>
+  <itemfeedback ident="4598_fb">
+    <flow_mat>
+      <material>
+        <mattext texttype="text/html">&lt;p&gt;D is not correct!&lt;/p&gt;</mattext>
+      </material>
+    </flow_mat>
+  </itemfeedback>
+</item>

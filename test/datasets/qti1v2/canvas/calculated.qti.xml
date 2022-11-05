@@ -1,0 +1,131 @@
+<item ident="iab1743fa757f940cee2a55982f8e3674" title="Question">
+  <itemmetadata>
+    <qtimetadata>
+      <qtimetadatafield>
+        <fieldlabel>question_type</fieldlabel>
+        <fieldentry>calculated_question</fieldentry>
+      </qtimetadatafield>
+      <qtimetadatafield>
+        <fieldlabel>points_possible</fieldlabel>
+        <fieldentry>3.0</fieldentry>
+      </qtimetadatafield>
+      <qtimetadatafield>
+        <fieldlabel>assessment_question_identifierref</fieldlabel>
+        <fieldentry>i016f3b96bb0675f2f3ffdfe8452f15d4</fieldentry>
+      </qtimetadatafield>
+    </qtimetadata>
+  </itemmetadata>
+  <presentation>
+    <material>
+      <mattext texttype="text/html">&lt;div&gt;&lt;p&gt;1 + [x] + [y] + [z] = ?&lt;/p&gt;&lt;/div&gt;</mattext>
+    </material>
+    <response_str ident="response1" rcardinality="Single">
+      <render_fib fibtype="Decimal">
+        <response_label ident="answer1"/>
+      </render_fib>
+    </response_str>
+  </presentation>
+  <resprocessing>
+    <outcomes>
+      <decvar maxvalue="100" minvalue="0" varname="SCORE" vartype="Decimal"/>
+    </outcomes>
+    <respcondition title="correct">
+      <conditionvar>
+        <other/>
+      </conditionvar>
+      <setvar varname="SCORE" action="Set">100</setvar>
+    </respcondition>
+    <respcondition title="incorrect">
+      <conditionvar>
+        <not>
+          <other/>
+        </not>
+      </conditionvar>
+      <setvar varname="SCORE" action="Set">0</setvar>
+    </respcondition>
+  </resprocessing>
+  <itemproc_extension>
+    <calculated>
+      <answer_tolerance>0.23</answer_tolerance>
+      <formulas decimal_places="4">
+        <formula>1+x+y+z</formula>
+      </formulas>
+      <vars>
+        <var name="x" scale="3">
+          <min>1.0</min>
+          <max>10.0</max>
+        </var>
+        <var name="y" scale="3">
+          <min>1.0</min>
+          <max>10.0</max>
+        </var>
+        <var name="z" scale="3">
+          <min>1.0</min>
+          <max>10.0</max>
+        </var>
+      </vars>
+      <var_sets>
+        <var_set ident="7659">
+          <var name="x">3.199</var>
+          <var name="y">9.916</var>
+          <var name="z">8.003</var>
+          <answer>22.118</answer>
+        </var_set>
+        <var_set ident="5094">
+          <var name="x">3.032</var>
+          <var name="y">5.643</var>
+          <var name="z">7.815</var>
+          <answer>17.49</answer>
+        </var_set>
+        <var_set ident="1824">
+          <var name="x">1.789</var>
+          <var name="y">2.673</var>
+          <var name="z">2.185</var>
+          <answer>7.647</answer>
+        </var_set>
+        <var_set ident="8989">
+          <var name="x">9.128</var>
+          <var name="y">3.668</var>
+          <var name="z">8.012</var>
+          <answer>21.808</answer>
+        </var_set>
+        <var_set ident="2924">
+          <var name="x">9.024</var>
+          <var name="y">5.444</var>
+          <var name="z">7.637</var>
+          <answer>23.105</answer>
+        </var_set>
+        <var_set ident="4152">
+          <var name="x">7.728</var>
+          <var name="y">2.211</var>
+          <var name="z">2.355</var>
+          <answer>13.294</answer>
+        </var_set>
+        <var_set ident="6837">
+          <var name="x">3.749</var>
+          <var name="y">5.885</var>
+          <var name="z">3.995</var>
+          <answer>14.629</answer>
+        </var_set>
+        <var_set ident="8250">
+          <var name="x">6.016</var>
+          <var name="y">7.915</var>
+          <var name="z">2.463</var>
+          <answer>17.394</answer>
+        </var_set>
+        <var_set ident="4081">
+          <var name="x">1.457</var>
+          <var name="y">3.581</var>
+          <var name="z">1.679</var>
+          <answer>7.717</answer>
+        </var_set>
+        <var_set ident="9826">
+          <var name="x">9.611</var>
+          <var name="y">2.270</var>
+          <var name="z">7.625</var>
+          <answer>20.506</answer>
+        </var_set>
+      </var_sets>
+    </calculated>
+  </itemproc_extension>
+</item>
