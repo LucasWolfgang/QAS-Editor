@@ -3,9 +3,10 @@ name: regression
 on: 
   push:
     paths:
-      - './qas_editor/**.py'
+      - '**.py'
   pull_request:
     types: [opened, reopened]
+    
 
 jobs:
 
