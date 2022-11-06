@@ -325,8 +325,8 @@ class File(Serializable):
 
     def __init__(self, path: str, data: str = None, **kwargs):
         super().__init__()
-        self.source = data
-        self.metadata = kwargs
+        self.data = data
+        self.path = path
         if path.startswith("@@PLUGINFILE@@") or data is not None:
             self._type = FileAddr.EMBEDDED
         elif os.path.exists(path):
@@ -338,7 +338,6 @@ class File(Serializable):
                 self._type = FileAddr.URL
             except Exception:
                 self._type = FileAddr.EMBEDDED
-        self.path = path
         ext = path.rsplit(".", 1)[-1]
         for media_ext in self.MEDIA_TYPES:
             if ext in media_ext:
@@ -346,6 +345,7 @@ class File(Serializable):
                 break
         else:
             self._media = MediaType.FILE
+        self.metadata = kwargs
 
     def __eq__(self, __o: object) -> bool:
         if not (isinstance(__o, File) and __o._media == self._media
@@ -365,19 +365,19 @@ class File(Serializable):
                 ofile.write(ifile.read())
         elif self._type == FileAddr.EMBEDDED:
             with open(name) as ofile:
-                ofile.write(base64.b64decode(self.source))
+                ofile.write(base64.b64decode(self.data))
         return name
 
     def get_tag(self) -> str:
-        if self.source is None:
+        if self.data is None:
             if self._type == FileAddr.URL:
                 with request.urlopen(self.path) as ifile:
-                    self.source = str(base64.b64encode(ifile.read()), "utf-8")
+                    self.data = str(base64.b64encode(ifile.read()), "utf-8")
             elif self._type == FileAddr.LOCAL:
                 with open(self.path, "rb") as ifile:
-                    self.source = str(base64.b64encode(ifile.read()), "utf-8")
+                    self.data = str(base64.b64encode(ifile.read()), "utf-8")
         name = self.path.rsplit("/",1)[1]
-        return f'<file encoding="base64" name="{name}">{self.source}</file>'
+        return f'<file encoding="base64" name="{name}">{self.data}</file>'
 
     def get_reftag(self) -> str:
         output_bb = f'<img src="{self.path}"'

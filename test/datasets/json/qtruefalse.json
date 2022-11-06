@@ -1,0 +1,49 @@
+{
+    "_Category__questions": [
+        {
+            "name": "tf",
+            "default_grade": 1.14,
+            "time_lim": 60,
+            "dbid": null,
+            "notes": "",
+            "_question": {
+                "formatting": "html",
+                "_text": [
+                    "This is an example of a True/False question type.\n\n      This picture represents the release of  Moodle 2.1. True or false?<br><img src=\"@@PLUGINFILE@@/moodlewhich.jpg\" alt=\"\" role=\"presentation\" style=\"vertical-align:text-bottom; margin: 0 .5em;\" class=\"img-responsive\" height=\"178\" width=\"250\"><br>"
+                ],
+                "bfile": []
+            },
+            "_remarks": {
+                "formatting": "html",
+                "_text": [
+                    ""
+                ],
+                "bfile": []
+            },
+            "_feedbacks": {},
+            "_tags": [],
+            "_free_hints": [],
+            "correct": false,
+            "_true_feedback": {
+                "formatting": "html",
+                "_text": [
+                    "Yes. Did you just know? Or did you know the secret signs? Each new version of Moodle until Moodle 3.5&nbsp; brought a new photo of Martin's children.\n\n      The correct answer is 'True'."
+                ],
+                "bfile": []
+            },
+            "_false_feedback": {
+                "formatting": "html",
+                "_text": [
+                    "Each new version of Moodle until Moodle 3.5&nbsp; brought a new photo of Martin's children. The correct answer is 'True'."
+                ],
+                "bfile": []
+            },
+            "__clsname__": "QTrueFalse"
+        }
+    ],
+    "_Category__categories": {},
+    "_Category__name": "$course$",
+    "metadata": {},
+    "resources": {},
+    "info": ""
+}

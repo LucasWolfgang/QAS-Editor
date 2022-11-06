@@ -1,0 +1,150 @@
+{
+    "_Category__questions": [
+        {
+            "name": "Cloze",
+            "default_grade": 1.0,
+            "time_lim": 60,
+            "dbid": null,
+            "notes": "",
+            "_question": {
+                "formatting": "html",
+                "_text": [
+                    "<p>This is an example of an embedded answers (Cloze) type question. This is a multiple choice question but there are other types you can use too.</p>\n      <p>The first Moodle Research conference was held in ",
+                    {
+                        "cformat": "MULTICHOICE",
+                        "grade": 1,
+                        "opts": [
+                            {
+                                "fraction": 0.0,
+                                "formatting": "plain_text",
+                                "text": "Sousse, Tunisia",
+                                "_feedback": {
+                                    "formatting": "plain_text",
+                                    "_text": [
+                                        "That was the second"
+                                    ],
+                                    "bfile": []
+                                }
+                            },
+                            {
+                                "fraction": 0.0,
+                                "formatting": "plain_text",
+                                "text": "California, USA",
+                                "_feedback": {
+                                    "formatting": "plain_text",
+                                    "_text": [
+                                        "That was the third"
+                                    ],
+                                    "bfile": []
+                                }
+                            },
+                            {
+                                "fraction": 100.0,
+                                "formatting": "plain_text",
+                                "text": "Crete, Greece",
+                                "_feedback": {
+                                    "formatting": "plain_text",
+                                    "_text": [
+                                        "Correct!"
+                                    ],
+                                    "bfile": []
+                                }
+                            },
+                            {
+                                "fraction": 50.0,
+                                "formatting": "plain_text",
+                                "text": "Greece",
+                                "_feedback": {
+                                    "formatting": "plain_text",
+                                    "_text": [
+                                        "Yes but not close enough so you only get half the credit."
+                                    ],
+                                    "bfile": []
+                                }
+                            }
+                        ]
+                    },
+                    "</p>"
+                ],
+                "bfile": []
+            },
+            "_remarks": {
+                "formatting": "html",
+                "_text": [
+                    ""
+                ],
+                "bfile": []
+            },
+            "_feedbacks": {},
+            "_tags": [],
+            "_free_hints": [],
+            "max_tries": 3,
+            "_fail_hints": [],
+            "_options": [
+                {
+                    "cformat": "MULTICHOICE",
+                    "grade": 1,
+                    "opts": [
+                        {
+                            "fraction": 0.0,
+                            "formatting": "plain_text",
+                            "text": "Sousse, Tunisia",
+                            "_feedback": {
+                                "formatting": "plain_text",
+                                "_text": [
+                                    "That was the second"
+                                ],
+                                "bfile": []
+                            }
+                        },
+                        {
+                            "fraction": 0.0,
+                            "formatting": "plain_text",
+                            "text": "California, USA",
+                            "_feedback": {
+                                "formatting": "plain_text",
+                                "_text": [
+                                    "That was the third"
+                                ],
+                                "bfile": []
+                            }
+                        },
+                        {
+                            "fraction": 100.0,
+                            "formatting": "plain_text",
+                            "text": "Crete, Greece",
+                            "_feedback": {
+                                "formatting": "plain_text",
+                                "_text": [
+                                    "Correct!"
+                                ],
+                                "bfile": []
+                            }
+                        },
+                        {
+                            "fraction": 50.0,
+                            "formatting": "plain_text",
+                            "text": "Greece",
+                            "_feedback": {
+                                "formatting": "plain_text",
+                                "_text": [
+                                    "Yes but not close enough so you only get half the credit."
+                                ],
+                                "bfile": []
+                            }
+                        }
+                    ]
+                }
+            ],
+            "ordered": true,
+            "show_ans": false,
+            "shuffle": false,
+            "__clsname__": "QEmbedded"
+        }
+    ],
+    "_Category__categories": {},
+    "_Category__name": "$course$",
+    "metadata": {},
+    "resources": {},
+    "info": ""
+}

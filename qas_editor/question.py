@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 import re
 import logging
+import random
 from typing import TYPE_CHECKING
 from .enums import EmbeddedFormat, Grading, RespFormat, ShowUnits, ShowAnswer, ShuffleType,\
                    Distribution, Numbering, Synchronise, TextFormat, Status
@@ -338,6 +339,27 @@ class QProblem(_Question):
         super().__init__(**kwargs)
         self.children = children if children else TList(qtype)
         self.numbering = Numbering.ALF_LR if numbering is None else numbering
+
+    @classmethod
+    def random_matching(cls, quantity: int, include_subcat: bool ,**kwargs):
+        """Creates a random problem based on existing QMatching questions.
+        Args:
+            quantity (int): _description_
+            include_subcat (bool): _description_
+        """
+        kwargs["qtype"] = QMatching
+        problem = cls(**kwargs)
+        possibilities = []
+        used = []
+        for question in problem.parent.questions:
+            if isinstance(question, QMatching):
+                possibilities.append(question)
+        while len(used) < quantity:
+            idx = random.randint(0, len(possibilities)-1)
+            if idx not in used:
+                used.append(idx)
+                problem.children.append(possibilities[idx])
+        return problem
 
 
 class QDaDText(_QHasOptions):

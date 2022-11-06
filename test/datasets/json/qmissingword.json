@@ -1,0 +1,94 @@
+{
+    "_Category__questions": [
+        {
+            "name": "MW Test",
+            "default_grade": 1.0,
+            "time_lim": 60,
+            "dbid": null,
+            "notes": "",
+            "_question": {
+                "formatting": "html",
+                "_text": [
+                    "<p dir=\"ltr\" style=\"text-align: left;\">This is a [[1]] kind of question<br></p>"
+                ],
+                "bfile": []
+            },
+            "_remarks": {
+                "formatting": "html",
+                "_text": [
+                    "<p dir=\"ltr\" style=\"text-align: left;\">Generic feedback<br></p>"
+                ],
+                "bfile": []
+            },
+            "_feedbacks": {
+                "100.0": {
+                    "formatting": "html",
+                    "_text": [
+                        "Your answer is correct."
+                    ],
+                    "bfile": []
+                },
+                "50.0": {
+                    "formatting": "html",
+                    "_text": [
+                        "Your answer is partially correct."
+                    ],
+                    "bfile": []
+                },
+                "0.0": {
+                    "formatting": "html",
+                    "_text": [
+                        "Your answer is incorrect."
+                    ],
+                    "bfile": []
+                }
+            },
+            "_tags": [],
+            "_free_hints": [],
+            "max_tries": 3,
+            "_fail_hints": [
+                {
+                    "formatting": "html",
+                    "text": "<p dir=\"ltr\" style=\"text-align: left;\">A hint<br></p>",
+                    "show_correct": false,
+                    "clear_wrong": true,
+                    "state_incorrect": false
+                },
+                {
+                    "formatting": "html",
+                    "text": "",
+                    "show_correct": true,
+                    "clear_wrong": false,
+                    "state_incorrect": false
+                }
+            ],
+            "_options": [
+                {
+                    "text": "Missing Word",
+                    "group": "1"
+                },
+                {
+                    "text": "Not Missing Word",
+                    "group": "1"
+                },
+                {
+                    "text": "Another thing",
+                    "group": "1"
+                },
+                {
+                    "text": "And a Test",
+                    "group": "1"
+                }
+            ],
+            "ordered": true,
+            "show_ans": true,
+            "shuffle": true,
+            "__clsname__": "QMissingWord"
+        }
+    ],
+    "_Category__categories": {},
+    "_Category__name": "$course$",
+    "metadata": {},
+    "resources": {},
+    "info": ""
+}
