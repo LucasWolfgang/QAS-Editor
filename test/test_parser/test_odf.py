@@ -18,11 +18,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 
-TEST_PATH = os.path.dirname(__file__)
-SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
+
+TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
 
 def test_read():
-    EXAMPLE = f"{TEST_PATH}/datasets/text.pdf"
+    EXAMPLE = f"{TEST_PATH}/datasets/odf/text.odf"
     # a = Category.read_pdf(EXAMPLE)
     #print(a)

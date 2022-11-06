@@ -29,7 +29,7 @@ setup(
         "docx": ["odfpy"],
         # For users that need convert ODF files. Includes:
         #   TODO
-        "test": ["pytest", "pytestqt"]
+        "test": ["pytest", "pytest-qt"]
         # For users that want to run tests.
     },
     zip_safe=False,     # TODO Need to update the resource management

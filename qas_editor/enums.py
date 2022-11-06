@@ -91,6 +91,13 @@ class Grading(EnhancedEnum):
     QUESTION = "2", "Fraction (question)"
 
 
+class Language(Enum):
+    """Languages that can be attributes to a FText section (TODO)
+    """
+    EN = "english"
+    PTBR = "brazilian portuguese"
+
+
 class MathType(Enum):
     """Enumerates ways to represent math function in questions' test
     """

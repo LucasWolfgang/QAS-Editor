@@ -19,11 +19,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 from qas_editor import category
 
-TEST_PATH = os.path.dirname(__file__)
-SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
+TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
-
-def test_read_all() -> None:
+def test_read_all():
     EXAMPLE = f"{TEST_PATH}/datasets/gift/gift.gift"
     control = category.Category.read_gift(EXAMPLE)
     control = control["qas editor"]

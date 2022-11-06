@@ -5,10 +5,9 @@
 *.py      text diff=python
 
 # To ignore during exports
-/test_gui export-ignore
-/test_lib export-ignore
+/test     export-ignore
 /.github  export-ignore
 .pylintrc export-ignore
 
 # To removed from statistics
-/test_lib/datasets/**/* linguist-documentation
+/test/datasets/** linguist-documentation

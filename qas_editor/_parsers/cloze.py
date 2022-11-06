@@ -40,7 +40,7 @@ def _from_QCloze(buffer, embedded_name):
 # -----------------------------------------------------------------------------
 
 
-def read_cloze(cls, file_path: str, embedded_name=False) -> "Category":
+def read_cloze(cls, file_path: str, embedded_name=False) -> Category:
     """Reads a Cloze file.
 
     Args:

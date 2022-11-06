@@ -18,9 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 
-TEST_PATH = os.path.dirname(__file__)
-SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
-
+TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
 # This is just a temporary way to test the input/outputs while validation that
 # the tests are actually working.
