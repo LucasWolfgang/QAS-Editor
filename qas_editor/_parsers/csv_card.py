@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 import csv
 from ..question import QMatching, QMultichoice, QShortAnswer
 from typing import TYPE_CHECKING, Callable
@@ -30,10 +31,20 @@ __doc__ = """Applications that provide Card based learning, like the amazing
           """
 
 
-def read_cards():
+def read_cards(cls, file_path: str) -> Category:
     """Read a comma separated deck.
     """
-    pass
+    cls: Category = cls()
+    with open(file_path) as ifile:
+        for num, items in enumerate(csv.reader(ifile)):
+            text, ans1, ans2, ans3, ans4, timer, correct = items
+            answers = []
+            for ans in (ans1, ans2, ans3, ans4):
+                tmp = QMultichoice.ANS_TYPE(ans)
+                answers.append(tmp)
+            qst = QMultichoice(name=f"qst_{num}", question=text)
+            cls.add_question(qst)
+    return cls
 
 
 # -----------------------------------------------------------------------------
@@ -72,5 +83,4 @@ def write_cards(self, file_path: str):
         for name in cat:                            # Then add children data
             _kwrecursive(cat[name], write)
     with open(file_path, "w") as ofile:
-        ofile.write(",Question,Answer1,Answer2,Answer3,Answer4,Time,Correct\n")
         _kwrecursive(self, csv.writer(ofile).writerow)

@@ -71,6 +71,37 @@ def test_var_latex():
 
 
 def test_file_img():
+    dt = ("<file encoding=\"base64\" name=\"4.png\" path="/">iVBORw0KGgoAAAANSUh"
+            "EUgAAACsAAAAzCAYAAAAO2PE2AAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAPYQAAD2"
+            "EBqD+naQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAASdSURBV"
+            "GiBzZlbaB1VFIa/fZq0pa0xJlpKWhsraoO0TVOhRbzE3hBrQSKCVB8EIyXGFysU7JNP"
+            "KgUFLw/FhwgipghVvIBFbQUfilSokkbTKtFSL9WI0caS5FjT/D7sPWafk5k5Zy4x+WE"
+            "xe/Zas+afvdesNXs2kgBtBr0H2iKJuSSgZf+1XUc32DNQP2g3aNEsk1wAehlUBN3nk3"
+            "3JIxvIMGg/qHkWiLaA+jwuAyATKD8KIRvIBOgtUPv/RLQTNFrGYbM/smdjyPrSB3oEV"
+            "J8zQQO6G/RJyD17puzQItBklWQDuehmoxvUlIHkYufjm4j7DIEaAnsDagO+ID0E9AFf"
+            "AicDkfi93NAYlgIbPNkCXBHj+wGJg/69diUc1Wpl0s3AOOgC6K+E1x8un4kaoDnDqMb"
+            "BALVOkmIC6C7vLAD1GUnNBN6XOFPeOVfJHgjrLBAf4FVgBBjI5qIUg8CRMEXGkT0GtD"
+            "kZSu+mFK9IKEKn4+ne9oOCWgGCNYJLeWSQIqgxOi+jb5M7/VgwzxFF8E5e6a43voigc"
+            "8kcfi9o8Ijekmdu3h1HtuBuWiXGgA7gD69vT9KYjMOJOGUBuFS9ry5sZfXRkJhRBP4B"
+            "+uMMEpB9DXjdtf2itDAFr1D0S1yMMygAk5X9nAYec+1WYK+ny41sbAhAVSNbBO4HRoG"
+            "rgHeBGzx9TWp2ZThdyaCKkX0C+9VngF7sd89yT/93anZlmKhkUGFkP2CqTO8Btrn2lZ"
+            "7NeDpq01ExHGPIDgOdrr0OeMbT+RmgmI7adFRMoTVEPtGjwK/YF6gXWODpfLLnvHYRO"
+            "AR8hc3Hm3IlC+jE9Eryhlehng2pNMOefqvgRcEuQaPXXyv4Okn16qq8ZkOfl140JKh3"
+            "N1wpGA9x/IJHKkpWCX5MQvapSmRDwmAfcN61n8ZO/3fYNHgE+BD4IWSGGoF24HZ3XF/"
+            "FrJZgTRU2Ojb1dH0C443OJsGSCiO4UXBUMJH1I2Yg4cgeojTOj3ttA7QAG7Ev0puufy"
+            "12RZ0Z1xvD/LiSW0NJ6moDVmO/rppce73r3wDUObsLHtnRPIgGXFqwFSjSYGTqtMNJJ"
+            "VyGjdFh7IPlhlZiyBZg+p+T6rDKHUdirRJiR5wyA9lmd/w53eXh2GEM86OUBexcpsA1"
+            "7vhTusvDUQdsjVLmMLJF4Ld0LsIR+dJkINvqtT9L5yIc9xhDIUyRgexNwDzXPprORTi"
+            "WAveGKTLE7GLgLtc+m85FNPZF9KsxfYk8JegUDGYttWFyZ3m5NaACdhkcGieziE8l7v"
+            "A7ChKTlP61mCtoN4ab/Y5gNFPG7YyjJHYDskkywhj2/+YgcIocV4wh2GkMa4OTYNEfR"
+            "3YceBt4FRtHJQtMlxNXYr+YVmMT8Dbg6hzIGuBJ4EEAt7ZRT8jb+CeoC3R5yj2uG0GP"
+            "gw6DxjJkhQnQtf4O4/4yg19A63LcQVwI2g56DnQyBeEDPtm9nuIM6Lo8tztDyDeBHnI"
+            "zGrW76EsRtMxIwhgeBnqwOxnbpZKfATMOt/N4K3Abdp20HFgBLPHMng/IdmB/De6U5k"
+            "7ONYY6LOkVQH1Atgk4L+W7Rskb/wJ+MRR3+5VIKgAAAABJRU5ErkJggg==</file>")
+    utils.FText.from_string(text)
+
+
+def test_file_img_ref():
     text = ("""and<p style="text-align: left;">file <img src="@@PLUGINFILE@@"""
         """/dessin.svg" alt="escargot" style="vertical-align: text-bottom;"""
         """class="img-responsive" width="100" height="141"/> is close.</p>""")
@@ -81,7 +112,7 @@ def test_file_img():
     assert isinstance(_results.text[1], File)
 
 
-def test_file_video():
+def test_file_video_ref():
     text = ("""and<p style="text-align: left;">file <img src="@@PLUGINFILE@@"""
         """/dessin.svg" alt="escargot" style="vertical-align: text-bottom;"""
         """class="img-responsive" width="100" height="141"/> is close.</p>""")
@@ -90,3 +121,4 @@ def test_file_video():
     assert _vars == set()
     assert tmp == text
     assert isinstance(_results.text[1], File)
+
