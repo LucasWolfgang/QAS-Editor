@@ -85,7 +85,7 @@ class EmbeddedItem(Serializable):
         text = ["{", f"{self.grade}:{self.cformat.value}:"]
         opt: Answer = self.opts[0]
         text.append(f"{'=' if opt.fraction == 100 else ''}{opt.text}#"
-                    f"{opt.feedback.get() if opt.feedback else ''}")
+                    f"{'?' if opt.feedback is None else opt.feedback.get()}")
         for opt in self.opts[1:]:
             if opt.fraction == 100:
                 fraction = "="

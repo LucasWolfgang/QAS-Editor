@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<quiz>
+  <question type="shortanswer">
+    <name>
+      <text>h3</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Type in the name of the ISLAND where the first ever Moodle Research conference was held.</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.1200000</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <usecase>0</usecase>
+    <answer format="moodle_auto_format" fraction="100">
+      <text><![CDATA[Crete]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>Correct. Well done! More information on Moodle Research conferences on the<a href="http://research.moodle.net/" title="Moodle Research site"> Moodle Research site.</a></p>]]></text>
+      </feedback>
+    </answer>
+    <answer format="moodle_auto_format" fraction="0">
+      <text><![CDATA[Greece]]></text>
+      <feedback format="html">
+        <text><![CDATA[<p>That is the correct country, but we want the island.</p>]]></text>
+      </feedback>
+    </answer>
+  </question>
+</quiz>

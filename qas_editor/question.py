@@ -297,7 +297,7 @@ class QEmbedded(_QHasOptions):
                 elif tmp[0] == "%":
                     frac, tmp = tmp[1:].split("%")
                     frac = float(frac)
-                feedback = FText("", fdb, TextFormat.PLAIN)
+                feedback = FText(fdb, TextFormat.PLAIN)
                 opts.append(Answer(frac, tmp, feedback, TextFormat.PLAIN))
             item = EmbeddedItem(int(match[1]), EmbeddedFormat(match[2]), opts)
             items.append(item)

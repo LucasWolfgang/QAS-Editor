@@ -425,10 +425,10 @@ class FText(Serializable):
     """A formated text. 
     """
 
-    def __init__(self, text: str|list = "", formatting: TextFormat = None,
+    def __init__(self, text: str|list = "", formatting: TextFormat = TextFormat.AUTO,
                  bfile: List[File] = None):
         super().__init__()
-        self.formatting = TextFormat.AUTO if formatting is None else formatting
+        self.formatting = TextFormat(formatting)
         self._text = [text] if isinstance(text, str) else text
         self.bfile = bfile if bfile else []
 
@@ -575,7 +575,6 @@ class FText(Serializable):
                 data.text = value
             elif value is not None:
                 raise ValueError(f"Can't assign {value} to {attr}")
-
         def getter(self) -> FText:
             return getattr(self, attr)
         return property(getter, setter, doc=doc)

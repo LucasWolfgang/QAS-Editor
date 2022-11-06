@@ -1,0 +1,32 @@
+<?xml version='1.0' encoding='utf-8'?>
+<quiz>
+  <question type="randomsamatch">
+    <name>
+      <text>Random short-answer matching</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of the Random short-answer matching question type, which draws from short answer questions in the question bank.</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.1300000</defaultgrade>
+    <penalty>0.0</penalty>
+    <hidden>0</hidden>
+    <hint format="html">
+      <text><![CDATA[<p>How about looking in the Moodle announcements on the front page of Moodle.org?</p>]]></text>
+    </hint>
+    <correctfeedback format="html">
+      <text><![CDATA[<p>Your answer is correct.</p>]]></text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is partially correct.</p>]]></text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>
+    </incorrectfeedback>
+    <shownumcorrect></shownumcorrect>
+    <choose>3</choose>
+    <subcats>0</subcats>
+  </question>
+</quiz>

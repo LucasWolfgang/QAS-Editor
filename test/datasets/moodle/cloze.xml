@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='utf-8'?>
+<quiz>
+  <question type="cloze">
+    <name>
+      <text>Cloze</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>This is an example of an embedded answers (Cloze) type question. This is a multiple choice question but there are other types you can use too.</p>
+      <p>The first Moodle Research conference was held in {1:MULTICHOICE:Sousse, Tunisia#That was the second~California, USA#That was the third~=Crete, Greece#Correct!~%50%Greece#Yes but not close enough so you only get half the credit.}</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.0</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+  </question>
+</quiz>

@@ -20,35 +20,98 @@ import os
 from qas_editor import category
 from qas_editor._parsers import moodle
 
-TEST_PATH = os.path.dirname(__file__)
-SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
+TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
 
-def test_diff_all():
-    EXAMPLE = f"{TEST_PATH}/datasets/moodle/all.xml"
-    control = category.Category.read_moodle(EXAMPLE)
-    XML_TEST = f"{EXAMPLE}.tmp"
-    #control.write_moodle(XML_TEST, True)
-    control.write_json(XML_TEST)
-    # new_data = category.Category.read_moodle(XML_TEST)
-    # assert control.compare(new_data, [])
-    # os.remove(XML_TEST)
-
-
-def test_against_json():
-    EXAMPLE = f"{TEST_PATH}/datasets/moodle/all.xml"
-    data = category.Category.read_moodle(EXAMPLE)
-    XML_TEST = f"{TEST_PATH}/datasets/json/all.json"
-    #data.write_json(XML_TEST)
-    control = category.Category.read_json(XML_TEST)
-    assert control.compare(data, [])
-
-
-def test_diff_calculated():
-    EXAMPLE = f"{TEST_PATH}/datasets/moodle/calculated.xml"
-    control = category.Category.read_moodle(EXAMPLE)
-    XML_TEST = f"{EXAMPLE}.tmp"
+def _diff_file(file_name):
+    control = category.Category.read_moodle(file_name)
+    XML_TEST = f"{file_name}.tmp"
     control.write_moodle(XML_TEST, True)
     new_data = category.Category.read_moodle(XML_TEST)
     assert control.compare(new_data, [])
     os.remove(XML_TEST)
+    return control
+
+
+def test_diff_calculated():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/calculated.xml")
+
+
+def test_diff_calculatedsimple():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/calculatedsimple.xml")
+
+
+def test_diff_calculatedmulti():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/calculatedmulti.xml")
+
+
+def test_diff_cloze():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/cloze.xml")
+
+
+def test_diff_ddwtos():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/ddwtos.xml")
+
+
+def test_diff_ddmarker():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/ddmarker.xml")
+
+
+def test_diff_ddimageortext():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/ddimageortext.xml")
+
+
+def test_diff_essay():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/essay.xml")
+
+
+def test_diff_gapselect():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/gapselect.xml")
+
+
+def test_diff_multichoice():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/multichoice.xml")
+
+
+def test_diff_description():
+    """TODO - This testcase will soon change when QDescription class is removed
+    and we start using the QProblem to define subquestions that has a macro
+    description. The testcase may be the same, but the internal behavior will
+    change and the test name too.
+    """
+    _diff_file(f"{TEST_PATH}/datasets/moodle/description.xml")
+
+
+def test_diff_numerical():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/numerical.xml")
+
+
+def test_diff_matching():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/matching.xml")
+
+
+def test_diff_randomsamatch():
+    """TODO - This testcase will soon changed, since this question is a just an
+    easier way to randoming generated bigger matching questions. We may create
+    an random class or something like that tha can hold the same values
+    provided in a moodle's randomsamatch.
+    """
+    _diff_file(f"{TEST_PATH}/datasets/moodle/randomsamatch.xml")
+
+
+def test_diff_shortanswer():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/shortanswer.xml")
+
+
+def test_diff_truefalse():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/truefalse.xml")
+
+
+def test_diff_all():
+    _diff_file(f"{TEST_PATH}/datasets/moodle/all.xml")
+
+
+def test_diff_backup():
+    """TODO
+    """
+    pass

@@ -23,8 +23,8 @@ from typing import TYPE_CHECKING
 from .utils import Serializable, File
 from .question import _Question
 from .enums import Status
-from ._parsers import aiken, cloze, gift, json, kahoot, latex, markdown, \
-                      moodle, olx, qti_1_2_canvas
+from ._parsers import aiken, csv_card, cloze, gift, json, kahoot, latex, \
+                      markdown, moodle, olx, qti1v2
 if TYPE_CHECKING:
     from typing import Dict, List, Iterator   # pylint: disable=C0412
 _LOG = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ class Category(Serializable):  # pylint: disable=R0904
 
     read_aiken = classmethod(aiken.read_aiken)
     read_cloze = classmethod(cloze.read_cloze)
+    read_csvcard = classmethod(csv_card.read_cards)
     read_gift = classmethod(gift.read_gift)
     read_json = classmethod(json.read_json)
     read_kahoot = classmethod(kahoot.read_kahoot)
@@ -59,10 +60,11 @@ class Category(Serializable):  # pylint: disable=R0904
     read_moodle = classmethod(moodle.read_moodle)
     read_moodle_backup = classmethod(moodle.read_moodle_backup)
     read_olx = classmethod(olx.read_olx)
-    read_qti12 = qti_1_2_canvas.read
+    read_qti12 = classmethod(qti1v2.read_qti_canvas)
 
     write_aiken = aiken.write_aiken
     write_cloze = cloze.write_cloze
+    write_csvcard = csv_card.write_cards
     write_gift = gift.write_gift
     write_json = json.write_json
     write_kahoot = kahoot.write_kahoot
@@ -70,7 +72,6 @@ class Category(Serializable):  # pylint: disable=R0904
     write_markdown = markdown.write_markdown
     write_moodle = moodle.write_moodle
     write_olx = olx.write_olx
-    write_qti12 = qti_1_2_canvas.write
 
     def __init__(self, name: str = None):
         self.__questions: List[_Question] = []

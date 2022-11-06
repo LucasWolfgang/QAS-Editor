@@ -1,0 +1,42 @@
+<?xml version='1.0' encoding='utf-8'?>
+<quiz>
+  <question type="numerical">
+    <name>
+      <text>num:int</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Find \(x\) such \(2x-300=0\) ? <br></p><p>Here \(x\) is an integer, test for <strong>exact</strong> match, only.</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <answer format="moodle_auto_format" fraction="100">
+      <text><![CDATA[150]]></text>
+      <feedback format="html">
+        <text></text>
+      </feedback>
+      <tolerance>0</tolerance>
+    </answer>
+    <unitgradingtype>0</unitgradingtype>
+    <unitpenalty>0.1000000</unitpenalty>
+    <showunits>0</showunits>
+    <unitsleft>0</unitsleft>
+    <units>
+      <unit>
+        <multiplier>1</multiplier>
+        <unit_name>cm</unit_name>
+      </unit>
+      <unit>
+        <multiplier>0.5</multiplier>
+        <unit_name>mm</unit_name>
+      </unit>
+      <unit>
+        <multiplier>0.5</multiplier>
+        <unit_name>m</unit_name>
+      </unit>
+    </units>
+  </question>
+</quiz>

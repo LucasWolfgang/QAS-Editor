@@ -1,0 +1,52 @@
+<?xml version='1.0' encoding='utf-8'?>
+<quiz>
+  <question type="matching">
+    <name>
+      <text>h1</text>
+    </name>
+    <questiontext format="html">
+      <text><![CDATA[<p>Match the cool Moodle features with the version in which they first appeared:</p>]]></text>
+    </questiontext>
+    <generalfeedback format="html">
+      <text></text>
+    </generalfeedback>
+    <defaultgrade>1.1100000</defaultgrade>
+    <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <shuffleanswers>true</shuffleanswers>
+    <correctfeedback format="html">
+      <text><![CDATA[<p>Your answer is correct.</p>]]></text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is partially correct.</p>]]></text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text><![CDATA[<p>Your answer is incorrect.</p>]]></text>
+    </incorrectfeedback>
+    <shownumcorrect></shownumcorrect>
+    <subquestion format="html">
+      <text><![CDATA[<p>Drag and drop files</p>]]></text>
+      <answer>
+        <text>Moodle 2.3</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p>Groupings</p>]]></text>
+      <answer>
+        <text>Moodle 1.9</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text><![CDATA[<p>Repositories</p>]]></text>
+      <answer>
+        <text>Moodle 2.0</text>
+      </answer>
+    </subquestion>
+    <subquestion format="html">
+      <text></text>
+      <answer>
+        <text>Moodle 2.5</text>
+      </answer>
+    </subquestion>
+  </question>
+</quiz>

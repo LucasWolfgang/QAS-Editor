@@ -12,6 +12,20 @@
     </generalfeedback>
     <defaultgrade>1.7000000</defaultgrade>
     <penalty>0.3333333</penalty>
+    <hidden>0</hidden>
+    <shuffleanswers>true</shuffleanswers>
+    <synchronize>0</synchronize>
+    <single>1</single>
+    <answernumbering>abc</answernumbering>
+    <correctfeedback format="html">
+      <text><![CDATA[Votre réponse est correcte.]]></text>
+    </correctfeedback>
+    <partiallycorrectfeedback format="html">
+      <text><![CDATA[Votre réponse est partiellement correcte.]]></text>
+    </partiallycorrectfeedback>
+    <incorrectfeedback format="html">
+      <text><![CDATA[Votre réponse est incorrecte.]]></text>
+    </incorrectfeedback>
     <answer fraction="100">
       <text><![CDATA[{={a}*{b}}]]></text>
       <feedback format="html">
@@ -32,24 +46,10 @@
       <correctanswerformat>1</correctanswerformat>
       <correctanswerlength>2</correctanswerlength>
     </answer>
-    <hidden>0</hidden> 
-    <synchronize>0</synchronize>
-    <correctfeedback format="html">
-      <text><![CDATA[Votre réponse est correcte.]]></text>
-    </correctfeedback>
-    <partiallycorrectfeedback format="html">
-      <text><![CDATA[Votre réponse est partiellement correcte.]]></text>
-    </partiallycorrectfeedback>
-    <incorrectfeedback format="html">
-      <text><![CDATA[Votre réponse est incorrecte.]]></text>
-    </incorrectfeedback>
-    <shuffleanswers>true</shuffleanswers>
-    <single>1</single>
-    <answernumbering>abc</answernumbering>
     <dataset_definitions>
       <dataset_definition>
         <status>
-          <text>public</text>
+          <text>private</text>
         </status>
         <name>
           <text>a</text>
