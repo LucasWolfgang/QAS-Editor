@@ -21,8 +21,7 @@ import os
 from qas_editor.category import Category
 from qas_editor._parsers import latex
 
-TEST_PATH = os.path.dirname(__file__)
-SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
+TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
 
 def test_raw_multargs():
@@ -30,7 +29,7 @@ def test_raw_multargs():
                    "{another_value}[opt1]{final_value}[opt2]")
     cat = Category()
     tex = latex.LaTex(cat, tmp, "")
-    data = tex._document()
+    data = [item for item in tex._parse()]
     assert len(data) == 1
     assert data[0].name == "acommand"
     assert data[0].args == ["a_value", "another_value", "final_value"]
@@ -42,19 +41,18 @@ def test_raw_subitems():
                    "A given string\\end{name}}")
     cat = Category()
     tex = latex.LaTex(cat, tmp, "")
-    data = tex._document()
+    data = [item for item in tex._parse()]
     assert len(data) == 1
+    assert isinstance(data[0], latex.Cmd)
     assert data[0].name == "element"
-    assert data[0].args == ["tikz"]
     assert data[0].opts == []
-    assert len(data[0].subitems) == 2
-    assert data[0].subitems[0].name =="begin"
-    assert data[0].subitems[0].args[0] =="name"
-    assert data[0].subitems[0].args[1] =="arg2"
-    assert data[0].subitems[0].opts[0] =="opt1"
-    assert data[0].subitems[0].text =="A given string"
-    assert data[0].subitems[1].name =="end"
-    assert data[0].subitems[1].args[0] =="name"
+    assert len(data[0].args) == 2
+    assert data[0].args[0] == "tikz"
+    assert isinstance(data[0].args[1], latex.Env)
+    assert data[0].args[1].name =="name"
+    assert data[0].args[1].args[0] =="arg2"
+    assert data[0].args[1].opts[0] =="opt1"
+    assert data[0].args[1].subitems[0] =="A given string"
 
 
 def test_latextomoodle_read():
@@ -66,7 +64,7 @@ def test_latextomoodle_read():
     assert control.get_size(True) == 4
     assert control.name == "My little category from latex"
     question = next(control["Simple arithmetic"].questions)
-    assert question.question.get() == "The product 6x8 is equal to ... :"
+    assert question.question.get() == "The product 6x8 is equal to ... :\n"
     opts = question.options
     assert len(opts) == 3
     assert opts[0].text == "47"
@@ -86,6 +84,12 @@ def test_amc_element():
     cat = Category()
     with open(EXAMPLE) as ifile:
         tex = latex._PkgAMQ(cat, ifile, "")
-        result = tex.read()
-    assert result
+        data = []
+        while tex.line:
+            data.extend(item for item in tex._parse())
+    assert len(data) == 1
+    assert data[0].name == "element"
+    assert len(data[0].args)== 2
+    assert len(data[0].opts)== 0
+    assert isinstance(data[0].args[1], latex.Env)
     

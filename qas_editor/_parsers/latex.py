@@ -37,16 +37,36 @@ if TYPE_CHECKING:
 _LOG = logging.getLogger(__name__)
 _TEX_BASE_CMD = re.compile(r"\\(\w+).*(?:\{(.+)\})")
 
+class Env:
 
-class _Cmd():
+    def __init__(self, name: str, args=None, opt=None):
+        self.name = name
+        self.args = args  # Does not include the env name
+        self.opts = opt
+        self.subitems = None
+
+    def get(self, indent=0) -> str:
+        tmp = "\\begin\{" + self.name + "}"
+        if self.args:
+            tmp += "{" + "}{".join(self.args) + "}"
+        if self.opts:
+            tmp += "[" + "][".join(self.args) + "]"
+        tmp += "\t".join(self.subitems)
+        tmp += "\\end{" + self.name + "}"
+        return tmp
+
+    def __str__(self) -> str:
+        return self.get()
+
+
+class Cmd():
+    """_summary_
+    """
 
     def __init__(self, name: str):
         self.name = name
-        self.env = name in ("begin", "end")
-        self.text = None
         self.args = []
         self.opts = []
-        self.subitems = []
 
     def __str__(self) -> str:
         return self.name + "{" + "}{".join(self.args) + "}[" + "][".join(self.opts) + "]"
@@ -54,6 +74,8 @@ class _Cmd():
 
 _TEMPLATES = {}
 class LaTex():
+    """_summary_
+    """
 
     _NAME = ""
     _CMDS = {}
@@ -72,87 +94,100 @@ class LaTex():
         self.idx = 0
         self.line = "\n"
 
-    def read(self):
-        while self.line:
-            try:
-                for cmd in self._document():
-                    if (isinstance(cmd, _Cmd) and cmd.name == "end" and 
-                        cmd.args[0] == "document"):
-                        return True
-            except StopIteration:
-                return False
+    @staticmethod
+    def _wrap_env(items: list):
+        env_name = items.pop().args[0]
+        data = []
+        cmd = items.pop()
+        while isinstance(cmd, str) or not (cmd.name == "begin" and 
+                cmd.args[0] == env_name):
+            data.append(cmd)
+            cmd = items.pop()
+        data.reverse()
+        cmd = Env(env_name, cmd.args[1:], cmd.opts)
+        cmd.subitems = data
+        items.append(cmd)
 
-    def _document(self):
-        data = self._parse()
-        for cmd in data:
-            if isinstance(cmd, _Cmd) and cmd.name == "include":
-                path = cmd.args[0]
-                if os.path.relpath(path):
-                    path = self.path.rsplit("/", 1)[0] + "/" + path
-                with open(path) as ifile:
-                    self.__class__(self.cat, ifile, path)
-        return data
+    def _parse_opt(self):
+        start = self.idx + 1
+        while self.idx < len(self.line) and self.line[self.idx] != "]":
+            self.idx += 1
+            if self.idx > len(self.line)-1:
+                self.line += next(self.buf, "") 
+        return self.line[start:self.idx]
 
-    def _parse_cmd(self, open_groups: list):
+    def _parse_arg(self):
+        start = self.idx + 1
+        items = []
+        while self.idx < len(self.line):
+            if self.line[self.idx] == "}":
+                tmp = self.line[start: self.idx].strip()
+                if start < self.idx and tmp:
+                    items.append(tmp)
+                break
+            elif self.line[self.idx] == "\\":
+                tmp = self.line[start: self.idx].strip()
+                if start < self.idx and tmp:
+                    items.append(tmp)
+                items.append(self._parse_cmd())
+                if items[-1].name == "end":
+                    self._wrap_env(items)
+                start = self.idx
+            self.idx += 1
+            if self.idx > len(self.line)-1:
+                self.line += next(self.buf, "")
+        return items if len(items) > 1 else items[0]
+
+    def _parse_cmd(self):
         self.idx += 1
         start = self.idx
         while self.line[self.idx].isalpha():
             self.idx += 1
-        cmd = _Cmd(self.line[start: self.idx])
-        size = len(open_groups)
+        cmd = Cmd(self.line[start: self.idx])
         while self.idx < len(self.line):
-            if self.line[self.idx] in ("{", "["):
-                open_groups.append(self.idx)
-            elif self.line[self.idx] == "}":
-                if len(open_groups) == size:
-                    self.idx -= 1  # return one step so top can capture
-                    break
-                if self.line[open_groups[-1]] != "{":
-                    raise ValueError(f"Incorrect pattern: {self.line}")
-                start = open_groups.pop() + 1
-                if self.line[start] != "\\":
-                    cmd.args.append(self.line[start:self.idx])
-                start = self.idx + 1
-            elif self.line[self.idx] == "]":
-                if len(open_groups) == size:
-                    self.idx -= 1  # return one step so top can capture
-                    break
-                if self.line[open_groups[-1]] != "[":
-                    raise ValueError(f"Incorrect pattern: {self.line}")
-                start = open_groups.pop() + 1
-                cmd.opts.append(self.line[start:self.idx])
-                start = self.idx + 1
-            elif self.line[self.idx] == "\\":
-                if start < self.idx and self.line[start] != "{":
-                    cmd.text = self.line[start: self.idx]
-                if len(open_groups) == size:
-                    self.idx -= 1  # return one step so top can capture
-                    break
-                else:
-                    cmd.subitems.append(self._parse_cmd(open_groups))
+            if self.line[self.idx] == "[":
+                cmd.opts.append(self._parse_opt())
+            elif self.line[self.idx] == "{":
+                cmd.args.append(self._parse_arg())
+            elif self.line[self.idx]:
+                break
             self.idx += 1
-            if self.idx == len(self.line)-1 and len(open_groups) != 0:
-                self.line += next(self.buf).strip()
-                self.idx -= 1   # remove the newline char
+            if self.idx > len(self.line)-1:
+                self.line += next(self.buf, "")
         return cmd
 
-    def _parse(self) -> list:
+    def _parse(self):
         self.idx = start = 0
-        data = []
-        self.line = next(self.buf)
+        self.line = next(self.buf, "")
         while self.idx < len(self.line):
             if self.line[self.idx] == "\\" and self.line[self.idx+1].isalpha():
                 if self.line[start: self.idx].strip():
-                    data.append(self.line[start: self.idx])
-                data.append(self._parse_cmd([]))
+                    yield self.line[start: self.idx]
+                yield self._parse_cmd()
                 start = self.idx + 1
             elif self.line[self.idx] == "%":
                 start = self.idx
                 break
             self.idx += 1
         if self.line[start: self.idx].strip() and self.line[start] != "%":
-            data.append(self.line[start: self.idx])
-        return data
+            yield self.line[start: self.idx]
+
+    def build(self, cmd: Cmd|Env|str):
+        if isinstance(cmd, Cmd) and cmd.name == "include":
+            path = cmd.args[0]
+            if os.path.relpath(path):
+                path = self.path.rsplit("/", 1)[0] + "/" + path
+            with open(path) as ifile:
+                self.__class__(self.cat, ifile, path)
+
+    def read(self):
+        try:
+            while self.line:
+                for cmd in self._parse():
+                    self.build(cmd)
+            return True
+        except StopIteration:
+            return False
 
 
 class _ClassExam(LaTex):
@@ -185,12 +220,6 @@ class _PkgAMQ(LaTex):
         \\newcommand{\\feedback}[1]{}
         \\begin{document}
     """
-
-    # def _document(self):
-    #     data = self._parse()
-    #     for cmd in data:
-    #         print(cmd)
-    #     return data
 
 
 class _PkgMcExam(LaTex):
@@ -243,23 +272,29 @@ class _PkgLatexToMoodle(LaTex):
     def _question(self, qtype: str):
         params = {"question": FText()}
         options = []
-        while self.line:
-            data = self._parse()
-            if data and isinstance(data[0], _Cmd):
-                if data[0].name == "end" and data[0].args[0] == "question":
-                    if options:
-                        params["options"] = options
-                    break
-                else:
-                    value = data[0].args[0]
-                    if data[0].name == "answer":
-                        options.append(Answer(float(data[0].opts[0]), value))
-                    elif data[0].name in self._CMDS:
-                        key, cast = self._CMDS[data[0].name]
+        ended = False
+        while self.line and not ended:
+            for item in self._parse():
+                if isinstance(item, Cmd):
+                    value = item.args[0] if len(item.args) >0 else None
+                    if item.name == "end" and value == "question":
+                        if options:
+                            params["options"] = options
+                        ended = True
+                        break
+                    elif item.name == "answer":
+                        options.append(Answer(float(item.opts[0]), value))
+                    elif item.name in self._CMDS:
+                        key, cast = self._CMDS[item.name]
                         if isinstance(cast, str):
                             params[key] = getattr(self, cast)(value)
                         else:
                             params[key] = cast(value)
+                    else:
+                        params["question"].text.append(item)
+                elif item.strip():
+                    params["question"].text.append(item)
+        params["question"].text.pop(0)
         self.cat.add_question(self._QTYPE[qtype](**params))
 
     def _category(self, name):
@@ -283,16 +318,13 @@ class _PkgLatexToMoodle(LaTex):
             _LOG.exception(f"Failed to parse category {name}")
         self.cat = tmp
 
-    def _document(self):
-        data = super()._document()
-        if data and isinstance(data[0], _Cmd) and data[0].env:
-            if "category" in data[0].args:
-                self._category(data[0].opts[0])
-            elif "question" in data[0].args:
-                self._question(data[0].opts[0])
-        elif self.line.strip():
-            raise ValueError(f"Couldnt map line:\n\t{self.line}")
-        return data
+    def build(self, cmd):
+        super().build(cmd)
+        if isinstance(cmd, Cmd):
+            if "category" in cmd.args:
+                self._category(cmd.opts[0])
+            elif "question" in cmd.args:
+                self._question(cmd.opts[0])
 
 
 def read_latex(cls: Type[Category], file_name: str) -> "Category":
