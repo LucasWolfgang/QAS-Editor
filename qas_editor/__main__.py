@@ -39,7 +39,7 @@ def main():
     handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
     handler.setLevel(logging.INFO)
     log.addHandler(handler)
-    app = QApplication(sys.argv)
+    app = QApplication([])
     edit = Editor()
 
     # This is just for debug. If it is impacting you, remove this section

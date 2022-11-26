@@ -1,10 +1,11 @@
 from setuptools import setup
+from qas_editor import __version__, __author__
 
 setup(
    name="QAS Editor",
-   version="0.0.5",
+   version=__version__,
    description="Question and Answer Sheet editor",
-   author="Lucas Wolfgang",
+   author=__author__,
    author_email="lucawolfcs@hotmail.com",
    url="https://github.com/LucasWolfgang/QAS-Editor",
    packages=["qas_editor"],
@@ -17,7 +18,6 @@ setup(
         "Topic :: Software Development :: Libraries"
     ],
     python_requires=">=3.7",
-    install_requires=[],
     extras_require={
         "formulae" : ["sympy", "matplotlib"],
         # For users that need to work with formulae and graphs. Includes:

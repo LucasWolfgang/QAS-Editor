@@ -12,7 +12,7 @@
 ## Description
 Question and Answer Sheet Editor is a desktop-focused python API and a UI utility to automate/help with tasks related to the creation, deletion, update, organization and convertion of question databases.
  
-The structure of the class is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle). Some code was reused from [moodle2edx-0.1.0](https://github.com/mitocw/moodle2edx),[text2qti](https://github.com/gpoore/text2qti) and [amc2moodle](https://github.com/nennigb/amc2moodle) too.
+The structure of the module is based on the Moodle XML. The initial source code was forked from [moodle-questions](https://github.com/gethvi/moodle-questions) and has some inspiration from [moodlexport](https://github.com/Guillaume-Garrigos/moodlexport) and [markdown2moodle](https://github.com/brunomnsilva/markdown2moodle). Some code was reused from [moodle2edx-0.1.0](https://github.com/mitocw/moodle2edx),[text2qti](https://github.com/gpoore/text2qti) and [amc2moodle](https://github.com/nennigb/amc2moodle) too.
 
 The GUI uses code from [Megasolid Idiom](https://www.mfitzp.com/examples/megasolid-idiom-rich-text-editor/), [pyqt-collapsible-widget](https://github.com/By0ute/pyqt-collapsible-widget) and [Creating A Tag Bar In PySide](https://robonobodojo.wordpress.com/2018/09/11/creating-a-tag-bar-in-pyside/).
 
@@ -33,13 +33,14 @@ Besides repos listed above, some testcases were also taken from [moodle test web
  |  Type                  | Class |  GUI  | Test | Type             | Class |  GUI  | Test |
  | ---------------------- | :---: | :---: | :--: | ---------------- | :---: | :---: | :--: |
  | Calculated             |  :o:  |  :x:  |  :x: | Matching         |  :o:  |  :x:  |  :x: |
- | Calculated multichoice |  :o:  |  :x:  |  :x: | Cloze (Gap Fill) |  :o:  |  :o:  |  :x: |
- | Calculated simple      |  :o:  |  :x:  |  :x: | Multiple choice  |  :o:  |  :o:  |  :x: |
- | Drag and drop text     |  :o:  |  :x:  |  :x: | Short Answer     |  :o:  |  :x:  |  :x: |
- | Drag and drop markers  |  :o:  |  :x:  |  :x: | Numerical        |  :o:  |  :x:  |  :x: |
- | Drag and drop image    |  :o:  |  :x:  |  :x: | Random matching  |  :o:  |  :x:  |  :x: |
- | Description            |  :o:  |  :o:  |  :x: | Missing word     |  :o:  |  :x:  |  :x: |
- | Essay                  |  :o:  |  :x:  |  :x: | True/False       |  :o:  |  :x:  |  :x: | 
+ | Calculated multichoice |  :o:  |  :x:  |  :x: | Missing word     |  :o:  |  :o:  |  :x: |
+ | CrossWord              |  :o:  |  :x:  |  :x: | Multiple choice  |  :o:  |  :o:  |  :x: |
+ | Drag and drop image    |  :o:  |  :x:  |  :x: | Numerical        |  :o:  |  :x:  |  :x: |
+ | Drag and drop markers  |  :o:  |  :x:  |  :x: | Enumeration      |  :o:  |  :x:  |  :x: |
+ | Drag and drop text     |  :o:  |  :x:  |  :x: | Random matching  |  :o:  |  :x:  |  :x: |
+ | Embedded (Cloze)       |  :o:  |  :x:  |  :x: | Short Answer     |  :o:  |  :x:  |  :x: |
+ | Drawing                |  :o:  |  :x:  |  :x: | True/False       |  :o:  |  :x:  |  :x: |
+ | Essay                  |  :o:  |  :x:  |  :x: |
  </center><br/
 
   - A GUI to create, delete, modify and organize questions.

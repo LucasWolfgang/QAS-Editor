@@ -18,3 +18,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import sys
 if sys.version_info < (3, 7):
     raise Exception("Python 2 is not supported.")
+
+__author__ = "Lucas Wolfgang"
+
+__version__ = "0.0.6"
+
+__doc__= """Question and Answer Sheet Editor is a desktop-focused python API\
+and a UI\nutility to automate/help with tasks related to the creation, deletion\
+, update,\n organization and convertion of question databases.
+"""

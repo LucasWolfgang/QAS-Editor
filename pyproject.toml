@@ -1,4 +1,12 @@
-[MESSAGES CONTROL]
+[build-system]
+requires = ["setuptools >= 44.0"]
+
+[tool.pytest.ini_options]
+testpaths = [
+    ".test",
+]
+
+[tool.pylint.messages_control]
 disable = C0302,    # Too many lines in module
           R0903,    # Too few public methods. Not necessary
           W1202,    # Use % formatting in logging functions. Can't see why
@@ -10,7 +18,7 @@ disable = C0302,    # Too many lines in module
           #W0212     # Access to a protected member. Internal methods need to access protected member.
                     #   but it will be good to revise this one later.
 
-[DESIGN]
+[tool.pylint.design]
 # Temporarily increasing the max. Will remove once the dataclasses are implemented
 max-attributes=20
 max-args=20
