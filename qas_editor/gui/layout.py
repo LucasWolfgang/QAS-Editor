@@ -56,10 +56,8 @@ class _AutoUpdateVBox(QVBoxLayout):
 
     def add(self, child=None):
         """_summary_
-
         Raises:
             TypeError: _description_
-
         Returns:
             _type_: _description_
         """
@@ -70,7 +68,6 @@ class _AutoUpdateVBox(QVBoxLayout):
 
     def from_obj(self, obj):
         """_summary_
-
         Args:
             obj (MultipleTries): _description_
         """
@@ -88,17 +85,17 @@ class _AutoUpdateVBox(QVBoxLayout):
                 del item
             for idx in range(self.count()):
                 self.itemAt(idx).widget().from_obj(self._obj[idx])
+        self.__obj = _obj
         if self.count() < new_size:
             for cloze_item in _obj[self.count():]:
                 self.add(cloze_item)
-        self.__obj = _obj
 
     def get_attr(self):
         """Get attribute.
         """
         return self.__type
 
-    def pop(self) -> None:
+    def pop(self):
         """_summary_
         """
         if not self.count():

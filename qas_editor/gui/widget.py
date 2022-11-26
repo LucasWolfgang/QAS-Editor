@@ -15,7 +15,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-
 from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
@@ -28,18 +27,17 @@ from PyQt5.QtWidgets import QWidget, QActionGroup, QCompleter, QTextEdit,\
                             QToolBar, QFontComboBox, QComboBox, QHBoxLayout,\
                             QFrame, QPushButton, QLabel, QAction, QLineEdit,\
                             QCheckBox, QListWidget, QGridLayout
+from .utils import IMG_PATH
 from ..question import MARKER_INT
 from ..answer import Answer, ACalculated, DragGroup, EmbeddedItem, DropZone,\
                      SelectOption
 from ..enums import EmbeddedFormat, TextFormat, TolType, TolFormat
 from ..utils import FText, Hint
 if TYPE_CHECKING:
-    from typing import Callable
     from ..enums import EnhancedEnum
     from PyQt5.QtGui import QKeyEvent
 
 
-IMG_PATH = __file__.replace('\\', '/').rsplit('/', 2)[0] + "/images"
 LOG = logging.getLogger(__name__)
 
 
@@ -170,10 +168,8 @@ class GTextEditor(QTextEdit):
 
     def canInsertFromMimeData(self, source) -> bool:  # pylint: disable=C0103
         """[summary]
-
         Args:
             source ([type]): [description]
-
         Returns:
             bool: [description]
         """
@@ -192,7 +188,6 @@ class GTextEditor(QTextEdit):
 
     def focusInEvent(self, event) -> None:  # pylint: disable=C0103
         """Method overwritten. Set itself as the toolbar's target.
-
         Args:
             event (_type_): _description_
         """
@@ -224,7 +219,6 @@ class GTextEditor(QTextEdit):
 
     def insertFromMimeData(self, source):   # pylint: disable=C0103
         """[summary]
-
         Args:
             source ([type]): [description]
         """
@@ -255,7 +249,6 @@ class GTextEditor(QTextEdit):
 
     def keyPressEvent(self, event: QKeyEvent):  # pylint: disable=C0103
         """_summary_
-
         Args:
             event (QKeyEvent): _description_
         """
@@ -272,7 +265,6 @@ class GTextEditor(QTextEdit):
 
     def from_obj(self, obj) -> None:
         """_summary_
-
         Args:
             obj (FText): Object to get the data from
             standard (bool): If the object passed is a FText (or has the FText
@@ -418,7 +410,6 @@ class GTextToolbar(QToolBar):
 
     def hasFocus(self) -> bool:  # pylint: disable=C0103
         """_summary_
-
         Returns:
             bool: _description_
         """
@@ -506,7 +497,6 @@ class GAnswer(QFrame):
 
     def from_obj(self, obj: Answer) -> None:
         """_summary_
-
         Args:
             obj (Answer): _description_
         """
@@ -604,7 +594,6 @@ class GCloze(QFrame):
 
     def add_opts(self, stat: bool):
         """_summary_
-
         Args:
             stat (bool): _description_
         """
@@ -618,7 +607,6 @@ class GCloze(QFrame):
 
     def pop_opts(self, _):
         """_summary_
-
         Args:
             stat (bool): _description_
         """
@@ -628,7 +616,6 @@ class GCloze(QFrame):
 
     def from_obj(self, obj: EmbeddedItem) -> None:
         """_summary_
-
         Args:
             obj (ClozeItem): _description_
         """
@@ -639,13 +626,13 @@ class GCloze(QFrame):
 
 
 class GDrag(QWidget):
-    """This class works for both DragGrou and DragItem.
+    """This class works for both DragGroup and DragItem.
     """
 
     TYPES = ["Image", "Text"]
 
-    def __init__(self, **kwargs) -> None:
-        super().__init__(**kwargs)
+    def __init__(self, _, question: list, option=None):
+        super().__init__()
         self._layout = QGridLayout(self)
         self._layout.addWidget(QLabel("Text"), 0, 0)
         self._text = GField("text", self, str)
@@ -663,10 +650,13 @@ class GDrag(QWidget):
         self._nodrags = GField("no_of_drags", self, int)
         self._layout.addWidget(self._nodrags, 0, 6)
         self.img = None
+        if option is None:
+            option = EmbeddedItem(0.0, EmbeddedFormat.MC)
+            question.append(option)
+        self.from_obj(option)
 
     def from_obj(self, obj: DragGroup):
         """_summary_
-
         Args:
             obj (_type_): _description_
         """
