@@ -22,13 +22,13 @@ from enum import Enum
 from ..enums import EmbeddedFormat, Direction, Distribution, Grading, RespFormat,\
                     ShapeType, Synchronise, TolType, TolFormat, Status,\
                     ShowUnits, TextFormat, Numbering
-from ..utils import File, Dataset, FText, Hint, Serializable, TList, Unit, MediaType, FileAddr
+from ..utils import File, Dataset, FText, Hint, TList, Unit
 from ..answer import ACalculated, ANumerical, Answer, EmbeddedItem, DragItem,\
                      ACrossWord, DropZone, SelectOption, DragGroup, DragImage,\
                      Subquestion
 from ..question import _Question, QCalculatedMC, QCrossWord, QEmbedded,\
-                        QTrueFalse, QCalculated, QCalculatedSimple, QEssay,\
-                        QDaDImage, QDaDMarker, QMissingWord, QDescription,\
+                        QTrueFalse, QCalculated, QEssay,\
+                        QDaDImage, QDaDMarker, QMissingWord, QProblem,\
                         QMatching, QDaDText, QMultichoice, QRandomMatching,\
                         QNumerical,  QShortAnswer
 if TYPE_CHECKING:
@@ -54,10 +54,9 @@ def _from_json(data: dict, cls):
 def _from_file(data: dict):
     if data is None:
         return None
-    data["ftype"] = FileAddr(data.pop("_type"))
     data.pop("_media", None)
     data.pop("_type", None)
-    if data["metadata"]:
+    if "metadata" in data:
         data.update(data.pop("metadata"))
     return _from_json(data, File)
 
@@ -224,7 +223,7 @@ def _from_qcalculated(data: dict, cls=None):
 
 
 def _from_qcalculatedsimple(data: dict):
-    return _from_qcalculated(data, QCalculatedSimple)
+    return _from_qcalculated(data, QCalculated)
 
 
 def _from_qcalculatedmc(data: dict):
@@ -240,7 +239,7 @@ def _from_qcloze(data: dict):
 
 
 def _from_qdescription(data: dict):
-    return _from_question(data, QDescription)
+    return _from_question(data, QProblem)
 
 
 def _from_qdraganddroptext(data: dict):
@@ -311,10 +310,9 @@ def _from_qtruefalse(data: dict):
 
 _QTYPE = {
     "QCalculated": _from_qcalculated,
-    "QCalculatedSimple": _from_qcalculatedsimple,
     "QCalculatedMC": _from_qcalculatedmc,
     "QEmbedded": _from_qcloze,
-    "QDescription": _from_qdescription,
+    "QProblem": _from_qdescription,
     "QDaDText": _from_qdraganddroptext,
     "QDaDImage": _from_qdraganddropimage,
     "QDaDMarker": _from_qdraganddropmarker,

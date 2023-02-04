@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+import os
 import logging
 import zipfile
 from typing import TYPE_CHECKING
@@ -22,15 +23,15 @@ from xml.etree import ElementTree as et
 
 from ..answer import ACalculated, ANumerical, Answer, DragItem, DragGroup, \
                      DragImage, DropZone, Subquestion, SelectOption
-from ..question import QCalculated, QCalculatedMC, QDescription, QDaDImage,\
-                       QCalculatedSimple, QEmbedded, QMissingWord, QTrueFalse,\
-                       QDaDMarker, QNumerical, QDaDText, QEssay, QMatching,\
+from ..question import QCalculated, QCalculatedMC, QProblem, QDaDImage,\
+                       QEmbedded, QMissingWord, QTrueFalse, QDaDMarker,\
+                       QNumerical, QDaDText, QEssay, QMatching,\
                        QMultichoice, QRandomMatching, QShortAnswer
 from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
                     ShapeType, Grading, Status, TolFormat, TolType,\
-                    Distribution, ShowAnswer, FileAddr, MediaType
+                    Distribution, ShowAnswer, MathType, ShuffleType
 from ..utils import gen_hier, Dataset, Hint, TList, FText, File, Unit, \
-                    EXTRAS_FORMULAE, serialize_fxml
+                    serialize_fxml
 if TYPE_CHECKING:
     from ..category import Category, _Question
     from ..question import _QHasOptions, _QHasUnits
@@ -107,7 +108,7 @@ def _from_FText(root: et.Element, tags: dict):
     data = _from_xml(root, tags)
     data["formatting"] = TextFormat(root.get("format"))
     efiles = data.pop("file", [])
-    ftext = FText(**data)
+    ftext = FText.from_string(**data)
     for file in efiles:
         for tmp in ftext.text:
             if file == tmp:
@@ -162,7 +163,7 @@ def _from_Answer(root: et.Element, tags: dict, go_up=False):
     tags["text"] = (str, "text")
     tags["feedback"] = (_from_FText, "feedback")
     data = _from_xml(root, tags)
-    data["formatting"] = TextFormat(root.get("format", "plain_text"))
+    data["formatting"] = TextFormat(root.get("format", "auto"))
     data["fraction"] = float(root.get("fraction", 0))
     return data if go_up else Answer(**data)
 
@@ -222,15 +223,15 @@ def _from_question(root: et.Element, tags: dict):
     return _from_xml(root, tags)
 
 
+def _from_penalty_to_maxtries(value, _):
+    value = float(value.text)
+    return int(1/value if value else value)
+
+
 def _from_question_mt(root: et.Element, tags: dict):
     tags["hint"] = (_from_Hint, "hints", True)
-    tags["max_tries"] = (float, "penalty")
-    res = _from_question(root, tags)
-    if res.get("max_tries") is None:
-        res["max_tries"] = -1
-    else:
-        res["max_tries"] = int(1/res["max_tries"])
-    return res
+    tags["penalty"] = (_from_penalty_to_maxtries, "max_tries")
+    return _from_question(root, tags)
 
 
 def _from_question_mtcs(root: et.Element, tags: dict):
@@ -267,10 +268,6 @@ def _from_qcalculated(root: et.Element, tags: dict, go_up=False):
     return data if go_up else QCalculated(**data)
 
 
-def _from_qcalculatedsimple(root: et.Element, tags: dict):
-    return QCalculatedSimple(**_from_qcalculated(root, tags, True))
-
-
 def _from_qcalcmultichoice(root: et.Element, tags: dict):
     tags["synchronize"] = (Synchronise, "synchronize")
     tags["single"] = (bool, "single")
@@ -289,7 +286,7 @@ def _from_qcloze(root: et.Element, tags: dict):
 
 
 def _from_qdescription(root: et.Element, tags: dict):
-    return QDescription(**_from_question(root, tags))
+    return QProblem(**_from_question(root, tags))
 
 
 def _from_ddwtos(root: et.Element, tags: dict):
@@ -297,31 +294,36 @@ def _from_ddwtos(root: et.Element, tags: dict):
     return QDaDText(**_from_question_mtcs(root, tags))
 
 
+def _from_dragimage(root: et.Element, tags: dict):
+    tags["no"] = (int, "number")
+    tags["text"] = (str, "text")
+    tags["infinite"] = (bool, "unlimited")
+    tags["draggroup"] = (int, "group")
+    tags["file"] = (_from_B64File, "image")
+    data = _from_xml(root, tags)
+    unlimited = data.pop("unlimited")
+    data["no_of_drags"] = -1 if unlimited else 1
+    return DragImage(**data)
+
+
 def _from_ddimageortext(root: et.Element, tags: dict):
-    def _from_dragimage(root: et.Element, tags: dict):
-        tags["no"] = (int, "number")
-        tags["text"] = (str, "text")
-        tags["infinite"] = (bool, "unlimited")
-        tags["draggroup"] = (int, "group")
-        tags["file"] = (_from_B64File, "image")
-        data = _from_xml(root, tags)
-        unlimited = data.pop("unlimited")
-        data["no_of_drags"] = -1 if unlimited else 1
-        return DragImage(**data)
     tags["file"] = (_from_B64File, "background")
     tags["drag"] = (_from_dragimage, "options", True)
     tags["drop"] = (_from_dropzone, "zones", True)
     return QDaDImage(**_from_question_mtcs(root, tags))
 
 
+def _from_dragitem(root: et.Element, tags: dict):
+    tags["no"] = (int, "number")
+    tags["text"] = (str, "text")
+    tags["infinite"] = (bool, "infinite")
+    tags["noofdrags"] = (int, "no_of_drags")
+    data = _from_xml(root, tags)
+    if data.pop("infinite", False):
+        data["no_of_drags"] = -1
+    return DragItem(**data)
+
 def _from_ddmarker(root: et.Element, tags: dict):
-    def _from_dragitem(root: et.Element, tags: dict):
-        tags["no"] = (int, "number")
-        tags["text"] = (str, "text")
-        tags["infinite"] = (bool, "no_of_drags")
-        data = _from_xml(root, tags)
-        data["no_of_drags"] = -1 if data["no_of_drags"] else 1
-        return DragItem(**data)
     tags["file"] = (_from_B64File, "background")
     tags["showmisplaced"] = (bool, "highlight")
     tags["drag"] = (_from_dragitem, "options", True)
@@ -399,14 +401,13 @@ def _from_QTrueFalse(root: et.Element, tags: dict):
 
 
 def _to_b64file(b64file: File) -> et.Element:
-    bfile = et.Element("file", {"name": b64file.name, "encoding": "base64"})
-    if b64file.path:
-        bfile.set("path", b64file.path)
-    bfile.text = b64file.source
+    name = os.path.basename(b64file.path)
+    bfile = et.Element("file", {"name": name, "encoding": "base64"})
+    bfile.text = b64file.data
     return bfile
 
 
-def _to_dataset(dset) -> et.Element:
+def _to_dataset(dset: Dataset) -> et.Element:
     dataset_def = et.Element("dataset_definition")
     status = et.SubElement(dataset_def, "status")
     et.SubElement(status, "text").text = dset.status.value
@@ -436,10 +437,10 @@ def _to_dataset(dset) -> et.Element:
     return dataset_def
 
 
-def _to_ftext(ftext: FText, name: str) -> None:
+def _to_ftext(ftext: FText, name: str):
     elem = et.Element(name, {"format": ftext.formatting.value})
     txt = et.SubElement(elem, "text")
-    txt.text = ftext.text
+    txt.text = ftext.get(MathType.LATEX)
     for bfile in ftext.bfile:
         elem.append(_to_b64file(bfile))
     return elem
@@ -483,13 +484,13 @@ def _to_answer(ans: Answer) -> et.Element:
     return answer
 
 
-def _to_anumerical(ans) -> et.Element:
+def _to_anumerical(ans: ANumerical) -> et.Element:
     answer = _to_answer(ans)
     et.SubElement(answer, "tolerance").text = ans.tolerance
     return answer
 
 
-def _to_acalculated(ans) -> et.Element:
+def _to_acalculated(ans: ACalculated) -> et.Element:
     answer = _to_anumerical(ans)
     et.SubElement(answer, "tolerancetype").text = ans.ttype.value
     et.SubElement(answer, "correctanswerformat").text = ans.aformat.value
@@ -497,7 +498,7 @@ def _to_acalculated(ans) -> et.Element:
     return answer
 
 
-def _to_dropzone(drop) -> et.Element:
+def _to_dropzone(drop: DropZone) -> et.Element:
     dropzone = et.Element("drop")
     if drop.text:
         et.SubElement(dropzone, "text").text = drop.text
@@ -514,7 +515,7 @@ def _to_dropzone(drop) -> et.Element:
     return dropzone
 
 
-def _to_subquestion(sub) -> et.Element:
+def _to_subquestion(sub: Subquestion) -> et.Element:
     subquestion = et.Element("subquestion",
                              {"format": sub.formatting.value})
     text = et.Element("text")
@@ -528,7 +529,7 @@ def _to_subquestion(sub) -> et.Element:
     return subquestion
 
 
-def _to_selectOption(opt) -> et.Element:
+def _to_selectOption(opt: SelectOption) -> et.Element:
     select_option = et.Element("selectoption")
     text = et.Element("text")
     text.text = opt.text
@@ -539,8 +540,8 @@ def _to_selectOption(opt) -> et.Element:
     return select_option
 
 
-def _to_question(question: "_Question") -> et.Element:
-    elem = et.Element("question", {"type": question.MOODLE})
+def _to_question(question: "_Question", qtype: str) -> et.Element:
+    elem = et.Element("question", {"type": qtype})
     name = et.SubElement(elem, "name")
     et.SubElement(name, "text").text = question.name
     elem.append(_to_ftext(question.question, "questiontext"))
@@ -555,33 +556,34 @@ def _to_question(question: "_Question") -> et.Element:
     return elem
 
 
-def _to_question_mt(qst: "_QHasOptions", opt_callback) -> et.Element:
-    question = _to_question(qst)
+def _to_question_mt(qst: "_QHasOptions", opt_callback, qtype) -> et.Element:
+    question = _to_question(qst, qtype)
     for hint in qst.fail_hints:
         question.append(_to_hint(hint))
-    et.SubElement(question, "penalty").text = 1/qst.max_tries
+    et.SubElement(question, "penalty").text = 1/qst.max_tries if qst.max_tries > 0 else 0
     if opt_callback:  # Workaround for QRandomMatching.
         for sub in qst.options:
             question.append(opt_callback(sub))
     return question
 
 
-def _to_question_mtcs(qst: "_QHasOptions", opt_callback) -> et.Element:
-    question = _to_question_mt(qst, opt_callback)
-    question.append(_to_ftext(qst.feedbacks.get(0, ""), "correctfeedback"))
+def _to_question_mtcs(qst: "_QHasOptions", opt_callback, qtype) -> et.Element:
+    question = _to_question_mt(qst, opt_callback, qtype)
+    question.append(_to_ftext(qst.feedbacks.get(100, ""), "correctfeedback"))
     for key in qst.feedbacks:
         if 0 < key < 100:
             question.append(_to_ftext(qst.feedbacks[key], "partiallycorrectfeedback"))
+            break
     question.append(_to_ftext(qst.feedbacks.get(0, ""), "incorrectfeedback"))
     if qst.show_ans != ShowAnswer.NEVER:
         et.SubElement(question, "shownumcorrect")
-    if hasattr(qst, "shuffle") and qst.shuffle:    # Workaround for
-        et.SubElement(question, "shuffleanswers")   # QRandomMatching
+    if hasattr(qst, "shuffle") and qst.shuffle != ShuffleType.NEVER:
+        et.SubElement(question, "shuffleanswers") # Workaround forQRandomMatching
     return question
 
 
-def _to_question_mtuh(qst: "_QHasUnits", opt_callback) -> et.Element:
-    question = _to_question_mt(qst, opt_callback)
+def _to_question_mtuh(qst: "_QHasUnits", opt_callback, qtype) -> et.Element:
+    question = _to_question_mt(qst, opt_callback, qtype)
     et.SubElement(question, "unitgradingtype").text = qst.grading_type.value
     et.SubElement(question, "unitpenalty").text = qst.unit_penalty
     et.SubElement(question, "showunits").text = qst.show_unit.value
@@ -590,7 +592,7 @@ def _to_question_mtuh(qst: "_QHasUnits", opt_callback) -> et.Element:
 
 
 def _to_qcalculated(qst: QCalculated) -> et.Element:
-    question = _to_question_mtuh(qst, _to_acalculated)
+    question = _to_question_mtuh(qst, _to_acalculated, "calculated")
     et.SubElement(question, "synchronize").text = qst.synchronize.value
     units = et.SubElement(question, "units")
     for unit in qst.units:
@@ -602,7 +604,7 @@ def _to_qcalculated(qst: QCalculated) -> et.Element:
 
 
 def _to_qcalcmultichoice(qst: QCalculatedMC) -> et.Element:
-    question = _to_question_mtcs(qst, _to_acalculated)
+    question = _to_question_mtcs(qst, _to_acalculated, "calculatedmulti")
     et.SubElement(question, "synchronize").text = qst.synchronize.value
     if qst.single:
         et.SubElement(question, "single")
@@ -616,13 +618,13 @@ def _to_qcalcmultichoice(qst: QCalculatedMC) -> et.Element:
 def _to_qcloze(qst: QEmbedded) -> et.Element:
     tmp = qst.question.text
     qst.question.text = qst.to_cloze_text(False)
-    question = _to_question_mt(qst, None)
+    question = _to_question_mt(qst, None, "cloze")
     qst.question.text = tmp
     return question
 
 
-def _to_qdescription(qst: QDescription) -> et.Element:
-    return _to_question(qst)
+def _to_qdescription(qst: QProblem) -> et.Element:
+    return _to_question(qst, "description")
 
 
 def _to_qdad_text(qst: QDaDText) -> et.Element:
@@ -633,7 +635,7 @@ def _to_qdad_text(qst: QDaDText) -> et.Element:
         if drag.no_of_drags < 0:   # Same as unlimited
             et.SubElement(dragbox, "infinite")
         return dragbox
-    return _to_question_mtcs(qst, _to_draggroup)
+    return _to_question_mtcs(qst, _to_draggroup, "ddwtos")
 
 
 def _to_qdad_image(qst: QDaDImage) -> et.Element:
@@ -648,7 +650,7 @@ def _to_qdad_image(qst: QDaDImage) -> et.Element:
         if drag.image:
             dragitem.append(_to_b64file(drag.image))
         return dragitem
-    question = _to_question_mtcs(qst, _to_dragimage)
+    question = _to_question_mtcs(qst, _to_dragimage, "ddimageortext")
     if qst.background:
         question.append(_to_b64file(qst.background))
     for dropzone in qst.zones:
@@ -656,17 +658,19 @@ def _to_qdad_image(qst: QDaDImage) -> et.Element:
     return question
 
 
+def _to_dragmarker(drag: DragItem) -> et.Element:
+    dragitem = et.Element("drag")
+    et.SubElement(dragitem, "no").text = drag.number
+    et.SubElement(dragitem, "text").text = drag.text
+    if drag.no_of_drags < 0:
+        et.SubElement(dragitem, "infinite")
+    else:
+        et.SubElement(dragitem, "noofdrags").text = drag.no_of_drags
+    return dragitem
+
+
 def _to_qdad_marker(qst: QDaDMarker) -> et.Element:
-    def _to_dragmarker(drag: DragItem) -> et.Element:
-        dragitem = et.Element("drag")
-        et.SubElement(dragitem, "no").text = drag.number
-        et.SubElement(dragitem, "text").text = drag.text
-        if drag.no_of_drags < 0:
-            et.SubElement(dragitem, "infinite")
-        else:
-            et.SubElement(dragitem, "noofdrags").text = drag.no_of_drags
-        return dragitem
-    question = _to_question_mtcs(qst, _to_dragmarker)
+    question = _to_question_mtcs(qst, _to_dragmarker, "ddmarker")
     if qst.highlight:
         et.SubElement(question, "showmisplaced")
     for dropzone in qst.zones:
@@ -676,8 +680,8 @@ def _to_qdad_marker(qst: QDaDMarker) -> et.Element:
     return question
 
 
-def _to_qessay(qst) -> et.Element:
-    question = _to_question(qst)
+def _to_qessay(qst: QEssay) -> et.Element:
+    question = _to_question(qst, "essay")
     et.SubElement(question, "responseformat").text = qst.rsp_format.value
     if qst.rsp_required:
         et.SubElement(question, "responserequired")
@@ -696,23 +700,23 @@ def _to_qessay(qst) -> et.Element:
     return question
 
 
-def _to_qmatching(qst) -> et.Element:
-    return _to_question_mtcs(qst, _to_subquestion)
+def _to_qmatching(qst: QMatching) -> et.Element:
+    return _to_question_mtcs(qst, _to_subquestion, "matching")
 
 
-def _to_qrandommatching(qst) -> et.Element:
-    question = _to_question_mtcs(qst, None)
+def _to_qrandommatching(qst: QRandomMatching) -> et.Element:
+    question = _to_question_mtcs(qst, None, "randomsamatch")
     et.SubElement(question, "choose").text = qst.choose
     et.SubElement(question, "subcats").text = qst.subcats
     return question
 
 
-def _to_qmissingword(qst) -> et.Element:
-    return _to_question_mtcs(qst, _to_selectOption)
+def _to_qmissingword(qst: QMissingWord) -> et.Element:
+    return _to_question_mtcs(qst, _to_selectOption, "gapselect")
 
 
-def _to_qmultichoice(qst) -> et.Element:
-    question = _to_question_mtcs(qst, _to_answer)
+def _to_qmultichoice(qst: QMultichoice) -> et.Element:
+    question = _to_question_mtcs(qst, _to_answer, "multichoice")
     et.SubElement(question, "answernumbering").text = qst.numbering.value
     if qst.single:
         et.SubElement(question, "single")
@@ -720,7 +724,7 @@ def _to_qmultichoice(qst) -> et.Element:
 
 
 def _to_qnumerical(qst: QNumerical) -> et.Element:
-    question = _to_question_mtuh(qst, _to_anumerical)
+    question = _to_question_mtuh(qst, _to_anumerical, "numerical")
     if len(qst.units) > 0:
         units = et.SubElement(question, "units")
         for unit in qst.units:
@@ -728,22 +732,22 @@ def _to_qnumerical(qst: QNumerical) -> et.Element:
     return question
 
 
-def _to_qshortanswer(qst) -> et.Element:
-    question = _to_question_mt(qst, _to_answer)
+def _to_qshortanswer(qst: QShortAnswer) -> et.Element:
+    question = _to_question_mt(qst, _to_answer, "shortanswer")
     et.SubElement(question, "usecase").text = qst.use_case
     return question
 
 
 def _to_qtruefalse(qst: QTrueFalse) -> et.Element:
-    item = _to_question(qst)
+    item = _to_question(qst, "truefalse")
     ans = et.SubElement(item, "answer", {"fraction": 100 if qst.correct else 0,
                                          "format": TextFormat.AUTO.value})
     et.SubElement(ans, "text").text = "true"
-    ans.append(_to_ftext(qst.true_feedback))
+    ans.append(_to_ftext(qst.true_feedback, "feedback"))
     ans = et.SubElement(item, "answer", {"fraction": 0 if qst.correct else 100,
                                          "format": TextFormat.AUTO.value})
     et.SubElement(ans, "text").text = "false"
-    ans.append(_to_ftext(qst.false_feedback))
+    ans.append(_to_ftext(qst.false_feedback, "feedback"))
     return item
 
 
@@ -751,28 +755,27 @@ def _to_qtruefalse(qst: QTrueFalse) -> et.Element:
 
 
 _QTYPE = {
-    "calculated": (_from_qcalculated, _to_qcalculated),
-    "calculatedsimple": (_from_qcalculatedsimple, _to_qcalculated),
-    "calculatedmulti": (_from_qcalcmultichoice, _to_qcalcmultichoice),
-    "cloze": (_from_qcloze, _to_qcloze),
-    "description": (_from_qdescription, _to_qdescription),
-    "ddwtos": (_from_ddwtos, _to_qdad_text),
-    "ddimageortext": (_from_ddimageortext, _to_qdad_image),
-    "ddmarker": (_from_ddmarker, _to_qdad_marker),
-    "essay": (_from_qessay, _to_qessay),
-    "matching": (_from_qmatching, _to_qmatching),
-    "randomsamatch": (_from_QRandomMatching, _to_qrandommatching),
-    "gapselect": (_from_QMissingWord, _to_qmissingword),
-    "multichoice": (_from_QMultichoice, _to_qmultichoice),
-    "numerical": (_from_QNumerical, _to_qnumerical),
-    "shortanswer": (_from_QShortAnswer, _to_qshortanswer),
-    "truefalse": (_from_QTrueFalse, _to_qtruefalse)
+    "calculated": _from_qcalculated,
+    "calculatedsimple": _from_qcalculated,
+    "calculatedmulti": _from_qcalcmultichoice,
+    "cloze": _from_qcloze,
+    "description": _from_qdescription,
+    "ddwtos": _from_ddwtos,
+    "ddimageortext": _from_ddimageortext,
+    "ddmarker": _from_ddmarker, 
+    "essay": _from_qessay,
+    "matching": _from_qmatching,
+    "randomsamatch": _from_QRandomMatching,
+    "gapselect": _from_QMissingWord,
+    "multichoice": _from_QMultichoice,
+    "numerical": _from_QNumerical,
+    "shortanswer": _from_QShortAnswer,
+    "truefalse": _from_QTrueFalse
 }
 
 
 def read_moodle(cls, file_path: str, category: str = None) -> "Category":
     """[summary]
-
     Returns:
         [type]: [description]
     """
@@ -784,18 +787,17 @@ def read_moodle(cls, file_path: str, category: str = None) -> "Category":
             continue
         if elem.get("type") == "category":
             quiz = gen_hier(cls, top_quiz, elem[0][0].text)
-        elif elem.get("type") not in _QTYPE:
-            raise TypeError(f"Type {elem.get('type')} not implemented")
         else:
-            question = _QTYPE[elem.get("type")][0](elem, {})
+            question = _QTYPE[elem.get("type")](elem, {})
             quiz.add_question(question)
     _LOG.debug("Parsed %s questions from %s.", top_quiz.get_size(True), file_path)
+    if top_quiz.get_size() == 0 and len(top_quiz) == 1:
+        top_quiz = top_quiz.pop_subcat([name for name in top_quiz][0])
     return top_quiz
 
 
 def read_moodle_backup(cls, file_path: str) -> "Category":
     """[summary]
-
     Returns:
         [type]: [description]
     """
@@ -805,7 +807,27 @@ def read_moodle_backup(cls, file_path: str) -> "Category":
         data = ifile.extract("moodle_backup.xml")
         top_quiz.metadata["moodle_course"] = file_path
 
+
 # -----------------------------------------------------------------------------
+
+
+_QREF = {
+    QCalculated: _to_qcalculated,
+    QCalculatedMC: _to_qcalcmultichoice,
+    QEmbedded: _to_qcloze,
+    QProblem: _to_qdescription,
+    QDaDText: _to_qdad_text,
+    QDaDImage: _to_qdad_image,
+    QDaDMarker: _to_qdad_marker,
+    QEssay: _to_qessay,
+    QMatching: _to_qmatching,
+    QRandomMatching:  _to_qrandommatching,
+    QMissingWord: _to_qmissingword,
+    QMultichoice: _to_qmultichoice,
+    QNumerical: _to_qnumerical,
+    QShortAnswer: _to_qshortanswer,
+    QTrueFalse: _to_qtruefalse
+}
 
 
 def write_moodle(self: "Category", file_path: str, pretty=False):
@@ -829,7 +851,7 @@ def write_moodle(self: "Category", file_path: str, pretty=False):
             et.SubElement(category, "text").text = "/".join(catname)
             root.append(question)
             for question in cat.questions:          # Add own questions first
-                root.append(_QTYPE[question.MOODLE][1](question))
+                root.append(_QREF[type(question)](question))
         for name in cat:                            # Then add children data
             _txrecursive(cat[name], root)
     root = et.Element("quiz")

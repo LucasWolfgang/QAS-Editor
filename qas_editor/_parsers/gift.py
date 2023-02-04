@@ -19,7 +19,7 @@ import re
 import logging
 from typing import TYPE_CHECKING
 from ..question import MARKER_INT, QMatching, QEssay, QTrueFalse, QNumerical,\
-                       QDescription, QShortAnswer, QMultichoice
+                       QProblem, QShortAnswer, QMultichoice
 from ..enums import TextFormat
 from ..answer import Answer, ANumerical, Subquestion
 from ..utils import FText, gen_hier
@@ -43,7 +43,7 @@ def _next(stt: list, string: str, comp: list, size: int = 1) -> str:
 
 
 def _from_qdescription(name: str, text: FText):
-    return QDescription(name=name, question=text)
+    return QProblem(name=name, question=text)
 
 
 def _from_qessay(name: str, text: FText):

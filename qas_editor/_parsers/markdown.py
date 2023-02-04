@@ -68,7 +68,6 @@ def _from_QMultichoice(lines: list, form: DefaultMD, name: str):
 
 def read_markdown(cls, file_path: str, form: DefaultMD, category="$course$"):
     """[summary]
-
     Args:
         file_path (str): [description]
         question_mkr (str, optional): [description].
