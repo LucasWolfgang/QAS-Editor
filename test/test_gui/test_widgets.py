@@ -22,14 +22,13 @@ from PyQt5.QtWidgets import QApplication
 if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
 
-class ContentClass:
 
-    def __init__(self, content) -> None:
+class ContentClass:
+    def __init__(self, content):
         self.content = content
 
 
 def test_gfield_update(qtbot: "QtBot"):
-
     obj = ContentClass("some text")
     gfield = widget.GField("content", None, str)
     qtbot.addWidget(gfield)
@@ -46,3 +45,6 @@ def test_gfield_update(qtbot: "QtBot"):
     # QApplication.setActiveWindow(other)
     # assert obj.content == "last one"       # Widget should now update
     # TODO - Need to find a way to test last step
+
+def test_gdrag(qtbot: "QtBot"):
+    obj = widget.GDrag()

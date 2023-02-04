@@ -639,7 +639,7 @@
                             "_feedbacks": {},
                             "_tags": [],
                             "_free_hints": [],
-                            "__clsname__": "QDescription"
+                            "__clsname__": "QProblem"
                         }
                     ],
                     "_Category__categories": {},
@@ -1737,7 +1737,7 @@
                                     }
                                 }
                             ],
-                            "__clsname__": "QCalculatedSimple"
+                            "__clsname__": "QCalculated"
                         },
                         {
                             "name": "Cloze",
