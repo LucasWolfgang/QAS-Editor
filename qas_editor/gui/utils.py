@@ -33,10 +33,12 @@ HOTKEYS = {
     "Read folder": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_O,
     "Save file": QtCore.Qt.CTRL + QtCore.Qt.Key_S,
     "Save file as": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_S,
-    "Add hint": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_H,
-    "Remove hint": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_Y,
+    "Add free hint": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_H,
+    "Rem free hint": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_Y,
+    "Add fail hint": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_F,
+    "Rem fail hint": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_R,
     "Add answer": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_A,
-    "Remove answer": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_Q,
+    "Rem answer": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_Q,
     "Open datasets": QtCore.Qt.CTRL + QtCore.Qt.SHIFT + QtCore.Qt.Key_D
 }
 

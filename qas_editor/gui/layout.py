@@ -23,7 +23,7 @@ from PyQt5.QtGui import QColor, QPainter
 from ..answer import Answer, DragImage, DragItem, DragGroup, EmbeddedItem, \
                      ACalculated, ANumerical
 from ..utils import Hint
-from .widget import GCalculated, GCloze, GDrag, GAnswer, GHint, GCheckBox
+from .widget import GCalculated, GCloze, GDrag, GAnswer, GHint, GCheckBox, GField
 if TYPE_CHECKING:
     from ..utils import TList
 
@@ -40,7 +40,7 @@ _TYPE_MAP = {
 }
 
 
-class _AutoUpdateVBox(QVBoxLayout):
+class AutoUpdateVBox(QVBoxLayout):
     """A base class for all the other classes defined in this file.
     TODO change it to a QWidget and add a DragAndDrop logic. This will also
     allow removing the selected option, which would replace the "pop the last"
@@ -56,11 +56,11 @@ class _AutoUpdateVBox(QVBoxLayout):
 
     def add(self, child=None):
         """_summary_
-        Raises:
-            TypeError: _description_
         Returns:
             _type_: _description_
         """
+        if self.__obj is None:
+            return
         cls = _TYPE_MAP[self.__obj.datatype]
         item = cls(self._toolbar, self.__obj, child)
         super().addWidget(item)
@@ -103,7 +103,7 @@ class _AutoUpdateVBox(QVBoxLayout):
         self.itemAt(self.count()-1).widget().deleteLater()
 
 
-class GOptions(_AutoUpdateVBox):
+class GOptions(AutoUpdateVBox):
     """GUI for GOptions class.
     """
 
@@ -133,15 +133,15 @@ class GOptions(_AutoUpdateVBox):
                 break
 
 
-class GHintsList(_AutoUpdateVBox):
+class GHintsList(AutoUpdateVBox):
     """GUI class for the MultipleTries wrapper
     """
 
-    def __init__(self, parent, toolbar) -> None:
+    def __init__(self, parent, toolbar):
         super().__init__(parent, toolbar, "hints")
 
 
-class GUnits(_AutoUpdateVBox):
+class GUnits(AutoUpdateVBox):
     """ Wdiget for the Unit data used by Questions.
     """
 
@@ -149,7 +149,7 @@ class GUnits(_AutoUpdateVBox):
         super().__init__(parent, toolbar, "units")
 
 
-class GZones(_AutoUpdateVBox):
+class GZones(AutoUpdateVBox):
     """ Widget to list Zones used by the question.
     """
 

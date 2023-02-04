@@ -32,7 +32,7 @@ from ..question import _Question
 from ..enums import Numbering, Grading, ShowUnits, RespFormat, Synchronise
 from .widget import GTextToolbar, GTextEditor, GTagBar, GField, GCheckBox,\
                     GDropbox, GList
-from .layout import GCollapsible, GOptions, GHintsList
+from .layout import GCollapsible, GOptions, GHintsList, AutoUpdateVBox
 from .popup import PAbout, PTips, PHotkey, PName, PQuestion, PFind, PDataset
 from .utils import HOTKEYS, action_handler
 if TYPE_CHECKING:
@@ -197,20 +197,20 @@ class Editor(QMainWindow):
 
     @action_handler
     def _append_category(self):
-        path, key = QFileDialog.getOpenFileName(self, "Open file", "", EXTS)
+        path, _ = QFileDialog.getOpenFileName(self, "Open file", "", EXTS)
         if not path:
             return
         quiz = Category.read_files([path], path.rsplit("/", 1)[-1])
         self.cxt_data[quiz.name] = quiz
         self._update_tree_item(quiz, self.cxt_item)
 
-    def _block_answer(self) -> None:
+    def _block_answer(self):
         frame = GCollapsible(self, "Answers")
         self.cframe_vbox.addLayout(frame)
         self._items.append(GOptions(self, self.toolbar, self.main_editor))
         _shortcut = QShortcut(HOTKEYS["Add answer"], self)
         _shortcut.activated.connect(self._items[-1].add)
-        _shortcut = QShortcut(HOTKEYS["Remove answer"], self)
+        _shortcut = QShortcut(HOTKEYS["Rem answer"], self)
         _shortcut.activated.connect(self._items[-1].pop)
         frame.setLayout(self._items[-1])
 
@@ -417,10 +417,10 @@ class Editor(QMainWindow):
     def _block_hints(self):
         clayout = GCollapsible(self, "Hints")
         self.cframe_vbox.addLayout(clayout)
-        self._items.append(GHintsList(None, self.toolbar))
-        _shortcut = QShortcut(HOTKEYS["Add hint"], self)
+        self._items.append(AutoUpdateVBox(None, self.toolbar, "free_hints"))
+        _shortcut = QShortcut(HOTKEYS["Add free hint"], self)
         _shortcut.activated.connect(self._items[-1].add)
-        _shortcut = QShortcut(HOTKEYS["Remove hint"], self)
+        _shortcut = QShortcut(HOTKEYS["Rem free hint"], self)
         _shortcut.activated.connect(self._items[-1].pop)
         clayout.setLayout(self._items[-1])
 
@@ -644,14 +644,14 @@ class Editor(QMainWindow):
                     key.setEnabled(False)
             self.cur_question = item
         path = [f" ({item.__class__.__name__})"]
-        while item.parent:
+        while item.parent is not None:
             path.append(item.name)
             item = item.parent
         path.append(item.name)
         path.reverse()
         self.cat_name.setText(" > ".join(path[:-1]) + path[-1])
 
-    def _update_tree_item(self, data: Category, parent: QStandardItem) -> None:
+    def _update_tree_item(self, data: Category, parent: QStandardItem):
         item = self._new_item(data, parent)
         for k in data.questions:
             self._new_item(k, item)

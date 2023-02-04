@@ -31,10 +31,9 @@ from .utils import IMG_PATH
 from ..question import MARKER_INT
 from ..answer import Answer, ACalculated, DragGroup, EmbeddedItem, DropZone,\
                      SelectOption
-from ..enums import EmbeddedFormat, TextFormat, TolType, TolFormat
+from ..enums import EmbeddedFormat, TextFormat, TolType, TolFormat, EnhancedEnum
 from ..utils import FText, Hint
 if TYPE_CHECKING:
-    from ..enums import EnhancedEnum
     from PyQt5.QtGui import QKeyEvent
 
 
@@ -84,9 +83,12 @@ class GDropbox(_AutoUpdate, QComboBox):
 
     def __init__(self, attribute: str, parent: QWidget, group: EnhancedEnum):
         super().__init__(attribute, parent)
-        if group is not None:
+        if isinstance(group, EnhancedEnum):
             for item in group:
                 self.addItem(item.comment, item)
+        elif isinstance(group, list):
+            for item in group:
+                self.addItem(item)
         self.setFixedHeight(24)
 
     def from_obj(self, obj):
@@ -636,7 +638,7 @@ class GDrag(QWidget):
         self._layout = QGridLayout(self)
         self._layout.addWidget(QLabel("Text"), 0, 0)
         self._text = GField("text", self, str)
-        self._layout.addWidget(self.text, 0, 1)
+        self._layout.addWidget(self._text, 0, 1)
         self._layout.addWidget(QLabel("Group"), 0, 2)
         self._group = GField("group", self, int)
         self._group.setFixedWidth(20)
@@ -646,7 +648,7 @@ class GDrag(QWidget):
         self._itype.setCurrentIndex(1)
         self._itype.setEnabled(False)
         self._itype.setFixedWidth(55)
-        self._layout.addWidget(self.itype, 0, 5)
+        self._layout.addWidget(self._itype, 0, 5)
         self._nodrags = GField("no_of_drags", self, int)
         self._layout.addWidget(self._nodrags, 0, 6)
         self.img = None
@@ -740,7 +742,7 @@ class GHint(QFrame):
     """GUI class for the Hint wrapper.
     """
 
-    def __init__(self, toolbar: GTextToolbar, hint: Hint = None):
+    def __init__(self, toolbar: GTextToolbar, question: list, option=None):
         super().__init__()
         self.__obj = None
         self._text = GTextEditor(toolbar, "text")
@@ -755,9 +757,10 @@ class GHint(QFrame):
         _content.addWidget(self._show, 0, 1)
         _content.addWidget(self._state, 1, 1)
         _content.addWidget(self._clear, 2, 1)
-        if hint is None:
-            hint = Hint(TextFormat.AUTO, "", True, True)
-        self.from_obj(hint)
+        if option is None:
+            option = Hint(TextFormat.AUTO, "", True, True)
+            question.append(option)
+        self.from_obj(option)
 
     def from_obj(self, obj: Hint) -> None:
         """_summary_
