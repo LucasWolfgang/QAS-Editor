@@ -1,27 +1,84 @@
 [build-system]
-requires = ["setuptools >= 44.0"]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "QAS Editor"
+version = "0.0.6"
+description = "Question and Answer Sheet editor"
+authors = [
+    "Lucas Wolfgang <lucawolfcs@hotmail.com>"
+]
+license = "GPL-3.0"
+readme = "README.md"
+repository = "https://github.com/LucasWolfgang/QAS-Editor"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: GPL-3.0 license",
+    "Operating System :: OS Independent",
+    'Development Status :: 3 - Alpha',
+    "Topic :: Education",
+    "Topic :: Software Development :: Libraries"
+]
+packages = [
+    { include = "qas_editor" },
+    { include = "qas_editor.gui" },
+    { include = "qas_editor._parsers" }
+]
+
+
+[tool.poetry.dependencies]
+python = "^3.7"
+sympy = { version = "*", optional = true }
+matplotlib = { version = "*", optional = true }
+#   cycler, fonttools, kiwisolver, numpy, packaging, pillow, pyparsing,
+#   mpmath, python-dateutil
+PyQt5 = { version = "^5.15.0", optional = true }  # PyQt5-Qt5, PyQt5-sip
+odfpy = { version = "*", optional = true }
+pytest = { version = "*", optional = true }
+pytest-qt = { version = "*", optional = true }
+
+
+[tool.poetry.extras]
+"formulae" = ["sympy", "matplotlib"]
+"gui" = ["PyQt5 >= 5.15.0"]
+"docx" = ["odfpy"]
+"test" = ["pytest", "pytest-qt"]
+
+
+[tool.poetry.group.dev.dependencies]
+pytest-cov = "*"
 
 [tool.pytest.ini_options]
 testpaths = [
-    ".test",
+    "."
+]
+addopts = [
+    "--import-mode=importlib",
 ]
 
+
 [tool.pylint.messages_control]
-disable = C0302,    # Too many lines in module
-          R0903,    # Too few public methods. Not necessary
-          W1202,    # Use % formatting in logging functions. Can't see why
-          W1203,    # Use lazy % or .format() formatting in logging functions...
-          W0511,    # TODO's. Not necessary
-          W0223,    # Method is abstract is not overridden. Used as documentation
-          R0912,
-          E0401
-          #W0212     # Access to a protected member. Internal methods need to access protected member.
-                    #   but it will be good to revise this one later.
+disable = ["C0302",     # Too many lines in module
+           "R0903",     # Too few public methods. Not necessary
+           "W1202",     # Use % formatting in logging functions. Can't see why
+           "W1203",     # Use lazy % or .format() formatting in logging functions...
+           "W0511",     # TODO's. Not necessary
+           "W0223",     # Method is abstract is not overridden. Used as documentation
+           "R0912",
+           "E0401"
+          #"W0212"      # Access to a protected member. Internal methods need to access protected member.
+        ]               #   but it will be good to revise this one later.
+
 
 [tool.pylint.design]
-# Temporarily increasing the max. Will remove once the dataclasses are implemented
 max-attributes=20
 max-args=20
 max-bool-expr=15
 max-statements = 100
-extension-pkg-whitelist=PyQt5
+
+
+[tool.flake8]
+max_line_length = 100
+exclude = [".venv", ".mypy_cache", ".pytest_cache"]
+ignore = ["PT013", "PT018", "503"]
