@@ -44,7 +44,6 @@ class _Question(Serializable):
     This is an abstract class Question used as a parent for specific
     types of Questions.
     """
-    MOODLE = None
     QNAME = None
 
     def __init_subclass__(cls, **kwargs):
@@ -75,7 +74,7 @@ class _Question(Serializable):
         self.remarks = remarks
         self._feedbacks: Dict[float, FText] = feedbacks if feedbacks else {}
         self._tags = TList(str, tags)
-        self._free_hints = TList(str, free_hints)
+        self._free_hints = TList(FText, free_hints)
         self.__parent = None
         _LOG.debug("New question (%s) created.", self)
 
@@ -194,7 +193,6 @@ class QCalculated(_QHasUnits, _QHasOptions):
     be provided. Note that <code>single</code> tag may show up in Moodle
     xml document but this seems to be just a bug. The class don't use it.
     """
-    MOODLE = "calculated"
     QNAME = "Calculated"
     ANS_TYPE = ACalculated
 
@@ -215,21 +213,11 @@ class QCalculated(_QHasUnits, _QHasOptions):
         self.datasets = [] if datasets is None else datasets
 
 
-class QCalculatedSimple(QCalculated):
-    """Same as QCalculated. Implemented only for compatibility with the moodle
-    XML format. It may be removed in the future, so it is not recommended to be
-    used.
-    """
-    MOODLE = "calculatedsimple"
-    QNAME = "Simplified Calculated"
-
-
 class QCalculatedMC(_QHasOptions):
     """Represents a "Calculated" question with multiple choices, behaving like
     a multichoice question where the answers are calculated using equations and
     datasets.
     """
-    MOODLE = "calculatedmulti"
     QNAME = "Calculated Multichoice"
     ANS_TYPE = ACalculated
 
@@ -257,11 +245,107 @@ class QCalculatedMC(_QHasOptions):
         self.datasets.append(data)
 
 
+class QCrossWord(_Question):
+    """Represents a Crossword question.
+    """
+
+    def __init__(self, x_grid: int = 0, y_grid: int = 0,
+                 words: List[ACrossWord] = None, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.x_grid = x_grid
+        self.y_grid = y_grid
+        self.words = words if words else []      # The class only checks grid
+
+    def add_word(self, word: str, coord_x: int, coord_y: int,
+                 direction: Direction, clue: str) -> None:
+        """_summary_
+
+        Args:
+            word (str): _description_
+            coord_x (int): _description_
+            coord_y (int): _description_
+            direction (Direction): _description_
+            clue (str): _description_
+
+        Raises:
+            ValueError: _description_
+        """
+        if coord_x < 0 or coord_x > self.x_grid+len(word) or \
+                coord_y < 0 or coord_y > self.y_grid+len(word):
+            raise ValueError("New word does not fit in the current grid")
+        self.words.append(ACrossWord(word, coord_x, coord_y, clue, direction))
+
+    def get_solution(self) -> bool:
+        """
+        Iterate over the object list to verify if it is valid.
+        """
+        solution: Dict[int, Dict[int, str]] = {}
+        for word in self.words:
+            if word.coord_x not in solution:
+                solution[word.x] = {}
+            if word.coord_y not in solution:
+                solution[word.coord_x][word.coord_y] = {}
+
+
+class QDaDImage(_QHasOptions):
+    """Drag and Drop items onto drop zones, where the items are custom images.
+    """
+    QNAME = "Drag and Drop Image"
+    ANS_TYPE = DragImage
+
+    def __init__(self, background: File = None,
+                 zones: List[DropZone] = None, **kwargs):
+        super().__init__(**kwargs)
+        self.background = background
+        self._zones = TList(DropZone, zones)
+
+    @property
+    def zones(self):
+        """Zones
+        """
+        return self._zones
+
+
+class QDaDMarker(QDaDImage):
+    """Drag and Drop items onto drop zones, where the items are markers.
+    """
+    QNAME = "Drag and Drop Marker"
+    ANS_TYPE = DragItem
+
+    def __init__(self, highlight=False, **kwargs):
+        super().__init__(**kwargs)
+        self.highlight = highlight
+
+
+class QDaDText(_QHasOptions):
+    """Drag and drop text boxes into question text.
+    """
+    QNAME = "Drag and Drop Text"
+    ANS_TYPE = DragGroup
+
+    def pure_text(self):
+        """Return the text formatted as expected by the end-tool, which is
+        currently only moodle.
+        """
+        char = chr(MARKER_INT)
+        find = self.question.text.find(char)
+        text = [self.question.text[:find]]
+        for question in len(self.options):
+            text.append(question.to_text())
+            end = self.question.text.find(char, find + 1)
+            text.append(self.question.text[find + 1: end])
+            find = end
+        text.append(self.question.text[-1])  # Wont be included by default
+        return "".join(text)
+
+    def check(self):
+        pass
+
+
 class QEmbedded(_QHasOptions):
     """An embedded question. Questions are marked on the text list using a 
     Marker defined using MARKER_INT.
     """
-    MOODLE = "cloze"
     QNAME = "Cloze"
     ANS_TYPE = EmbeddedItem
     _CLOZE_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
@@ -321,103 +405,14 @@ class QEmbedded(_QHasOptions):
         return "".join(text)
 
 
-class QDescription(_Question):
-    """A description that can have 1 or more subquestion.
-    TODO fully replace it with a <code>Category</code> class.
+class QDrawing(_Question):
+    """Represents a question where the use is free to make any drawing. The
+    result is submited for review (there is no automatic correct/wrong
+    feedback).
     """
-    MOODLE = "description"
-    QNAME = "Description"
 
-
-class QProblem(_Question):
-    """A class that accepts other questions as a internal enumeration.
-    """
-    QNAME = "Enumeration"
-
-    def __init__(self, qtype = _Question, children: List[_Question] = None,  
-                 numbering: Numbering = None,**kwargs):
-        super().__init__(**kwargs)
-        self.children = children if children else TList(qtype)
-        self.numbering = Numbering.ALF_LR if numbering is None else numbering
-
-    @classmethod
-    def random_matching(cls, quantity: int, include_subcat: bool ,**kwargs):
-        """Creates a random problem based on existing QMatching questions.
-        Args:
-            quantity (int): _description_
-            include_subcat (bool): _description_
-        """
-        kwargs["qtype"] = QMatching
-        problem = cls(**kwargs)
-        possibilities = []
-        used = []
-        for question in problem.parent.questions:
-            if isinstance(question, QMatching):
-                possibilities.append(question)
-        while len(used) < quantity:
-            idx = random.randint(0, len(possibilities)-1)
-            if idx not in used:
-                used.append(idx)
-                problem.children.append(possibilities[idx])
-        return problem
-
-
-class QDaDText(_QHasOptions):
-    """Drag and drop text boxes into question text.
-    """
-    MOODLE = "ddwtos"
-    QNAME = "Drag and Drop Text"
-    ANS_TYPE = DragGroup
-
-    def pure_text(self):
-        """Return the text formatted as expected by the end-tool, which is
-        currently only moodle.
-        """
-        char = chr(MARKER_INT)
-        find = self.question.text.find(char)
-        text = [self.question.text[:find]]
-        for question in len(self.options):
-            text.append(question.to_text())
-            end = self.question.text.find(char, find + 1)
-            text.append(self.question.text[find + 1: end])
-            find = end
-        text.append(self.question.text[-1])  # Wont be included by default
-        return "".join(text)
-
-    def check(self):
-        pass
-
-
-class QDaDImage(_QHasOptions):
-    """Drag and Drop items onto drop zones, where the items are custom images.
-    """
-    MOODLE = "ddimageortext"
-    QNAME = "Drag and Drop Image"
-    ANS_TYPE = DragImage
-
-    def __init__(self, background: File = None,
-                 zones: List[DropZone] = None, **kwargs):
-        super().__init__(**kwargs)
-        self.background = background
-        self._zones = TList(DropZone, zones)
-
-    @property
-    def zones(self):
-        """Zones
-        """
-        return self._zones
-
-
-class QDaDMarker(QDaDImage):
-    """Drag and Drop items onto drop zones, where the items are markers.
-    """
-    MOODLE = "ddmarker"
-    QNAME = "Drag and Drop Marker"
-    ANS_TYPE = DragItem
-
-    def __init__(self, highlight=False, **kwargs):
-        super().__init__(**kwargs)
-        self.highlight = highlight
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
 
 class QEssay(_Question):
@@ -425,7 +420,6 @@ class QEssay(_Question):
     and need to be submitted for review (no automatic correct/answer feedback
     provided).
     """
-    MOODLE = "essay"
     QNAME = "Essay"
 
     def __init__(self, lines=10, attachments=0, max_bytes=0, file_types="",
@@ -450,32 +444,14 @@ class QEssay(_Question):
 class QMatching(_QHasOptions):
     """Represents a Matching question, in which the goal is to find matchs.
     """
-    MOODLE = "matching"
     QNAME = "Matching"
     ANS_TYPE = Subquestion
-
-
-class QRandomMatching(_QHasOptions):
-    """A Random Match question. Unlike to other MTCS questions, it does not
-    have options, reusing other questions randomly instead. It was implemented
-    more targetting Moodle, since other platforms dont store this in databases.
-    """
-    MOODLE = "randomsamatch"
-    QNAME = "Random Matching"
-
-    def __init__(self, choose: int = 0, subcats: bool = False, **kwargs):
-        super().__init__(**kwargs)
-        delattr(self, "_options")
-        delattr(self, "shuffle")
-        self.choose = choose
-        self.subcats = subcats
 
 
 class QMissingWord(_QHasOptions):
     """A Missing Word question.
     TODO: Fully replace it with QCloze, since it a simplified version of it.
     """
-    MOODLE = "gapselect"
     QNAME = "Missing Word"
     ANS_TYPE = SelectOption
 
@@ -516,7 +492,6 @@ class QMissingWord(_QHasOptions):
 class QMultichoice(_QHasOptions):
     """A Multiple choice question.
     """
-    MOODLE = "multichoice"
     QNAME = "Multichoice"
     ANS_TYPE = Answer
 
@@ -533,7 +508,6 @@ class QNumerical(_QHasUnits, _QHasOptions):
     """
     This class represents 'Numerical Question' question type.
     """
-    MOODLE = "numerical"
     QNAME = "Numerical"
     ANS_TYPE = ANumerical
 
@@ -542,11 +516,59 @@ class QNumerical(_QHasUnits, _QHasOptions):
         self.units = [] if units is None else units
 
 
+class QProblem(_Question):
+    """A class that accepts other questions as a internal enumeration. Used
+    when there is a common header and 
+    """
+    QNAME = "Enumeration"
+
+    def __init__(self, qtype = _Question, children: List[_Question] = None,  
+                 numbering: Numbering = None,**kwargs):
+        super().__init__(**kwargs)
+        self.children = children if children else TList(qtype)
+        self.numbering = Numbering.ALF_LR if numbering is None else numbering
+
+    @classmethod
+    def random_matching(cls, quantity: int, include_subcat: bool ,**kwargs):
+        """Creates a random problem based on existing QMatching questions.
+        Args:
+            quantity (int): _description_
+            include_subcat (bool): _description_
+        """
+        kwargs["qtype"] = QMatching
+        problem = cls(**kwargs)
+        possibilities = []
+        used = []
+        for question in problem.parent.questions:
+            if isinstance(question, QMatching):
+                possibilities.append(question)
+        while len(used) < quantity:
+            idx = random.randint(0, len(possibilities)-1)
+            if idx not in used:
+                used.append(idx)
+                problem.children.append(possibilities[idx])
+        return problem
+
+
+class QRandomMatching(_QHasOptions):
+    """A Random Match question. Unlike to other MTCS questions, it does not
+    have options, reusing other questions randomly instead. It was implemented
+    more targetting Moodle, since other platforms dont store this in databases.
+    """
+    QNAME = "Random Matching"
+
+    def __init__(self, choose: int = 0, subcats: bool = False, **kwargs):
+        super().__init__(**kwargs)
+        delattr(self, "_options")
+        delattr(self, "shuffle")
+        self.choose = choose
+        self.subcats = subcats
+
+
 class QShortAnswer(_QHasOptions):
     """This class represents 'Short answer' question.
     TODO: Fully replace it with QCloze, since it a simplified version of it.
     """
-    MOODLE = "shortanswer"
     QNAME = "Short Answer"
     ANS_TYPE = Answer
 
@@ -559,7 +581,6 @@ class QTrueFalse(_Question):
     """This class represents true/false question. It could be child of
     _QHasOptions, but due to its simplificity, it was derived from _Question
     """
-    MOODLE = "truefalse"
     QNAME = "True or False"
 
     def __init__(self, correct: bool, true_feedback: FText | str,
@@ -573,65 +594,3 @@ class QTrueFalse(_Question):
 
     true_feedback = FText.prop("_true_feedback")
     false_feedback = FText.prop("_false_feedback")
-
-
-class QFreeDrawing(_Question):
-    """Represents a question where the use is free to make any drawing. The
-    result is submited for review (there is no automatic correct/wrong
-    feedback).
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
-class QLineDrawing(_Question):
-    """Represents a question where the user should draw line either to complete
-    an image or to draw a new one. The result is submited for review (there is
-    no automatic correct/wrong feedback).
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-
-class QCrossWord(_Question):
-    """Represents a Crossword question.
-    """
-
-    def __init__(self, x_grid: int = 0, y_grid: int = 0,
-                 words: List[ACrossWord] = None, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.x_grid = x_grid
-        self.y_grid = y_grid
-        self.words = words if words else []      # The class only checks grid
-
-    def add_word(self, word: str, coord_x: int, coord_y: int,
-                 direction: Direction, clue: str) -> None:
-        """_summary_
-
-        Args:
-            word (str): _description_
-            coord_x (int): _description_
-            coord_y (int): _description_
-            direction (Direction): _description_
-            clue (str): _description_
-
-        Raises:
-            ValueError: _description_
-        """
-        if coord_x < 0 or coord_x > self.x_grid+len(word) or \
-                coord_y < 0 or coord_y > self.y_grid+len(word):
-            raise ValueError("New word does not fit in the current grid")
-        self.words.append(ACrossWord(word, coord_x, coord_y, clue, direction))
-
-    def get_solution(self) -> bool:
-        """
-        Iterate over the object list to verify if it is valid.
-        """
-        solution: Dict[int, Dict[int, str]] = {}
-        for word in self.words:
-            if word.coord_x not in solution:
-                solution[word.x] = {}
-            if word.coord_y not in solution:
-                solution[word.coord_x][word.coord_y] = {}

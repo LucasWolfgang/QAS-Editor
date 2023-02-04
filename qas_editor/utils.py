@@ -30,14 +30,20 @@ from io import BytesIO
 from xml.sax import saxutils
 from importlib import util
 from urllib import request
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING,Dict
+from html.parser import HTMLParser
 from .enums import FileAddr, TextFormat, Status, Distribution, MathType, MediaType
 
-if TYPE_CHECKING:
-    from typing import Dict, List, Tuple
+EXTRAS_FORMULAE = util.find_spec("sympy") is not None
+if EXTRAS_FORMULAE:
+    from sympy.parsing.sympy_parser import parse_expr
+    from sympy.parsing.latex import parse_latex
+    # from matplotlib import figure, font_manager, mathtext
+    # from matplotlib.backends import backend_agg
+    from pyparsing import ParseFatalException  # Part of matplotlib package
+
 
 LOG = logging.getLogger(__name__)
-EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 EXTRAS_GUI = util.find_spec("PyQt5") is not None
                 # moodle, sympy, latex
 MDL_FUNCTION = {('arctan', 'atan'), ('arcsin', 'asin'), ('arccos', 'acos'),
@@ -148,9 +154,6 @@ def render_latex(latex: str, ftype: FileAddr, scale=1.0):
                 shutil.move(f"{workdir}/{name}", ".")
                 res = File(name, FileAddr.LOCAL, name, **attr)
     elif EXTRAS_FORMULAE:
-        from matplotlib import figure, font_manager, mathtext
-        from matplotlib.backends import backend_agg
-        from pyparsing import ParseFatalException  # Part of matplotlib package
         try:
             prop = font_manager.FontProperties(size=12)
             dpi = 120 * scale
@@ -393,6 +396,27 @@ class File(Serializable):
         return f"@@PLUGINFILE@@/{self.path}"
 
 
+class FileRef(Serializable):
+
+    def __init__(self, path: str, **kwargs):
+        super().__init__()
+        self.path = path
+        self.metadata = kwargs
+
+    def get_tag(self) -> str:
+        output_bb = f'<img src="{self.path}"'
+        for key, value in self.metadata.items():
+            output_bb += f' {key}="{value}"'
+        return output_bb + '/>'
+
+    def moodle_link(self) -> str:
+        """Returns a moodle like for a embedded (base64) file.
+        """
+        if self.path.startswith("@@PLUGINFILE@@/"):
+            return self.path
+        return f"@@PLUGINFILE@@/{self.path}"
+
+
 class Dataset(Serializable):
     """A
     """
@@ -421,16 +445,110 @@ class Dataset(Serializable):
         return f"{self.status.name} > {self.name} ({hex(id(self))})"
 
 
+class _FParser():
+
+    def __init__(self, text: str, check_tags: bool, file_root = ""):
+        self.stack = []
+        self.ftext = []
+        self.text = text
+        self.stt = [0, False, 0]  # Pos, escaped, Last pos
+        self.lastattr = None
+        self.check_tags = check_tags 
+        self.root = file_root
+
+    def _wrapper(self, callback, size=1):
+        if self.text[self.stt[2]: self.stt[0]]:
+            self.ftext.append(self.text[self.stt[2]: self.stt[0]])
+        self.stt[0] += size
+        self.stt[2] = self.stt[0]
+        self.ftext.append(callback())
+        self.stt[2] = self.stt[0] + 1
+
+    def _get_file(self, path: str, attrs: dict):
+        for item in self.ftext:
+            if isinstance(item, File) and item.path == path:
+                if item.metadata != attrs:
+                    item.metadata.update(attrs)
+                return item
+        return File(path, **attrs)
+
+    def _nxt(self):
+        raise AnswerError("Test")
+        self.stt[1] = (self.text[self.stt[0]] == "\\") and not self.stt[1]
+        self.stt[0] += 1
+
+    def _get_tag(self):
+        last = self.stt[0] + 1
+        while self.text[self.stt[0]] != ">" and not self.stt[1]:
+            self._nxt()
+        tmp = self.text[last: self.stt[0] + 1]  # includes final ">"
+        tag = tmp[:-1].split(" ", 1)[0]
+        if tag in ("img", "video"):
+            self.ftext.append(self.text[tmp: self.stt[2]])
+            dta = re.findall(r"(\S+)=\"(.+)\"[ />]", tmp[3:])
+            dta = {k:v for k,v in dta}
+            if tag == "img":
+                self.ftext.append(self._get_file(dta.pop("src"), **dta))
+            elif tag == "file":
+                path = dta.pop("path", "/") + dta.pop("name")
+                self.ftext.append(self._get_file(path , **dta))
+            self.stt[2] = self.stt[0] + 1
+        elif tag[0] == "/":
+            tmp = self.stack.pop()
+            if self.check_tags and tmp != tag[1:]:
+                raise ValueError(f"Tag {tag} is not being closed ({self.stt[2]})")
+        elif tag[-1] != "/" and tag not in ("source", "area", "track", "col",
+                "embed", "hr", "input", "link", "meta", "br","base", "wbr"):
+            self.stack.append(tag)
+
+    def _get_moodle_exp(self):
+        cnt = 0
+        while self.text[self.stt[0]] != "}" or cnt != 0:
+            if self.text[self.stt[0]] == "{" and not self.stt[1]:
+                cnt += 1
+            elif self.text[self.stt[0]] == "}" and not self.stt[1]:
+                cnt -= 1
+            self._nxt()
+        expr = self.text[self.stt[2]: self.stt[0]]
+        expr = expr.replace("{","").replace("}","").replace("pi()","pi")
+        return parse_expr(expr)
+
+    def _get_moodle_var(self,):
+        while self.text[self.stt[0]] != "}":
+            self._nxt()
+        return parse_expr(self.text[self.stt[2]: self.stt[0]])
+
+    def _get_latex_exp(self):
+        while self.text[self.stt[0]] == ")" and self.stt[1]:  # This is correct: "\("
+            self._nxt()
+        return parse_latex(self.text[self.stt[2]: self.stt[0]])
+
+    def parse(self):
+        while self.stt[0] < len(self.text):
+            if self.text[self.stt[0]] == "<" and not self.stt[1]:
+                self._get_tag()
+            elif EXTRAS_FORMULAE:
+                if self.text[self.stt[0]:self.stt[0]+2] == "{=" and not self.stt[1]:
+                    self._wrapper(self._get_moodle_exp, 2)
+                elif self.text[self.stt[0]] == "(" and self.stt[1]: 
+                    self._wrapper(self._get_latex_exp)  # This is correct: "\("
+                elif self.text[self.stt[0]] == "{" and not self.stt[1]:
+                    self._wrapper(self._get_moodle_var)
+            self._nxt()
+        if self.text[self.stt[2]:]:
+            self.ftext.append(self.text[self.stt[2]:])
+        if self.check_tags and len(self.stack) != 0:
+            raise ValueError()
+
+
 class FText(Serializable):
     """A formated text. 
     """
 
-    def __init__(self, text: str|list = "", formatting: TextFormat = TextFormat.AUTO,
-                 bfile: List[File] = None):
+    def __init__(self, text: str|list = "", formatting = TextFormat.AUTO):
         super().__init__()
         self.formatting = TextFormat(formatting)
         self._text = [text] if isinstance(text, str) else text
-        self.bfile = bfile if bfile else []
 
     def __str__(self) -> str:
         return self.get()
@@ -453,87 +571,20 @@ class FText(Serializable):
             raise ValueError()
 
     @classmethod
-    def from_string(cls, string: str, exps=("{",), expe=("}",),
-                    check_tags=True) -> Tuple[set, FText]:
+    def from_string(cls, text: str, formatting=TextFormat.AUTO, 
+                    check_tags=True) -> FText:
         """This function suposse that at least once the 
         """
-        def nxt(stt: list, string: str):
-            stt[1] = (string[stt[0]] == "\\") and not stt[1]
-            stt[0] += 1
-
-        def get_exp(stt: list, varset: str, ftext: list, cnt=0):
-            nxt(stt, string)
-            if cnt == 0:
-                ftext.append(string[stt[2]: stt[0]-1])
-                stt[2] = stt[0]
-                if string[stt[0]] == "=" and not stt[1]:
-                    stt[2] +=1
-            while all(string[stt[0]:stt[0]+len(en)] != en for en in expe):
-                start = any(string[stt[0]:stt[0]+len(st)] == st for st in exps)
-                if start and not stt[1]:
-                    get_exp(stt, _vars, ftext, cnt+1)
-                nxt(stt, string)
-            if cnt == 0:
-                expr = string[stt[2]: stt[0]]
-                if EXTRAS_FORMULAE:
-                    expr = expr.replace("{","").replace("}","")
-                    expr = expr.replace("pi()","pi")
-                    expr = parse_expr(expr)
-                    varset |= expr.free_symbols
-                    stt[2] = stt[0] + 1
-                elif expr.isalpha():
-                    varset |= expr
-                ftext.append(expr)  
-
-        def get_file(stt: list, ftext: list, stack: list):
-            init = stt[0]
-            while string[stt[0]] != ">":
-                nxt(stt, string)
-                if string[stt[0]] == "<":
-                    init = stt[0]
-            tag = string[init+1: stt[0]].split(" ", 1)[0]
-            if tag == "img":
-                dta = re.findall(r"(.+?)=\"(.+?)\"[ />]", string[init+5: stt[0]])
-                dta = {k:v for k,v in dta}
-                path = dta.pop("src")
-                ftext.append(string[stt[2]: init])
-                ftext.append(File(path, **dta))
-                stt[2] = stt[0] + 1
-            elif tag == "video":
-                pass
-            elif tag[0] == "/":
-                tmp = stack.pop()
-                if check_tags and tmp != tag[1:]:
-                    raise ValueError()
-            elif tag[-1] != "/":
-                stack.append(tag)
-
-        if EXTRAS_FORMULAE:
-            from sympy.parsing.sympy_parser import parse_expr 
-        ftext = []
-        _vars = set()
-        stack = []
-        stt = [0, False, 0]  # Pointer, is escaped, last
-        while stt[0] < len(string):
-            if any(string[stt[0]:stt[0]+len(st)] == st for st in exps) and not stt[1]:
-                get_exp(stt, _vars, ftext)
-            elif string[stt[0]] == "<" and not stt[1]:
-                get_file(stt, ftext, stack)
-            nxt(stt, string)
-        if string[stt[2]:]:
-            ftext.append(string[stt[2]:])
-        if len(stack) != 0:
-            raise ValueError()
-        return _vars, cls(ftext)
+        parser = _FParser(text, check_tags)
+        parser.parse()
+        return cls(parser.ftext, formatting)
 
     def get(self, math_type: MathType = MathType.ASCII) -> str:
         """_summary_
         Args:
             math_type (MathType, optional): _description_. Defaults to MathType.PLAIN.
-        Raises:
-            TypeError: _description_
         Returns:
-            str: _description_
+            str: A string representation of the object
         """
         from sympy.core import Pow
         if EXTRAS_FORMULAE:
@@ -586,7 +637,7 @@ class Hint(Serializable):
     """
 
     def __init__(self, formatting: TextFormat, text: str, show_correct: bool,
-                 clear_wrong: bool, state_incorrect: bool = False) -> None:
+                 clear_wrong: bool, state_incorrect: bool = False):
         self.formatting = formatting
         self.text = text
         self.show_correct = show_correct
@@ -598,7 +649,7 @@ class Unit(Serializable):
     """A
     """
 
-    def __init__(self, unit_name: str, multiplier: float) -> None:
+    def __init__(self, unit_name: str, multiplier: float):
         super().__init__()
         self.unit_name = unit_name
         self.multiplier = multiplier
@@ -609,7 +660,7 @@ class Equation(Serializable):
     either a quiz description or a question header.
     """
 
-    def __init__(self, name: str, text: FText) -> None:
+    def __init__(self, name: str, text: FText):
         self.name = name
         self.text = text
 
@@ -619,7 +670,7 @@ class Table(Serializable):
     either a quiz description or a question header.
     """
 
-    def __init__(self, name: str, text: FText) -> None:
+    def __init__(self, name: str, text: FText):
         self.name = name
         self.text = text
 
@@ -630,7 +681,7 @@ class Rule(Serializable):
     or a question header.
     """
 
-    def __init__(self, name: str, text: FText, proof: FText) -> None:
+    def __init__(self, name: str, text: FText, proof: FText):
         self.name = name
         self.text = text
         self.proof = proof

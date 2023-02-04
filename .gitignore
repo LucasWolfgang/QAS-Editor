@@ -66,7 +66,5 @@ venv.bak/
 **.tmp
 **/tmp*
 
-#  The build tools was moved from setuptools to poetry, but I still need 
-# this file locally to get my VSCode test env working (locall install using
-# pip install -e . ) Fucking hell...
-**/setup.py
+# I was wrong. No need for setup.py anymore
+poetry.lock
