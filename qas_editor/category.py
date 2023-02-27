@@ -45,8 +45,8 @@ EXTS = ";;".join(f"{k}(*.{v[2]})" for k,v in SERIALIZERS.items())
 
 
 class Category(Serializable):  # pylint: disable=R0904
-    """
-    This class represents Quiz as a set of Questions.
+    """A category is a set of questions and other category that have enough
+    similarities to be grouped together.
     """
 
     read_aiken = classmethod(aiken.read_aiken)
@@ -73,13 +73,14 @@ class Category(Serializable):  # pylint: disable=R0904
     write_moodle = moodle.write_moodle
     write_olx = olx.write_olx
 
+    resources: List[File] = []  # These are the shared resources
+
     def __init__(self, name: str = None):
         self.__questions: List[_Question] = []
         self.__categories: Dict[str, Category] = {}
         self.__name = name if name else "$course$"
         self.__parent = None
         self.metadata: Dict[str, str] = {}
-        self.resources: Dict[str, File] = {}
         self.info: str = ""
 
     def __iter__(self):
@@ -96,13 +97,13 @@ class Category(Serializable):  # pylint: disable=R0904
 
     @property
     def questions(self) -> Iterator:
-        """_summary_
+        """Set of questions of this category.
         """
         return iter(self.__questions)
 
     @property
     def name(self):
-        """_summary_
+        """Name of the category.
         """
         return self.__name
 
@@ -120,7 +121,7 @@ class Category(Serializable):  # pylint: disable=R0904
 
     @property
     def parent(self):
-        """_summary_
+        """The parent of this category. Either <Category> or None.
         """
         return self.__parent
 
@@ -133,7 +134,8 @@ class Category(Serializable):  # pylint: disable=R0904
         self.__parent = value
 
     def add_subcat(self, child: Category) -> bool:
-        """_summary_
+        """Adds a category child to this category. This implementation avoids
+        issues related to duplicated names and parent set/unset.
         """
         if child.name in self.__categories:
             return False
@@ -145,10 +147,8 @@ class Category(Serializable):  # pylint: disable=R0904
 
     def add_question(self, question) -> bool:
         """_summary_
-
         Args:
             question (Question): _description_
-
         Returns:
             bool: _description_
         """
@@ -164,7 +164,6 @@ class Category(Serializable):  # pylint: disable=R0904
              text: str = None, qtype: _Question = None, dbid: int = None):
         """Find a question inside the category based on the provided arguments.
         If the argument is not passed (same as None), it is ignored.
-
         Args:
             results (list): An empty list the will be filled with the results.
             title (str): A regex that matchs the question's title.

@@ -64,36 +64,33 @@ def test_var_latex():
     assert _results.get(MathType.LATEX) == "var $$x$$"
 
 
-def test_file_img():
-    dt = ("This is an image:\n<file encoding=\"base64\" name=\"4.png\" path=\""
-          "/\">iVBORw0KGgoAAAANSUhEUgAAACsAAAAzCAYAAAAO2PE2AAAABHNCSVQICAgIfAh"
-          "kiAAAAAlwSFlzAAAPYQAAD2EBqD+naQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYX"
-          "B7ONYY6LOkVQH1Atgk4L+W7Rskb/wJ+MRR3+5VIKgAAAABJRU5ErkJggg==</file> "
-          "and here is a tail...")
-    File
-    _results = utils.FText.from_string(dt)
-    assert _results.get(MathType.LATEX) == utils.File("/","iVBORw0KGgoAAAANSUhEUgAAACsAAAAzCAYAAAAO2PE2AAAABHNCSVQICAgIfAh"
-          "kiAAAAAlwSFlzAAAPYQAAD2EBqD+naQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYX"
-          "B7ONYY6LOkVQH1Atgk4L+W7Rskb/wJ+MRR3+5VIKgAAAABJRU5ErkJggg==")
-
-
-def test_file_img_ref():
+def test_img_ref():
     text = ("""and<p style="text-align: left;">file <img src="@@PLUGINFILE@@"""
-        """/dessin.svg" alt="escargot" style="vertical-align: text-bottom;"""
+        """/dessin.svg" alt="escargot" style="vertical-align: text-bottom;" """
         """class="img-responsive" width="100" height="141"/> is close.</p>""")
     _results = utils.FText.from_string(text)
-    tmp = _results.get()
-    assert tmp == text
-    assert isinstance(_results.text[1], File)
+    assert len(_results.text) == 6
+    assert isinstance(_results.text[3], utils.FileRef)
+    assert len(_results.files) == 1
+    assert _results.files[0] == utils.File("/dessin.svg","")
+    assert _results.files[0] == _results.text[3].file
+    assert _results.text[3].metadata == {'alt': 'escargot',
+            'style': 'vertical-align: text-bottom;', 'class': 'img-responsive',
+            'width': '100', 'height': '141'}
 
 
-def test_file_video_ref():
-    text = ("""and<p style="text-align: left;">file <img src="@@PLUGINFILE@@"""
-        """/dessin.svg" alt="escargot" style="vertical-align: text-bottom;"""
-        """class="img-responsive" width="100" height="141"/> is close.</p>""")
-    _vars, _results = utils.FText.from_string(text)
-    tmp = _results.get()
-    assert _vars == set()
-    assert tmp == text
-    assert isinstance(_results.text[1], File)
+def test_img_ref_base64():
+    text = ("""and<p style="text-align: left;">file <img src="data:image/png;"""
+        """base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4"""
+        """//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red"""
+        """ dot" width="100" height="141"/> is close.</p>""")
+    _results = utils.FText.from_string(text)
+    assert len(_results.text) == 6
+    assert isinstance(_results.text[3], utils.FileRef)
+    assert len(_results.files) == 1
+    assert _results.files[0] == utils.File("/0.png","")
+    assert _results.files[0] == _results.text[3].file
+    assert _results.text[3].metadata == {'alt': 'Red dot', 'width': '100', 'height': '141'}
+
+
 

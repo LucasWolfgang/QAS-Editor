@@ -30,20 +30,19 @@ from io import BytesIO
 from xml.sax import saxutils
 from importlib import util
 from urllib import request
-from typing import TYPE_CHECKING,Dict
-from html.parser import HTMLParser
-from .enums import FileAddr, TextFormat, Status, Distribution, MathType, MediaType
+from typing import Dict, List, Callable
+from .enums import FileAddr, TextFormat, Status, Distribution, MathType
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 if EXTRAS_FORMULAE:
     from sympy.parsing.sympy_parser import parse_expr
     from sympy.parsing.latex import parse_latex
-    # from matplotlib import figure, font_manager, mathtext
-    # from matplotlib.backends import backend_agg
+    from matplotlib import figure, font_manager, mathtext
+    from matplotlib.backends import backend_agg
     from pyparsing import ParseFatalException  # Part of matplotlib package
 
 
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
 EXTRAS_GUI = util.find_spec("PyQt5") is not None
                 # moodle, sympy, latex
 MDL_FUNCTION = {('arctan', 'atan'), ('arcsin', 'asin'), ('arccos', 'acos'),
@@ -321,16 +320,16 @@ class AnswerError(Exception):
 
 class File(Serializable):
     """File used in questions. Can be either a local path, an URL, a Embedded
-    encoded string. TODO May add PIL in the future too.
+    encoded string.
     """
 
-    MEDIA_TYPES = {("jpeg", "jpg", "png", "svg"): MediaType.IMAGE}
-
-    def __init__(self, path: str, data: str = None, **kwargs):
+    def __init__(self, path: str, data: str = None): #, **kwargs):
         super().__init__()
         self.data = data
+        if path.startswith("@@PLUGINFILE@@/"):
+            path = path.replace("@@PLUGINFILE@@/", "/")
         self.path = path
-        if path.startswith("@@PLUGINFILE@@") or data is not None:
+        if data is not None:
             self._type = FileAddr.EMBEDDED
         elif os.path.exists(path):
             self._type = FileAddr.LOCAL
@@ -340,38 +339,24 @@ class File(Serializable):
                     ifile.read()
                 self._type = FileAddr.URL
             except Exception:
-                self._type = FileAddr.EMBEDDED
-        ext = path.rsplit(".", 1)[-1]
-        for media_ext in self.MEDIA_TYPES:
-            if ext in media_ext:
-                self._media = self.MEDIA_TYPES[media_ext]
-                break
-        else:
-            self._media = MediaType.FILE
-        self.metadata = kwargs
+                self._type = FileAddr.LOCAL
+                _LOG.exception("It was not possible to find the file %s", path)
+        # self.metadata = kwargs
 
     def __eq__(self, __o: object) -> bool:
-        if not (isinstance(__o, File) and __o._media == self._media
-                and __o._type == self._type):
+        if not isinstance(__o, File):
             return False
-        if self._type == FileAddr.EMBEDDED:
-            tmp1 = self.path.replace("@@PLUGINFILE@@/", "")
-            tmp2 = __o.path.replace("@@PLUGINFILE@@/", "")
-        return tmp1 == tmp2
-
-    def get_file(self):
-        if self._type is FileAddr.LOCAL:
-            return self.path
-        name = self.path.rsplit("/",1)[1]
-        if self._type == FileAddr.URL:
-            with request.urlopen(self.path) as ifile, open(name) as ofile:
-                ofile.write(ifile.read())
-        elif self._type == FileAddr.EMBEDDED:
-            with open(name) as ofile:
-                ofile.write(base64.b64decode(self.data))
-        return name
+        return __o.path == self.path and __o._type and self._type
 
     def get_tag(self) -> str:
+        """_summary_
+        Returns:
+            str: _description_
+        """
+        path, name = self.path.split("/", 1)
+        output_bb = f'<file name="{name}" path="{path}"'
+        # for key, value in self.metadata.items():
+        #     output_bb += f' {key}="{value}"'
         if self.data is None:
             if self._type == FileAddr.URL:
                 with request.urlopen(self.path) as ifile:
@@ -379,42 +364,37 @@ class File(Serializable):
             elif self._type == FileAddr.LOCAL:
                 with open(self.path, "rb") as ifile:
                     self.data = str(base64.b64encode(ifile.read()), "utf-8")
-        name = self.path.rsplit("/",1)[1]
-        return f'<file encoding="base64" name="{name}">{self.data}</file>'
-
-    def get_reftag(self) -> str:
-        output_bb = f'<img src="{self.path}"'
-        for key, value in self.metadata.items():
-            output_bb += f' {key}="{value}"'
-        return output_bb + '/>'
-
-    def moodle_link(self) -> str:
-        """Returns a moodle like for a embedded (base64) file.
-        """
-        if self.path.startswith("@@PLUGINFILE@@/"):
-            return self.path
-        return f"@@PLUGINFILE@@/{self.path}"
+        return f"{output_bb}/>{self.data}</file>"
 
 
 class FileRef(Serializable):
+    """A text reference of a file. Used in a FText to allow instance specific
+    metadata.
+    """
 
-    def __init__(self, path: str, **kwargs):
+    def __init__(self, file: File, **kwargs):
         super().__init__()
-        self.path = path
+        self.file = file
         self.metadata = kwargs
 
-    def get_tag(self) -> str:
-        output_bb = f'<img src="{self.path}"'
+    def get_tag(self, embedded: bool) -> str:
+        ext = self.file.path.rsplit(".", 1)[-1]
+        if ext in ("jpeg", "jpg", "png", "svg"):
+            src = f"data:image/{ext};base64,{self.file.data}" if embedded else self.file.path
+            output_bb = f'<img src="{src}"'
+        elif ext == ("svg"):
+            src = f"data:video/{ext};base64,{self.file.data}" if embedded else self.file.path
+            output_bb = f'<video src="{src}"'
+        else:
+            raise ValueError("Extension is not supported.")
         for key, value in self.metadata.items():
             output_bb += f' {key}="{value}"'
         return output_bb + '/>'
 
-    def moodle_link(self) -> str:
+    def link_moodle(self) -> str:
         """Returns a moodle like for a embedded (base64) file.
         """
-        if self.path.startswith("@@PLUGINFILE@@/"):
-            return self.path
-        return f"@@PLUGINFILE@@/{self.path}"
+        return f"@@PLUGINFILE@@/{self.file.path}"
 
 
 class Dataset(Serializable):
@@ -447,7 +427,8 @@ class Dataset(Serializable):
 
 class _FParser():
 
-    def __init__(self, text: str, check_tags: bool, file_root = ""):
+    def __init__(self, text: str, formatting: TextFormat, check_tags: bool, 
+                 check_math: bool, files: List[File] = None, file_root = ""):
         self.stack = []
         self.ftext = []
         self.text = text
@@ -455,8 +436,11 @@ class _FParser():
         self.lastattr = None
         self.check_tags = check_tags 
         self.root = file_root
+        self.format = formatting
+        self.check_math = check_math
+        self.files = files if files is not None else []
 
-    def _wrapper(self, callback, size=1):
+    def _wrapper(self, callback: Callable, size=1):
         if self.text[self.stt[2]: self.stt[0]]:
             self.ftext.append(self.text[self.stt[2]: self.stt[0]])
         self.stt[0] += size
@@ -464,42 +448,52 @@ class _FParser():
         self.ftext.append(callback())
         self.stt[2] = self.stt[0] + 1
 
-    def _get_file(self, path: str, attrs: dict):
-        for item in self.ftext:
-            if isinstance(item, File) and item.path == path:
-                if item.metadata != attrs:
-                    item.metadata.update(attrs)
-                return item
-        return File(path, **attrs)
-
+    def _get_file_ref(self, tag: str, attrs: dict):
+        if tag == "file":
+            path = attrs.pop("path", "/") + attrs.pop("name")
+            last = self.stt[0] + 1
+            while self.text[self.stt[0]:self.stt[0]+2] != "</" and not self.stt[1]:
+                self._nxt()
+            self.stt[0] = self.stt[0] - 1  # Get back to allow parsing tag
+            file = File(path, self.text[last: self.stt[0]])
+        else:
+            if attrs.get("src", "")[:5] == "data:":
+                data, scr = attrs.pop("src").split(";", 1)
+                _, ext = data.split("/", 1)
+                path = f"/{len(self.files)}.{ext}"
+                file = File(path, scr[7:])  # Consider this is a base64 data
+            else:
+                path = attrs.pop("src")
+                for item in self.files:
+                    if item.path == path:
+                        return FileRef(item, **attrs)
+                file = File(path, None)
+        self.files.append(file)
+        return FileRef(file, **attrs)
+        
     def _nxt(self):
-        raise AnswerError("Test")
         self.stt[1] = (self.text[self.stt[0]] == "\\") and not self.stt[1]
         self.stt[0] += 1
 
-    def _get_tag(self):
-        last = self.stt[0] + 1
+    def _get_tag(self) -> FileRef | None:
         while self.text[self.stt[0]] != ">" and not self.stt[1]:
             self._nxt()
-        tmp = self.text[last: self.stt[0] + 1]  # includes final ">"
-        tag = tmp[:-1].split(" ", 1)[0]
-        if tag in ("img", "video"):
-            self.ftext.append(self.text[tmp: self.stt[2]])
-            dta = re.findall(r"(\S+)=\"(.+)\"[ />]", tmp[3:])
-            dta = {k:v for k,v in dta}
-            if tag == "img":
-                self.ftext.append(self._get_file(dta.pop("src"), **dta))
-            elif tag == "file":
-                path = dta.pop("path", "/") + dta.pop("name")
-                self.ftext.append(self._get_file(path , **dta))
-            self.stt[2] = self.stt[0] + 1
-        elif tag[0] == "/":
+        tmp = self.text[self.stt[2]-1: self.stt[0] + 1]  # includes final ">"
+        tag = tmp[1:-1].split(" ", 1)[0]
+        result = None
+        if tag in ("img", "video", "file"):
+            data = re.findall(r"(\S+?)=\"(.+?)\"[ />]", tmp)
+            result = self._get_file_ref(tag, {k:v for k,v in data})
+        else:
+            result = tmp
+        if tag[0] == "/":
             tmp = self.stack.pop()
             if self.check_tags and tmp != tag[1:]:
                 raise ValueError(f"Tag {tag} is not being closed ({self.stt[2]})")
-        elif tag[-1] != "/" and tag not in ("source", "area", "track", "col",
-                "embed", "hr", "input", "link", "meta", "br","base", "wbr"):
+        elif tmp[-2] != "/" and tag not in ("source", "area", "track", "input",
+            "col", "embed", "hr",  "link", "meta", "br", "base", "wbr", "img"):
             self.stack.append(tag)
+        return result
 
     def _get_moodle_exp(self):
         cnt = 0
@@ -525,9 +519,10 @@ class _FParser():
 
     def parse(self):
         while self.stt[0] < len(self.text):
-            if self.text[self.stt[0]] == "<" and not self.stt[1]:
-                self._get_tag()
-            elif EXTRAS_FORMULAE:
+            if (self.format in (TextFormat.AUTO, TextFormat.HTML, TextFormat.MD) 
+                        and self.text[self.stt[0]] == "<" and not self.stt[1]):
+                self._wrapper(self._get_tag)
+            elif self.check_math and EXTRAS_FORMULAE:
                 if self.text[self.stt[0]:self.stt[0]+2] == "{=" and not self.stt[1]:
                     self._wrapper(self._get_moodle_exp, 2)
                 elif self.text[self.stt[0]] == "(" and self.stt[1]: 
@@ -538,23 +533,28 @@ class _FParser():
         if self.text[self.stt[2]:]:
             self.ftext.append(self.text[self.stt[2]:])
         if self.check_tags and len(self.stack) != 0:
-            raise ValueError()
+            raise ValueError(f"One or more tags are not closed: {self.stack}.")
 
 
 class FText(Serializable):
     """A formated text. 
     """
 
-    def __init__(self, text: str|list = "", formatting = TextFormat.AUTO):
+    def __init__(self, text: str|list = "", formatting = TextFormat.AUTO,
+                 files: list = None):
         super().__init__()
         self.formatting = TextFormat(formatting)
-        self._text = [text] if isinstance(text, str) else text
+        self._text = text if isinstance(text, list) else [text]
+        self.files = files  # Local reference of the list of files used.
 
     def __str__(self) -> str:
         return self.get()
 
     @property
     def text(self):
+        """A list of strings, file references and math expressions (if 
+        EXTRAS_FORMULAE).
+        """
         return self._text
 
     @text.getter
@@ -571,18 +571,27 @@ class FText(Serializable):
             raise ValueError()
 
     @classmethod
-    def from_string(cls, text: str, formatting=TextFormat.AUTO, 
-                    check_tags=True) -> FText:
-        """This function suposse that at least once the 
-        """
-        parser = _FParser(text, check_tags)
-        parser.parse()
-        return cls(parser.ftext, formatting)
-
-    def get(self, math_type: MathType = MathType.ASCII) -> str:
-        """_summary_
+    def from_string(cls, text: str, formatting=TextFormat.AUTO, check_tags=True,
+                     check_math=True, files: list = None) -> FText:
+        """Parses the provided string to a FText class by finding file pointers
+        and math expression and returning them as a list.
         Args:
-            math_type (MathType, optional): _description_. Defaults to MathType.PLAIN.
+            text (str): _description_
+            formatting (_type_, optional): _description_. Defaults to TextFormat.AUTO.
+            check_tags (bool, optional): _description_. Defaults to True.
+            check_math (bool, optional): _description_. Defaults to True.
+            files (list, optional): _description_. Defaults to None.
+        Returns:
+            FText: _description_
+        """
+        parser = _FParser(text, formatting, check_tags, check_math, files)
+        parser.parse()
+        return cls(parser.ftext, formatting, parser.files)
+
+    def get(self, math_type=MathType.ASCII, embedded=False) -> str:
+        """Get a string representation of the object
+        Args:
+            math_type (MathType, optional): Which type of 
         Returns:
             str: A string representation of the object
         """
@@ -595,8 +604,8 @@ class FText(Serializable):
                 data += str(item)
             elif hasattr(item, "MARKER_INT"):
                 data += chr(item.MARKER_INT)
-            elif isinstance(item, File):
-                data += item.get_reftag()
+            elif isinstance(item, FileRef):
+                data += item.get_tag()
             elif EXTRAS_FORMULAE and isinstance(item, Expr):
                 if math_type == MathType.LATEX:
                     data += f"$${printing.latex(item)}$$"

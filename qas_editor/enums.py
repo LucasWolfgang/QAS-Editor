@@ -109,15 +109,6 @@ class MathType(Enum):
     FILE = "File"
 
 
-class MediaType(Enum):
-    """A
-    """
-    FILE = "File"
-    MUSIC = "Music"
-    IMAGE = "Image"
-    VIDEO = "Video"
-
-
 class Numbering(EnhancedEnum):
     """Enumerates Numbering patterns
     """
