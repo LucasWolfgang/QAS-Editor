@@ -15,10 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-from qas_editor.utils import *
+from qas_editor.question import *
 
-
-def test_dataset():
-    tmp = Dataset(Status.PRV)
-
-
+def test_calculated():
+    tmp = QCalculated(name="Question1", question="This is a calculated question")

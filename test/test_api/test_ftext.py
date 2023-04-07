@@ -27,6 +27,7 @@ SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 X = Symbol("x")
 Y = Symbol("y")
 
+
 def test_sympy_all():
     s = ("<p><b>Moodle</b> and <b>fp</b> latex package syntax "
         "is not always equivalent. Here some test for pathological cases.</p>"
