@@ -26,6 +26,4 @@ TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 DOCKER = "docker run -i -t -v \"/path/to/course_dir\":\"/course\" -w /test_course mitodl/openedx-course-test bash -e test_course"
 
 def test_read():
-    EXAMPLE = f"{TEST_PATH}/datasets/text.pdf"
-    # a = Category.read_pdf(EXAMPLE)
-    #print(a)
+    pass

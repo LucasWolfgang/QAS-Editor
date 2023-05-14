@@ -17,7 +17,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import os
-from qas_editor._parsers import qti1v2
+from qas_editor._parsers import qti1v2, bb
+from qas_editor.category import Category
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
@@ -26,3 +27,7 @@ def test_read():
     EXAMPLE = f"{TEST_PATH}/datasets/qti1v2/item.zip"
     parser = qti1v2.QTIParser1_2()
     
+
+def test_write_bb():
+    control = Category.read_moodle(f"{TEST_PATH}/datasets/moodle/multichoice.xml")
+    bb.write_blackboard(control, f"{TEST_PATH}/datasets/test.tar")

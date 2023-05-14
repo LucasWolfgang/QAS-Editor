@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Iterator
 
 from .utils import Serializable, File
 from .question import _Question
@@ -26,7 +26,7 @@ from .enums import Status
 from ._parsers import aiken, csv_card, cloze, gift, json, kahoot, latex, \
                       markdown, moodle, olx, qti1v2
 if TYPE_CHECKING:
-    from typing import Dict, List, Iterator   # pylint: disable=C0412
+    from .utils import Dataset
 _LOG = logging.getLogger(__name__)
 
 
@@ -60,7 +60,7 @@ class Category(Serializable):  # pylint: disable=R0904
     read_moodle = classmethod(moodle.read_moodle)
     read_moodle_backup = classmethod(moodle.read_moodle_backup)
     read_olx = classmethod(olx.read_olx)
-    read_qti12 = classmethod(qti1v2.read_qti_canvas)
+    read_qti12 = classmethod(qti1v2.read_qti1v2)
 
     write_aiken = aiken.write_aiken
     write_cloze = cloze.write_cloze
@@ -73,14 +73,15 @@ class Category(Serializable):  # pylint: disable=R0904
     write_moodle = moodle.write_moodle
     write_olx = olx.write_olx
 
-    resources: List[File] = []  # These are the shared resources
 
     def __init__(self, name: str = None):
         self.__questions: List[_Question] = []
         self.__categories: Dict[str, Category] = {}
         self.__name = name if name else "$course$"
         self.__parent = None
-        self.metadata: Dict[str, str] = {}
+        self.metadata: Dict[str, str] = None
+        self.datasets: List[Dataset] = None
+        self.resources: List[File] = None
         self.info: str = ""
 
     def __iter__(self):
@@ -96,7 +97,7 @@ class Category(Serializable):  # pylint: disable=R0904
         return f"Category: '{self.name}' @{hex(id(self))}"
 
     @property
-    def questions(self) -> Iterator:
+    def questions(self) -> Iterator[_Question]:
         """Set of questions of this category.
         """
         return iter(self.__questions)
@@ -132,6 +133,9 @@ class Category(Serializable):  # pylint: disable=R0904
             raise ValueError("This attribute shouldn't be assigned directly. U"
                              "se parent's add/pop_question functions instead.")
         self.__parent = value
+        self.metadata = value.metadata
+        self.datasets = value.datasets
+        self.resources = value.resources
 
     def add_subcat(self, child: Category) -> bool:
         """Adds a category child to this category. This implementation avoids
@@ -223,6 +227,21 @@ class Category(Serializable):  # pylint: disable=R0904
                 dbids.append(question.dbid)
         for cat in self.__categories.values():
             cat.get_dbids(dbids)
+
+    def get_depth(self, consitent: bool) -> int:
+        """The depth of classifications in this classification.
+        Args:
+            consitent (bool): if True, returns the smallest stack depth, otherwise
+                returns the biggest stack depth.
+        """
+        value = 0
+        for cat in self.__categories.values():
+            tmp = cat.get_depth(consitent)
+            if value != 0:
+                value = min(tmp, value) if consitent else max(tmp, value)
+            else:
+                value = tmp
+        return value + 1
 
     def get_size(self, recursive=False):
         """Total number of questions in this category, including subcategories.

@@ -23,8 +23,8 @@ if TYPE_CHECKING:
     from pytestqt.qtbot import QtBot
 
 
-# def test_gfield_update(qtbot: "QtBot"):
-#     app = QApplication([])
-#     tmp = popup.PHotkey(None)
-#     tmp.show()
-#     app.exec()
+def test_gfield_update(qtbot: "QtBot"):
+    app = QApplication([])
+    tmp = popup.PHotkey(None)
+    tmp.show()
+    app.exec()

@@ -110,7 +110,7 @@ class Editor(QMainWindow):
     def debug_me(self):
         """TODO Method used for debugg...
         """
-        self.path = ("./test/datasets/moodle/all.xml", "Moodle")
+        self.path = ("./test/datasets/moodle/calculated.xml", "Moodle")
         #self.path = "./test_lib/datasets/olx/test.olx"
         self.top_quiz = Category.read_moodle(self.path[0], "DEBUG")
         gtags = {}
@@ -592,15 +592,15 @@ class Editor(QMainWindow):
         files, key = QFileDialog.getOpenFileNames(self, "Open file", "", EXTS)
         if not files:
             return
-        # if len(files) == 1:
-        #     self.path = files[0]
-        # self.top_quiz = Category.read_files(files)
-        # gtags = {}
-        # self.top_quiz.get_tags(gtags)
-        # self.tagbar.set_gtags(gtags)
-        # self.root_item.clear()
-        # self._update_tree_item(self.top_quiz, self.root_item)
-        # self.data_view.expandAll()
+        if len(files) == 1:
+            self.path = files[0]
+        self.top_quiz = Category.read_files(files)
+        gtags = {}
+        self.top_quiz.get_tags(gtags)
+        self.tagbar.set_gtags(gtags)
+        self.root_item.clear()
+        self._update_tree_item(self.top_quiz, self.root_item)
+        self.data_view.expandAll()
 
     @action_handler
     def _read_folder(self, _):

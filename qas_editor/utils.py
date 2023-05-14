@@ -186,6 +186,7 @@ def clean_q_name(string: str):
     out = re.sub(r'[^0-9a-zA-Z:\-]+', ' ', out)
     return out.strip()
 
+
 # -----------------------------------------------------------------------------
 
 
@@ -265,8 +266,8 @@ class Serializable:
 class TList(list):
     """Type List (or Datatype list) is a class that restricts the datatype of
     all the items to a single one defined in constructor. It works exactly like
-    an list in C++, Java and other high-level compiled languages. Could use an
-    array instead if it allowed any time to be used. TODO If there is something
+    an list in C++, Java and other compiled languages. Could use an array 
+    instead if it allowed any time to be used. TODO If there is something
     native we could use instead, it is worthy an PR to update.
     """
 
@@ -423,6 +424,12 @@ class Dataset(Serializable):
 
     def __str__(self) -> str:
         return f"{self.status.name} > {self.name} ({hex(id(self))})"
+
+    def generate(self):
+        if self.distribution == Distribution.UNI:
+            pass
+        else:
+            pass
 
 
 class _FParser():
