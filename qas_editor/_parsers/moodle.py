@@ -804,8 +804,7 @@ def read_moodle_backup(cls, file_path: str) -> "Category":
     with zipfile.ZipFile(file_path, "r") as ifile:
         data = ifile.extract("questions.xml")
         top_quiz: Category = read_moodle(cls, data)
-        data = ifile.extract("moodle_backup.xml")
-        top_quiz.metadata["moodle_course"] = file_path
+    return top_quiz
 
 
 # -----------------------------------------------------------------------------

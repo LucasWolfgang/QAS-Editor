@@ -27,8 +27,11 @@ import re
 
 _LOG = logging.getLogger(__name__)
 
+
 class QTIParser1v2:
-    """ Parse QTI 1.2 """
+    """ Parse QTI 1.2 
+    Attributes:
+    """
 
     # String in img href to remove from XML
     img_href_ims_base = "%24IMS-CC-FILEBASE%24/"
@@ -51,35 +54,32 @@ class QTIParser1v2:
     
     NAMESPACE = "http://www.imsglobal.org/xsd/ims_qtiasiv1p2"
 
-    def read(self, file_path):
+    def __init__(self):
+        self._zf = None   # zipfile.ZipFile | tarfile.TarFile
+
+    def read(self, file_path: str):
         data = {}
         """ Read data out of the manifest and store it in data """
         if tarfile.is_tarfile(file_path):
             with tarfile.open(file_path, 'r:gz') as tar:
                 manifest = et.parse(tar.extractfile("imsmanifest.xml"))
         else:
-            with zipfile.ZipFile(file_path, "r") as ifile:
-                manifest = et.parse(ifile.extract("imsmanifest.xml"))
-
+            self._zf = zipfile.ZipFile(self.courseID+'.zip', mode='r', compression=zipfile.ZIP_DEFLATED)
+            manifest = et.parse(self._zf.read("imsmanifest.xml"))
         qti_resource = {
             'assessment': []
         } 
-
         for xml_resource in manifest.getroot().findall(".//{http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1}resource[@type='imsqti_xmlv1p2']"):
             this_assessment = {
                 'id': xml_resource.get("identifier"),
                 'metadata': self.get_metadata(xml_resource.get("identifier") + "/" + "assessment_meta.xml"),
                 'question': []
             }
-
             # TODO: Should be prefixed with PATH part of input filename since paths in XML are relative
             this_assessment_xml = this_assessment['id'] + "/" + this_assessment['id'] + ".xml"
-
             for xml_item in et.parse(this_assessment_xml).getroot().findall(".//{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}item"):
                 this_assessment['question'].append(self.get_question(xml_item))
             qti_resource['assessment'].append(this_assessment)
-
-
         self.readManifest(manifest)
         return data
 
@@ -101,6 +101,9 @@ class QTIParser1v2:
 
 class BB(QTIParser1v2):
     """ Parse QTI 1.2 """
+
+    def __init__(self):
+        super().__init__()
 
     def readItem(self, item, data, order):
         """ Read an item out of the manifest. """
@@ -260,7 +263,6 @@ class Canvas(QTIParser1v2):
         """ Return an array of possible answers and their variable substitution """
         var_sets = []
         tolerance = 0
-
         try:
             if xml.find("{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}answer_tolerance") is not None:
                 tolerance = xml.find("{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}answer_tolerance")
@@ -295,7 +297,6 @@ class Canvas(QTIParser1v2):
         """ Return an array of possible answers """
         answers = []
         correct_answers = []
-
         for id in xml.findall(".//{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}varequal"):
             correct_answers.append(id.text)
         try:
@@ -316,7 +317,6 @@ class Canvas(QTIParser1v2):
         """ Return an array of items and possible answers """
         answers = []
         correct_answer = {}
-
         for id in xml.findall(".//{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}varequal"):
             correct_answer[id.get("respident")] = id.text
         try:
@@ -350,7 +350,6 @@ class Canvas(QTIParser1v2):
         """ Return an array of possible answers """
         answers = []
         correct_answers = []
-
         for id in xml.findall(".//{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}conditionvar/{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}and/{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}varequal"):
             correct_answers.append(id.text)
         try:
@@ -374,10 +373,8 @@ class Canvas(QTIParser1v2):
         """ Return an array of possible answers, grouped for each blank """
         answers_group = []
         correct_answer = {}
-
         for id in xml.findall(".//{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}varequal"):
             correct_answer[id.get("respident")] = id.text
-
         try:
             for xml_response_lid in xml.findall(".//{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}response_lid"):
                 answers = []
@@ -403,7 +400,6 @@ class Canvas(QTIParser1v2):
         """ Return an array of possible answers """
         answers = []
         correct_answers = []
-
         for id in xml.findall(".//{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}respcondition[@continue='No']/{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}conditionvar/{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}varequal"):
             correct_answers.append(id.text)
         try:
@@ -414,7 +410,6 @@ class Canvas(QTIParser1v2):
                 this_answer['text'] = xml_answer_item.find("{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}material/{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}mattext").text
                 this_answer['correct'] = True if xml_answer_item.get("ident") in correct_answers else False
                 this_answer['display'] = True
-                
                 if this_answer['text'].lower().find("<img.*"):
                     for match in re.finditer('^<img src="([^"]+)".*>', this_answer['text'], re.DOTALL):
                         image.append({
@@ -500,7 +495,6 @@ class Canvas(QTIParser1v2):
         """ Return an array of possible answers """
         answers = []
         correct_answers = []
-
         for id in xml.findall(".//{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}varequal"):
             correct_answers.append(id.text)
 
@@ -547,9 +541,7 @@ class Canvas(QTIParser1v2):
             'points_possible': xml_item_metadata.find("{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}qtimetadatafield[{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}fieldlabel = 'points_possible']/{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}fieldentry").text,
             'text': xml_item.find("{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}presentation/{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}material/{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}mattext").text
         }
-
         image = []
-
         # Try and find images in text to separate them
         if this_question['text'].lower().find("<p>.*<img"):
             for match in re.finditer('<p>.*<img.+src=\"([^\"]+)\".*>.*</p>', this_question['text'], re.DOTALL):
@@ -562,7 +554,6 @@ class Canvas(QTIParser1v2):
             subn_tuple = p.subn('', this_question['text'])
             if subn_tuple[1] > 0:
                 this_question['text'] = subn_tuple[0]
-
         elif this_question['text'].lower().find("<img"):
             for match in re.finditer('<img.+src=\"([^\"]+)\".*>', this_question['text'], re.DOTALL):
                 this_href = re.sub(r"\?.+$", "", match.group(1)).replace(self.img_href_ims_base, "")
@@ -574,10 +565,8 @@ class Canvas(QTIParser1v2):
             subn_tuple = p.subn('', this_question['text'])
             if subn_tuple[1] > 0:
                 this_question['text'] = subn_tuple[0]
-
         if image:
             this_question['image'] = image
-
         # Parse answers for each type of question
         if this_question['question_type'] == "multiple_choice_question":
             this_question['answer'] = self._parse_multiple_choice(xml_item)
@@ -597,7 +586,6 @@ class Canvas(QTIParser1v2):
             this_question['answer'] = self._parse_numerical(xml_item)
         elif this_question['question_type'] == "calculated_question":
             this_question['answer'] = self._parse_calculated(xml_item)
-
         # Replace [variable] in question text with blanks
         if (this_question['question_type'] == "fill_in_multiple_blanks_question" or this_question['question_type'] == "multiple_dropdowns_question") and this_question['text'].find(r"\[(.*?)\]"):
             blank = self.blanks_replace_str * self.blanks_question_n
@@ -607,18 +595,16 @@ class Canvas(QTIParser1v2):
                 this_question['text'] = subn_tuple[0]
             if this_question['question_type'] == "multiple_dropdowns_question":
                 this_question['text'] = self._enumerate_blanks(this_question['text'])
-
         if this_question['question_type'] == "calculated_question":
             if self.calculated_display_var_set_in_text:
                 this_question['text'] = self._substitute_variables_in_question(this_question['text'], this_question['answer'][0])
-
         return this_question
 
 
 # -----------------------------------------------------------------------------
 
 
-def read_qti_canvas(self, file_path: str):
+def read_qti1v2(self, file_path: str):
     """Read data out of the manifest and store it in data
     Args:
         file_path (str): _description_

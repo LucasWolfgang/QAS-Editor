@@ -39,6 +39,7 @@ __doc__= """BlackBoard uses a modified version of QTI Content Package v1.2.
             https://www.imsglobal.org/question/qtiv1p2/imsqti_asi_outv1p2.html
             """
 
+
 class Pool:
 
     def __init__(self, package: "_Importer", cat: "Category", instructions=""):
@@ -258,7 +259,6 @@ class Pool:
             Done
         """
         _, _, flow2, resprocessing = self._question(qst, "True/False")
-
         resp = etree.SubElement(flow2, 'response_lid', ident='response',
                                 rcardinality='Single', rtiming='No')
         render_choice = etree.SubElement(resp, 'render_choice', shuffle='No',
@@ -272,11 +272,9 @@ class Pool:
             material = etree.SubElement(flow_mat, 'material')
             etree.SubElement(material, 'mattext', charset='us-ascii',
                              texttype='text/plain').text = response
-        
         outcomes = etree.SubElement(resprocessing, 'outcomes', {})
         etree.SubElement(outcomes, 'decvar', varname='SCORE', 
                          vartype='Decimal', defaultval='0', minvalue='0')
-        
         respcondition = etree.SubElement(resprocessing, 'respcondition',
                                          title='correct')
         conditionvar = etree.SubElement(respcondition, 'conditionvar')
@@ -305,12 +303,10 @@ class Pool:
         outcomes = etree.SubElement(resprocessing, 'outcomes')
         etree.SubElement(outcomes, 'decvar', varname='SCORE', vartype='Decimal',
                          defaultval='0', minvalue='0')
-
         response_lid = etree.SubElement(flow2, 'response_lid', ident='response',
                                         rcardinality='Ordered', rtiming='No')
         render_choice = etree.SubElement(response_lid, 'render_choice', shuffle='No',
                                          minnumber='0', maxnumber='0')
-
         respcondition = etree.SubElement(resprocessing, 'respcondition', title='correct')
         setvar = etree.SubElement(respcondition, 'setvar', variablename='SCORE',
                                   action='Set')
@@ -342,7 +338,6 @@ class Pool:
         _, _, flow2, resprocessing = self._question(qst, "Fill in the Blank Plus", "true")
         outcomes = etree.SubElement(resprocessing, 'outcomes', {})
         etree.SubElement(outcomes, 'decvar', {'varname':'SCORE', 'vartype':'Decimal', 'defaultval':'0', 'minvalue':'0'})
-        
         respcondition = etree.SubElement(resprocessing, 'respcondition', {'title':'correct'})
         conditionvar = etree.SubElement(respcondition, 'conditionvar')
         and_tag = etree.SubElement(conditionvar, 'and')
@@ -361,7 +356,6 @@ class Pool:
                          action='Set').text = 'SCORE.max'
         etree.SubElement(respcondition, 'displayfeedback', linkrefid='correct',
                          feedbacktype='Response')
-
         respcondition = etree.SubElement(resprocessing, 'respcondition',
                                          title='incorrect')
         conditionvar = etree.SubElement(respcondition, 'conditionvar')
@@ -422,24 +416,19 @@ class _Importer:
         """Embeds a file (given a name and content) to the quiz and returns the
         unique id of the file, and the path to the file in the zip
         """                
-
-        #First, we need to process the path of the file, and embed xid
+        # First, we need to process the path of the file, and embed xid
         #descriptors for each directory/subdirectory
-        
-        #Split the name into filename and path
+        # Split the name into filename and path
         path, filename = os.path.split(name)
-
-        #Simplify the path (remove any ./ items and simplify ../ items to come at the start)
+        # Simplify the path (remove any ./ items and simplify ../ items to come at the start)
         if (path != ""):
             path = os.path.relpath(path)
-        
-        #Split the path up into its components
+        # Split the path up into its components
         def rec_split(s):
             rest, tail = os.path.split(s)
             if rest in ('', os.path.sep):
                 return [tail]
             return rec_split(s) + [tail]
-
         path = rec_split(path)
         root, ext = os.path.splitext(filename)
 
@@ -447,12 +436,10 @@ class _Importer:
             #Keep processing until the whole path is processed
             if i >= len(path):
                 return path
-
             #Slice any useless entries from the path
             if i==0 and (path[0] == ".." or path[0] == '/' or path[0] == ''):
                 path = path[1:]
                 return processDirectories(path, embedded_paths, i)
-
             #Check if the path is already processed
             if path[i] in embedded_paths:
                 new_e_paths = embedded_paths[path[i]][1]
@@ -462,31 +449,23 @@ class _Importer:
                 descriptor_node = etree.Element("lom")
                 relation = etree.SubElement(descriptor_node, 'relation')
                 resource = etree.SubElement(relation, 'resource')
-
                 self.next_xid += 1
                 transformed_path = path[i]+'__xid-'+str(self.next_xid)+'_1'
                 etree.SubElement(resource, 'identifier').text = str(self.next_xid)+'_1' + '#' + '/courses/'+self.courseID+'/' + os.path.join(*(path[:i+1]))
                 embedded_paths[path[i]] = [transformed_path, {}]
                 new_e_paths = embedded_paths[path[i]][1]
-
                 path[i] = transformed_path
-                
                 self.zf.writestr(os.path.join('csfiles/home_dir', *(path[:i+1]))+'.xml', '<?xml version="1.0" encoding="UTF-8"?>\n'+etree.tostring(descriptor_node, pretty_print=False).decode('utf-8'))
-
             return processDirectories(path, new_e_paths, i+1)
-
         processDirectories(path, self.embedded_paths)
-        
         #Finally, assign a xid to the file itself
         self.next_xid += 1
         filename = root + '__xid-'+str(self.next_xid)+'_1' + ext
-
         #Merge the path pieces and filename
         path = path + [filename]
         path = os.path.join(*path)
         filepath = os.path.join('csfiles/home_dir/', path)
         self.zf.writestr(filepath, content)
-        
         descriptor_node = etree.Element("lom")
         relation = etree.SubElement(descriptor_node, 'relation')
         resource = etree.SubElement(relation, 'resource')
@@ -502,13 +481,11 @@ class _Importer:
         if file_data == None:
             with open(filename, mode='rb') as file:
                 file_data = file.read()
-            
         #Check if this file has already been embedded
         if filename not in self.embedded_files:
             xid, path = self.embed_file_data(filename, file_data)
             self.embedded_files[filename] = (xid, path)
             return xid, path
-            
         #Hmm something already exists with that name, check the data
         xid, path = self.embedded_files[filename]
         fz = self.zf.open(path)
@@ -516,7 +493,6 @@ class _Importer:
             #It is the same file! return the existing link
             return xid, path
         fz.close()
-        
         #Try generating a new filename, checking if that already exists in the store too
         count=-1
         fbase, ext = os.path.splitext(filename)
@@ -535,6 +511,17 @@ class _Importer:
         xid, path = self.embed_file_data(fname, file_data)
         self.embedded_files[fname] = (xid, path)
         return xid, path
+
+    def write(self, cat: Category, path: str):
+        pool = Pool(self, cat)
+        for question in cat.questions:
+            if isinstance(question, QMultichoice) and question.ordered:
+                pool.addOQ_ordering(question)
+            else:
+                _QTYPE.get(type(question), None)
+        for name in cat:
+            self.write(cat[name], path)
+
 
 
 # ----------------------------------------------------------------------------
@@ -561,17 +548,6 @@ _QTYPE = {
 }
 
 
-def _txrecursive(cat: Category, path: str, importer: _Importer):
-    pool = Pool(importer, cat)
-    for question in cat.questions:
-        if isinstance(question, QMultichoice) and question.ordered:
-            pool.addOQ_ordering(question)
-        else:
-            _QTYPE.get(type(question), None)
-    for name in cat:
-        _txrecursive(cat[name], path, importer)
-
-
 def write_blackboard(self: Category, file_path: str) -> None:
     """_summary_
 
@@ -579,6 +555,6 @@ def write_blackboard(self: Category, file_path: str) -> None:
         file_path (str): _description_
     """
     pck = _Importer()
-    _txrecursive(self, file_path, pck)
+    pck.write(self, file_path)
     pck.close()
     
