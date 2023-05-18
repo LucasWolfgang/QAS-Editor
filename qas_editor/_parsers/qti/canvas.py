@@ -1,6 +1,6 @@
 """
 Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
+Copyright (C) 2023  Lucas Wolfgang
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -15,218 +15,86 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-from typing import TYPE_CHECKING, Dict
-from random import shuffle
-from xml.etree import ElementTree as et
-from xml.dom import minidom
-import tarfile
-import zipfile
-import logging
-import hashlib
+import os
 import re
+import shutil
+import logging
+import random
+import hashlib
+from typing import Dict
+from xml.etree import ElementTree as et
 
-_LOG = logging.getLogger(__name__)
+from .qti1v2 import QTIParser1v2
+
+_LOG = logging.getLogger()
 
 
-class QTIParser1v2:
-    """ Parse QTI 1.2 
+class ModuleMeta:
+    """_summary_
     Attributes:
+        root (et.Element): 
     """
+    def __init__(self, path: str):
+        self.root = et.parse(path).getroot()
+        self._init_modules()
+        self._init_items()
 
-    # String in img href to remove from XML
-    img_href_ims_base = "%24IMS-CC-FILEBASE%24/"
+    def _init_modules(self):
+        """Extract all the <module> tags from module_meta
+        """
+        modules = {}
+        for module in self.root.findall("module"):
+            if module.attrib.get("identifier"):
+                modules[module.attrib.get("identifier")] = module
+        self.modules = modules
 
-    # Character to replace [blanks] in questions with
-    blanks_replace_str = "_"
+    def _init_items(self):
+        """Extract all the <item> from modules
+        """
+        module_items = {}
+        items = self.root.findall(".//{*}item")
+        for item in items:
+            if item.attrib.get("identifier"):
+                module_items[item.attrib["identifier"]] = {
+                    "title": getattr(item.find("./{*}title"), "text", None),
+                    "content_type": item.find("./{*}content_type").text,
+                    "identifierref": getattr(item.find("./{*}identifierref"), "text", None),
+                    # ContextExternalTool type has url property
+                    "url": getattr(item.find("./{*}url"), "text", None),
+                }
+        self.items = module_items
 
-    # Number of replace characters in question text
-    blanks_question_n = 10
+    def _get_item_data(self, identifier, content_type):
+        """Returns the item data if item exists and the content_type
+        matches given content_type.
+        """
+        item = self.items.get(identifier)
+        if item and item["content_type"] == content_type:
+            return item
 
-    # Number of characters in answer line template
-    blanks_answer_n = 80
+    def get_external_tool_item_data(self, identifier):
+        """Returns the item data if item exists and content_type is
+        ContextExternalTool
+        """
+        return self._get_item_data(identifier, "ContextExternalTool")
 
-    # Random shuffle of answers in type "Matching Question"
-    matching_random_shuffle_answers = True
-    matching_random_shuffle_answer_options = True
+    def get_item_by_id(self, identifier):
+        """Get a module item given the identifier.
+        """
+        return self.items.get(identifier)
 
-    # If True, replace first set of variables in question text instead of displaying options
-    calculated_display_var_set_in_text = False
-    
-    NAMESPACE = "http://www.imsglobal.org/xsd/ims_qtiasiv1p2"
+    def get_identifierref(self, identifier):
+        """Get a item identifierref from identifier.
+        """
+        return self.items.get(identifier, {}).get("identifierref")
 
-    def __init__(self):
-        self._zf = None   # zipfile.ZipFile | tarfile.TarFile
-
-    def read(self, file_path: str):
-        data = {}
-        """ Read data out of the manifest and store it in data """
-        if tarfile.is_tarfile(file_path):
-            with tarfile.open(file_path, 'r:gz') as tar:
-                manifest = et.parse(tar.extractfile("imsmanifest.xml"))
-        else:
-            self._zf = zipfile.ZipFile(self.courseID+'.zip', mode='r', compression=zipfile.ZIP_DEFLATED)
-            manifest = et.parse(self._zf.read("imsmanifest.xml"))
-        qti_resource = {
-            'assessment': []
-        } 
-        for xml_resource in manifest.getroot().findall(".//{http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1}resource[@type='imsqti_xmlv1p2']"):
-            this_assessment = {
-                'id': xml_resource.get("identifier"),
-                'metadata': self.get_metadata(xml_resource.get("identifier") + "/" + "assessment_meta.xml"),
-                'question': []
-            }
-            # TODO: Should be prefixed with PATH part of input filename since paths in XML are relative
-            this_assessment_xml = this_assessment['id'] + "/" + this_assessment['id'] + ".xml"
-            for xml_item in et.parse(this_assessment_xml).getroot().findall(".//{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}item"):
-                this_assessment['question'].append(self.get_question(xml_item))
-            qti_resource['assessment'].append(this_assessment)
-        self.readManifest(manifest)
-        return data
-
-    def readManifest(self, elem: et.ElementTree, data):
-        assessment = elem.find('assessment')
-        if assessment:
-            data['title'] = assessment[0].get('title')
-            sections = assessment[0].find('section')
-            for s in sections:
-                items = s.find('item')
-                data['items'] = {}
-                data['itemorder'] = []
-                for i in items:
-                    self.readItem(i, data['items'], data['itemorder'])
-
-    def readItem(self, item, data, order):
-        pass
+    def get_module_by_id(self, identifier):
+        """Get a module from module identifier
+        """
+        return self.modules.get("identifier")
 
 
-class BB(QTIParser1v2):
-    """ Parse QTI 1.2 """
-
-    def __init__(self):
-        super().__init__()
-
-    def readItem(self, item, data, order):
-        """ Read an item out of the manifest. """
-        itemid = item.getAttribute('ident')
-        if itemid:
-            order.append(itemid)
-            data[itemid] = {}
-            itemtitle = item.getAttribute('title')
-            if itemtitle:
-                data[itemid]['title'] = itemtitle
-            self.readItemMetadata(item, data[itemid])
-            self.readPresentation(item, data[itemid])
-            self.readProcessingInfo(item, data[itemid])
-        
-    def readItemMetadata(self, item, data):
-        """ Read the item's metadata """
-        metadata = item.getElementsByTagName('qtimetadata')
-        for m in metadata:
-            fields = m.getElementsByTagName('qtimetadatafield')
-            for f in fields:
-                flabel = f.getElementsByTagName('fieldlabel')
-                if flabel:
-                    label = self.getTextValue(flabel[0])
-                    fentry = f.getElementsByTagName('fieldentry')
-                    if fentry:
-                        entry = self.getTextValue(fentry[0])
-                        if label:
-                            if 'qmd_questiontype' == label:
-                                if 'Multiple-choice' == entry:
-                                    data['questiontype'] = 'Multiple Choice'
-                                if 'Multiple-response' == entry:
-                                    data['questiontype'] = 'Multiple Answer'
-                                if 'True/false' == entry:
-                                    data['questiontype'] = 'True/False'
-                                if 'FIB-string' == entry:
-                                    data['questiontype'] = 'Essay'
-                            elif 'cc_profile' == label:
-                                if 'cc.multiple_choice.v0p1' == entry:
-                                    data['questiontype'] = 'Multiple Choice'
-                                if 'cc.multiple_response.v0p1' == entry:
-                                    data['questiontype'] = 'Multiple Answer'
-                                if 'cc.true_false.v0p1' == entry:
-                                    data['questiontype'] = 'True/False'
-                                if 'cc.essay.v0p1' == entry:
-                                    data['questiontype'] = 'Essay'
-                            elif 'cc_weighting' == label:
-                                data['questionscore'] = entry
-                                
-        if not data.has_key('questiontype'):
-            data['questiontype'] = 'Unknown'
-
-    def readPresentation(self, item, data):
-        """ Read the item's presentation data """
-        presentation = item.getElementsByTagName('presentation')
-        for p in presentation:
-            flow = p.getElementsByTagName('flow')
-            if flow:
-                for f in flow:
-                    self.readQuestion(f, data)
-                    self.readResponses(f, data)
-            else:
-                self.readQuestion(p, data)
-                self.readResponses(p, data)
-
-    def readQuestion(self, flow, data):
-        """ Read the Question """
-        material = flow.getElementsByTagName('material')
-        if material and len(material) > 0:
-            text, ttype = self.readMaterial(material[0])
-            data['qtexttype'] = ttype
-            data['question'] = text
-                
-    def readResponses(self, flow, data):
-        """ Read responses """
-        data['responses'] = []
-        responses = flow.getElementsByTagName('response_lid')
-        if responses:
-            choice = responses[0].getElementsByTagName('render_choice')
-            if choice:
-                labels = choice[0].getElementsByTagName('response_label')
-                for x in labels:
-                    respid = x.getAttribute('ident')
-                    if respid:
-                        material = x.getElementsByTagName('material')
-                        if material:
-                            text, ttype = self.readMaterial(material[0])
-                            data['responses'].append(
-                                (respid,
-                                 {'rtexttype':ttype, 'response':text, }))               
-
-    def readProcessingInfo(self, item, data):
-        """ Read processing info """
-        resprocessing = item.getElementsByTagName('resprocessing')
-        if resprocessing:
-            rcond = resprocessing[0].getElementsByTagName('respcondition')
-            for c in rcond:
-                title = c.getAttribute('title')
-                if title and title in ['CorrectResponse', 'Correct']:
-                    veq = c.getElementsByTagName('varequal')
-                    if veq:
-                        if data.has_key('cresponse'):
-                            data['cresponse'].append(self.getTextValue(veq[0]))
-                        else:
-                            data['cresponse'] = [self.getTextValue(veq[0])]
-                
-    def readMaterial(self, mat):
-        text = None
-        ttype = None
-        mattext = mat.getElementsByTagName('mattext')
-        if mattext:
-            ttype = mattext[0].getAttribute('texttype')
-            text = self.getTextValue(mattext[0])
-        return text, ttype   
-
-    def getTextValue(self, node):
-        """ Get text value out of node. """
-        for x in node.childNodes:
-            if x.TEXT_NODE == x.nodeType:
-                return x.nodeValue.strip()
-        return None
-                    
-
-class Canvas(QTIParser1v2):
+class CanvasImporter(QTIParser1v2):
 
     def _enumerate_blanks(self, text: str) -> str:
         """ Clarify blanks with index in question text """
@@ -292,7 +160,6 @@ class Canvas(QTIParser1v2):
             _LOG.error("XML parser error: %s", e)
         return var_sets
 
-    
     def _parse_fill_in_multiple_blanks(xml: et.ElementTree):
         """ Return an array of possible answers """
         answers = []
@@ -313,7 +180,7 @@ class Canvas(QTIParser1v2):
             _LOG.error("XML parser error: %s", e)
         return answers
 
-    def _parse_matching(self, xml: et.ElementTree):
+    def _parse_matching(self, xml: et.Element):
         """ Return an array of items and possible answers """
         answers = []
         correct_answer = {}
@@ -335,18 +202,17 @@ class Canvas(QTIParser1v2):
                     this_option['correct'] = True if this_response_lid['id'] in correct_answer and correct_answer[this_response_lid['id']] == xml_option.get("ident") else False
                     this_response_lid['options'].append(this_option)
                 if self.matching_random_shuffle_answer_options:
-                    shuffle(this_response_lid['options']) 
+                    random.shuffle(this_response_lid['options']) 
                 answers.append(this_response_lid)
         except OSError as e:
             _LOG.error("%s", e)
         except et.ParseError as e:
             _LOG.error("XML parser error: %s", e)
         if self.matching_random_shuffle_answers:
-            shuffle(answers)
+            random.shuffle(answers)
         return answers
 
-
-    def _parse_multiple_answers(self, xml: et.ElementTree):
+    def _parse_multiple_answers(self, xml: et.Element):
         """ Return an array of possible answers """
         answers = []
         correct_answers = []
@@ -368,8 +234,7 @@ class Canvas(QTIParser1v2):
             _LOG.error("XML parser error: %s", e)
         return answers
 
-
-    def _parse_multiple_dropdowns(self, xml: et.ElementTree):
+    def _parse_multiple_dropdowns(self, xml: et.Element):
         """ Return an array of possible answers, grouped for each blank """
         answers_group = []
         correct_answer = {}
@@ -396,7 +261,7 @@ class Canvas(QTIParser1v2):
             _LOG.error("XML parser error: %s", e)
         return answers_group
 
-    def _parse_multiple_choice(self, xml: et.ElementTree):
+    def _parse_multiple_choice(self, xml: et.Element):
         """ Return an array of possible answers """
         answers = []
         correct_answers = []
@@ -429,7 +294,7 @@ class Canvas(QTIParser1v2):
             _LOG.error("XML parser error: %s", e)
         return answers
 
-    def _parse_numerical(self, xml: et.ElementTree):
+    def _parse_numerical(self, xml: et.Element):
         """ Return an array of possible answers """
         answers = []
         i = 0
@@ -470,7 +335,7 @@ class Canvas(QTIParser1v2):
             _LOG.error("XML parser error: %s", e)
         return answers
 
-    def _parse_short_answer(self, xml):
+    def _parse_short_answer(self, xml: et.Element):
         """ Return an array of possible answers """
         answers = []
         i = 0
@@ -491,7 +356,7 @@ class Canvas(QTIParser1v2):
             _LOG.error("XML parser error: %s", e)
         return answers
 
-    def _parse_true_false(self, xml):
+    def _parse_true_false(self, xml: et.Element):
         """ Return an array of possible answers """
         answers = []
         correct_answers = []
@@ -531,7 +396,7 @@ class Canvas(QTIParser1v2):
             _LOG.error("XML parser error: %s", e)
         return metadata
 
-    def get_question(self, xml_item: et.ElementTree):
+    def get_question(self, xml_item: et.Element):
         """ Get question, metadata and answers/options """
         xml_item_metadata = xml_item.find("{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}itemmetadata/{http://www.imsglobal.org/xsd/ims_qtiasiv1p2}qtimetadata")
         this_question = {
@@ -599,17 +464,5 @@ class Canvas(QTIParser1v2):
             if self.calculated_display_var_set_in_text:
                 this_question['text'] = self._substitute_variables_in_question(this_question['text'], this_question['answer'][0])
         return this_question
-
-
-# -----------------------------------------------------------------------------
-
-
-def read_qti1v2(self, file_path: str):
-    """Read data out of the manifest and store it in data
-    Args:
-        file_path (str): _description_
-    """
-    parser = Canvas()
-    parser.read(file_path)
 
 

@@ -18,32 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import glob
 from typing import TYPE_CHECKING
 
-from ..question import QMultichoice
+from ...question import QMultichoice
 if TYPE_CHECKING:
-    from ..category import Category
+    from ...category import Category
 
-
-# -----------------------------------------------------------------------------
-
-
-def read_imscc(cls, file_path: str, category: str = "$course$") -> "Category":
-    """_summary_
-    Args:
-        file_path (str): _description_
-        category (str, optional): _description_. Defaults to "$".
-    Returns:
-        Quiz: _description_
-    """
-    quiz = cls(category)
-    cnt = 0
-
-    return quiz
-
-
-def write_imscc(category: "Category", file_path: str) -> None:
-    """_summary_
-    Args:
-        file_path (str): _description_
-    """
-    with open(file_path, "w", encoding="utf-8") as ofile:
-        pass
