@@ -23,14 +23,12 @@ from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
 
 from qas_editor.enums import ShuffleType
-from .qti1v2 import QTIParser1v2
 from ...question import QMultichoice, QShortAnswer, QTrueFalse, QNumerical,\
                        QMultichoice, QEmbedded
-from ...utils import serialize_fxml, render_latex
+from . import IMS
 if TYPE_CHECKING:
     from typing import Dict
     from ...category import Category
-    from ...utils import FText
     from ...question import _Question, _QHasOptions
 
 
@@ -43,7 +41,7 @@ __doc__= """BlackBoard uses a modified version of QTI Content Package v1.2.
 
 class Pool:
 
-    def __init__(self, package: BBImporter, cat: Category, instructions=""):
+    def __init__(self, package: BBExporter, cat: Category, instructions=""):
         """Initialises a question pool
         """
         self.pkg = package
@@ -364,7 +362,7 @@ class Pool:
                          feedbacktype='Response')
 
 
-class BBImporter:
+class BBExporter:
 
     _QTYPE = {
         QEmbedded: "addFITBQ_cloze",
@@ -379,7 +377,7 @@ class BBImporter:
         """
         self.courseID = cat.name
         self.embedded_files: Dict[str, tuple] = {}
-        self.zf = ZipFile(self.courseID+'.zip', mode='w', compression=ZIP_DEFLATED)
+        self.zf = None
         self.next_xid = 1000000
         self.equation_counter = self.resource_counter = 0
         self.embedded_paths = {}
@@ -393,17 +391,6 @@ class BBImporter:
     def bbid(self):
         self.idcntr += 1
         return self.idcntr
-    
-    def close(self):
-        #Write additional data to implement the course name
-        parentContext = et.Element("parentContextInfo")
-        et.SubElement(parentContext, "parentContextId").text = self.courseID
-        self.embed_resource(self.courseID, "resource/x-mhhe-course-cx", '<?xml version="1.0" encoding="utf-8"?>\n'+et.tostring(parentContext, pretty_print=False).decode('utf-8'))
-
-        #Finally, write the manifest file
-        self.zf.writestr('imsmanifest.xml', '<?xml version="1.0" encoding="utf-8"?>\n'+et.tostring(self.manifest, pretty_print=False).decode('utf-8'))
-        self.zf.writestr('.bb-package-info', open(os.path.join(os.path.dirname(__file__), '.bb-package-info')).read())
-        self.zf.close()
 
     def embed_resource(self, title, type, content):
         self.resource_counter += 1
@@ -476,7 +463,7 @@ class BBImporter:
         self.zf.writestr(filepath+'.xml', '<?xml version="1.0" encoding="UTF-8"?>\n'+et.tostring(descriptor_node, pretty_print=False).decode('utf-8'))
         return str(self.next_xid)+'_1', filepath
 
-    def embed_file(self, filename, file_data=None):
+    def embed_file(self, filename: str, file_data=None):
         """Embeds a file, and returns an img tag for use in blackboard, and an
         equivalent for html.
         """
@@ -516,137 +503,38 @@ class BBImporter:
         return xid, path
 
     def write(self, cat: Category, path: str):
-        pool = Pool(self, cat)
-        for question in cat.questions:
-            if isinstance(question, QMultichoice) and question.ordered:
-                pool.addOQ_ordering(question)
-            else:
-                self._QTYPE.get(type(question), None)
-        for name in cat:
-            self.write(cat[name], path)
+        with ZipFile(path, mode='w', compression=ZIP_DEFLATED) as ofile:
+            pool = Pool(self, cat)
+            for question in cat.questions:
+                if isinstance(question, QMultichoice) and question.ordered:
+                    pool.addOQ_ordering(question)
+                else:
+                    self._QTYPE.get(type(question), None)
+            for name in cat:
+                self.write(cat[name], path)
+            parentContext = et.Element("parentContextInfo")
+            et.SubElement(parentContext, "parentContextId").text = self.courseID
+            self.embed_resource(self.courseID, "resource/x-mhhe-course-cx", '<?xml version="1.0" encoding="utf-8"?>\n'+et.tostring(parentContext, pretty_print=False).decode('utf-8'))
+            ofile.writestr('imsmanifest.xml', '<?xml version="1.0" encoding="utf-8"?>\n'+et.tostring(self.manifest, pretty_print=False).decode('utf-8'))
+            ofile.writestr('.bb-package-info', open(os.path.join(os.path.dirname(__file__), '.bb-package-info')).read())
+            ofile.close()
 
 
-class BBExporter(QTIParser1v2):
+def read_blackboard(cls: Category, filename: str) -> None:
+    """_summary_
+
+    Args:
+        file_path (str): _description_
     """
+    pass
+
+
+def write_blackboard(self: Category, filename: str) -> None:
+    """_summary_
+
+    Args:
+        file_path (str): _description_
     """
-
-    def __init__(self):
-        super().__init__()
-
-    def read(self, item: et.Element, data: dict, order: list):
-        """ Read an item out of the manifest. """
-        itemid = item.attrib.get('ident')
-        if itemid:
-            order.append(itemid)
-            data[itemid] = {}
-            itemtitle = item.attrib.get('title')
-            if itemtitle:
-                data[itemid]['title'] = itemtitle
-            self._read_item_metadata(item, data[itemid])
-            self._read_presentation(item, data[itemid])
-            self._read_processingInfo(item, data[itemid])
-        
-    def _read_item_metadata(self, item: et.Element, data: dict):
-        """ Read the item's metadata """
-        for m in item.findall('qtimetadata'):
-            for f in  m.findall('qtimetadatafield'):
-                flabel = f.find('fieldlabel')
-                if flabel:
-                    label = self._get_text_value(flabel)
-                    fentry = f.find('fieldentry')
-                    if fentry:
-                        entry = self._get_text_value(fentry[0])
-                        if label:
-                            if 'qmd_questiontype' == label:
-                                if 'Multiple-choice' == entry:
-                                    data['questiontype'] = 'Multiple Choice'
-                                if 'Multiple-response' == entry:
-                                    data['questiontype'] = 'Multiple Answer'
-                                if 'True/false' == entry:
-                                    data['questiontype'] = 'True/False'
-                                if 'FIB-string' == entry:
-                                    data['questiontype'] = 'Essay'
-                            elif 'cc_profile' == label:
-                                if 'cc.multiple_choice.v0p1' == entry:
-                                    data['questiontype'] = 'Multiple Choice'
-                                if 'cc.multiple_response.v0p1' == entry:
-                                    data['questiontype'] = 'Multiple Answer'
-                                if 'cc.true_false.v0p1' == entry:
-                                    data['questiontype'] = 'True/False'
-                                if 'cc.essay.v0p1' == entry:
-                                    data['questiontype'] = 'Essay'
-                            elif 'cc_weighting' == label:
-                                data['questionscore'] = entry
-        if 'questiontype' not in data:
-            data['questiontype'] = 'Unknown'
-
-    def _read_presentation(self, item: et.Element, data):
-        """ Read the item's presentation data """
-        presentation = item.findall('presentation')
-        for p in presentation:
-            flow = p.findall('flow')
-            if flow:
-                for f in flow:
-                    self._read_question(f, data)
-                    self._read_responses(f, data)
-            else:
-                self._read_question(p, data)
-                self._read_responses(p, data)
-
-    def _read_question(self, flow, data):
-        """ Read the Question """
-        material = flow.findall('material')
-        if material and len(material) > 0:
-            text, ttype = self._read_material(material[0])
-            data['qtexttype'] = ttype
-            data['question'] = text
-                
-    def _read_responses(self, flow: et.Element, data: dict):
-        """ Read responses """
-        data['responses'] = []
-        responses = flow.findall('response_lid')
-        if responses:
-            choice = responses[0].findall('render_choice')
-            if choice:
-                labels = choice[0].findall('response_label')
-                for x in labels:
-                    respid = x.getAttribute('ident')
-                    if respid:
-                        material = x.findall('material')
-                        if material:
-                            text, ttype = self._read_material(material[0])
-                            data['responses'].append(
-                                (respid,
-                                 {'rtexttype':ttype, 'response':text, }))               
-
-    def _read_processingInfo(self, item: et.Element, data: dict):
-        """ Read processing info """
-        resprocessing = item.findall('resprocessing')
-        if resprocessing:
-            rcond = resprocessing[0].findall('respcondition')
-            for c in rcond:
-                title = c.getAttribute('title')
-                if title and title in ['CorrectResponse', 'Correct']:
-                    veq = c.findall('varequal')
-                    if veq:
-                        if data.has_key('cresponse'):
-                            data['cresponse'].append(self._get_text_value(veq[0]))
-                        else:
-                            data['cresponse'] = [self._get_text_value(veq[0])]
-                
-    def _read_material(self, mat: et.Element):
-        text = None
-        ttype = None
-        mattext = mat.findall('mattext')
-        if mattext:
-            ttype = mattext[0].getAttribute('texttype')
-            text = self._get_text_value(mattext[0])
-        return text, ttype   
-
-    def _get_text_value(self, node: et.ElementTree):
-        """ Get text value out of node. """
-        for x in node.childNodes:
-            if x.TEXT_NODE == x.nodeType:
-                return x.nodeValue.strip()
-        return None
-                    
+    # pck = BBExporter()
+    # pck.write(self, filename)
+    # pck.close()
