@@ -25,8 +25,8 @@ TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
 @pytest.fixture(scope="module")
 def all_question_types():
-    EXAMPLE = f"{TEST_PATH}/datasets/ims/canvas_all_question_types.imscc"
-    TMP = f"{TEST_PATH}/datasets/ims/canvas_all_question_types_tmp"
+    EXAMPLE = f"{TEST_PATH}/datasets/ims/canvas_all.imscc"
+    TMP = f"{TEST_PATH}/datasets/ims/canvas_all_tmp"
     shutil.rmtree(TMP, ignore_errors=True)
     yield IMS(EXAMPLE, TMP)
     shutil.rmtree(TMP)
@@ -36,8 +36,8 @@ def test_read_manifest(all_question_types: IMS):
 
 
 def test_read_canvas():
-    EXAMPLE = f"{TEST_PATH}/datasets/ims/canvas_all_question_types.imscc"
-    TMP = f"{TEST_PATH}/datasets/ims/canvas_all_question_types_tmp"
+    EXAMPLE = f"{TEST_PATH}/datasets/ims/canvas_all.imscc"
+    TMP = f"{TEST_PATH}/datasets/ims/canvas_all_tmp"
     cat = Category()
     shutil.rmtree(TMP, ignore_errors=True)
     canvas.read_cc_canvas(cat, EXAMPLE)

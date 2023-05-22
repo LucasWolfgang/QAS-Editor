@@ -64,7 +64,7 @@ venv.bak/
 .DS_Store
 .vscode/
 **.tmp
-**/tmp*
+**/*tmp*
 
 # I was wrong. No need for setup.py anymore
 poetry.lock

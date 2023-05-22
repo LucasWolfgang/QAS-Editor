@@ -15,9 +15,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import sys
-if sys.version_info < (3, 7):
-    raise Exception("Python 2 is not supported.")
+import logging
+_LOG = logging.getLogger(__name__)
 
 __author__ = "Lucas Wolfgang"
 

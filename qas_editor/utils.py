@@ -21,17 +21,20 @@ import os
 import subprocess
 import base64
 import copy
+import html
 import logging
 import shutil
 import tempfile
 import hashlib
 import unicodedata
+import mimetypes
 from io import BytesIO
 from xml.sax import saxutils
 from importlib import util
-from urllib import request
-from typing import Dict, List, Callable
-from .enums import FileAddr, TextFormat, Status, Distribution, MathType
+from urllib import request, parse
+from xml.etree import ElementTree as et
+from typing import Dict, List, Tuple, Callable
+from .enums import FileAddr, OutFormat, TextFormat, Status, Distribution, MathType
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 if EXTRAS_FORMULAE:
@@ -119,6 +122,32 @@ def _escape_attrib_html(data):
     return data
 
 
+def read_fxml(source) -> Tuple[et.Element, Dict[str, str]]:
+    """_summary_
+    Args:
+        source (_type_): _description_
+    Returns:
+        Tuple[et.Element, Dict[str, str]]: Root and namespaces
+    """
+    parser = et.XMLPullParser(events=("start-ns",))
+    close_source = False
+    if not hasattr(source, "read"):
+        source = open(source, "rb")
+        close_source = True
+    try:
+        while True:
+            data = source.read(65536)
+            if not data:
+                break
+            parser.feed(data)
+        root = parser._close_and_return_root()
+    finally:
+        if close_source:
+            source.close()
+    ns = dict([node for _, node in parser.read_events()])
+    return root, ns
+
+
 _latex_cache: Dict[str, str] = {}
 def render_latex(latex: str, ftype: FileAddr, scale=1.0):
     """TODO optimize. It has just too many calls. But at least it works...
@@ -186,6 +215,18 @@ def clean_q_name(string: str):
     out = re.sub(r'[^0-9a-zA-Z:\-]+', ' ', out)
     return out.strip()
 
+
+def attribute_setup(cls, attr: str, doc: str=""):
+    """Generate get/set/del properties for a Ftext attribute.
+    """
+    def setter(self, value):
+        if isinstance(value, cls):
+            setattr(self, attr, value)
+        elif value is not None:
+            raise ValueError(f"Can't assign {value} to {attr}")
+    def getter(self) -> FText:
+        return getattr(self, attr)
+    return property(getter, setter, doc=doc)
 
 # -----------------------------------------------------------------------------
 
@@ -322,14 +363,25 @@ class AnswerError(Exception):
 class File(Serializable):
     """File used in questions. Can be either a local path, an URL, a Embedded
     encoded string.
+    Attributes:
+        path (str): path to the file in the filesystem or network.
+        data (str): file data in base64 format.
+        metadata (**kwargs): File specific metadata, such as author, id, etc.
     """
 
-    def __init__(self, path: str, data: str = None): #, **kwargs):
+    def __init__(self, path: str, data: str = None, mimetype: str = None,
+                 **metadata):
         super().__init__()
         self.data = data
-        if path.startswith("@@PLUGINFILE@@/"):
-            path = path.replace("@@PLUGINFILE@@/", "/")
         self.path = path
+        self.metadata = metadata
+        self.mtype = mimetype
+        self.children = None
+        if self.mtype is None and path:
+            try:
+                self.mtype = mimetypes.guess_type(path)[0]
+            except Exception:
+                pass
         if data is not None:
             self._type = FileAddr.EMBEDDED
         elif os.path.exists(path):
@@ -342,22 +394,14 @@ class File(Serializable):
             except Exception:
                 self._type = FileAddr.LOCAL
                 _LOG.exception("It was not possible to find the file %s", path)
-        # self.metadata = kwargs
+
 
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, File):
             return False
         return __o.path == self.path and __o._type and self._type
 
-    def get_tag(self) -> str:
-        """_summary_
-        Returns:
-            str: _description_
-        """
-        path, name = self.path.split("/", 1)
-        output_bb = f'<file name="{name}" path="{path}"'
-        # for key, value in self.metadata.items():
-        #     output_bb += f' {key}="{value}"'
+    def get_data(self):
         if self.data is None:
             if self._type == FileAddr.URL:
                 with request.urlopen(self.path) as ifile:
@@ -365,37 +409,89 @@ class File(Serializable):
             elif self._type == FileAddr.LOCAL:
                 with open(self.path, "rb") as ifile:
                     self.data = str(base64.b64encode(ifile.read()), "utf-8")
+        return self.data
+
+    def get_tag(self, path: str = None) -> str:
+        """_summary_
+        Returns:
+            str: _description_
+        """
+        _path, name = (path or self.path).split("/", 1)
+        output_bb = f'<file name="{name}" path="{_path}"'
+        for key, value in self.metadata.items():
+            output_bb += f' {key}="{value}"'
+        self.get_data()
         return f"{output_bb}/>{self.data}</file>"
 
 
-class FileRef(Serializable):
-    """A text reference of a file. Used in a FText to allow instance specific
-    metadata.
+class LinkRef(Serializable):
+    """A text reference of a file or link. Used in a FText to allow instance
+    specific metadata.
+    Attributes:
+        file (File):
+        metadata (Dict[str, str]):
     """
 
-    def __init__(self, file: File, **kwargs):
+    REFS = {
+        #Name       #Moodle             #QTI
+        "<file>" : ["@@PLUGINFILE@@", "$IMS-CC-FILEBASE$"]
+    }
+
+    def __init__(self, tag: str, file: File, **kwargs):
         super().__init__()
+        self.tag = tag
         self.file = file
         self.metadata = kwargs
 
-    def get_tag(self, embedded: bool) -> str:
-        ext = self.file.path.rsplit(".", 1)[-1]
-        if ext in ("jpeg", "jpg", "png", "svg"):
-            src = f"data:image/{ext};base64,{self.file.data}" if embedded else self.file.path
-            output_bb = f'<img src="{src}"'
-        elif ext == ("svg"):
-            src = f"data:video/{ext};base64,{self.file.data}" if embedded else self.file.path
-            output_bb = f'<video src="{src}"'
+    def _replace_href_scr(self, value: str, format: OutFormat):
+        if "$IMS-CC-FILEBASE$" in value:
+            new_item = parse.unquote(value).replace("$IMS-CC-FILEBASE$", "/static")
+            return new_item.split("?")[0].replace("&amp;", "&")
+        elif "$WIKI_REFERENCE$" in value:
+            search_key = parse.unquote(value).replace("$WIKI_REFERENCE$/pages/", "")
+            search_key = search_key.split("?")[0] + ".html"
+            if self.file.path.endswith(search_key):
+                return f"/jump_to_id/{self.file.metadata['identifier']}"
+            _LOG.warning("Unable to process Wiki link - %s", value)
+        elif "$CANVAS_OBJECT_REFERENCE$/external_tools" in value:
+            query = parse.parse_qs(html.unescape(parse.urlparse(value).query))
+            return query.get("url", [""])[0]
+        elif "$CANVAS_OBJECT_REFERENCE$" in value:
+            return parse.unquote(value).replace("$CANVAS_OBJECT_REFERENCE$/quizzes/", 
+                                                "/jump_to_id/")
+        elif "@@PLUGINFILE@@" in value:
+            return parse.unquote(value).replace("@@PLUGINFILE@@", "/")
+
+    def _handle_iframe(format: OutFormat):
+        if format == OutFormat.OLX:
+            elem = et.Element("video")
+
+    def get_tag(self, embedded: bool, format: OutFormat) -> str:
+        for val in ("href", "src"):
+            if val in self.metadata:
+                self.metadata[val] = self._replace_href_scr(self.metadata[val])
+        if self.tag == "iframe" and format == OutFormat.OLX:
+            output_bb = f'<video ' # TODO probably need something else here
+        elif self.tag == "transcript" or self.file.mtype == "transcript":
+            return f'<transcript language="" src="">'
         else:
-            raise ValueError("Extension is not supported.")
+            output_bb = f'<{self.tag}'
+        if embedded:
+            output_bb += f'data:{self.file.mtype};base64,{self.file.data}" '
+        else:
+            output_bb += self._replace_href_scr(self.file.path) + '" '
         for key, value in self.metadata.items():
             output_bb += f' {key}="{value}"'
-        return output_bb + '/>'
-
-    def link_moodle(self) -> str:
-        """Returns a moodle like for a embedded (base64) file.
-        """
-        return f"@@PLUGINFILE@@/{self.file.path}"
+        for key, value in self.file.metadata.items():
+            if key not in self.metadata:
+                output_bb += f' {key}="{value}"'
+        if self.file.children:
+            output_bb += '>'
+            for value in self.file.children:
+                output_bb += value.get_tag()
+            output_bb += f'</{self.tag}>'
+        else:
+            output_bb += '/>'
 
 
 class Dataset(Serializable):
@@ -433,19 +529,21 @@ class Dataset(Serializable):
 
 
 class _FParser():
+    """Helper class to part plain text that has flexible format, such as html,
+    markdown, etc, to extract and generate objects that can be used, such as 
+    links, math expressions and markers.
+    """
 
-    def __init__(self, text: str, formatting: TextFormat, check_tags: bool, 
-                 check_math: bool, files: List[File] = None, file_root = ""):
+    def __init__(self, text: str, check_tags: bool, files: List[File] = None,
+                 token_map: dict = None):
         self.stack = []
         self.ftext = []
         self.text = text
+        self._tmap = token_map
         self.stt = [0, False, 0]  # Pos, escaped, Last pos
         self.lastattr = None
-        self.check_tags = check_tags 
-        self.root = file_root
-        self.format = formatting
-        self.check_math = check_math
-        self.files = files if files is not None else []
+        self.check_tags = check_tags
+        self.files = files or []
 
     def _wrapper(self, callback: Callable, size=1):
         if self.text[self.stt[2]: self.stt[0]]:
@@ -473,24 +571,25 @@ class _FParser():
                 path = attrs.pop("src")
                 for item in self.files:
                     if item.path == path:
-                        return FileRef(item, **attrs)
+                        return LinkRef(tag, item, **attrs)
                 file = File(path, None)
         self.files.append(file)
-        return FileRef(file, **attrs)
+        return LinkRef(tag, file, **attrs)
         
     def _nxt(self):
         self.stt[1] = (self.text[self.stt[0]] == "\\") and not self.stt[1]
         self.stt[0] += 1
 
-    def _get_tag(self) -> FileRef | None:
+    def _get_tag(self) -> LinkRef | None:
         while self.text[self.stt[0]] != ">" and not self.stt[1]:
             self._nxt()
         tmp = self.text[self.stt[2]-1: self.stt[0] + 1]  # includes final ">"
         tag = tmp[1:-1].split(" ", 1)[0]
         result = None
-        if tag in ("img", "video", "file"):
-            data = re.findall(r"(\S+?)=\"(.+?)\"[ />]", tmp)
-            result = self._get_file_ref(tag, {k:v for k,v in data})
+        if tag in ("a", "base", "base", "link", "audio", "embed", "iframe", 
+                   "img", "input", "script", "source", "track", "video", "file"):
+            data = {k:v for k,v in re.findall(r"(\S+?)=\"(.+?)\"[ />]", tmp)}
+            result = self._get_file_ref(tag, data)
         else:
             result = tmp
         if tag[0] == "/":
@@ -514,7 +613,7 @@ class _FParser():
         expr = expr.replace("{","").replace("}","").replace("pi()","pi")
         return parse_expr(expr)
 
-    def _get_moodle_var(self,):
+    def _get_moodle_var(self):
         while self.text[self.stt[0]] != "}":
             self._nxt()
         return parse_expr(self.text[self.stt[2]: self.stt[0]])
@@ -526,16 +625,22 @@ class _FParser():
 
     def parse(self):
         while self.stt[0] < len(self.text):
-            if (self.format in (TextFormat.AUTO, TextFormat.HTML, TextFormat.MD) 
-                        and self.text[self.stt[0]] == "<" and not self.stt[1]):
+            if (self.text[self.stt[0]] == "<" and not self.stt[1]):
                 self._wrapper(self._get_tag)
-            elif self.check_math and EXTRAS_FORMULAE:
+            elif EXTRAS_FORMULAE:
                 if self.text[self.stt[0]:self.stt[0]+2] == "{=" and not self.stt[1]:
                     self._wrapper(self._get_moodle_exp, 2)
                 elif self.text[self.stt[0]] == "(" and self.stt[1]: 
                     self._wrapper(self._get_latex_exp)  # This is correct: "\("
                 elif self.text[self.stt[0]] == "{" and not self.stt[1]:
                     self._wrapper(self._get_moodle_var)
+            else:
+                for key, value in self._tmap.items():
+                    if self.text[self.stt[0]:self.stt[0]+len(key)] == key and not self.stt[1]:
+                        if isinstance(value, str):
+                            self._wrapper(getattr(self, value))
+                        else:
+                            self._wrapper(value(self))
             self._nxt()
         if self.text[self.stt[2]:]:
             self.ftext.append(self.text[self.stt[2]:])
@@ -545,10 +650,12 @@ class _FParser():
 
 class FText(Serializable):
     """A formated text. 
+    Attributes:
+        text (list): 
     """
 
-    def __init__(self, text: str|list = "", formatting = TextFormat.AUTO,
-                 files: list = None):
+    def __init__(self, text: str|List[str] = "", formatting = TextFormat.AUTO,
+                 files: List[File] = None):
         super().__init__()
         self.formatting = TextFormat(formatting)
         self._text = text if isinstance(text, list) else [text]
@@ -579,7 +686,7 @@ class FText(Serializable):
 
     @classmethod
     def from_string(cls, text: str, formatting=TextFormat.AUTO, check_tags=True,
-                     check_math=True, files: list = None) -> FText:
+                    files: list = None, tagmap: dict=None) -> FText:
         """Parses the provided string to a FText class by finding file pointers
         and math expression and returning them as a list.
         Args:
@@ -591,7 +698,7 @@ class FText(Serializable):
         Returns:
             FText: _description_
         """
-        parser = _FParser(text, formatting, check_tags, check_math, files)
+        parser = _FParser(text, check_tags, files, tagmap)
         parser.parse()
         return cls(parser.ftext, formatting, parser.files)
 
@@ -611,7 +718,7 @@ class FText(Serializable):
                 data += str(item)
             elif hasattr(item, "MARKER_INT"):
                 data += chr(item.MARKER_INT)
-            elif isinstance(item, FileRef):
+            elif isinstance(item, LinkRef):
                 data += item.get_tag()
             elif EXTRAS_FORMULAE and isinstance(item, Expr):
                 if math_type == MathType.LATEX:
@@ -631,7 +738,7 @@ class FText(Serializable):
         return data
 
     @staticmethod
-    def prop(attr: str, doc: str=""):
+    def prop(attr: str, doc: str="") -> FText:
         """Generate get/set/del properties for a Ftext attribute.
         """
         def setter(self, value):
@@ -701,3 +808,9 @@ class Rule(Serializable):
         self.name = name
         self.text = text
         self.proof = proof
+
+
+class Var(Serializable):
+
+    def __init__(self, text: FText):
+        self.data = text if not EXTRAS_FORMULAE else []

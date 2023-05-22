@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from enum import Enum
+from enum import Enum, auto
 from types import DynamicClassAttribute
 
 
@@ -44,6 +44,10 @@ class EnhancedEnum(Enum):
         """Description/commentary for the given item
         """
         return self._comment_
+    
+    @DynamicClassAttribute
+    def values(self) -> list:
+        return self._all_values
 
 
 class EmbeddedFormat(EnhancedEnum):
@@ -76,7 +80,7 @@ class Distribution(EnhancedEnum):
 
 
 class FileAddr(Enum):
-    """Define how a File class should behave.
+    """Define how to intepret the File's path.
     """
     LOCAL = "Local"
     EMBEDDED = "Embedded"
@@ -119,6 +123,14 @@ class Numbering(EnhancedEnum):
     ROM_LR = "iii", "iii"
     ROM_UR = "IIII", "IIII"
 
+
+class OutFormat(Enum):
+    """_summary_
+    """
+    MOODLE = auto()
+    OLX = auto()
+    QTI = auto()
+    GIFT = auto()
 
 class ShapeType(Enum):
     """Enumerates Shape Types

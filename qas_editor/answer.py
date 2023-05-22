@@ -18,13 +18,59 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict
 from .enums import TolFormat, TextFormat, ShapeType, EmbeddedFormat, Direction,\
                    TolType
-from .utils import Serializable, File, FText, TList
+from .utils import Serializable, File, FText, TList, attribute_setup
 if TYPE_CHECKING:
     from typing import List
-LOG = logging.getLogger(__name__)
+_LOG = logging.getLogger(__name__)
+
+
+class Item:
+    """
+    This is an abstract class Question used as a parent for specific
+    types of Questions.
+    """
+    ANS_TYPE = None
+
+    def __init__(self, default_grade=1.0, feedbacks: Dict[float, FText] = None,
+                 time_lim: int = 0, free_hints: list = None):
+        """[summary]
+        Args:
+            name (str): name of the question
+            question (FText): text of the question
+            default_grade (float): the default mark
+            general_feedback (str, optional): general feedback.
+            dbid (int, optional): id number.
+        """
+        self.units = None
+        self._grade = float(default_grade)
+        self._time_lim = int(time_lim)
+        self._feedbacks = None
+        self._free_hints = TList(FText, free_hints)
+        self._options = []
+        self._procs = {}
+
+    grade = attribute_setup(float, "_grade")
+    time_lim = attribute_setup(int, "_time_lim")
+    feedbacks = attribute_setup(dict, "_feedbacks")
+    free_hints = attribute_setup(TList, "_free_hints")
+    procs = attribute_setup(TList, "_procs")
+    options = attribute_setup(dict, "_options")
+
+    def check(self):
+        """Check if the instance parameters have valid values. Call this method
+        before exporting the instance, or right after modifying many valid of
+        a instance.
+        """
+        if (not isinstance(self.name, str) or self._time_lim < 0
+                or (self.dbid is not None and not isinstance(self.dbid, int))
+                or self.default_grade < 0):
+            raise ValueError("Invalid value(s).")
+        for key, value in self._feedbacks.items():
+            if not isinstance(key, float) or not isinstance(value, FText):
+                raise TypeError()
 
 
 class Answer(Serializable):

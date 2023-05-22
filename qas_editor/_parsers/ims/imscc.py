@@ -15,6 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 from typing import TYPE_CHECKING, Dict
 from xml.etree import ElementTree as et
 from ... import _LOG, utils
@@ -26,13 +27,13 @@ if TYPE_CHECKING:
 
 class CC(IMS):
 
-    def _find_items(self, elems: et.Element, ns: dict, cat: Category):
+    def _find_items(self, elems: et.Element, ns: dict, cat: Category, stype: list):
         for elem in elems:
             if any(elem.tag.endswith(tmp) for tmp in ("assessment", "section", "objectbank")):
-                tmp = Category(elem.get("title") or elem.get("ident"))
-                CC._find_items(elem, ns, tmp)
+                tmp = cat.add_subcat(elem.get("title") or elem.get("ident"))
+                self._find_items(elem, ns, tmp, stype)
             elif elem.tag.endswith("qtimetadata"):
-                tmp = {}
+                tmp = {}  # Integrated to make it faster
                 for meta in elem:
                     if meta.tag.endswith("qtimetadatafield"):
                         key = meta.find("fieldlabel", ns).text
@@ -42,17 +43,11 @@ class CC(IMS):
                         tmp[key] = meta.text  # TODO may override custom field
                 cat.metadata = tmp
             elif elem.tag.endswith("item"):
-                if self._meta["schema"] in self._qtiparser:
-                    qst = self._qtiparser[self._meta["schema"]](elem)
-                elif "*" in self._qtiparser:
-                    qst = self._qtiparser["*"](elem)
-                else:
-                    raise KeyError("No parser for the given schema")
-                cat.add_question(qst)
+                cat.add_question(self._qtiparser(elem, ns))
 
     def get_manifest(self, nsmap: dict = None) -> dict:
         manifest, ns = super().get_manifest(nsmap)
-        lom = manifest.find("ims:metadata/lomimscc:lom", ns)
+        lom = manifest.find("metadata/lomimscc:lom", ns)
         if lom is not None:
             self._meta["lom"] = {}
             gen = lom.find("lomimscc:general", ns)
@@ -78,27 +73,22 @@ class CC(IMS):
                 self._meta["lom"]["description"] = tmp1.text if tmp1 else None
         return manifest, ns
 
-    def _read_metadata(self, file: str) -> Dict[str, str]:
-        """ Extracts basic metadata """
-        metadata = {}
-        try:
-            xml, ns = utils.read_fxml(file)
-            metadata = {
-                'title': xml.find("title", ns).text,
-                'description': xml.find("description", ns).text,
-                'type': xml.find("quiz_type", ns).text,
-                'points_possible': xml.find("points_possible", ns).text
-            }
-        except OSError as e:
-            _LOG.error("%s", e)
-        except et.ParseError as e:
-            _LOG.error("XML parser error: %s", e)
-        return metadata
-
-    def _read_questions(self, args: dict, stype: str):
+    def _read_questions(self, args: dict, stype: list, cat: Category):
         """ Get question, metadata and answers/options """
         if args["refs"]:
-            path = f"{self._tmpp}/{self._res[args['refs'][0]]['files'][0]}"
-            self._read_metadata(path)
+            for file in args['refs']:
+                path = f"{self._tmpp}/{self._res[file]['files'][0]}"
+                root, ns = utils.read_fxml(path)
+                if root.tag.endswith("quiz"):
+                    cat.metadata = {
+                        'title': root.find("title", ns).text,
+                        'description': root.find("description", ns).text,
+                        'type': root.find("quiz_type", ns).text,
+                        'points': root.find("points_possible", ns).text
+                    }
+                elif root.tag.endswith(("questestinterop", "objectbank")):
+                    self._find_items(root, ns, self._cat, stype)
+                else:
+                    raise KeyError("Unkwon tag: %s", root.tag)
         root, ns = utils.read_fxml(f"{self._tmpp}/{args['files'][0]}")
-        self._find_items(root, ns, self._cat)
+        self._find_items(root, ns, self._cat, stype)

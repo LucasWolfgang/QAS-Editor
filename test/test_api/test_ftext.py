@@ -71,7 +71,7 @@ def test_img_ref():
         """class="img-responsive" width="100" height="141"/> is close.</p>""")
     _results = utils.FText.from_string(text)
     assert len(_results.text) == 6
-    assert isinstance(_results.text[3], utils.FileRef)
+    assert isinstance(_results.text[3], utils.LinkRef)
     assert len(_results.files) == 1
     assert _results.files[0] == utils.File("/dessin.svg","")
     assert _results.files[0] == _results.text[3].file
@@ -87,7 +87,7 @@ def test_img_ref_base64():
         """ dot" width="100" height="141"/> is close.</p>""")
     _results = utils.FText.from_string(text)
     assert len(_results.text) == 6
-    assert isinstance(_results.text[3], utils.FileRef)
+    assert isinstance(_results.text[3], utils.LinkRef)
     assert len(_results.files) == 1
     assert _results.files[0] == utils.File("/0.png","")
     assert _results.files[0] == _results.text[3].file

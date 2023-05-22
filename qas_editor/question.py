@@ -593,3 +593,75 @@ class QTrueFalse(_Question):
 
     true_feedback = FText.prop("_true_feedback")
     false_feedback = FText.prop("_false_feedback")
+
+
+
+class Tmp:
+    """
+    This is an abstract class Question used as a parent for specific
+    types of Questions.
+    """
+    QNAME = None
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls.QNAME is not None:
+            QNAME[cls.QNAME] = cls
+
+    def __init__(self, name="qstn", dbid: int = None, tags: TList = None,
+                 notes: str = ""):
+        """[summary]
+        Args:
+            name (str): name of the question
+            question (FText): text of the question
+            default_grade (float): the default mark
+            dbid (int, optional): id number.
+        """
+        self.name = str(name)
+        self.dbid = int(dbid) if dbid else None
+        self.notes = str(notes)
+        self.points = 0
+        self._text = None
+        self._remarks = None
+        self._tags = TList(str, tags)
+        self.__parent: Category = None
+        _LOG.debug("New question (%s) created.", self)
+
+    def __str__(self) -> str:
+        return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
+
+    body = FText.prop("_question", "Question text")
+    remarks = FText.prop("_remarks", "Solution or global feedback")
+
+    @property
+    def parent(self) -> Category:
+        """_summary_
+        """
+        return self.__parent
+
+    @parent.setter
+    def parent(self, value: Category):
+        if (self.__parent is not None and self in self.__parent.questions) or \
+                (value is not None and self not in value.questions):
+            raise ValueError("This attribute can't be assigned directly. Use "
+                             "parent's add/pop_question functions instead.")
+        self.__parent = value
+        _LOG.debug("Added (%s) to parent (%s).", self, value)
+
+    @property
+    def tags(self) -> TList:
+        """_summary_
+        """
+        return self._tags
+
+    def check(self):
+        """Check if the instance parameters have valid values. Call this method
+        before exporting the instance, or right after modifying many valid of
+        a instance.
+        """
+        if (not isinstance(self.name, str) or self.time_lim < 0
+                or (self.dbid is not None and not isinstance(self.dbid, int))):
+            raise ValueError("Invalid value(s).")
+        for key, value in self._feedbacks.items():
+            if not isinstance(key, float) or not isinstance(value, FText):
+                raise TypeError()

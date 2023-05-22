@@ -520,6 +520,9 @@ class BBExporter:
             ofile.close()
 
 
+# ----------------------------------------------------------------------------
+
+
 def read_blackboard(cls: Category, filename: str) -> None:
     """_summary_
 
