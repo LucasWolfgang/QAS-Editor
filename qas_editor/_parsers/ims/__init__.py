@@ -20,7 +20,7 @@ import os
 import shutil
 import zipfile
 import tarfile
-from typing import TYPE_CHECKING, Dict, List
+from typing import TYPE_CHECKING, Dict, Callable
 from xml.etree import ElementTree as et
 from ... import _LOG, utils
 if TYPE_CHECKING:
@@ -32,11 +32,11 @@ class IMS:
     Attributes:
     """
 
-    def __init__(self, path: str, qti_parser: dict, category: Category,
+    def __init__(self, path: str, qti_parser: Callable, category: Category,
                  tmpdir: str=None, manifest_cat=False, file_cat=False, qti_cat=True):
         self._meta = {}
         self._org = []
-        self._cat = category or Category()
+        self._cat = category
         self._res: Dict[str, Dict[str, str]] = {}
         self._path = path
         self._tmpp = tmpdir or f"{path.rsplit('.', 1)[0]}_tmp"
@@ -113,7 +113,7 @@ class IMS:
         """
         raise NotImplementedError
 
-    def _read_questions(self, data: dict, stype: str):
+    def _read_questions(self, data: dict, stype: str, cat: Category):
         """_summary_
         Args:
             data (dict): _description_
@@ -140,7 +140,6 @@ class IMS:
         else:
             raise TypeError("Format not spported")
 
-
     def read(self):
         """Helper function in case the class is being directly used by an user.
         """
@@ -150,13 +149,17 @@ class IMS:
         self.descompress()
         self.get_manifest()
         for item in self._res.values():
-            if not item["type"].startswith(("imsqti_", "assignment_")):
+            types = item["type"].split("/")
+            if not any(tmp.startswith("imsqti_") for tmp in types) or (
+                "associatedcontent" in types and item["href"].endswith(".xml.qti")
+            ):
                 continue
-            self._read_questions(item, item["type"])
+            # TODO Used cat here til implement the organization based hierarchy
+            self._read_questions(item, types, self._cat)
 
     def write(self):
         raise NotImplementedError
-
+ 
 
 # -----------------------------------------------------------------------------
 
