@@ -54,12 +54,12 @@ class CC(IMS):
             tmp = self._meta["lom"]["general"] = None if gen is None else {}
             if gen is not None:
                 tmp1 = gen.find("lomimscc:title/lomimscc:string", ns)
-                tmp["title"] = tmp1.text if tmp1 else None
+                tmp["title"] = tmp1.text if tmp1 is not None else None
                 tmp1 = gen.find("lomimscc:language/lomimscc:string", ns)
-                tmp["language"] = tmp1.text if tmp1 else None
+                tmp["language"] = tmp1.text if tmp1 is not None else None
                 tmp1 = gen.find("lomimscc:description/lomimscc:string", ns)
-                tmp["description"] = tmp1.text if tmp1 else None
-                tmp["keywords"] = tmp1.text.split() if tmp1 else None
+                tmp["description"] = tmp1.text if tmp1 is not None else None
+                tmp["keywords"] = tmp1.text.split() if tmp1 is not None else None
             tmp = lom.find("lomimscc:lifeCycle/lomimscc:contribute/" +
                         "lomimscc:date/lomimscc:dateTime", ns)
             text = None if tmp is None else tmp.text
