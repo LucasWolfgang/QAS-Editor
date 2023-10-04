@@ -18,18 +18,32 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 import logging
-from typing import TYPE_CHECKING, Dict
+from typing import TYPE_CHECKING, Dict, List, Callable
 from .enums import TolFormat, TextFormat, ShapeType, EmbeddedFormat, Direction,\
-                   TolType
+                   TolType, Logic
 from .utils import Serializable, File, FText, TList, attribute_setup
-if TYPE_CHECKING:
-    from typing import List
 _LOG = logging.getLogger(__name__)
 
 
-class Item:
+class Processor:
+    """Logic expression used to define the result of the question.
     """
-    This is an abstract class Question used as a parent for specific
+
+    def __init__(self, key: str|Callable, value: str) -> None:
+        self.children: Dict[Logic, Processor] = None
+        self.key = key
+        self.val = value
+
+    def any_n(self, *args):
+        pass
+
+    def run(self):
+        for key, value in self.children.items():
+            pass
+
+
+class Item:
+    """This is an abstract class Question used as a parent for specific
     types of Questions.
     """
     ANS_TYPE = None
@@ -50,7 +64,7 @@ class Item:
         self._feedbacks = None
         self._free_hints = TList(FText, free_hints)
         self._options = []
-        self._procs = {}
+        self._procs: Processor = None
 
     grade = attribute_setup(float, "_grade")
     time_lim = attribute_setup(int, "_time_lim")

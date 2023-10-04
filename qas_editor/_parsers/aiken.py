@@ -19,7 +19,6 @@ import re
 import logging
 import glob
 from typing import TYPE_CHECKING
-
 from ..question import QMultichoice
 from ..utils import FText
 from ..enums import TextFormat
@@ -54,7 +53,7 @@ def _from_question(buffer, line: str, name: str):
 # -----------------------------------------------------------------------------
 
 
-def read_aiken(cls, file_path: str, category: str = "$course$") -> "Category":
+def read_aiken(cls: "Category", file_path: str, category: str = "$course$") -> "Category":
     """_summary_
 
     Args:

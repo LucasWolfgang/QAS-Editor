@@ -665,9 +665,9 @@ class FText(Serializable):
         return self.get()
 
     @property
-    def text(self):
-        """A list of strings, file references and math expressions (if 
-        EXTRAS_FORMULAE).
+    def text(self) -> List[str|LinkRef]:
+        """A list of strings, file references, questions and math expressions 
+        (if EXTRAS_FORMULAE).
         """
         return self._text
 

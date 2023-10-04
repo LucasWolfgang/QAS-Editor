@@ -18,13 +18,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 import logging
 import re
+import csv
 from typing import TYPE_CHECKING, Dict, List, Iterator
 
-from .utils import Serializable, File
+from .utils import Serializable, File, FText
 from .question import _Question
 from .enums import Status
 from ._parsers import aiken, csv_card, cloze, gift, json, kahoot, latex, \
-                      markdown, moodle, olx, qti1v2
+                      markdown, moodle, olx, ims
 if TYPE_CHECKING:
     from .utils import Dataset
 _LOG = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ class Category(Serializable):  # pylint: disable=R0904
     read_moodle = classmethod(moodle.read_moodle)
     read_moodle_backup = classmethod(moodle.read_moodle_backup)
     read_olx = classmethod(olx.read_olx)
-    read_qti12 = classmethod(qti1v2.read_qti1v2)
+    read_qti12 = classmethod(ims.read_qti1v2)
 
     write_aiken = aiken.write_aiken
     write_cloze = cloze.write_cloze
@@ -137,17 +138,21 @@ class Category(Serializable):  # pylint: disable=R0904
         self.datasets = value.datasets
         self.resources = value.resources
 
-    def add_subcat(self, child: Category) -> bool:
+    def add_subcat(self, child: Category | str) -> bool:
         """Adds a category child to this category. This implementation avoids
         issues related to duplicated names and parent set/unset.
         """
-        if child.name in self.__categories:
-            return False
+        if isinstance(child, str):
+            if child in self.__categories:
+                return None
+            child = Category(child)
+        elif child.name in self.__categories:
+            return None
         if child.parent is not None:
             child.parent.pop_subcat(child.name)
         self.__categories[child.name] = child
         child.parent = self
-        return True
+        return child
 
     def add_question(self, question) -> bool:
         """_summary_
@@ -360,5 +365,26 @@ class Category(Serializable):  # pylint: disable=R0904
                            " found for %s.", _path, ext)
         return top_quiz
 
+    def update_links(self, filename: str, link_header: str, recursive: bool,
+                     attrs: tuple = None):
+        """Update the html that point to link on question texts.
+        # TODO, define how to handle the changes
+        Args:
+            filename (str): _description_
+            link_header (str): _description_
+            attr (tuple, optional): Attributes to update. Defaults to all.
+        """
+        link_map = {}
+        with open(filename, encoding="utf-8") as csvfile:
+            for row in csv.DictReader(csvfile):
+                link_map[row[link_header]] = row
+        for file in self.resources:
+            pass
+
     def write(self, ext: str, path: str):
+        """_summary_
+        Args:
+            ext (str): _description_
+            path (str): _description_
+        """
         getattr(self, SERIALIZERS[ext][1])(path)

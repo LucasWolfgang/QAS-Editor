@@ -124,6 +124,13 @@ class Numbering(EnhancedEnum):
     ROM_UR = "IIII", "IIII"
 
 
+class Logic(Enum):
+    AND = auto()
+    OR = auto()
+    NOT = auto()
+    ELSE = auto()
+
+
 class OutFormat(Enum):
     """_summary_
     """
@@ -131,6 +138,7 @@ class OutFormat(Enum):
     OLX = auto()
     QTI = auto()
     GIFT = auto()
+
 
 class ShapeType(Enum):
     """Enumerates Shape Types
@@ -217,6 +225,5 @@ class TolType(EnhancedEnum):
 class TolFormat(EnhancedEnum):
     """Tolerance Format types
     """
-
     DEC = "1", "Decimals"
     FIG = "2", "Significant figures"

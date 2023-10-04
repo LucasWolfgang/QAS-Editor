@@ -858,3 +858,7 @@ def write_moodle(self: "Category", file_path: str, pretty=False):
     with open(file_path, "w") as ofile:
         ofile.write("<?xml version='1.0' encoding='utf-8'?>\n")
         serialize_fxml(ofile.write, root, True, pretty)
+
+
+def write_moodle_backup(self: "Category", file_path: str, pretty=False):
+    pass

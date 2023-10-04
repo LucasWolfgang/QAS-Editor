@@ -39,8 +39,7 @@ MARKER_INT = 9635
 
 
 class _Question(Serializable):
-    """
-    This is an abstract class Question used as a parent for specific
+    """This is an abstract class Question used as a parent for specific
     types of Questions.
     """
     QNAME = None
@@ -595,18 +594,10 @@ class QTrueFalse(_Question):
     false_feedback = FText.prop("_false_feedback")
 
 
-
-class Tmp:
+class QQuestion:
+    """New global question type, which is based on the QTI format, instead of 
+    Moodle, which was the previous one.
     """
-    This is an abstract class Question used as a parent for specific
-    types of Questions.
-    """
-    QNAME = None
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if cls.QNAME is not None:
-            QNAME[cls.QNAME] = cls
 
     def __init__(self, name="qstn", dbid: int = None, tags: TList = None,
                  notes: str = ""):
@@ -621,7 +612,7 @@ class Tmp:
         self.dbid = int(dbid) if dbid else None
         self.notes = str(notes)
         self.points = 0
-        self._text = None
+        self._body = None
         self._remarks = None
         self._tags = TList(str, tags)
         self.__parent: Category = None
@@ -630,7 +621,7 @@ class Tmp:
     def __str__(self) -> str:
         return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
 
-    body = FText.prop("_question", "Question text")
+    body = FText.prop("_body", "Question body")
     remarks = FText.prop("_remarks", "Solution or global feedback")
 
     @property
