@@ -19,26 +19,33 @@ from __future__ import annotations
 import codecs
 import os
 import re
-import cgi
+import json
 import shutil
 import logging
 from io import StringIO
 import tarfile
 from xml.etree import ElementTree as et
 from html.parser import HTMLParser
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type
 from ..question import  QMultichoice
 from ..utils import serialize_fxml
 if TYPE_CHECKING:
     from ..category import Category
-    from ..question import _Question, _QHasOptions
+    from ..question import _Question, _QHasOptions, QQuestion
 
 
 __doc__="Parser for the Open Learning XML Format (OLX) from Open EdX"
 _LOG = logging.getLogger(__name__)
+_POLICY = { "course/1": { "tabs": [
+    {"course_staff_only": True, "name": "Home", "type": "course_info"},
+    {"course_staff_only": False, "name": "Course", "type": "courseware"},
+    {"course_staff_only": False, "name": "Textbooks", "type": "textbooks"},
+    {"course_staff_only": False, "name": "Discussion", "type": "discussion"},
+    {"course_staff_only": False, "name": "Wiki", "type": "wiki", "is_hidden": True},
+    {"course_staff_only": False, "name": "Progress", "type": "progress"}
+] } }
 
-
-class _OlxImporter:
+class _OlxExporter:
 
     _URL_CHAR_MAP = {',/().;=+ ': '_', '/': '__', '&': 'and',
                       '#': '_num_', '[': 'LB_', ']': '_RB'}
@@ -53,8 +60,6 @@ class _OlxImporter:
         self._output_dir = ""
         self.cat = category
         self.pretty = pretty
-        self.cxml: et.Element = None
-
 
     def _to_url(self, string: str, extra_ok_chars=""):
         for m,v in self._URL_CHAR_MAP.items():
@@ -159,13 +164,11 @@ class _OlxImporter:
                 et.SubElement(opt_item, "choicehint").text = opt.feedback
         return page
     
-    def _txrecursive(self, cat: "Category", dbids: dict):
+    def _txrecursive(self, cat: Category, dbids: dict, path: str, stack: tuple,
+                     elem: et.Element):
         for file in cat.resources:
-            file.path
             output = f"/static/{os.path.basename(file.path).replace(' ', '_')}"
-            self._files[mfile.get('id')] = (output, fname)
-            shutil.copy(f"{_moodle_dir}/files/{fhash[:2]}/{fhash}",
-                        f"{_path}/{output}")
+            shutil.copy(file.path, f"{path}/{output}")
         if cat.get_size() > 0:
             for qst in cat.questions:
                 tmp = self._QTYPE.get(qst.__class__)
@@ -175,36 +178,130 @@ class _OlxImporter:
                     ofile.write("<?xml version='1.0' encoding='utf-8'?>\n")
                     serialize_fxml(ofile.write, tmp(qst), True, True)
                 dbids[qst.dbid] = qst.name
+        if stack and elem:
+            elem = et.SubElement(elem, stack[0], display_name=cat.name)
+            stack = stack[1:] or stack
         for name in cat:                            # Then add children data
             self._txrecursive(cat[name], dbids)
 
     def write(self, file_path: str):
         self.cat.gen_dbids([])   # We need that each question has a unique dbid
-        _path = file_path.rsplit(".", 1)[0]
-        _path, name = _path.rsplit("/", 1)
+        _path = os.path.dirname(file_path)
         shutil.rmtree(_path, True)
         for folder in ('about', 'chapter', 'course', 'html', 'problem',
-                       'sequential', 'static', 'vertical'):
+                       'sequential', 'static', 'vertical', 'policies'):
             os.makedirs(f"{_path}/{folder}")
         dbids = {}
-        self._txrecursive(self.cat, dbids)
+        stack = ("chapter", "sequential", "vertical")
+        tmp = depth = self.cat.get_depth(True)
+        cxml = et.Element("course", url_name="1", org="QAS", course="questions",
+                          name=self.cat.name)
         if "moodle_course" in self.cat.metadata:
+            # TODO not working yet
             _moodle_dir = self.cat.metadata["moodle_course"]
             moodx = et.parse(f"{_moodle_dir}/moodle_backup.xml").getroot()
             xml = et.parse(f'{_moodle_dir}/course/course.xml').getroot()
             name = xml.find('shortname').text
             contents = xml.find('summary').text
             if contents:
-                chapter = et.SubElement(self.cxml,'chapter')
+                chapter = et.SubElement(cxml,'chapter')
                 url = self._to_url(f'course__{name}')
                 et.SubElement(chapter, 'sequential', display_name=name, url_name=url)
                 self._save_as_html(url, name, contents, self.pretty)
-            self._moodle_translator(moodx, dbids)
+            #self._moodle_translator(moodx, dbids)
+        else:
+            tmp = cxml
+            substack = stack[:max(3-depth, 0)]
+            for tag in substack:
+                tmp = et.SubElement(tmp, tag, display_name=f"QAS_{tag}")
+            self._txrecursive(self.cat, dbids, tmp, substack)
+            tmp = cxml  
+            for tag in substack:
+                tmp = et.SubElement(tmp, tag, display_name=f"QAS_{tag}")
         with open(f"{_path}/course.xml", 'w') as ofile:
-            ofile.write("<?xml version='1.0' encoding='utf-8'?>\n")
+            serialize_fxml(ofile.write, cxml, True, True)
+        os.makedirs(f"{_path}/policies/1/")
+        with open(f"{_path}/policies/1/policy.json", 'w') as ofile:
+            json.dump(_POLICY, ofile)
         with tarfile.open(file_path, 'w:gz') as tar:
             for _dir in os.listdir(_path):
                 tar.add(f"{_path}/{_dir}", arcname=os.path.basename(_dir))
+
+
+
+class _OlxImporter:
+
+    def __init__(self, category: Type[Category], header: tarfile.TarInfo,
+                 tar: tarfile.TarFile, use_hier: bool=True):
+        self._QTYPE = {
+            "choiceresponse": "_from_choiceresponse",
+            "multiplechoiceresponse": "_from_multiplechoiceresponse",
+            "optionresponse": "_from_"
+        }
+        self._URLNAMES = []
+        self._files = {}
+        self._catcls = category
+        self._tar = tar
+        self._hdr = header
+        self._hier = use_hier
+        self._root = "."
+
+    def _read_question(self, item: et.Element, name: str):
+        qst = QQuestion(item.get("display_name", name))
+        text = []
+        for child in item:
+            if child.tag in ("h1", "h2", "h3", "p", "pre"):
+                text.append(child.text)
+            elif child.tag in self._QTYPE:
+                getattr(self, self._QTYPE[child.tag])(child)
+            else:
+                print(f"Tag not implemented: {item.tag}")
+        qst.body.text = text
+
+    def _from_choiceresponse(self, item: et.Element, text: list):
+        for child in item:
+            if child.tag in ("h1", "h2", "h3", "p", "pre"):
+                pass
+
+    def _from_optionresponse(self, item: et.Element):
+        pass
+
+    def _read_multiplechoiceresponse(self, item: et.Element):
+        pass
+
+    def _read_hier_single(self, tag: et.Element, cat: Category):
+        total = 0
+        cat.name = tag.get("display_name")
+        for child in tag:
+            name = child.get('url_name')
+            path = f"{self._root}/{child.tag}/{name}.xml"
+            if child.tag in ("chapter", "sequential", "vertical", "library_content"):      
+                tmp = self._catcls(name) if self._hier else cat
+                if not len(child):
+                    child = et.parse(self._tar.extractfile(path)).getroot()
+                val = self._read_hier_single(child, tmp)
+                if val != 0:
+                    cat.add_subcat(tmp)
+                    total += val
+            elif child.tag == "problem":
+                stm = et.parse(self._tar.extractfile(path)).getroot()
+                qst = self._read_question(et.parse(stm).getroot(), name)
+                cat.add_question(qst)
+                total += 1
+        return total
+
+  
+    def read(self):
+        self._root = os.path.dirname(self._hdr.path)
+        header = et.parse(self._tar.extractfile(self._hdr)).getroot()
+        cat = self._catcls(header.get('url_name'))
+        if len(header) == 0: # Uses separeted file 
+            path = f"{self._root}/course/{header.get('url_name')}.xml"
+            crs = et.parse(self._tar.extractfile(path)).getroot()
+            self._read_hier_single(crs, cat)
+        else:
+            self._read_hier_single(header, cat)
+        return cat
 
 
 # -----------------------------------------------------------------------------
@@ -215,29 +312,21 @@ def read_olx(cls, file_path: str):
     Returns:
         [type]: [description]
     """
-    with tarfile.open(file_path, 'r:gz') as tar:
+    with tarfile.open(file_path, 'r:xz') as tar:
         for path in tar:
-            if path.isreg():
-                print("a regular file.")
-            elif path.isdir():
-                print("a directory.")
-            else:
-                print("something else.")
+            if path.isreg() and path.path.split("/")[1][-4:] == ".xml":
+                break
+        else:
+            raise ValueError("File is not valid")
+        tmp = _OlxImporter(cls, path, tar)
+        res = tmp.read()
+    return res
 
 
-def write_olx_lib(self: "Category", file_path: str, pretty=False, course=True):
+def write_olx(self: "Category", file_path: str, pretty=False, course=True):
     """[summary]
     Returns:
         [type]: [description]
     """
-    tmp = _OlxImporter(self, pretty, course)
-    tmp.write(file_path)
-
-
-def write_olx_course(self: "Category", file_path: str, pretty=False, course=True):
-    """[summary]
-    Returns:
-        [type]: [description]
-    """
-    tmp = _OlxImporter(self, pretty, course)
+    tmp = _OlxExporter(self, pretty, course)
     tmp.write(file_path)

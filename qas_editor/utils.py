@@ -28,6 +28,8 @@ import tempfile
 import hashlib
 import unicodedata
 import mimetypes
+from io import TextIOWrapper
+from html.parser import HTMLParser
 from io import BytesIO
 from xml.sax import saxutils
 from importlib import util
@@ -50,7 +52,6 @@ EXTRAS_GUI = util.find_spec("PyQt5") is not None
                 # moodle, sympy, latex
 MDL_FUNCTION = {('arctan', 'atan'), ('arcsin', 'asin'), ('arccos', 'acos'),
                 ('arctan', 'atan'), ('root', 'sqrt'), ('clip', ''), ('neg', '-')}
-_INVALID_HTML_TAG_RE = re.compile(r'<(?!/?[a-zA-Z0-9]+(?: .*|/?)>)(?:.|\n)*?>')
 
 
 def gen_hier(cls, top, category: str):
@@ -198,7 +199,9 @@ def render_latex(latex: str, ftype: FileAddr, scale=1.0):
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
                 buffer.close()
                 res = str(base64.b64encode(buffer.getvalue()), "utf-8")
-        except (ValueError, RuntimeError, ParseFatalException):
+        except (ValueError, RuntimeError):
+            return None
+        except ParseFatalException:
             return None
     _latex_cache[key] = res
     return res
@@ -340,11 +343,6 @@ class TList(list):
 
 
 # -----------------------------------------------------------------------------
-
-
-class ParseError(Exception):
-    """Exception used when a parsing fails.
-    """
 
 
 class MarkerError(Exception):
@@ -528,10 +526,105 @@ class Dataset(Serializable):
             pass
 
 
-class _FParser():
-    """Helper class to part plain text that has flexible format, such as html,
-    markdown, etc, to extract and generate objects that can be used, such as 
-    links, math expressions and markers.
+class XItem:
+
+    def __init__(self, tag, attrib: dict = None, closed: bool = False):
+        self.tag = tag
+        self.attrs = attrib
+        self._children = None if closed else []
+
+    def __iter__(self):
+        return iter(self._children)
+
+    def append(self, item: XItem):
+        self._children.append(item)
+
+    def __str__(self) -> str:
+        value = f"<{self.tag} "
+        if self.attrs:
+            for key, val in self.attrs.items():
+                value += f"{key}={val} "
+        value += ">"
+        for child in self._children:
+            value += str(child)
+        value = f"</{self.tag}>"
+        return value
+
+
+class XHTMLParser(HTMLParser):
+    """A parser for HTML and XML that may contain other formats"""
+
+    def __init__(self, convert_charrefs: bool = True, check_closing: bool = False,
+                 files: List[File] = None):
+        super().__init__(convert_charrefs=convert_charrefs)
+        self.root = XItem("")
+        self._stack = [self.root]
+        self._check = check_closing
+        self.files = files or []
+
+    def __str__(self) -> str:
+        """Hope this will not need to be enhanced due to performance metrics
+        Returns:
+            str: resulting text
+        """
+        return str(self.root)
+
+    def _get_file_ref(self, tag: str, data: str):
+        tag = self._stack[-1].tag
+        attrs = self._stack[-1].attrs
+        if tag == "file":
+            path = attrs.pop("path", "/") + attrs.pop("name")
+            file = File(path, data)
+        else:
+            if attrs.get("src", "")[:5] == "data:":
+                data, scr = attrs.pop("src").split(";", 1)
+                _, ext = data.split("/", 1)
+                path = f"/{len(self.files)}.{ext}"
+                file = File(path, scr[7:])  # Consider this is a base64 data
+            else:
+                path = attrs.pop("src")
+                for item in self.files:
+                    if item.path == path:
+                        return LinkRef(tag, item, **attrs)
+                file = File(path, None)
+        self.files.append(file)
+        return LinkRef(tag, file, **attrs)
+
+    def handle_startendtag(self, tag, attrs):
+        if self._check or tag not in ("source", "area", "track", "input", "col",
+                 "embed", "hr",  "link", "meta", "br", "base", "wbr", "img"):
+            raise ParseFatalException()
+        self._stack[-1].append(XItem(tag, attrs, True))
+
+    def handle_starttag(self, tag, attrs):
+        self._stack.append(XItem(tag, attrs))
+        self.root.append(self._stack[-1])
+
+    def handle_endtag(self, tag):
+        self._stack.pop()
+
+    def handle_data(self, data):
+        if self._stack[-1].attrs not in ("a", "base", "base", "link", "audio", 
+                                "embed", "iframe", "img", "input", "script",  
+                                "source","track", "video", "file"):
+            self._get_file_ref(data)
+        else:
+            self._stack[-1].append(data)
+
+    def parse(self, data: str|TextIOWrapper):
+        if isinstance(data, str):
+            self.feed(data)
+            self.close()
+        elif isinstance(data, TextIOWrapper):
+            for line in data:
+                self.feed(line)
+            self.close()
+        else:
+            raise ParseFatalException()
+
+
+class TextParser():
+    """A global text parser to generate FText instances
     """
 
     def __init__(self, text: str, check_tags: bool, files: List[File] = None,
@@ -540,6 +633,9 @@ class _FParser():
         self.ftext = []
         self.text = text
         self._tmap = token_map
+        self.pos = 0
+        self.lst = 0
+        self.scp = False
         self.stt = [0, False, 0]  # Pos, escaped, Last pos
         self.lastattr = None
         self.check_tags = check_tags
@@ -601,51 +697,50 @@ class _FParser():
             self.stack.append(tag)
         return result
 
-    def _get_moodle_exp(self):
-        cnt = 0
-        while self.text[self.stt[0]] != "}" or cnt != 0:
-            if self.text[self.stt[0]] == "{" and not self.stt[1]:
-                cnt += 1
-            elif self.text[self.stt[0]] == "}" and not self.stt[1]:
-                cnt -= 1
-            self._nxt()
-        expr = self.text[self.stt[2]: self.stt[0]]
-        expr = expr.replace("{","").replace("}","").replace("pi()","pi")
-        return parse_expr(expr)
-
-    def _get_moodle_var(self):
-        while self.text[self.stt[0]] != "}":
-            self._nxt()
-        return parse_expr(self.text[self.stt[2]: self.stt[0]])
 
     def _get_latex_exp(self):
         while self.text[self.stt[0]] == ")" and self.stt[1]:  # This is correct: "\("
             self._nxt()
         return parse_latex(self.text[self.stt[2]: self.stt[0]])
 
-    def parse(self):
-        while self.stt[0] < len(self.text):
-            if (self.text[self.stt[0]] == "<" and not self.stt[1]):
-                self._wrapper(self._get_tag)
-            elif EXTRAS_FORMULAE:
-                if self.text[self.stt[0]:self.stt[0]+2] == "{=" and not self.stt[1]:
-                    self._wrapper(self._get_moodle_exp, 2)
-                elif self.text[self.stt[0]] == "(" and self.stt[1]: 
-                    self._wrapper(self._get_latex_exp)  # This is correct: "\("
-                elif self.text[self.stt[0]] == "{" and not self.stt[1]:
-                    self._wrapper(self._get_moodle_var)
-            else:
-                for key, value in self._tmap.items():
-                    if self.text[self.stt[0]:self.stt[0]+len(key)] == key and not self.stt[1]:
-                        if isinstance(value, str):
-                            self._wrapper(getattr(self, value))
-                        else:
-                            self._wrapper(value(self))
-            self._nxt()
+    def do(self):
+        """Modify this functions in super classes.
+        """
+        if (self.text[self.stt[0]] == "<" and not self.stt[1]):
+            self._wrapper(self._get_tag)
+        elif EXTRAS_FORMULAE:
+            if self.text[self.stt[0]:self.stt[0]+2] == "{=" and not self.stt[1]:
+                self._wrapper(self._get_moodle_exp, 2)
+            elif self.text[self.stt[0]] == "(" and self.stt[1]: 
+                self._wrapper(self._get_latex_exp)  # This is correct: "\("
+            elif self.text[self.stt[0]] == "{" and not self.stt[1]:
+                self._wrapper(self._get_moodle_var)
+        else:
+            for key, value in self._tmap.items():
+                if self.text[self.stt[0]:self.stt[0]+len(key)] == key and not self.stt[1]:
+                    if isinstance(value, str):
+                        self._wrapper(getattr(self, value))
+                    else:
+                        self._wrapper(value(self))
+
+    def clean_up(self):
         if self.text[self.stt[2]:]:
             self.ftext.append(self.text[self.stt[2]:])
         if self.check_tags and len(self.stack) != 0:
             raise ValueError(f"One or more tags are not closed: {self.stack}.")
+
+    def parse(self, data: str|TextIOWrapper):
+        if isinstance(data, str):
+            self.text = data
+        elif isinstance(data, TextIOWrapper):
+            self.text = data.read()
+        else:
+            raise ParseFatalException()
+        while self.stt[0] < len(self.text):
+            self.do()
+            self._nxt()
+        self.clean_up()
+        return FText(self.ftext, None, self.files)
 
 
 class FText(Serializable):
@@ -654,11 +749,13 @@ class FText(Serializable):
         text (list): 
     """
 
-    def __init__(self, text: str|List[str] = "", formatting = TextFormat.AUTO,
+    def __init__(self, text: str|List[str] = None, formatting = TextFormat.AUTO,
                  files: List[File] = None):
         super().__init__()
         self.formatting = TextFormat(formatting)
-        self._text = text if isinstance(text, list) else [text]
+        self._text = text
+        if text and isinstance(text, list):
+            self._text = [text]
         self.files = files  # Local reference of the list of files used.
 
     def __str__(self) -> str:
@@ -698,7 +795,7 @@ class FText(Serializable):
         Returns:
             FText: _description_
         """
-        parser = _FParser(text, check_tags, files, tagmap)
+        parser = TextParser(text, check_tags, files, tagmap)
         parser.parse()
         return cls(parser.ftext, formatting, parser.files)
 

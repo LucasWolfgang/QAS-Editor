@@ -18,8 +18,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import logging
 import zipfile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 from xml.etree import ElementTree as et
+from importlib import util
 
 from ..answer import ACalculated, ANumerical, Answer, DragItem, DragGroup, \
                      DragImage, DropZone, Subquestion, SelectOption
@@ -31,12 +32,72 @@ from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
                     ShapeType, Grading, Status, TolFormat, TolType,\
                     Distribution, ShowAnswer, MathType, ShuffleType
 from ..utils import gen_hier, Dataset, Hint, TList, FText, File, Unit, \
-                    serialize_fxml
+                    serialize_fxml, XHTMLParser
+
 if TYPE_CHECKING:
     from ..category import Category, _Question
     from ..question import _QHasOptions, _QHasUnits
+EXTRAS_FORMULAE = util.find_spec("sympy") is not None
+if EXTRAS_FORMULAE:
+    from sympy.parsing.latex import parse_latex
+    from sympy.parsing.sympy_parser import parse_expr
 _LOG = logging.getLogger(__name__)
 
+
+class MoodleXHTMLParser(XHTMLParser):
+
+    def __init__(self, convert_charrefs: bool = True, check_closing: bool = False, 
+                 files: List[File] = None):
+        super().__init__(convert_charrefs, check_closing, files)
+        self.pos = self.lst = 0
+        self.scp = False
+
+    def _nxt(self, data):
+        self.scp = (data[self.pos] == "\\") and not self.scp
+        self.pos += 1 
+
+    def _wrapper(self, data: str, callback, size=1):
+        if data[self.lst: self.pos]:
+            self._stack[-1].append(data[self.lst: self.pos])
+        self.pos += size
+        self.lst = self.pos
+        self._stack[-1].append(callback())
+        self.lst = self.pos + 1
+
+    def handle_data(self, data: str):
+        self.pos = self.lst = 0
+        self.scp = False
+        if EXTRAS_FORMULAE:
+            while self.pos < len(data):
+                if data[self.pos:self.pos+2] == "{=" and not self.scp:
+                    self._wrapper(self._get_moodle_exp, 2)
+                elif data[self.pos] == "(" and self.scp: 
+                    self._wrapper(self._get_latex_exp)  # This is correct: "\("
+                elif data[self.pos] == "{" and not self.scp:
+                    self._wrapper(self._get_moodle_var)
+        return super().handle_data(data)
+
+    def _get_moodle_exp(self, data: str):
+        cnt = 0
+        while data[self.pos] != "}" or cnt != 0:
+            if data[self.pos] == "{" and not self.scp:
+                cnt += 1
+            elif data[self.pos] == "}" and not self.scp:
+                cnt -= 1
+            self._nxt(data)
+        expr = data[self.lst: self.pos]
+        expr = expr.replace("{","").replace("}","").replace("pi()","pi")
+        return parse_expr(expr)
+
+    def _get_moodle_var(self, data: str):
+        while data[self.pos] != "}":
+            self._nxt(data)
+        return parse_expr(data[self.lst: self.pos])
+
+    def _get_latex_exp(self, data: str):
+        while data[self.pos] == ")" and self.scp:  # This is correct: "\("
+            self._nxt(data)
+        return parse_latex(data[self.lst: self.pos])
 
 # -----------------------------------------------------------------------------
 
