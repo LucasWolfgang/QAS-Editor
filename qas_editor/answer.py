@@ -20,26 +20,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Dict, List, Callable
 from .enums import TolFormat, TextFormat, ShapeType, EmbeddedFormat, Direction,\
-                   TolType, Logic
+                   TolType
 from .utils import Serializable, File, FText, TList, attribute_setup
 _LOG = logging.getLogger(__name__)
-
-
-class Processor:
-    """Logic expression used to define the result of the question.
-    """
-
-    def __init__(self, key: str|Callable, value: str) -> None:
-        self.children: Dict[Logic, Processor] = None
-        self.key = key
-        self.val = value
-
-    def any_n(self, *args):
-        pass
-
-    def run(self):
-        for key, value in self.children.items():
-            pass
 
 
 class Item:
@@ -48,8 +31,8 @@ class Item:
     """
     ANS_TYPE = None
 
-    def __init__(self, default_grade=1.0, feedbacks: Dict[float, FText] = None,
-                 time_lim: int = 0, free_hints: list = None):
+    def __init__(self, feedbacks: Dict[str, FText] = None, 
+                 hints: Dict[str, FText] = None):
         """[summary]
         Args:
             name (str): name of the question
@@ -58,33 +41,39 @@ class Item:
             general_feedback (str, optional): general feedback.
             dbid (int, optional): id number.
         """
-        self.units = None
-        self._grade = float(default_grade)
-        self._time_lim = int(time_lim)
-        self._feedbacks = None
-        self._free_hints = TList(FText, free_hints)
-        self._options = []
-        self._procs: Processor = None
+        self._grading = None
+        self._feedbacks = feedbacks
+        self._hints = hints
+        self._options = None
 
-    grade = attribute_setup(float, "_grade")
-    time_lim = attribute_setup(int, "_time_lim")
+    grading = attribute_setup(float, "_grading")
     feedbacks = attribute_setup(dict, "_feedbacks")
-    free_hints = attribute_setup(TList, "_free_hints")
-    procs = attribute_setup(TList, "_procs")
+    hints = attribute_setup(dict, "_free_hints")
+    options = attribute_setup(TList, "_options")
+
+
+class ChoicesItem(Item):
+    """
+    This is the basic class used to hold possible answers
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._options = TList(Choice)
+
+
+class Choice(Item):
+    """
+    This is the basic class used to hold possible answers
+    """
+
+    def __init__(self, fraction=0.0, text="", feedback: FText = None,
+                 formatting: TextFormat = None):
+        self.fraction = fraction
+
     options = attribute_setup(dict, "_options")
 
-    def check(self):
-        """Check if the instance parameters have valid values. Call this method
-        before exporting the instance, or right after modifying many valid of
-        a instance.
-        """
-        if (not isinstance(self.name, str) or self._time_lim < 0
-                or (self.dbid is not None and not isinstance(self.dbid, int))
-                or self.default_grade < 0):
-            raise ValueError("Invalid value(s).")
-        for key, value in self._feedbacks.items():
-            if not isinstance(key, float) or not isinstance(value, FText):
-                raise TypeError()
+
 
 
 class Answer(Serializable):

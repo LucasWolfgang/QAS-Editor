@@ -40,11 +40,10 @@ from .enums import FileAddr, OutFormat, TextFormat, Status, Distribution, MathTy
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 if EXTRAS_FORMULAE:
-    from sympy.parsing.sympy_parser import parse_expr
-    from sympy.parsing.latex import parse_latex
     from matplotlib import figure, font_manager, mathtext
     from matplotlib.backends import backend_agg
     from pyparsing import ParseFatalException  # Part of matplotlib package
+    from sympy import printing, Expr
 
 
 _LOG = logging.getLogger(__name__)
@@ -227,7 +226,7 @@ def attribute_setup(cls, attr: str, doc: str=""):
             setattr(self, attr, value)
         elif value is not None:
             raise ValueError(f"Can't assign {value} to {attr}")
-    def getter(self) -> FText:
+    def getter(self):
         return getattr(self, attr)
     return property(getter, setter, doc=doc)
 
@@ -546,7 +545,7 @@ class XItem:
                 value += f"{key}={val} "
         value += ">"
         for child in self._children:
-            value += str(child)
+            value += FText.to_string(child)
         value = f"</{self.tag}>"
         return value
 
@@ -569,7 +568,7 @@ class XHTMLParser(HTMLParser):
         """
         return str(self.root)
 
-    def _get_file_ref(self, tag: str, data: str):
+    def _get_file_ref(self, data: str):
         tag = self._stack[-1].tag
         attrs = self._stack[-1].attrs
         if tag == "file":
@@ -604,9 +603,9 @@ class XHTMLParser(HTMLParser):
         self._stack.pop()
 
     def handle_data(self, data):
-        if self._stack[-1].attrs not in ("a", "base", "base", "link", "audio", 
-                                "embed", "iframe", "img", "input", "script",  
-                                "source","track", "video", "file"):
+        if self._stack[-1].tag not in ("", "a", "base", "base", "input", "link", 
+                                       "audio", "embed", "img", "video", "file", 
+                                       "script", "source", "iframe", "track"):
             self._get_file_ref(data)
         else:
             self._stack[-1].append(data)
@@ -621,113 +620,40 @@ class XHTMLParser(HTMLParser):
             self.close()
         else:
             raise ParseFatalException()
+        return FText(self.root._children, self.files)
 
 
 class TextParser():
     """A global text parser to generate FText instances
     """
 
-    def __init__(self, text: str, check_tags: bool, files: List[File] = None,
-                 token_map: dict = None):
-        self.stack = []
+    def __init__(self, **_):
         self.ftext = []
-        self.text = text
-        self._tmap = token_map
+        self.text = ""
         self.pos = 0
         self.lst = 0
         self.scp = False
-        self.stt = [0, False, 0]  # Pos, escaped, Last pos
-        self.lastattr = None
-        self.check_tags = check_tags
-        self.files = files or []
 
     def _wrapper(self, callback: Callable, size=1):
-        if self.text[self.stt[2]: self.stt[0]]:
-            self.ftext.append(self.text[self.stt[2]: self.stt[0]])
-        self.stt[0] += size
-        self.stt[2] = self.stt[0]
+        if self.text[self.lst: self.pos]:
+            self.ftext.append(self.text[self.lst: self.pos])
+        self.pos += size
+        self.lst = self.pos
         self.ftext.append(callback())
-        self.stt[2] = self.stt[0] + 1
+        self.lst = self.pos + 1
 
-    def _get_file_ref(self, tag: str, attrs: dict):
-        if tag == "file":
-            path = attrs.pop("path", "/") + attrs.pop("name")
-            last = self.stt[0] + 1
-            while self.text[self.stt[0]:self.stt[0]+2] != "</" and not self.stt[1]:
-                self._nxt()
-            self.stt[0] = self.stt[0] - 1  # Get back to allow parsing tag
-            file = File(path, self.text[last: self.stt[0]])
-        else:
-            if attrs.get("src", "")[:5] == "data:":
-                data, scr = attrs.pop("src").split(";", 1)
-                _, ext = data.split("/", 1)
-                path = f"/{len(self.files)}.{ext}"
-                file = File(path, scr[7:])  # Consider this is a base64 data
-            else:
-                path = attrs.pop("src")
-                for item in self.files:
-                    if item.path == path:
-                        return LinkRef(tag, item, **attrs)
-                file = File(path, None)
-        self.files.append(file)
-        return LinkRef(tag, file, **attrs)
-        
     def _nxt(self):
-        self.stt[1] = (self.text[self.stt[0]] == "\\") and not self.stt[1]
-        self.stt[0] += 1
-
-    def _get_tag(self) -> LinkRef | None:
-        while self.text[self.stt[0]] != ">" and not self.stt[1]:
-            self._nxt()
-        tmp = self.text[self.stt[2]-1: self.stt[0] + 1]  # includes final ">"
-        tag = tmp[1:-1].split(" ", 1)[0]
-        result = None
-        if tag in ("a", "base", "base", "link", "audio", "embed", "iframe", 
-                   "img", "input", "script", "source", "track", "video", "file"):
-            data = {k:v for k,v in re.findall(r"(\S+?)=\"(.+?)\"[ />]", tmp)}
-            result = self._get_file_ref(tag, data)
-        else:
-            result = tmp
-        if tag[0] == "/":
-            tmp = self.stack.pop()
-            if self.check_tags and tmp != tag[1:]:
-                raise ValueError(f"Tag {tag} is not being closed ({self.stt[2]})")
-        elif tmp[-2] != "/" and tag not in ("source", "area", "track", "input",
-            "col", "embed", "hr",  "link", "meta", "br", "base", "wbr", "img"):
-            self.stack.append(tag)
-        return result
-
-
-    def _get_latex_exp(self):
-        while self.text[self.stt[0]] == ")" and self.stt[1]:  # This is correct: "\("
-            self._nxt()
-        return parse_latex(self.text[self.stt[2]: self.stt[0]])
+        self.scp = (self.text[self.pos] == "\\") and not self.scp
+        self.pos += 1
 
     def do(self):
         """Modify this functions in super classes.
         """
-        if (self.text[self.stt[0]] == "<" and not self.stt[1]):
-            self._wrapper(self._get_tag)
-        elif EXTRAS_FORMULAE:
-            if self.text[self.stt[0]:self.stt[0]+2] == "{=" and not self.stt[1]:
-                self._wrapper(self._get_moodle_exp, 2)
-            elif self.text[self.stt[0]] == "(" and self.stt[1]: 
-                self._wrapper(self._get_latex_exp)  # This is correct: "\("
-            elif self.text[self.stt[0]] == "{" and not self.stt[1]:
-                self._wrapper(self._get_moodle_var)
-        else:
-            for key, value in self._tmap.items():
-                if self.text[self.stt[0]:self.stt[0]+len(key)] == key and not self.stt[1]:
-                    if isinstance(value, str):
-                        self._wrapper(getattr(self, value))
-                    else:
-                        self._wrapper(value(self))
+        pass
 
     def clean_up(self):
-        if self.text[self.stt[2]:]:
-            self.ftext.append(self.text[self.stt[2]:])
-        if self.check_tags and len(self.stack) != 0:
-            raise ValueError(f"One or more tags are not closed: {self.stack}.")
+        if self.text[self.lst:]:
+            self.ftext.append(self.text[self.lst:])
 
     def parse(self, data: str|TextIOWrapper):
         if isinstance(data, str):
@@ -736,11 +662,11 @@ class TextParser():
             self.text = data.read()
         else:
             raise ParseFatalException()
-        while self.stt[0] < len(self.text):
+        while self.pos < len(self.text):
             self.do()
             self._nxt()
         self.clean_up()
-        return FText(self.ftext, None, self.files)
+        return FText(self.ftext, None)
 
 
 class FText(Serializable):
@@ -749,17 +675,37 @@ class FText(Serializable):
         text (list): 
     """
 
-    def __init__(self, text: str|List[str] = None, formatting = TextFormat.AUTO,
-                 files: List[File] = None):
+    def __init__(self, text: list, files: List[File] = None):
         super().__init__()
-        self.formatting = TextFormat(formatting)
         self._text = text
-        if text and isinstance(text, list):
-            self._text = [text]
         self.files = files  # Local reference of the list of files used.
 
     def __str__(self) -> str:
         return self.get()
+
+    @staticmethod
+    def to_string(item, math_type: MathType = None):
+        if isinstance(item, str) or hasattr(item, "__str__"):
+            return str(item)
+        elif hasattr(item, "MARKER_INT"):
+            return chr(item.MARKER_INT)
+        elif isinstance(item, LinkRef):
+            return item.get_tag()
+        elif EXTRAS_FORMULAE and isinstance(item, Expr):
+            if math_type == MathType.LATEX:
+                return f"$${printing.latex(item)}$$"
+            elif math_type == MathType.MOODLE:
+                return "{" + ("" if item.is_Atom else "=") + printing.latex(item) + "}"
+            elif math_type == MathType.MATHJAX:
+                return f"[mathjax]{printing.latex(item)}[/mathjax]"
+            elif math_type == MathType.MATHML:
+                return str(printing.mathml(item))
+            elif math_type == MathType.ASCII:
+                return str(printing.pretty(item))
+            elif math_type == MathType.FILE:
+                return render_latex(printing.latex(item), FileAddr.LOCAL)
+        else:
+            raise TypeError(f"Item has unknown type {type(item)}")
 
     @property
     def text(self) -> List[str|LinkRef]:
@@ -782,8 +728,7 @@ class FText(Serializable):
             raise ValueError()
 
     @classmethod
-    def from_string(cls, text: str, formatting=TextFormat.AUTO, check_tags=True,
-                    files: list = None, tagmap: dict=None) -> FText:
+    def from_string(cls, text: str, parser, **args) -> FText:
         """Parses the provided string to a FText class by finding file pointers
         and math expression and returning them as a list.
         Args:
@@ -795,43 +740,21 @@ class FText(Serializable):
         Returns:
             FText: _description_
         """
-        parser = TextParser(text, check_tags, files, tagmap)
-        parser.parse()
-        return cls(parser.ftext, formatting, parser.files)
+        if parser is None:
+            return cls([text], args.get("files"))
+        else:
+            return parser(**args).parse(text)
 
-    def get(self, math_type=MathType.ASCII, embedded=False) -> str:
+    def get(self, math_type=MathType.ASCII) -> str:
         """Get a string representation of the object
         Args:
             math_type (MathType, optional): Which type of 
         Returns:
             str: A string representation of the object
         """
-        from sympy.core import Pow
-        if EXTRAS_FORMULAE:
-            from sympy import printing, Expr
         data = ""
-        for item in self._text:  # Suposse few item, so no poor performance
-            if isinstance(item, str):
-                data += str(item)
-            elif hasattr(item, "MARKER_INT"):
-                data += chr(item.MARKER_INT)
-            elif isinstance(item, LinkRef):
-                data += item.get_tag()
-            elif EXTRAS_FORMULAE and isinstance(item, Expr):
-                if math_type == MathType.LATEX:
-                    data += f"$${printing.latex(item)}$$"
-                elif math_type == MathType.MOODLE:
-                    data += "{" + ("" if item.is_Atom else "=") + printing.latex(item) + "}"
-                elif math_type == MathType.MATHJAX:
-                    data += f"[mathjax]{printing.latex(item)}[/mathjax]"
-                elif math_type == MathType.MATHML:
-                    data += str(printing.mathml(item))
-                elif math_type == MathType.ASCII:
-                    data += str(printing.pretty(item))
-                elif math_type == MathType.FILE:
-                    data += render_latex(printing.latex(item), FileAddr.LOCAL)
-            else:
-                raise TypeError(f"Item has unknown type {type(item)}")
+        for item in self._text:
+            data += self.to_string(item, math_type)
         return data
 
     @staticmethod

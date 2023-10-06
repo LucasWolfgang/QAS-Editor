@@ -15,10 +15,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
+from __future__ import annotations
 import re
 import logging
 import glob
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type
 from ..question import QMultichoice
 from ..utils import FText
 from ..enums import TextFormat
@@ -46,14 +47,14 @@ def _from_question(buffer, line: str, name: str):
             answers[ord(_line[8].upper())-65].fraction = 100.0
             break
         answers.append(Answer(0.0, match[1], None, TextFormat.PLAIN))
-    question = FText(header.strip(), TextFormat.PLAIN)
+    question = FText([header.strip()]).from_string
     return QMultichoice(name=name, options=answers, question=question)
 
 
 # -----------------------------------------------------------------------------
 
 
-def read_aiken(cls: "Category", file_path: str, category: str = "$course$") -> "Category":
+def read_aiken(cls: Type[Category], file_path: str, category: str = "$course$") -> Category:
     """_summary_
 
     Args:
@@ -75,7 +76,7 @@ def read_aiken(cls: "Category", file_path: str, category: str = "$course$") -> "
     return quiz
 
 
-def write_aiken(category: "Category", file_path: str) -> None:
+def write_aiken(category: Type[Category], file_path: str) -> None:
     """_summary_
 
     Args:

@@ -124,13 +124,6 @@ class Numbering(EnhancedEnum):
     ROM_UR = "IIII", "IIII"
 
 
-class Logic(Enum):
-    AND = auto()
-    OR = auto()
-    NOT = auto()
-    ELSE = auto()
-
-
 class OutFormat(Enum):
     """_summary_
     """

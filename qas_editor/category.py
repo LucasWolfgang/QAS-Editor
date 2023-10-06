@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Dict, List, Iterator
 from .utils import Serializable, File, FText
 from .question import _Question
 from .enums import Status
-from ._parsers import aiken, csv_card, cloze, gift, json, kahoot, latex, \
+from .parsers import aiken, csv_card, cloze, gift, json, kahoot, latex, \
                       markdown, moodle, olx, ims
 if TYPE_CHECKING:
     from .utils import Dataset

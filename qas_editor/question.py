@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 from .enums import EmbeddedFormat, Grading, RespFormat, ShowUnits, ShowAnswer, ShuffleType,\
                    Distribution, Numbering, Synchronise, TextFormat, Status
 from .utils import Serializable, MarkerError, AnswerError, File, Dataset, \
-                   FText, Hint, Unit, TList
+                   FText, Hint, Unit, TList, attribute_setup
 from .answer import ACalculated, ACrossWord, Answer, EmbeddedItem, ANumerical,\
                     DragGroup, DragImage, SelectOption, Subquestion,\
                     DropZone, DragItem
@@ -611,9 +611,9 @@ class QQuestion:
         self.name = str(name)
         self.dbid = int(dbid) if dbid else None
         self.notes = str(notes)
-        self.points = 0
+        self._time_lim = 0
         self._body = None
-        self._remarks = None
+        self._notes = None
         self._tags = TList(str, tags)
         self.__parent: Category = None
         _LOG.debug("New question (%s) created.", self)
@@ -621,8 +621,8 @@ class QQuestion:
     def __str__(self) -> str:
         return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
 
-    body = FText.prop("_body", "Question body")
-    remarks = FText.prop("_remarks", "Solution or global feedback")
+    body = attribute_setup(FText, "_body", "Question body")
+    time_lim = attribute_setup(int, "_time_lim")
 
     @property
     def parent(self) -> Category:
@@ -656,3 +656,4 @@ class QQuestion:
         for key, value in self._feedbacks.items():
             if not isinstance(key, float) or not isinstance(value, FText):
                 raise TypeError()
+            

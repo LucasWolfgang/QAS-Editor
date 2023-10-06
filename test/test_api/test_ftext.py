@@ -20,12 +20,25 @@ from qas_editor import utils
 from sympy import Symbol, sqrt
 
 from qas_editor.enums import MathType
-from qas_editor.utils import File
+from qas_editor.parsers.moodle import MoodleXHTMLParser
 
 TEST_PATH = os.path.dirname(__file__)
 SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 X = Symbol("x")
 Y = Symbol("y")
+
+def test_empty_plaintext():
+    text = 'nothing'
+    parser = utils.TextParser
+    _ftext = utils.FText.from_string(text, parser)
+    assert _ftext.text == [text]
+
+
+def test_empty_xtml():
+    text = 'nothing'
+    parser = utils.XHTMLParser
+    _ftext = utils.FText.from_string(text, parser)
+    assert _ftext.text == [text]
 
 
 def test_sympy_all():
@@ -36,7 +49,7 @@ def test_sympy_all():
         "the 'sqrt' function doesn't exist, need 'root(n, x)' in fp, "
         "{=sqrt(({x}-{y})*({x}+{y}))}</li><li>'pi' is a function in moodle,"
         " {=sin(1.5*pi())}</li><li>test with '- unary' expression"
-        " {=-{x}+(-{y}+2)}<br/></li></ul>")
+        " {=-{x}+(-{y}+2)}<br/></li></ul>Something outside")
     _results = utils.FText.from_string(s)
     assert _results.text == ["<p><b>Moodle</b> and <b>fp</b> "
             "latex package syntax is not always equivalent. Here some "
@@ -48,16 +61,6 @@ def test_sympy_all():
             "</li><li>'pi' is a function in moodle, ", -1, 
             "</li><li>test with '- unary' expression ", -X - Y + 2, 
             '<br/></li></ul>']
-
-
-def test_empty():
-    _ftext = utils.FText.from_string('nothing')
-    assert _ftext.text == ['nothing']
-
-
-def test_var_ascii():
-    _results = utils.FText.from_string('var {x}')
-    assert _results.get(MathType.ASCII) == "var x"
 
 
 def test_var_latex():
