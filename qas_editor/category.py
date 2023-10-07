@@ -21,10 +21,10 @@ import re
 import csv
 from typing import TYPE_CHECKING, Dict, List, Iterator
 
-from .utils import Serializable, File, FText
-from .question import _Question
+from .utils import Serializable, File
+from .question import QQuestion, _Question
 from .enums import Status
-from .parsers import aiken, csv_card, cloze, gift, json, kahoot, latex, \
+from .parsers import aiken, csv_card, cloze, gift, kahoot, latex, \
                       markdown, moodle, olx, ims
 if TYPE_CHECKING:
     from .utils import Dataset
@@ -54,7 +54,6 @@ class Category(Serializable):  # pylint: disable=R0904
     read_cloze = classmethod(cloze.read_cloze)
     read_csvcard = classmethod(csv_card.read_cards)
     read_gift = classmethod(gift.read_gift)
-    read_json = classmethod(json.read_json)
     read_kahoot = classmethod(kahoot.read_kahoot)
     read_latex = classmethod(latex.read_latex)
     read_markdown = classmethod(markdown.read_markdown)
@@ -67,7 +66,6 @@ class Category(Serializable):  # pylint: disable=R0904
     write_cloze = cloze.write_cloze
     write_csvcard = csv_card.write_cards
     write_gift = gift.write_gift
-    write_json = json.write_json
     write_kahoot = kahoot.write_kahoot
     write_latex = latex.write_latex
     write_markdown = markdown.write_markdown
@@ -161,7 +159,7 @@ class Category(Serializable):  # pylint: disable=R0904
         Returns:
             bool: _description_
         """
-        if question in self.__questions or not isinstance(question, _Question):
+        if question in self.__questions or not isinstance(question, QQuestion):
             return False
         if question.parent is not None:
             question.parent.pop_question(question)
@@ -268,7 +266,7 @@ class Category(Serializable):  # pylint: disable=R0904
         for cat in self.__categories.values():
             cat.get_tags(tags)
 
-    def get_question(self, index: int) -> _Question:
+    def get_question(self, index: int) -> QQuestion:
         """A helper to get an given index. Using <code>questions</code> would
         not work becuase it returns an iterator, which requires to be cast to
         list before accessing.

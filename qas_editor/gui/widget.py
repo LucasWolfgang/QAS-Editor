@@ -32,7 +32,8 @@ from ..question import MARKER_INT
 from ..answer import Answer, ACalculated, DragGroup, EmbeddedItem, DropZone,\
                      SelectOption
 from ..enums import EmbeddedFormat, TextFormat, TolType, TolFormat, EnhancedEnum
-from ..utils import FText, Hint
+from ..utils import Hint
+from ..parsers.text import FText
 if TYPE_CHECKING:
     from PyQt5.QtGui import QKeyEvent
 

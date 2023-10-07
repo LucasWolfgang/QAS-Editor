@@ -21,7 +21,8 @@ import logging
 from typing import TYPE_CHECKING, Dict, List, Callable
 from .enums import TolFormat, TextFormat, ShapeType, EmbeddedFormat, Direction,\
                    TolType
-from .utils import Serializable, File, FText, TList, attribute_setup
+from .parsers.text import FText
+from .utils import Serializable, File, TList
 _LOG = logging.getLogger(__name__)
 
 
@@ -29,51 +30,75 @@ class Item:
     """This is an abstract class Question used as a parent for specific
     types of Questions.
     """
-    ANS_TYPE = None
 
-    def __init__(self, feedbacks: Dict[str, FText] = None, 
-                 hints: Dict[str, FText] = None):
+    def __init__(self, feedbacks: List[FText] = None, 
+                 hints: List[FText] = None):
         """[summary]
         Args:
-            name (str): name of the question
-            question (FText): text of the question
-            default_grade (float): the default mark
-            general_feedback (str, optional): general feedback.
-            dbid (int, optional): id number.
+            feedback (str, optional): general feedback.
+            hints (Dict[str, FText], optional): hints.
         """
-        self._grading = None
+        self._proc = None
         self._feedbacks = feedbacks
         self._hints = hints
-        self._options = None
 
-    grading = attribute_setup(float, "_grading")
-    feedbacks = attribute_setup(dict, "_feedbacks")
-    hints = attribute_setup(dict, "_free_hints")
-    options = attribute_setup(TList, "_options")
+    @property
+    def feedbacks(self) -> List[FText]:
+        return self._feedbacks
+
+    @property
+    def hints(self) -> List[FText]:
+        return self._hints
+
+    @property
+    def processor(self) -> str:
+        """Function that does the processing part (define grades, when hints
+            will be shown, etc). Stored in text format.
+        """
+        return self._proc
+    
+    @processor.setter
+    def processor(self, value):
+        if isinstance(value, str):
+            exec(value)  # Ignore the result. What we want is no Exception here
+            self._value = value
+
+    def check(self):
+        return True
 
 
 class ChoicesItem(Item):
+    """This is the basic class used to hold possible answers
     """
-    This is the basic class used to hold possible answers
-    """
+    MARKER_INT = 9635
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._options = TList(Choice)
+        self._options = TList[Choice]()
+
+    @property
+    def options(self) -> TList[Choice]:
+        """_summary_
+        Returns:
+            TList[Choice]: _description_
+        """
+        return self._options
+
+    def check(self):
+        return True
 
 
-class Choice(Item):
+class Choice:
+    """This is the basic class used to hold possible answers
+    Attributes:
+
     """
-    This is the basic class used to hold possible answers
-    """
 
-    def __init__(self, fraction=0.0, text="", feedback: FText = None,
-                 formatting: TextFormat = None):
-        self.fraction = fraction
-
-    options = attribute_setup(dict, "_options")
-
-
+    def __init__(self, text, parser: Callable = None):
+        self._text = FText()
+        self._text.parse(text, parser)
+        self.fixed = False
+        self.show = False
 
 
 class Answer(Serializable):
@@ -87,9 +112,8 @@ class Answer(Serializable):
         self.formatting = TextFormat.AUTO if formatting is None else formatting
         self.text = text
         self._feedback = FText()
-        self.feedback = feedback
+        self._feedback.parse(feedback)
 
-    feedback = FText.prop("_feedback")
 
 
 class ANumerical(Answer):
@@ -126,7 +150,7 @@ class EmbeddedItem(Serializable):
                  opts: List[Answer] = None):
         self.cformat = cformat
         self.grade = grade
-        self.opts = TList(Answer, opts)
+        self.opts = TList[Answer](opts)
 
     def to_cloze(self) -> str:
         """A

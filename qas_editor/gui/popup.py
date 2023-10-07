@@ -16,7 +16,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 from PyQt5 import QtWidgets, Qt, QtGui, QtCore
 from .utils import action_handler, HOTKEYS, key_name
 from ..enums import Distribution, Status
@@ -148,7 +148,7 @@ class PFind(QtWidgets.QWidget):
         _content.addWidget(self._title, 0, 1)
         self._by_tags = QtWidgets.QCheckBox("By tags", self)
         _content.addWidget(self._by_tags, 1, 0)
-        self._tags = TList(str)
+        self._tags = TList[str]()
         _tagbar = QtWidgets.GTagBar(self)
         _tagbar.from_list(self._tags)
         _tagbar.set_gtags(gtags)

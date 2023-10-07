@@ -17,15 +17,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 from typing import TYPE_CHECKING
-import re
 import logging
 import random
-import hashlib
 from xml.etree import ElementTree as et
 from ... import _LOG
 from ...question import QQuestion
 from ...answer import Item
-from ...utils import Var, FText
+from ..text import Var, FText
 from .imscc import CC
 if TYPE_CHECKING:
     from ...category import Category
@@ -90,7 +88,7 @@ class _CanvasImporter:
 
     def _parse_fill_in_multiple_blanks(self, xml: et.ElementTree, qst: QQuestion):
         """ Return an array of possible answers """
-        qst.body.from_string(xml.find("presentation/material/mattext", self._ns).text,
+        qst.body.parse(xml.find("presentation/material/mattext", self._ns).text,
                             {"[": get_canvas_vars})
         answers = []
         correct_answers = []

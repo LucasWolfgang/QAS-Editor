@@ -23,17 +23,16 @@ TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
 
 def test_read():
-    EXAMPLE = f"{TEST_PATH}/datasets/aiken/aiken_1.txt"
-    control = category.Category.read_aiken(EXAMPLE)
+    example = f"{TEST_PATH}/datasets/aiken/aiken_1.txt"
+    control = category.Category.read_aiken(example)
     assert control.get_size() == 5
     question = control.get_question(1)
-    assert question.QNAME == 'Multichoice'
-    assert question.default_grade == 1.0
+    assert question.tags == []
     assert question.name == 'aiken_1'
-    assert question.question.get() == ("During the month of September 2013, "
+    assert question.body.get() == ("During the month of September 2013, "
                             "Moodle ran a successful MOOC for teachers new " 
                             "to Moodle. What was the name of the course?")
-    assert len(question.options) == 3
+    assert len(question.body) == 3
     assert question.options[0].text == 'Teaching with Moodle'
     assert question.options[0].fraction == 100
     assert question.options[1].fraction == 0

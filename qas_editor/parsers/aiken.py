@@ -20,10 +20,9 @@ import re
 import logging
 import glob
 from typing import TYPE_CHECKING, Type
-from ..question import QMultichoice
-from ..utils import FText
-from ..enums import TextFormat
-from ..answer import Answer
+from qas_editor.question import QMultichoice, QQuestion
+from qas_editor.processors import PROCESSORS
+from qas_editor.answer import Choice, ChoicesItem
 if TYPE_CHECKING:
     from ..category import Category
 
@@ -32,23 +31,27 @@ _PATTERN = re.compile(r"[A-Z]+\) (.+)")
 
 
 def _from_question(buffer, line: str, name: str):
+    question = QQuestion(name)
+    simple_choice = ChoicesItem()
     header = line
-    answers = []
     match = None
     for _line in buffer:
         match = _PATTERN.match(_line)
         if match:
-            answers.append(Answer(0.0, match[1], None, TextFormat.PLAIN))
+            simple_choice.options.append(Choice(match[1]))
             break
         header += _line
+    target = 0
     for _line in buffer:
         match = _PATTERN.match(_line)
         if not match:
-            answers[ord(_line[8].upper())-65].fraction = 100.0
+            target = ord(_line[8].upper())-65
             break
-        answers.append(Answer(0.0, match[1], None, TextFormat.PLAIN))
-    question = FText([header.strip()]).from_string
-    return QMultichoice(name=name, options=answers, question=question)
+        simple_choice.options.append(Choice(match[1]))
+    question.body.text.append(header.strip())
+    question.body.text.append(simple_choice)
+    simple_choice.processor = PROCESSORS["multichoice"].format(index=target)
+    return question
 
 
 # -----------------------------------------------------------------------------
@@ -82,7 +85,7 @@ def write_aiken(category: Type[Category], file_path: str) -> None:
     Args:
         file_path (str): _description_
     """
-    def _to_aiken(cat: "Category", writer) -> str:
+    def _to_aiken(cat: Type[Category], writer) -> str:
         for question in cat.questions:
             if isinstance(question, QMultichoice):
                 writer(f"{question.question.get()}\n")
@@ -94,5 +97,6 @@ def write_aiken(category: Type[Category], file_path: str) -> None:
                 writer(correct)
         for name in cat:
             _to_aiken(cat[name], writer)
+        return None
     with open(file_path, "w", encoding="utf-8") as ofile:
         _to_aiken(category, ofile.write)

@@ -28,24 +28,25 @@ import tempfile
 import hashlib
 import unicodedata
 import mimetypes
-from io import TextIOWrapper
-from html.parser import HTMLParser
 from io import BytesIO
 from xml.sax import saxutils
 from importlib import util
 from urllib import request, parse
 from xml.etree import ElementTree as et
-from typing import Dict, List, Tuple, Callable
-from .enums import FileAddr, OutFormat, TextFormat, Status, Distribution, MathType
+from typing import Dict, List, Tuple, TypeVar, Generic, Iterable, TYPE_CHECKING
+from .enums import FileAddr, OutFormat, TextFormat, Status, Distribution
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 if EXTRAS_FORMULAE:
     from matplotlib import figure, font_manager, mathtext
     from matplotlib.backends import backend_agg
     from pyparsing import ParseFatalException  # Part of matplotlib package
-    from sympy import printing, Expr
+if TYPE_CHECKING:
+    from parsers.text import FText
 
-
+T = TypeVar('T')
+KT = TypeVar('KT')  # Key type.
+VT = TypeVar('VT')  # Value type.
 _LOG = logging.getLogger(__name__)
 EXTRAS_GUI = util.find_spec("PyQt5") is not None
                 # moodle, sympy, latex
@@ -166,7 +167,7 @@ def render_latex(latex: str, ftype: FileAddr, scale=1.0):
             def run_me(cmd):
                 flag = 0x08000000 if os.name == 'nt' else 0
                 return subprocess.run(cmd, stdout=subprocess.PIPE, check=True, 
-                                    creationflags=flag, cmd=workdir)
+                                      creationflags=flag, cmd=workdir)
 
             with open(f"{workdir}/texput.tex", 'w', encoding='utf-8') as fh:
                 fh.write("\\documentclass[varwidth,12pt]{standalone}"
@@ -218,7 +219,7 @@ def clean_q_name(string: str):
     return out.strip()
 
 
-def attribute_setup(cls, attr: str, doc: str=""):
+def attribute_setup(cls: T, attr: str, doc: str=""):
     """Generate get/set/del properties for a Ftext attribute.
     """
     def setter(self, value):
@@ -226,9 +227,9 @@ def attribute_setup(cls, attr: str, doc: str=""):
             setattr(self, attr, value)
         elif value is not None:
             raise ValueError(f"Can't assign {value} to {attr}")
-    def getter(self):
+    def getter(self) -> T:
         return getattr(self, attr)
-    return property(getter, setter, doc=doc)
+    return property[Generic[T]](getter, setter, doc=doc)
 
 # -----------------------------------------------------------------------------
 
@@ -306,42 +307,26 @@ class Serializable:
         return True
 
 
-class TList(list):
-    """Type List (or Datatype list) is a class that restricts the datatype of
-    all the items to a single one defined in constructor. It works exactly like
-    an list in C++, Java and other compiled languages. Could use an array 
-    instead if it allowed any time to be used. TODO If there is something
-    native we could use instead, it is worthy an PR to update.
+class TList(Generic[T]):
+    """Typed List (or Datatype list) is a class that restricts the datatype of
+    all the items to a single one defined in constructor.
     """
 
-    def __init__(self, obj_type: type, iterable=None):
-        super().__init__()
-        self.__type = obj_type
+    def __init__(self, iterable: Iterable = None):
+        self._items: List[T] = []
         if iterable is not None:
             self.extend(iterable)
 
-    @property
-    def datatype(self):
-        """The datatype of the items in this list.
-        """
-        return self.__type
-
-    @datatype.setter
-    def datatype(self, value):
-        if not all(isinstance(obj, value) for obj in self):
-            self.clear()
-        self.__type = value
-
     def append(self, __object):
-        if isinstance(__object, self.__type):
-            super().append(__object)
-
-    def extend(self, __iterable):
-        if all(isinstance(obj, self.__type) for obj in __iterable):
-            super().extend(__iterable)
+        self._items.append(__object)
 
 
 # -----------------------------------------------------------------------------
+
+
+class ParseError(Exception):
+    """Exception used when there is a Marker related error
+    """
 
 
 class MarkerError(Exception):
@@ -525,255 +510,6 @@ class Dataset(Serializable):
             pass
 
 
-class XItem:
-
-    def __init__(self, tag, attrib: dict = None, closed: bool = False):
-        self.tag = tag
-        self.attrs = attrib
-        self._children = None if closed else []
-
-    def __iter__(self):
-        return iter(self._children)
-
-    def append(self, item: XItem):
-        self._children.append(item)
-
-    def __str__(self) -> str:
-        value = f"<{self.tag} "
-        if self.attrs:
-            for key, val in self.attrs.items():
-                value += f"{key}={val} "
-        value += ">"
-        for child in self._children:
-            value += FText.to_string(child)
-        value = f"</{self.tag}>"
-        return value
-
-
-class XHTMLParser(HTMLParser):
-    """A parser for HTML and XML that may contain other formats"""
-
-    def __init__(self, convert_charrefs: bool = True, check_closing: bool = False,
-                 files: List[File] = None):
-        super().__init__(convert_charrefs=convert_charrefs)
-        self.root = XItem("")
-        self._stack = [self.root]
-        self._check = check_closing
-        self.files = files or []
-
-    def __str__(self) -> str:
-        """Hope this will not need to be enhanced due to performance metrics
-        Returns:
-            str: resulting text
-        """
-        return str(self.root)
-
-    def _get_file_ref(self, data: str):
-        tag = self._stack[-1].tag
-        attrs = self._stack[-1].attrs
-        if tag == "file":
-            path = attrs.pop("path", "/") + attrs.pop("name")
-            file = File(path, data)
-        else:
-            if attrs.get("src", "")[:5] == "data:":
-                data, scr = attrs.pop("src").split(";", 1)
-                _, ext = data.split("/", 1)
-                path = f"/{len(self.files)}.{ext}"
-                file = File(path, scr[7:])  # Consider this is a base64 data
-            else:
-                path = attrs.pop("src")
-                for item in self.files:
-                    if item.path == path:
-                        return LinkRef(tag, item, **attrs)
-                file = File(path, None)
-        self.files.append(file)
-        return LinkRef(tag, file, **attrs)
-
-    def handle_startendtag(self, tag, attrs):
-        if self._check or tag not in ("source", "area", "track", "input", "col",
-                 "embed", "hr",  "link", "meta", "br", "base", "wbr", "img"):
-            raise ParseFatalException()
-        self._stack[-1].append(XItem(tag, attrs, True))
-
-    def handle_starttag(self, tag, attrs):
-        self._stack.append(XItem(tag, attrs))
-        self.root.append(self._stack[-1])
-
-    def handle_endtag(self, tag):
-        self._stack.pop()
-
-    def handle_data(self, data):
-        if self._stack[-1].tag not in ("", "a", "base", "base", "input", "link", 
-                                       "audio", "embed", "img", "video", "file", 
-                                       "script", "source", "iframe", "track"):
-            self._get_file_ref(data)
-        else:
-            self._stack[-1].append(data)
-
-    def parse(self, data: str|TextIOWrapper):
-        if isinstance(data, str):
-            self.feed(data)
-            self.close()
-        elif isinstance(data, TextIOWrapper):
-            for line in data:
-                self.feed(line)
-            self.close()
-        else:
-            raise ParseFatalException()
-        return FText(self.root._children, self.files)
-
-
-class TextParser():
-    """A global text parser to generate FText instances
-    """
-
-    def __init__(self, **_):
-        self.ftext = []
-        self.text = ""
-        self.pos = 0
-        self.lst = 0
-        self.scp = False
-
-    def _wrapper(self, callback: Callable, size=1):
-        if self.text[self.lst: self.pos]:
-            self.ftext.append(self.text[self.lst: self.pos])
-        self.pos += size
-        self.lst = self.pos
-        self.ftext.append(callback())
-        self.lst = self.pos + 1
-
-    def _nxt(self):
-        self.scp = (self.text[self.pos] == "\\") and not self.scp
-        self.pos += 1
-
-    def do(self):
-        """Modify this functions in super classes.
-        """
-        pass
-
-    def clean_up(self):
-        if self.text[self.lst:]:
-            self.ftext.append(self.text[self.lst:])
-
-    def parse(self, data: str|TextIOWrapper):
-        if isinstance(data, str):
-            self.text = data
-        elif isinstance(data, TextIOWrapper):
-            self.text = data.read()
-        else:
-            raise ParseFatalException()
-        while self.pos < len(self.text):
-            self.do()
-            self._nxt()
-        self.clean_up()
-        return FText(self.ftext, None)
-
-
-class FText(Serializable):
-    """A formated text. 
-    Attributes:
-        text (list): 
-    """
-
-    def __init__(self, text: list, files: List[File] = None):
-        super().__init__()
-        self._text = text
-        self.files = files  # Local reference of the list of files used.
-
-    def __str__(self) -> str:
-        return self.get()
-
-    @staticmethod
-    def to_string(item, math_type: MathType = None):
-        if isinstance(item, str) or hasattr(item, "__str__"):
-            return str(item)
-        elif hasattr(item, "MARKER_INT"):
-            return chr(item.MARKER_INT)
-        elif isinstance(item, LinkRef):
-            return item.get_tag()
-        elif EXTRAS_FORMULAE and isinstance(item, Expr):
-            if math_type == MathType.LATEX:
-                return f"$${printing.latex(item)}$$"
-            elif math_type == MathType.MOODLE:
-                return "{" + ("" if item.is_Atom else "=") + printing.latex(item) + "}"
-            elif math_type == MathType.MATHJAX:
-                return f"[mathjax]{printing.latex(item)}[/mathjax]"
-            elif math_type == MathType.MATHML:
-                return str(printing.mathml(item))
-            elif math_type == MathType.ASCII:
-                return str(printing.pretty(item))
-            elif math_type == MathType.FILE:
-                return render_latex(printing.latex(item), FileAddr.LOCAL)
-        else:
-            raise TypeError(f"Item has unknown type {type(item)}")
-
-    @property
-    def text(self) -> List[str|LinkRef]:
-        """A list of strings, file references, questions and math expressions 
-        (if EXTRAS_FORMULAE).
-        """
-        return self._text
-
-    @text.getter
-    def text(self) -> list:
-        return self._text
-
-    @text.setter
-    def text(self, value):
-        if isinstance(value, str):
-            self._text = [value]
-        elif isinstance(value, list):
-            self._text = value
-        else:
-            raise ValueError()
-
-    @classmethod
-    def from_string(cls, text: str, parser, **args) -> FText:
-        """Parses the provided string to a FText class by finding file pointers
-        and math expression and returning them as a list.
-        Args:
-            text (str): _description_
-            formatting (_type_, optional): _description_. Defaults to TextFormat.AUTO.
-            check_tags (bool, optional): _description_. Defaults to True.
-            check_math (bool, optional): _description_. Defaults to True.
-            files (list, optional): _description_. Defaults to None.
-        Returns:
-            FText: _description_
-        """
-        if parser is None:
-            return cls([text], args.get("files"))
-        else:
-            return parser(**args).parse(text)
-
-    def get(self, math_type=MathType.ASCII) -> str:
-        """Get a string representation of the object
-        Args:
-            math_type (MathType, optional): Which type of 
-        Returns:
-            str: A string representation of the object
-        """
-        data = ""
-        for item in self._text:
-            data += self.to_string(item, math_type)
-        return data
-
-    @staticmethod
-    def prop(attr: str, doc: str="") -> FText:
-        """Generate get/set/del properties for a Ftext attribute.
-        """
-        def setter(self, value):
-            data = getattr(self, attr)
-            if isinstance(value, FText):
-                setattr(self, attr, value)
-            elif isinstance(value, (list, str)):
-                data.text = value
-            elif value is not None:
-                raise ValueError(f"Can't assign {value} to {attr}")
-        def getter(self) -> FText:
-            return getattr(self, attr)
-        return property(getter, setter, doc=doc)
-
-
 class Hint(Serializable):
     """Represents a hint to be displayed when a wrong answer is provided
     to a "multiple tries" question. The hints are give in the listed order.
@@ -797,40 +533,3 @@ class Unit(Serializable):
         self.unit_name = unit_name
         self.multiplier = multiplier
 
-
-class Equation(Serializable):
-    """Represents an equation in a formulary. It can be define to be used in
-    either a quiz description or a question header.
-    """
-
-    def __init__(self, name: str, text: FText):
-        self.name = name
-        self.text = text
-
-
-class Table(Serializable):
-    """Represents a table in a formulary. It can be define to be used in
-    either a quiz description or a question header.
-    """
-
-    def __init__(self, name: str, text: FText):
-        self.name = name
-        self.text = text
-
-
-class Rule(Serializable):
-    """Represents a theory, law or other set of sentences that describe a
-    given phenomenum. It can be define to be used in either a quiz description
-    or a question header.
-    """
-
-    def __init__(self, name: str, text: FText, proof: FText):
-        self.name = name
-        self.text = text
-        self.proof = proof
-
-
-class Var(Serializable):
-
-    def __init__(self, text: FText):
-        self.data = text if not EXTRAS_FORMULAE else []

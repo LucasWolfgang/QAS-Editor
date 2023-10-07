@@ -31,8 +31,8 @@ from ..question import QCalculated, QCalculatedMC, QProblem, QDaDImage,\
 from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
                     ShapeType, Grading, Status, TolFormat, TolType,\
                     Distribution, ShowAnswer, MathType, ShuffleType
-from ..utils import gen_hier, Dataset, Hint, TList, FText, File, Unit, \
-                    serialize_fxml, XHTMLParser
+from ..utils import gen_hier, Dataset, Hint, TList, File, Unit, serialize_fxml
+from .text import FText, XHTMLParser
 
 if TYPE_CHECKING:
     from ..category import Category, _Question
@@ -210,8 +210,8 @@ def _from_units(root: et.Element, *_) -> Unit:
     return units
 
 
-def _from_Tags(root: et.Element, *_) -> TList:
-    _tags = TList(str)
+def _from_Tags(root: et.Element, *_):
+    _tags = TList[str]()
     for elem in root:
         _tags.append(elem.find("text").text)
     return _tags

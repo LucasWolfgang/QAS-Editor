@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 from qas_editor import category
-from qas_editor._parsers import moodle
+from qas_editor.parsers import moodle
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 

@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import os
 import shutil
 import pytest
-from qas_editor._parsers.ims import qti1v2, bb, IMS, canvas
+from qas_editor.parsers.ims import bb, IMS, canvas
 from qas_editor.category import Category
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
@@ -31,6 +31,7 @@ def all_question_types():
     yield IMS(EXAMPLE, TMP)
     shutil.rmtree(TMP)
 
+
 def test_read_manifest(all_question_types: IMS):
     all_question_types.get_manifest()
 
@@ -42,10 +43,13 @@ def test_read_canvas():
     shutil.rmtree(TMP, ignore_errors=True)
     canvas.read_cc_canvas(cat, EXAMPLE)
 
-def test_read():
-    EXAMPLE = f"{TEST_PATH}/datasets/qti1v2/item.zip"
-    parser = qti1v2.QTIParser1v2()
-    parser.read(EXAMPLE)
+
+def test_read_bb8():
+    EXAMPLE = f"{TEST_PATH}/datasets/ims/bb8.imscc"
+    TMP = f"{TEST_PATH}/datasets/ims/bb8_tmp"
+    cat = Category()
+    shutil.rmtree(TMP, ignore_errors=True)
+    bb.read_bb8(cat, EXAMPLE)
     
 
 def test_write_bb():

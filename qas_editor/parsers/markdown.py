@@ -18,9 +18,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import re
 
 from ..enums import TextFormat
-from ..utils import FText
 from ..question import QMultichoice
 from ..answer import Answer
+from .text import FText
 
 
 class DefaultMD:

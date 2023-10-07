@@ -22,8 +22,8 @@ import random
 from typing import TYPE_CHECKING
 from .enums import EmbeddedFormat, Grading, RespFormat, ShowUnits, ShowAnswer, ShuffleType,\
                    Distribution, Numbering, Synchronise, TextFormat, Status
-from .utils import Serializable, MarkerError, AnswerError, File, Dataset, \
-                   FText, Hint, Unit, TList, attribute_setup
+from .parsers.text import FText
+from .utils import Serializable, File, Dataset, Hint, Unit, TList
 from .answer import ACalculated, ACrossWord, Answer, EmbeddedItem, ANumerical,\
                     DragGroup, DragImage, SelectOption, Subquestion,\
                     DropZone, DragItem
@@ -71,16 +71,16 @@ class _Question(Serializable):
         self._remarks = FText()
         self.remarks = remarks
         self._feedbacks: Dict[float, FText] = feedbacks if feedbacks else {}
-        self._tags = TList(str, tags)
-        self._free_hints = TList(FText, free_hints)
+        self._tags = TList[str](tags)
+        self._free_hints = TList[FText](free_hints)
         self.__parent = None
         _LOG.debug("New question (%s) created.", self)
 
     def __str__(self) -> str:
         return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
 
-    question = FText.prop("_question", "Question text")
-    remarks = FText.prop("_remarks", "Solution or global feedback")
+    # question = FText.prop("_question", "Question text")
+    # remarks = FText.prop("_remarks", "Solution or global feedback")
 
     @property
     def feedbacks(self) -> Dict[float, FText]:
@@ -141,8 +141,8 @@ class _QHasOptions(_Question):
                  show_ans: ShowAnswer | bool = False, ordered=True, **kwargs):
         super().__init__(**kwargs)
         self.max_tries = int(max_tries)
-        self._fail_hints = TList(Hint, hints)
-        self._options = TList(self.ANS_TYPE, options)
+        self._fail_hints = TList[Hint](hints)
+        self._options = TList[self.ANS_TYPE](options)
         self.ordered = bool(ordered)
         if isinstance(show_ans, ShowAnswer):
             self.show_ans = show_ans
@@ -295,7 +295,7 @@ class QDaDImage(_QHasOptions):
                  zones: List[DropZone] = None, **kwargs):
         super().__init__(**kwargs)
         self.background = background
-        self._zones = TList(DropZone, zones)
+        self._zones = TList[DropZone](zones)
 
     @property
     def zones(self):
@@ -351,10 +351,10 @@ class QEmbedded(_QHasOptions):
     def check(self):
         markers = self.question.text.count(chr(MARKER_INT))
         if markers != len(self.options):
-            raise MarkerError("Number of markers and questions differ")
+            raise ValueError("Number of markers and questions differ")
         for question in self.options:
             if all(opt.fraction == 0 for opt in question.opts):
-                raise AnswerError("All answer options have 0 grade")
+                raise ValueError("All answer options have 0 grade")
 
     @staticmethod
     def from_cloze_text(text: str) -> Tuple[list, list]:
@@ -456,7 +456,7 @@ class QMissingWord(_QHasOptions):
     def check(self):
         total = len(re.findall(r"\[\[[0-9]+\]\]", self.question.text))
         if total != len(self.options):
-            raise MarkerError("Incorrect number of marker in text.")
+            raise ValueError("Incorrect number of marker in text.")
 
     @staticmethod
     def get_items(text: str) -> Tuple[list, list]:
@@ -590,8 +590,8 @@ class QTrueFalse(_Question):
         self._false_feedback = FText()
         self.false_feedback = false_feedback
 
-    true_feedback = FText.prop("_true_feedback")
-    false_feedback = FText.prop("_false_feedback")
+    # true_feedback = FText.prop("_true_feedback")
+    # false_feedback = FText.prop("_false_feedback")
 
 
 class QQuestion:
@@ -599,30 +599,30 @@ class QQuestion:
     Moodle, which was the previous one.
     """
 
-    def __init__(self, name="qstn", dbid: int = None, tags: TList = None,
-                 notes: str = ""):
+    def __init__(self, name="question", dbid: int = 0, tags: TList = None,
+                  notes: str = ""):
         """[summary]
         Args:
             name (str): name of the question
-            question (FText): text of the question
-            default_grade (float): the default mark
             dbid (int, optional): id number.
         """
-        self.name = str(name)
-        self.dbid = int(dbid) if dbid else None
-        self.notes = str(notes)
-        self._time_lim = 0
-        self._body = None
-        self._notes = None
-        self._tags = TList(str, tags)
-        self.__parent: Category = None
+        self.name = name
+        self.dbid = dbid
+        self.notes = notes
+        self.time_lim = 0
+        self._body = FText()
+        self._tags: List[str] = []
+        self.__parent = None
         _LOG.debug("New question (%s) created.", self)
 
     def __str__(self) -> str:
-        return f"{self.QNAME}: '{self.name}' @{hex(id(self))}"
+        return f"'{self.name}_{self.dbid}' @{hex(id(self))}"
 
-    body = attribute_setup(FText, "_body", "Question body")
-    time_lim = attribute_setup(int, "_time_lim")
+    @property
+    def body(self) -> FText:
+        """Question body
+        """
+        return self._body
 
     @property
     def parent(self) -> Category:
@@ -637,6 +637,7 @@ class QQuestion:
             raise ValueError("This attribute can't be assigned directly. Use "
                              "parent's add/pop_question functions instead.")
         self.__parent = value
+        self._body._files = value.resources
         _LOG.debug("Added (%s) to parent (%s).", self, value)
 
     @property

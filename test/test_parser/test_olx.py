@@ -17,6 +17,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import os
+from qas_editor.category import Category
+from qas_editor.parsers import olx
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
@@ -25,5 +27,7 @@ TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 # https://github.com/mitodl/openedx-course-test
 DOCKER = "docker run -i -t -v \"/path/to/course_dir\":\"/course\" -w /test_course mitodl/openedx-course-test bash -e test_course"
 
-def test_read():
-    pass
+def test_read_course():
+    EXAMPLE = f"{TEST_PATH}/datasets/olx/course.tar.xz"
+    tmp = olx.read_olx(Category, EXAMPLE)
+    raise tmp

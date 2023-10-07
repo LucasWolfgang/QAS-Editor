@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from io import StringIO
 import os
 from qas_editor.category import Category
-from qas_editor._parsers import latex
+from qas_editor.parsers import latex
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 

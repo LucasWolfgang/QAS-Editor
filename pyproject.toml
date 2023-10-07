@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "QAS Editor"
-version = "0.0.6"
+version = "0.0.7"
 description = "Question and Answer Sheet editor"
 authors = [
     "Lucas Wolfgang <lucawolfcs@hotmail.com>"

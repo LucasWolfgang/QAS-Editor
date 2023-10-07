@@ -21,15 +21,15 @@ Distributed under the terms of the GNU General Public License
 See http://www.gnu.org/licenses/gpl.txt for details.
 """
 from __future__ import annotations
+from typing import TYPE_CHECKING, Type, List, Tuple
 import re
 import os
 import logging
 
 from ..enums import Numbering
-from ..utils import FText
 from ..answer import Answer
 from ..question import QEssay, QMultichoice
-from typing import TYPE_CHECKING, Type, List, Tuple
+from .text import FText
 if TYPE_CHECKING:
     from ..category import Category
     from io import StringIO

@@ -22,7 +22,8 @@ from ..question import MARKER_INT, QMatching, QEssay, QTrueFalse, QNumerical,\
                        QProblem, QShortAnswer, QMultichoice
 from ..enums import TextFormat
 from ..answer import Answer, ANumerical, Subquestion
-from ..utils import FText, gen_hier
+from ..utils import gen_hier
+from .text import FText
 if TYPE_CHECKING:
     from ..category import Category
 _LOG = logging.getLogger(__name__)
