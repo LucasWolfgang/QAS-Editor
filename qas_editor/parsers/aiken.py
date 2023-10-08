@@ -22,9 +22,10 @@ import logging
 import re
 from typing import TYPE_CHECKING, Type
 
-from qas_editor.answer import Choice, ChoicesItem
-from qas_editor.processors import PROCESSORS
-from qas_editor.question import QMultichoice, QQuestion
+from ..answer import Choice, ChoicesItem
+from ..enums import Language
+from ..processors import PROCESSORS
+from ..question import QMultichoice, QQuestion
 
 if TYPE_CHECKING:
     from ..category import Category
@@ -33,8 +34,8 @@ LOG = logging.getLogger(__name__)
 _PATTERN = re.compile(r"[A-Z]+\) (.+)")
 
 
-def _from_question(buffer, line: str, name: str):
-    question = QQuestion(name)
+def _from_question(buffer, line: str, name: str, language: Language):
+    question = QQuestion({language: name}, None, None)
     simple_choice = ChoicesItem()
     header = line
     match = None
@@ -51,8 +52,8 @@ def _from_question(buffer, line: str, name: str):
             target = ord(_line[8].upper())-65
             break
         simple_choice.options.append(Choice(match[1]))
-    question.body.text.append(header.strip())
-    question.body.text.append(simple_choice)
+    question.body[language].text.append(header.strip())
+    question.body[language].text.append(simple_choice)
     simple_choice.processor = PROCESSORS["multichoice"].format(index=target)
     return question
 
@@ -60,7 +61,8 @@ def _from_question(buffer, line: str, name: str):
 # -----------------------------------------------------------------------------
 processor = print
 
-def read_aiken(cls: Type[Category], file_path: str, category: str = "$course$") -> Category:
+def read_aiken(cls: Type[Category], file_path: str, category: str, 
+               language: Language) -> Category:
     """_summary_
 
     Args:
@@ -77,12 +79,13 @@ def read_aiken(cls: Type[Category], file_path: str, category: str = "$course$") 
             for line in ifile:
                 if line == "\n":
                     continue
-                quiz.add_question(_from_question(ifile, line, f"aiken_{cnt}"))
+                question = _from_question(ifile, line, f"aiken_{cnt}", language)
+                quiz.add_question(question)
                 cnt += 1
     return quiz
 
 
-def write_aiken(category: Category, file_path: str) -> None:
+def write_aiken(category: Category, language: Language, file_path: str) -> None:
     """_summary_
 
     Args:
@@ -90,11 +93,12 @@ def write_aiken(category: Category, file_path: str) -> None:
     """
     def _to_aiken(cat: Category, writer):
         for question in cat.questions:
-            if len(question.body) == 2 and isinstance(question.body[1], ChoicesItem):
-                writer(f"{question.body.text[0]}\n")
+            if (len(question.body[language]) == 2 and 
+                        isinstance(question.body[language][1], ChoicesItem)):
+                writer(f"{question.body[language].text[0]}\n")
                 correct = "ANSWER: None\n\n"
-                exec(question.body.text[1].processor, globals())
-                for num, ans in enumerate(question.body.text[1]):
+                exec(question.body[language].text[1].processor, globals())
+                for num, ans in enumerate(question.body[language].text[1]):
                     writer(f"{chr(num+65)}) {ans}\n")
                     if processor(num) == 100.0:
                         correct = f"ANSWER: {chr(num+65)}\n\n"

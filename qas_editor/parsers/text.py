@@ -226,6 +226,24 @@ class FText:
     def __getitem__(self, idx: int):
         return self._text[idx]
 
+    @property
+    def files(self):
+        """Files referenced in this FText instance.
+        """
+        return self._files
+
+    @files.setter
+    def files(self, value):
+        if isinstance(value, list):
+            self._files = value
+
+    @property
+    def text(self) -> list:
+        """A list of strings, file references, questions and math expressions 
+        (if EXTRAS_FORMULAE).
+        """
+        return self._text
+
     @staticmethod
     def to_string(item, mtype: MathType, ftype: FileAddr, otype: OutFormat) -> str|File:
         """_summary_
@@ -257,28 +275,6 @@ class FText:
         else:
             raise TypeError(f"Item has unknown type {type(item)}")
         return res
-
-    @property
-    def files(self):
-        """Files referenced in this FText instance.
-        """
-        return self._files
-
-    @property
-    def text(self) -> list:
-        """A list of strings, file references, questions and math expressions 
-        (if EXTRAS_FORMULAE).
-        """
-        return self._text
-
-    @text.setter
-    def text(self, value):
-        if isinstance(value, str):
-            self._text = [value]
-        elif isinstance(value, list):
-            self._text = value
-        else:
-            raise ValueError()
 
     def parse(self, text: str, parser: Callable, **args):
         """Parses the provided string to a FText class by finding file pointers

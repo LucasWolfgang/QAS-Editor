@@ -20,19 +20,18 @@ from __future__ import annotations
 import logging
 import random
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Tuple
 
 from .answer import (ACalculated, ACrossWord, Answer, ANumerical, DragGroup,
                      DragImage, DragItem, DropZone, EmbeddedItem, SelectOption,
                      Subquestion)
-from .enums import (Distribution, EmbeddedFormat, Grading, Numbering,
-                    RespFormat, ShowAnswer, ShowUnits, ShuffleType, Status,
-                    Synchronise, TextFormat)
+from .enums import (Distribution, Grading, Language, Numbering, RespFormat,
+                    ShowAnswer, ShowUnits, ShuffleType, Status, Synchronise)
 from .parsers.text import FText
 from .utils import Dataset, File, Hint, Serializable, TList, Unit
 
 if TYPE_CHECKING:
-    from typing import Dict, List, Tuple
+    from datetime import datetime
 
     from .category import Category
     from .enums import Direction
@@ -351,7 +350,6 @@ class QEmbedded(_QHasOptions):
     """
     QNAME = "Cloze"
     ANS_TYPE = EmbeddedItem
-    _CLOZE_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
 
     def check(self):
         markers = self.question.text.count(chr(MARKER_INT))
@@ -360,52 +358,6 @@ class QEmbedded(_QHasOptions):
         for question in self.options:
             if all(opt.fraction == 0 for opt in question.opts):
                 raise ValueError("All answer options have 0 grade")
-
-    @staticmethod
-    def from_cloze_text(text: str) -> Tuple[list, list]:
-        """Return a tuple with the Marked text and the data extracted.
-        """
-        ftext = []
-        start = 0
-        items = []
-        for match in QEmbedded._CLOZE_PATTERN.finditer(text):
-            opts = []
-            for opt in match[3].split("~"):
-                if not opt:
-                    continue
-                tmp = opt.strip("}~").split("#")
-                if len(tmp) == 2:
-                    tmp, fdb = tmp
-                else:
-                    tmp, fdb = tmp[0], ""
-                frac = 0.0
-                if tmp[0] == "=":
-                    frac = 100.0
-                    tmp = tmp[1:]
-                elif tmp[0] == "%":
-                    frac, tmp = tmp[1:].split("%")
-                    frac = float(frac)
-                feedback = FText(fdb, TextFormat.PLAIN)
-                opts.append(Answer(frac, tmp, feedback, TextFormat.PLAIN))
-            item = EmbeddedItem(int(match[1]), EmbeddedFormat(match[2]), opts)
-            items.append(item)
-            ftext.append(text[start: match.start()])
-            ftext.append(item)
-            start = match.end()
-        ftext.append(text[start:])
-        return ftext, items
-
-    def to_cloze_text(self, embedded_name: bool) -> str:
-        """Return the text formatted as expected by the end-tool, which is
-        currently only moodle.
-        """
-        tmp = self.question.text.copy()
-        text = [self.name, "\n", *tmp] if embedded_name else tmp
-        for idx in range(len(text)):
-            item = text[idx]
-            if isinstance(item, EmbeddedItem):
-                text[idx] = item.to_cloze()
-        return "".join(text)
 
 
 class QDrawing(_Question):
@@ -604,19 +556,20 @@ class QQuestion:
     Moodle, which was the previous one.
     """
 
-    def __init__(self, name="question", dbid: int = 0, tags: TList = None,
-                  notes: str = ""):
+    def __init__(self, name: Dict[Language, str], dbid: int, tags: List[str]):
         """[summary]
         Args:
             name (str): name of the question
             dbid (int, optional): id number.
         """
-        self.name = name
         self.dbid = dbid
-        self.notes = notes
         self.time_lim = 0
-        self._body = FText()
-        self._tags: List[str] = []
+        self.notes: Dict[datetime, str] = {}
+        self.name = name
+        self._body: Dict[Language, FText] = {}
+        for key in name:
+            self._body[key] = FText()
+        self._tags = tags or []
         self.__parent = None
         _LOG.debug("New question (%s) created.", self)
 
@@ -624,7 +577,7 @@ class QQuestion:
         return f"'{self.name}_{self.dbid}' @{hex(id(self))}"
 
     @property
-    def body(self) -> FText:
+    def body(self) -> Dict[Language, FText]:
         """Question body
         """
         return self._body
@@ -642,11 +595,10 @@ class QQuestion:
             raise ValueError("This attribute can't be assigned directly. Use "
                              "parent's add/pop_question functions instead.")
         self.__parent = value
-        self._body._files = value.resources
         _LOG.debug("Added (%s) to parent (%s).", self, value)
 
     @property
-    def tags(self) -> TList:
+    def tags(self) -> List[str]:
         """_summary_
         """
         return self._tags

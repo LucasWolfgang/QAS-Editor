@@ -98,7 +98,7 @@ class Grading(EnhancedEnum):
 class Language(Enum):
     """Languages that can be attributes to a FText section (TODO)
     """
-    EN = "english"
+    EN_US = "english"
     PTBR = "brazilian portuguese"
 
 
