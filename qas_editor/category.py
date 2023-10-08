@@ -16,16 +16,18 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
+import csv
 import logging
 import re
-import csv
-from typing import TYPE_CHECKING, Dict, List, Iterator
+from typing import TYPE_CHECKING, Dict, Iterator, List
 
-from .utils import Serializable, File
-from .question import QQuestion, _Question
 from .enums import Status
-from .parsers import aiken, csv_card, cloze, gift, kahoot, latex, \
-                      markdown, moodle, olx, ims
+from .parsers import (aiken, cloze, csv_card, gift, ims, kahoot, latex,
+                      markdown, moodle, olx)
+from .question import QQuestion, _Question
+from .utils import File, Serializable
+
 if TYPE_CHECKING:
     from .utils import Dataset
 _LOG = logging.getLogger(__name__)
@@ -96,7 +98,7 @@ class Category(Serializable):  # pylint: disable=R0904
         return f"Category: '{self.name}' @{hex(id(self))}"
 
     @property
-    def questions(self) -> Iterator[_Question]:
+    def questions(self) -> Iterator[QQuestion]:
         """Set of questions of this category.
         """
         return iter(self.__questions)

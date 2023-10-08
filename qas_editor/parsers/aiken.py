@@ -16,13 +16,16 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-import re
-import logging
+
 import glob
+import logging
+import re
 from typing import TYPE_CHECKING, Type
-from qas_editor.question import QMultichoice, QQuestion
-from qas_editor.processors import PROCESSORS
+
 from qas_editor.answer import Choice, ChoicesItem
+from qas_editor.processors import PROCESSORS
+from qas_editor.question import QMultichoice, QQuestion
+
 if TYPE_CHECKING:
     from ..category import Category
 
@@ -55,7 +58,7 @@ def _from_question(buffer, line: str, name: str):
 
 
 # -----------------------------------------------------------------------------
-
+processor = print
 
 def read_aiken(cls: Type[Category], file_path: str, category: str = "$course$") -> Category:
     """_summary_
@@ -79,24 +82,24 @@ def read_aiken(cls: Type[Category], file_path: str, category: str = "$course$") 
     return quiz
 
 
-def write_aiken(category: Type[Category], file_path: str) -> None:
+def write_aiken(category: Category, file_path: str) -> None:
     """_summary_
 
     Args:
         file_path (str): _description_
     """
-    def _to_aiken(cat: Type[Category], writer) -> str:
+    def _to_aiken(cat: Category, writer):
         for question in cat.questions:
-            if isinstance(question, QMultichoice):
-                writer(f"{question.question.get()}\n")
+            if len(question.body) == 2 and isinstance(question.body[1], ChoicesItem):
+                writer(f"{question.body.text[0]}\n")
                 correct = "ANSWER: None\n\n"
-                for num, ans in enumerate(question.options):
-                    writer(f"{chr(num+65)}) {ans.text}\n")
-                    if ans.fraction == 100.0:
+                exec(question.body.text[1].processor, globals())
+                for num, ans in enumerate(question.body.text[1]):
+                    writer(f"{chr(num+65)}) {ans}\n")
+                    if processor(num) == 100.0:
                         correct = f"ANSWER: {chr(num+65)}\n\n"
                 writer(correct)
         for name in cat:
             _to_aiken(cat[name], writer)
-        return None
     with open(file_path, "w", encoding="utf-8") as ofile:
         _to_aiken(category, ofile.write)

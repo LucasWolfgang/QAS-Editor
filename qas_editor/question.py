@@ -16,21 +16,26 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-import re
+
 import logging
 import random
+import re
 from typing import TYPE_CHECKING
-from .enums import EmbeddedFormat, Grading, RespFormat, ShowUnits, ShowAnswer, ShuffleType,\
-                   Distribution, Numbering, Synchronise, TextFormat, Status
+
+from .answer import (ACalculated, ACrossWord, Answer, ANumerical, DragGroup,
+                     DragImage, DragItem, DropZone, EmbeddedItem, SelectOption,
+                     Subquestion)
+from .enums import (Distribution, EmbeddedFormat, Grading, Numbering,
+                    RespFormat, ShowAnswer, ShowUnits, ShuffleType, Status,
+                    Synchronise, TextFormat)
 from .parsers.text import FText
-from .utils import Serializable, File, Dataset, Hint, Unit, TList
-from .answer import ACalculated, ACrossWord, Answer, EmbeddedItem, ANumerical,\
-                    DragGroup, DragImage, SelectOption, Subquestion,\
-                    DropZone, DragItem
+from .utils import Dataset, File, Hint, Serializable, TList, Unit
+
 if TYPE_CHECKING:
-    from typing import List, Dict, Tuple
-    from .enums import Direction
+    from typing import Dict, List, Tuple
+
     from .category import Category
+    from .enums import Direction
 _LOG = logging.getLogger(__name__)
 
 
@@ -520,7 +525,7 @@ class QProblem(_Question):
     """
     QNAME = "Enumeration"
 
-    def __init__(self, qtype = _Question, children: List[_Question] = None,  
+    def __init__(self, qtype = _Question, children: List[_Question] = None,
                  numbering: Numbering = None,**kwargs):
         super().__init__(**kwargs)
         self.children = children if children else TList(qtype)

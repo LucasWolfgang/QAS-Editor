@@ -16,8 +16,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-multichoice_def = """
-def func(a):
+MULTICHOICE_DEF = """
+def processor(a):
     if a == {index}:
         return 100
     else:
@@ -25,5 +25,5 @@ def func(a):
 """
 
 PROCESSORS = {
-    "multichoice": multichoice_def
+    "multichoice": MULTICHOICE_DEF
 }

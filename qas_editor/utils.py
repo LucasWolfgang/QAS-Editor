@@ -16,25 +16,27 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-import re
-import os
-import subprocess
+
 import base64
 import copy
+import hashlib
 import html
 import logging
-import shutil
-import tempfile
-import hashlib
-import unicodedata
 import mimetypes
-from io import BytesIO
-from xml.sax import saxutils
+import os
+import re
+import shutil
+import subprocess
+import tempfile
+import unicodedata
 from importlib import util
-from urllib import request, parse
+from io import BytesIO
+from typing import TYPE_CHECKING, Dict, Generic, Iterable, List, Tuple, TypeVar
+from urllib import parse, request
 from xml.etree import ElementTree as et
-from typing import Dict, List, Tuple, TypeVar, Generic, Iterable, TYPE_CHECKING
-from .enums import FileAddr, OutFormat, TextFormat, Status, Distribution
+from xml.sax import saxutils
+
+from .enums import Distribution, FileAddr, OutFormat, Status, TextFormat
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 if EXTRAS_FORMULAE:
@@ -68,7 +70,7 @@ def gen_hier(cls, top, category: str):
 
 
 def serialize_fxml(write, elem, short_empty, pretty, level=0):
-    """
+    """Serializes an XML root item, adding formating
     """
     tag = elem.tag
     text = elem.text
@@ -179,7 +181,7 @@ def render_latex(latex: str, ftype: FileAddr, scale=1.0):
                 res = run_me(["dvisvgm", "--no-fonts", "--stdout", "text.dvi"])
                 res = str(base64.b64encode(res.stdout), "utf-8")
             else:
-                run_me("dvisvgm", "--no-fonts", "-o", name, "text.dvi")
+                run_me(["dvisvgm", "--no-fonts", "-o", name, "text.dvi"])
                 shutil.move(f"{workdir}/{name}", ".")
                 res = File(name, FileAddr.LOCAL, name, **attr)
     elif EXTRAS_FORMULAE:
@@ -213,23 +215,11 @@ def clean_q_name(string: str):
     nfkd_form = unicodedata.normalize('NFKD', string)
     remap = {ord('œ'): 'oe', ord('Œ'): 'OE', ord('æ'): 'ae', ord('Æ'): 'AE',
              ord('€'): ' Euros', ord('ß'): 'ss', ord('¿'): '?'}
-    out = u"".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    out = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
     out = out.translate(remap)
     out = re.sub(r'[^0-9a-zA-Z:\-]+', ' ', out)
     return out.strip()
 
-
-def attribute_setup(cls: T, attr: str, doc: str=""):
-    """Generate get/set/del properties for a Ftext attribute.
-    """
-    def setter(self, value):
-        if isinstance(value, cls):
-            setattr(self, attr, value)
-        elif value is not None:
-            raise ValueError(f"Can't assign {value} to {attr}")
-    def getter(self) -> T:
-        return getattr(self, attr)
-    return property[Generic[T]](getter, setter, doc=doc)
 
 # -----------------------------------------------------------------------------
 
@@ -282,11 +272,11 @@ class Serializable:
             bool: if the checksum are equal.
         """
         ignored_exp = [' ', '\t', '\n']
-        with open(path1) as f1:
+        with open(path1, encoding="utf-8") as f1:
             content1 = f1.read()
             for exp in ignored_exp:
                 content1 = content1.replace(exp, '')
-        with open(path2) as f2:
+        with open(path2, encoding="utf-8") as f2:
             content2 = f2.read()
             for exp in ignored_exp:
                 content2 = content2.replace(exp, '')
@@ -307,6 +297,63 @@ class Serializable:
         return True
 
 
+class Compare:
+    """An abstract class to be used as base for all serializable classes. Its
+    main usage is to verify equality, and not to do the process itself.
+    """
+
+    @staticmethod
+    def _cmp_dict(itma: dict, itmb: dict, path: list):
+        for key, value in itma.items():
+            if key in ("_QQuestion__parent", "_Category__parent"):
+                continue
+            if not Compare._itercmp(value, itmb.get(key), path):
+                return False
+        return True
+
+    @staticmethod
+    def _cmp_list(itma: list, itmb: list, path: list):
+        if len(itma) != len(itmb):
+            return False
+        tmp: list = copy.copy(itmb)
+        for ita in itma:
+            path.append(ita)
+            idx = 0
+            for idx, itb in enumerate(tmp):
+                if Compare._itercmp(ita, itb, path):
+                    break
+            else:
+                return False
+            tmp.pop(idx)
+            path.pop()
+        return True
+
+    @staticmethod
+    def _itercmp(__a, __b, path: list):
+        if not isinstance(__b, __a.__class__):
+            return False
+        elif isinstance(__a, list):
+            return Compare._cmp_list(__a, __b, path)
+        elif isinstance(__a, dict):
+            return Compare._cmp_dict(__a, __b, path)
+        elif hasattr(__a, "__dict__"):
+            return Compare._cmp_dict(__a.__dict__, __b.__dict__, path)
+        elif __a != __b:
+            return False
+        return True
+
+    @staticmethod
+    def compare( __a: object, __b: object) -> bool:
+        """A
+        """
+        if type(__b) != type(__a):
+            return False
+        path = []
+        if not Compare._itercmp(__a, __b, path):
+            raise ValueError(f"In {path}. Use debugger.")
+        return True
+
+
 class TList(Generic[T]):
     """Typed List (or Datatype list) is a class that restricts the datatype of
     all the items to a single one defined in constructor.
@@ -319,6 +366,9 @@ class TList(Generic[T]):
 
     def append(self, __object):
         self._items.append(__object)
+
+    def extend(self, __object):
+        self._items.extend(__object)
 
 
 # -----------------------------------------------------------------------------
@@ -444,18 +494,25 @@ class LinkRef(Serializable):
         elif "@@PLUGINFILE@@" in value:
             return parse.unquote(value).replace("@@PLUGINFILE@@", "/")
 
-    def _handle_iframe(format: OutFormat):
+    def _handle_iframe(self, format: OutFormat):
         if format == OutFormat.OLX:
             elem = et.Element("video")
 
-    def get_tag(self, embedded: bool, format: OutFormat) -> str:
+    def get_tag(self, embedded: bool, otype: OutFormat) -> str:
+        """_summary_
+        Args:
+            embedded (bool): _description_
+            format (OutFormat): _description_
+        Returns:
+            str: _description_
+        """
         for val in ("href", "src"):
             if val in self.metadata:
                 self.metadata[val] = self._replace_href_scr(self.metadata[val])
-        if self.tag == "iframe" and format == OutFormat.OLX:
-            output_bb = f'<video ' # TODO probably need something else here
+        if self.tag == "iframe" and otype == OutFormat.OLX:
+            output_bb = '<video ' # TODO probably need something else here
         elif self.tag == "transcript" or self.file.mtype == "transcript":
-            return f'<transcript language="" src="">'
+            return '<transcript language="" src="">'
         else:
             output_bb = f'<{self.tag}'
         if embedded:
@@ -504,6 +561,8 @@ class Dataset(Serializable):
         return f"{self.status.name} > {self.name} ({hex(id(self))})"
 
     def generate(self):
+        """_summary_
+        """
         if self.distribution == Distribution.UNI:
             pass
         else:
@@ -532,4 +591,4 @@ class Unit(Serializable):
         super().__init__()
         self.unit_name = unit_name
         self.multiplier = multiplier
-
+ 

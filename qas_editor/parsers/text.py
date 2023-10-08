@@ -16,19 +16,21 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-from io import TextIOWrapper
+
 from html.parser import HTMLParser
-from typing import List, Callable
 from importlib import util
-from qas_editor.enums import FileAddr, MathType
-from qas_editor.utils import File, LinkRef, ParseError, render_latex
+from io import TextIOWrapper
+from typing import Callable, List
+
+from ..enums import FileAddr, MathType, OutFormat
+from ..utils import File, LinkRef, ParseError, render_latex
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 if EXTRAS_FORMULAE:
-    from sympy import printing, Expr
+    from sympy import Expr, printing
 
 class Var:
-    """
+    """A variable used in case there is no sympy installed.
     """
 
     def __init__(self, text: str):
@@ -36,7 +38,7 @@ class Var:
 
 
 class XItem:
-    """
+    """An (X)HTML item for the (X)HTML parser
     """
 
     def __init__(self, tag, attrib: dict = None, closed: bool = False):
@@ -48,11 +50,20 @@ class XItem:
         return iter(self._children)
 
     def append(self, item: XItem):
-        """
+        """"Appends a child to the item.
+        Args:
+            item (XItem): _description_
         """
         self._children.append(item)
 
     def get(self, mtype: MathType, ftype: FileAddr) -> str:
+        """_summary_
+        Args:
+            mtype (MathType): _description_
+            ftype (FileAddr): _description_
+        Returns:
+            str: _description_
+        """
         value = f"<{self.tag} "
         if self.attrs:
             for key, val in self.attrs.items():
@@ -117,7 +128,7 @@ class XHTMLParser(HTMLParser):
         self._stack.pop()
 
     def handle_data(self, data):
-        if self._stack[-1].tag not in ("", "a", "base", "base", "input", "link", 
+        if self._stack[-1].tag not in ("", "a", "base", "base", "input", "link",
                                        "audio", "embed", "img", "video", "file", 
                                        "script", "source", "iframe", "track"):
             self._get_file_ref(data)
@@ -125,6 +136,12 @@ class XHTMLParser(HTMLParser):
             self._stack[-1].append(data)
 
     def parse(self, data: str|TextIOWrapper):
+        """Parse the data provided.
+        Args:
+            data (str | TextIOWrapper): data to be parsed
+        Raises:
+            ParseError: If the data is not a string or TextIO
+        """
         if isinstance(data, str):
             self.feed(data)
             self.close()
@@ -162,13 +179,20 @@ class TextParser():
     def do(self):
         """Modify this functions in super classes.
         """
-        pass
 
     def clean_up(self):
+        """Clean up process
+        """
         if self.text[self.lst:]:
             self.ftext.append(self.text[self.lst:])
 
     def parse(self, data: str|TextIOWrapper):
+        """Parse the data provided.
+        Args:
+            data (str | TextIOWrapper): data to be parsed
+        Raises:
+            ParseError: If the data is not a string or TextIO
+        """
         if isinstance(data, str):
             self.text = data
         elif isinstance(data, TextIOWrapper):
@@ -193,11 +217,17 @@ class FText:
         self._files = files or []
         self._text = []
 
-    def __str__(self) -> str:
-        return self.get()
+    def __iter__(self):
+        return iter(self._text)
+
+    def __len__(self):
+        return len(self._text)
+
+    def __getitem__(self, idx: int):
+        return self._text[idx]
 
     @staticmethod
-    def to_string(item, mtype: MathType, ftype: FileAddr) -> str:
+    def to_string(item, mtype: MathType, ftype: FileAddr, otype: OutFormat) -> str|File:
         """_summary_
         Args:
             item (_type_): _description_
@@ -206,29 +236,32 @@ class FText:
             str: _description_
         """
         if isinstance(item, str) or hasattr(item, "__str__"):
-            return str(item)
+            res = str(item)
         elif hasattr(item, "MARKER_INT"):
-            return chr(item.MARKER_INT)
+            res = chr(item.MARKER_INT)
         elif isinstance(item, LinkRef):
-            return item.get_tag()
+            res = item.get_tag(ftype == FileAddr.EMBEDDED, otype)
         elif EXTRAS_FORMULAE and isinstance(item, Expr):
             if mtype == MathType.LATEX:
-                return f"$${printing.latex(item)}$$"
+                res = f"$${printing.latex(item)}$$"
             elif mtype == MathType.MOODLE:
-                return "{" + ("" if item.is_Atom else "=") + printing.latex(item) + "}"
+                res =  "{" + ("" if item.is_Atom else "=") + printing.latex(item) + "}"
             elif mtype == MathType.MATHJAX:
-                return f"[mathjax]{printing.latex(item)}[/mathjax]"
+                res =  f"[mathjax]{printing.latex(item)}[/mathjax]"
             elif mtype == MathType.MATHML:
-                return str(printing.mathml(item))
+                res =  str(printing.mathml(item))
             elif mtype == MathType.ASCII:
-                return str(printing.pretty(item))
+                res =  str(printing.pretty(item))
             elif mtype == MathType.FILE:
-                return render_latex(printing.latex(item), ftype)
+                res = render_latex(printing.latex(item), ftype)
         else:
             raise TypeError(f"Item has unknown type {type(item)}")
+        return res
 
     @property
     def files(self):
+        """Files referenced in this FText instance.
+        """
         return self._files
 
     @property
@@ -264,7 +297,8 @@ class FText:
             self._text = tmp.ftext
 
     def get(self, mtype=MathType.ASCII, ftype=FileAddr.LOCAL) -> str:
-        """Get a string representation of the object
+        """Get a string representation of the object. This representation 
+        replaces Items with marker.
         Args:
             math_type (MathType, optional): Which type of 
         Returns:
@@ -274,4 +308,3 @@ class FText:
         for item in self._text:
             data += self.to_string(item, mtype, ftype)
         return data
-

@@ -17,12 +17,15 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING, Dict, List, Callable
-from .enums import TolFormat, TextFormat, ShapeType, EmbeddedFormat, Direction,\
-                   TolType
+from typing import Callable, List
+
+from .enums import (Direction, EmbeddedFormat, ShapeType, TextFormat,
+                    TolFormat, TolType)
 from .parsers.text import FText
-from .utils import Serializable, File, TList
+from .utils import File, Serializable
+
 _LOG = logging.getLogger(__name__)
 
 
@@ -31,7 +34,7 @@ class Item:
     types of Questions.
     """
 
-    def __init__(self, feedbacks: List[FText] = None, 
+    def __init__(self, feedbacks: List[FText] = None,
                  hints: List[FText] = None):
         """[summary]
         Args:
@@ -41,14 +44,30 @@ class Item:
         self._proc = None
         self._feedbacks = feedbacks
         self._hints = hints
+        self._options: List = []
+
+    def __iter__(self):
+        return iter(self._options)
 
     @property
     def feedbacks(self) -> List[FText]:
+        """_summary_
+        """
         return self._feedbacks
 
     @property
     def hints(self) -> List[FText]:
+        """_summary_
+        """
         return self._hints
+
+    @property
+    def options(self) -> List:
+        """_summary_
+        Returns:
+            List[Choice]: _description_
+        """
+        return self._options
 
     @property
     def processor(self) -> str:
@@ -56,35 +75,16 @@ class Item:
             will be shown, etc). Stored in text format.
         """
         return self._proc
-    
+
     @processor.setter
     def processor(self, value):
         if isinstance(value, str):
             exec(value)  # Ignore the result. What we want is no Exception here
-            self._value = value
+            self._proc = value
 
     def check(self):
-        return True
-
-
-class ChoicesItem(Item):
-    """This is the basic class used to hold possible answers
-    """
-    MARKER_INT = 9635
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._options = TList[Choice]()
-
-    @property
-    def options(self) -> TList[Choice]:
         """_summary_
-        Returns:
-            TList[Choice]: _description_
         """
-        return self._options
-
-    def check(self):
         return True
 
 
@@ -100,6 +100,23 @@ class Choice:
         self.fixed = False
         self.show = False
 
+    def __str__(self) -> str:
+        return self._text.text[0]
+
+
+class ChoicesItem(Item):
+    """This is the basic class used to hold possible answers
+    """
+    MARKER_INT = 9635
+    ITEM_TYPE = Choice
+
+    @property
+    def options(self) -> List[Choice]:  # Only for type checking
+        return self._options
+
+    def check(self):
+        return True
+
 
 class Answer(Serializable):
     """
@@ -112,8 +129,7 @@ class Answer(Serializable):
         self.formatting = TextFormat.AUTO if formatting is None else formatting
         self.text = text
         self._feedback = FText()
-        self._feedback.parse(feedback)
-
+        self._feedback.parse(feedback, None)
 
 
 class ANumerical(Answer):
@@ -150,7 +166,7 @@ class EmbeddedItem(Serializable):
                  opts: List[Answer] = None):
         self.cformat = cformat
         self.grade = grade
-        self.opts = TList[Answer](opts)
+        self.opts: List[Answer] = opts
 
     def to_cloze(self) -> str:
         """A
