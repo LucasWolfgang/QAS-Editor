@@ -66,7 +66,8 @@ disable = ["C0302",     # Too many lines in module
            "W0511",     # TODO's. Not necessary
            "W0223",     # Method is abstract is not overridden. Used as documentation
            "R0912",
-           "E0401"
+           "E0401",
+           "W0122"
           #"W0212"      # Access to a protected member. Internal methods need to access protected member.
         ]               #   but it will be good to revise this one later.
 

@@ -28,7 +28,7 @@ from .answer import (ACalculated, ACrossWord, Answer, ANumerical, DragGroup,
 from .enums import (Distribution, Grading, Language, Numbering, RespFormat,
                     ShowAnswer, ShowUnits, ShuffleType, Status, Synchronise)
 from .parsers.text import FText
-from .utils import Dataset, File, Hint, Serializable, TList, Unit
+from .utils import Dataset, File, Hint, TList, Unit
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -42,7 +42,7 @@ QNAME: Dict[str, _Question] = {}
 MARKER_INT = 9635
 
 
-class _Question(Serializable):
+class _Question:
     """This is an abstract class Question used as a parent for specific
     types of Questions.
     """
@@ -556,7 +556,7 @@ class QQuestion:
     Moodle, which was the previous one.
     """
 
-    def __init__(self, name: Dict[Language, str], dbid: int, tags: List[str]):
+    def __init__(self, name: Dict[Language, str], dbid: int=None, tags: List[str]=None):
         """[summary]
         Args:
             name (str): name of the question
@@ -566,6 +566,7 @@ class QQuestion:
         self.time_lim = 0
         self.notes: Dict[datetime, str] = {}
         self.name = name
+        self.tool_name = self.tool_ver = None
         self._body: Dict[Language, FText] = {}
         for key in name:
             self._body[key] = FText()

@@ -53,14 +53,13 @@ class EnhancedEnum(Enum):
 class EmbeddedFormat(EnhancedEnum):
     """Enumerates Cloze formats
     """
+    MC = "MULTICHOICE", "MC", "MCV", "MULTICHOICE_V", "Multichoice, dropdown"
+    MCH = "MULTICHOICE_H", "MCH", "Multichoice, horizontal row"
+    MR = "MULTIRESPONSE", "MR", "Multichoice, vertical column"
+    MRH = "MULTIRESPONSE_H", "MRH", "Multichoice, horizontal row"
+    NUM = "NUMERICAL", "NM", "Numerical"
     SA = "SHORTANSWER", "MW", "SA", "Short, Case Insensitive"
     SAC = "SHORTANSWER_C", "MWC", "SAC", "Short, Case Sensitive"
-    NUM = "NUMERICAL", "NM", "Numerical"
-    MC = "MULTICHOICE", "MC", "Multichoice, dropdown"
-    MVC = "MULTICHOICE_V", "MVC", "Multichoice, vertical column"
-    MCH = "MULTICHOICE_H", "MCH", "Multichoice, horizontal row"
-    MR = "MULTIRESPONSE", "MR", "Multichoice, vertical row"
-    MRH = "MULTIRESPONSE_H", "MRH", "Multichoice, horizontal row"
 
 
 class Direction(EnhancedEnum):
@@ -131,6 +130,13 @@ class OutFormat(Enum):
     OLX = auto()
     QTI = auto()
     GIFT = auto()
+
+
+class Orientation(Enum):
+    """_summary_
+    """
+    HOR = auto()
+    VER = auto()
 
 
 class ShapeType(Enum):

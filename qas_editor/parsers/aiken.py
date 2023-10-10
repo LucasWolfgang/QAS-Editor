@@ -22,10 +22,10 @@ import logging
 import re
 from typing import TYPE_CHECKING, Type
 
+from .. import processors as pcsr
 from ..answer import Choice, ChoicesItem
 from ..enums import Language
-from ..processors import PROCESSORS
-from ..question import QMultichoice, QQuestion
+from ..question import QQuestion
 
 if TYPE_CHECKING:
     from ..category import Category
@@ -54,7 +54,8 @@ def _from_question(buffer, line: str, name: str, language: Language):
         simple_choice.options.append(Choice(match[1]))
     question.body[language].text.append(header.strip())
     question.body[language].text.append(simple_choice)
-    simple_choice.processor = PROCESSORS["multichoice"].format(index=target)
+    mapper = {target: {"value": 100}}
+    simple_choice.processor = pcsr.Proc(pcsr.mapper, mapper)
     return question
 
 
@@ -93,14 +94,15 @@ def write_aiken(category: Category, language: Language, file_path: str) -> None:
     """
     def _to_aiken(cat: Category, writer):
         for question in cat.questions:
-            if (len(question.body[language]) == 2 and 
+            if (len(question.body[language]) == 2 and
                         isinstance(question.body[language][1], ChoicesItem)):
                 writer(f"{question.body[language].text[0]}\n")
                 correct = "ANSWER: None\n\n"
-                exec(question.body[language].text[1].processor, globals())
-                for num, ans in enumerate(question.body[language].text[1]):
+                proc = question.body[language].text[1].processor
+                opts = question.body[language].text[1].options
+                for num, ans in enumerate(opts):
                     writer(f"{chr(num+65)}) {ans}\n")
-                    if processor(num) == 100.0:
+                    if proc.func(num)["value"] == 100.0:
                         correct = f"ANSWER: {chr(num+65)}\n\n"
                 writer(correct)
         for name in cat:

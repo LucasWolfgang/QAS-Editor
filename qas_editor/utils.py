@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import base64
 import copy
-import hashlib
 import html
 import logging
 import mimetypes
@@ -29,6 +28,7 @@ import shutil
 import subprocess
 import tempfile
 import unicodedata
+from enum import Enum
 from importlib import util
 from io import BytesIO
 from typing import TYPE_CHECKING, Dict, Generic, Iterable, List, Tuple, TypeVar
@@ -223,80 +223,6 @@ def clean_q_name(string: str):
 
 # -----------------------------------------------------------------------------
 
-
-class Serializable:
-    """An abstract class to be used as base for all serializable classes. Its
-    main usage is to verify equality, and not to do the process itself.
-    """
-
-    def __str__(self) -> str:
-        return f"{self.__class__} @{hex(id(self))}"
-
-    @staticmethod
-    def __itercmp(__a, __b, path: list):
-        if not isinstance(__b, __a.__class__):
-            return False
-        if hasattr(__a, "compare"):
-            path.append(__a)
-            __a.compare(__b, path)
-            path.pop()
-        elif isinstance(__a, list):
-            if len(__a) != len(__b):
-                return False
-            tmp: list = copy.copy(__b)
-            for ita in __a:
-                path.append(ita)
-                idx = 0
-                for idx, itb in enumerate(tmp):
-                    if Serializable.__itercmp(ita, itb, path):
-                        break
-                else:
-                    return False
-                tmp.pop(idx)
-                path.pop()
-        elif isinstance(__a, dict):
-            for key, value in __a.items():
-                if not Serializable.__itercmp(value, __b.get(key), path):
-                    return False
-        elif __a != __b:
-            return False
-        return True
-
-    @staticmethod
-    def check_hash(path1: str, path2: str):
-        """Return the md5 sum after removing all withspace.
-        Args:
-            path1 (str): File name 1.
-            path2 (str): File name 2.
-        Returns:
-            bool: if the checksum are equal.
-        """
-        ignored_exp = [' ', '\t', '\n']
-        with open(path1, encoding="utf-8") as f1:
-            content1 = f1.read()
-            for exp in ignored_exp:
-                content1 = content1.replace(exp, '')
-        with open(path2, encoding="utf-8") as f2:
-            content2 = f2.read()
-            for exp in ignored_exp:
-                content2 = content2.replace(exp, '')
-        h1 = hashlib.md5(content1.encode()).hexdigest()
-        h2 = hashlib.md5(content2.encode()).hexdigest()
-        return h1 == h2
-
-    def compare(self, __o: object, path: list) -> bool:
-        """A
-        """
-        if not isinstance(__o, self.__class__):
-            return False
-        for key, val in self.__dict__.items():
-            cpr = __o.__dict__.get(key)
-            if key not in ("_Question__parent", "_Category__parent") and not \
-                    Serializable.__itercmp(val, cpr, path):
-                raise ValueError(f"In {path} > {key}. Use debugger.")
-        return True
-
-
 class Compare:
     """An abstract class to be used as base for all serializable classes. Its
     main usage is to verify equality, and not to do the process itself.
@@ -307,40 +233,43 @@ class Compare:
         for key, value in itma.items():
             if key in ("_QQuestion__parent", "_Category__parent"):
                 continue
-            if not Compare._itercmp(value, itmb.get(key), path):
-                return False
+            path.append(value)
+            Compare._itercmp(value, itmb.get(key), path)
+            path.pop()
         return True
 
     @staticmethod
     def _cmp_list(itma: list, itmb: list, path: list):
         if len(itma) != len(itmb):
-            return False
+            raise ValueError(f"Len diff ({len(itma)},{len(itmb)}) in {path[:100]}.")
         tmp: list = copy.copy(itmb)
         for ita in itma:
             path.append(ita)
             idx = 0
             for idx, itb in enumerate(tmp):
-                if Compare._itercmp(ita, itb, path):
-                    break
+                try:
+                    Compare._itercmp(ita, itb, path)
+                except ValueError:
+                    continue
+                break
             else:
-                return False
+                raise IndexError(f"Missing item {ita} in {path[:100]}.")
             tmp.pop(idx)
             path.pop()
-        return True
 
     @staticmethod
     def _itercmp(__a, __b, path: list):
         if not isinstance(__b, __a.__class__):
-            return False
-        elif isinstance(__a, list):
-            return Compare._cmp_list(__a, __b, path)
+            raise ValueError(f"In {path}. Use debugger.")
+        if isinstance(__a, list):
+            Compare._cmp_list(__a, __b, path)
         elif isinstance(__a, dict):
-            return Compare._cmp_dict(__a, __b, path)
-        elif hasattr(__a, "__dict__"):
-            return Compare._cmp_dict(__a.__dict__, __b.__dict__, path)
-        elif __a != __b:
-            return False
-        return True
+            Compare._cmp_dict(__a, __b, path)
+        elif hasattr(__a, "__dict__") and not isinstance(__a, Enum):
+            Compare._cmp_dict(__a.__dict__, __b.__dict__, path)
+        elif (isinstance(__a, str) and __a.strip() != __b.strip()) or (
+                not isinstance(__a, str) and __a != __b):
+            raise ValueError(f"Value diff ({__a},{__b}) in {path[:100]}.")
 
     @staticmethod
     def compare( __a: object, __b: object) -> bool:
@@ -349,8 +278,7 @@ class Compare:
         if type(__b) != type(__a):
             return False
         path = []
-        if not Compare._itercmp(__a, __b, path):
-            raise ValueError(f"In {path}. Use debugger.")
+        Compare._itercmp(__a, __b, path)
         return True
 
 
@@ -392,7 +320,7 @@ class AnswerError(Exception):
 # -----------------------------------------------------------------------------
 
 
-class File(Serializable):
+class File:
     """File used in questions. Can be either a local path, an URL, a Embedded
     encoded string.
     Attributes:
@@ -456,7 +384,7 @@ class File(Serializable):
         return f"{output_bb}/>{self.data}</file>"
 
 
-class LinkRef(Serializable):
+class LinkRef:
     """A text reference of a file or link. Used in a FText to allow instance
     specific metadata.
     Attributes:
@@ -533,7 +461,7 @@ class LinkRef(Serializable):
             output_bb += '/>'
 
 
-class Dataset(Serializable):
+class Dataset:
     """A
     """
 
@@ -569,7 +497,7 @@ class Dataset(Serializable):
             pass
 
 
-class Hint(Serializable):
+class Hint:
     """Represents a hint to be displayed when a wrong answer is provided
     to a "multiple tries" question. The hints are give in the listed order.
     """
@@ -583,7 +511,7 @@ class Hint(Serializable):
         self.state_incorrect = state_incorrect
 
 
-class Unit(Serializable):
+class Unit:
     """A
     """
 

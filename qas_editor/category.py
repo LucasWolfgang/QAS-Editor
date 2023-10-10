@@ -26,7 +26,7 @@ from .enums import Status
 from .parsers import (aiken, cloze, csv_card, gift, ims, kahoot, latex,
                       markdown, moodle, olx)
 from .question import QQuestion, _Question
-from .utils import File, Serializable
+from .utils import File
 
 if TYPE_CHECKING:
     from .utils import Dataset
@@ -47,7 +47,7 @@ SERIALIZERS = {
 EXTS = ";;".join(f"{k}(*.{v[2]})" for k,v in SERIALIZERS.items())
 
 
-class Category(Serializable):  # pylint: disable=R0904
+class Category:  # pylint: disable=R0904
     """A category is a set of questions and other category that have enough
     similarities to be grouped together.
     """

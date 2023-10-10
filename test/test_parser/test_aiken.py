@@ -18,7 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
 
-from qas_editor import category, utils
+from qas_editor import category, enums, utils
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
@@ -27,33 +27,34 @@ def test_read():
     """Tests the read process.
     """
     example = f"{TEST_PATH}/datasets/aiken/aiken_1.txt"
-    control = category.Category.read_aiken(example)
+    lang = enums.Language.EN_US
+    control = category.Category.read_aiken(example, None, lang)
     assert control.get_size() == 5
     question = control.get_question(1)
     assert question.tags == []
-    assert question.name == 'aiken_1'
-    assert question.body.text[0] == ("During the month of September 2013, "
-                            "Moodle ran a successful MOOC for teachers new " 
-                            "to Moodle. What was the name of the course?")
-    assert len(question.body.text) == 2
-    tmp = question.body.text[1]
+    assert question.name[lang] == 'aiken_1'
+    assert question.body[lang].text[0] == ("During the month of September 2013, "
+                                "Moodle ran a successful MOOC for teachers new " 
+                                "to Moodle. What was the name of the course?")
+    assert len(question.body[lang].text) == 2
+    tmp = question.body[lang].text[1]
     assert str(tmp.options[0]) == 'Teaching with Moodle'
     assert str(tmp.options[1]) == 'Moodle MOOC'
     assert str(tmp.options[2]) == 'Moodle for Teachers'
-    exec(tmp.processor, globals())
-    assert processor(0) == 100   # pylint: disable=E0602
-    assert processor(1) == 0     # pylint: disable=E0602
-    assert processor(2) == 0     # pylint: disable=E0602
+    assert tmp.processor.func(0)["value"] == 100
+    assert tmp.processor.func(1)["value"] == 0
+    assert tmp.processor.func(2)["value"] == 0
 
 
 def test_diff_simple():
     """Test differences between a files that was read, writen and read again
     """
     example = f"{TEST_PATH}/datasets/aiken/aiken_1.txt"
-    control = category.Category.read_aiken(example)
+    lang = enums.Language.EN_US
+    control = category.Category.read_aiken(example, None, lang)
     test = f"{example}.tmp"
-    control.write_aiken(test)
-    new_data = category.Category.read_aiken(test)
+    control.write_aiken(lang, test)
+    new_data = category.Category.read_aiken(test, None, lang)
     os.remove(test)
     assert utils.Compare.compare(new_data, control)
     

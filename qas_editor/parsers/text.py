@@ -292,7 +292,8 @@ class FText:
             tmp = parser(**args).parse(text)
             self._text = tmp.ftext
 
-    def get(self, mtype=MathType.ASCII, ftype=FileAddr.LOCAL) -> str:
+    def get(self, mtype=MathType.ASCII, ftype=FileAddr.LOCAL, 
+            otype: OutFormat=OutFormat.QTI) -> str:
         """Get a string representation of the object. This representation 
         replaces Items with marker.
         Args:
@@ -302,5 +303,5 @@ class FText:
         """
         data = ""
         for item in self._text:
-            data += self.to_string(item, mtype, ftype)
+            data += self.to_string(item, mtype, ftype, otype)
         return data

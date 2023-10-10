@@ -1,4 +1,4 @@
-Which version of Moodle does this image represent?[Moodle Version?]
+Which version of Moodle does this image represent?
 A) 2.6
 B) -2.0
 C) 2.0

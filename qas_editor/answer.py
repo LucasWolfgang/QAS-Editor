@@ -19,12 +19,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import logging
-from typing import Callable, List
+from typing import TYPE_CHECKING, Callable, List
 
-from .enums import (Direction, EmbeddedFormat, ShapeType, TextFormat,
-                    TolFormat, TolType)
+from .enums import (Direction, EmbeddedFormat, Orientation, ShapeType,
+                    TextFormat, TolFormat, TolType)
 from .parsers.text import FText
-from .utils import File, Serializable
+from .processors import Proc
+from .utils import File
 
 _LOG = logging.getLogger(__name__)
 
@@ -44,10 +45,6 @@ class Item:
         self._proc = None
         self._feedbacks = feedbacks
         self._hints = hints
-        self._options: List = []
-
-    def __iter__(self):
-        return iter(self._options)
 
     @property
     def feedbacks(self) -> List[FText]:
@@ -62,15 +59,7 @@ class Item:
         return self._hints
 
     @property
-    def options(self) -> List:
-        """_summary_
-        Returns:
-            List[Choice]: _description_
-        """
-        return self._options
-
-    @property
-    def processor(self) -> str:
+    def processor(self) -> Proc:
         """Function that does the processing part (define grades, when hints
             will be shown, etc). Stored in text format.
         """
@@ -78,8 +67,7 @@ class Item:
 
     @processor.setter
     def processor(self, value):
-        if isinstance(value, str):
-            exec(value)  # Ignore the result. What we want is no Exception here
+        if isinstance(value, Proc):
             self._proc = value
 
     def check(self):
@@ -108,17 +96,36 @@ class ChoicesItem(Item):
     """This is the basic class used to hold possible answers
     """
     MARKER_INT = 9635
-    ITEM_TYPE = Choice
+
+    def __init__(self, feedbacks: List[FText] = None,
+                 hints: List[FText] = None):
+        super().__init__(feedbacks, hints)
+        self._options: List = []
+        self.shuffle = False
+        self.max_choices: int = 1
+        self.min_choices: int = 0
+        self.orientation: Orientation = Orientation.VER
+        self.min_smsg = "Not enough options selected"
+        self.max_smsg = "Selected options exceed maximum"
 
     @property
-    def options(self) -> List[Choice]:  # Only for type checking
+    def options(self) -> List[Choice]:
+        """_summary_
+        Returns:
+            List[Choice]: _description_
+        """
         return self._options
 
     def check(self):
         return True
 
 
-class Answer(Serializable):
+class EntryItem(Item):
+    """Represent an input entry.
+    """
+
+
+class Answer:
     """
     This is the basic class used to hold possible answers
     """
@@ -155,7 +162,7 @@ class ACalculated(ANumerical):
         self.alength = alength
 
 
-class EmbeddedItem(Serializable):
+class EmbeddedItem:
     """A cloze item. It is embedded in parts of the question text marked by
     the <code>MARKER_INT</code> from the questions.py file. This item defile
     a question, which possible types are enumerated in <code>ClozeFormat</code>
@@ -188,7 +195,7 @@ class EmbeddedItem(Serializable):
         return "".join(text)
 
 
-class DragItem(Serializable):
+class DragItem:
     """A dragable item. Use it as base for other "Drag" classes.
     All dragable objects have a text parameter, which may be showed in the
     canvas, or just used to identify the item.
@@ -219,7 +226,7 @@ class DragImage(DragGroup):
         self.image = image
 
 
-class DropZone(Serializable):
+class DropZone:
     """A zone where dragable items can be placed. They are related to the
     items matching the item number to the zone choise. Zone number is used
     only to enumerate the zone.
@@ -237,7 +244,7 @@ class DropZone(Serializable):
         self.number = number
 
 
-class ACrossWord(Serializable):
+class ACrossWord:
     """_summary_
     """
 
@@ -250,7 +257,7 @@ class ACrossWord(Serializable):
         self.clue = clue
 
 
-class Subquestion(Serializable):
+class Subquestion:
     """_summary_
     """
 
@@ -261,7 +268,7 @@ class Subquestion(Serializable):
         self.formatting = formatting if formatting else TextFormat.AUTO
 
 
-class SelectOption(Serializable):
+class SelectOption:
     """Internal representation
     """
 

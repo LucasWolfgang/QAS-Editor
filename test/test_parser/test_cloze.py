@@ -17,20 +17,39 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import os
-from qas_editor import category
+
+from qas_editor import answer, category, enums, utils
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
 def test_read_all():
-    EXAMPLE = f"{TEST_PATH}/datasets/cloze/cloze.cloze"
-    category.Category.read_cloze(EXAMPLE)
+    """_summary_
+    """
+    example = f"{TEST_PATH}/datasets/cloze/cloze.cloze"
+    lang = enums.Language.EN_US
+    tmp = category.Category.read_cloze(example, lang)
+    assert tmp.get_size(True) == 1
+    question = tmp.get_question(0)
+    assert len(question.body[lang].text) == 17
+    item = question.body[lang].text[3]
+    assert isinstance(item, answer.EntryItem)
+    assert len(item.feedbacks) == 3
+    assert item.feedbacks[1].text == ['Feedback for correct answer']
+    assert item.processor.func("Correct answer")["value"] == 1
+    assert item.processor.func("Answer that gives half the credit")["value"] == 0.5
+    assert item.processor.func("Wrong answer")["value"] == 0
+    assert item.processor.func("Random Stuff")["value"] == 0
+    assert item.processor.func(123455)["value"] == 0
 
 
 def test_diff_simple():
-    EXAMPLE = f"{TEST_PATH}/datasets/cloze/cloze.cloze"
-    control = category.Category.read_cloze(EXAMPLE)
-    CLOZE_TEST = f"{TEST_PATH}/datasets/cloze/cloze_0.cloze"
-    control.write_cloze(EXAMPLE)
-    new_data = category.Category.read_cloze(CLOZE_TEST)
-    assert control.compare(new_data, [])
-    os.remove(CLOZE_TEST)
+    """_summary_
+    """
+    example = f"{TEST_PATH}/datasets/cloze/cloze.cloze"
+    lang = enums.Language.EN_US
+    control = category.Category.read_cloze(example, lang)
+    cloze_test = f"{TEST_PATH}/datasets/cloze/cloze_0.cloze"
+    control.write_cloze(cloze_test, lang, "\n\n")
+    new_data = category.Category.read_cloze(cloze_test, lang)
+    assert utils.Compare.compare(new_data, control)
+    os.remove(cloze_test)
