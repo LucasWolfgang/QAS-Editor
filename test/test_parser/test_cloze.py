@@ -39,7 +39,6 @@ def test_read_all():
     assert item.processor.func("Answer that gives half the credit")["value"] == 0.5
     assert item.processor.func("Wrong answer")["value"] == 0
     assert item.processor.func("Random Stuff")["value"] == 0
-    assert item.processor.func(123455)["value"] == 0
 
 
 def test_diff_simple():

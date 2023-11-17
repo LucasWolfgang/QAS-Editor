@@ -16,32 +16,72 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 import os
-from qas_editor import utils
+
 from sympy import Symbol, sqrt
 
-from qas_editor.enums import MathType
+from qas_editor import utils
+from qas_editor.enums import FileAddr, MathType, OutFormat
 from qas_editor.parsers.moodle import MoodleXHTMLParser
+from qas_editor.parsers.text import FText, TextParser, XHTMLParser, XItem
 
 TEST_PATH = os.path.dirname(__file__)
 SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
 X = Symbol("x")
 Y = Symbol("y")
 
-def test_empty_plaintext():
+
+def test_plaintext_empty():
     text = 'nothing'
-    parser = utils.TextParser
-    _ftext = utils.FText.from_string(text, parser)
-    assert _ftext.text == [text]
+    parser = TextParser()
+    parser.parse(text)
+    ftext = FText(None, parser)
+    assert parser.pos == 7
+    assert ftext.text == [text]
 
 
-def test_empty_xtml():
+def test_xhtml_empty():
     text = 'nothing'
-    parser = utils.XHTMLParser
-    _ftext = utils.FText.from_string(text, parser)
-    assert _ftext.text == [text]
+    parser = XHTMLParser(True, False, None)
+    parser.parse(text)
+    ftext = FText(None, parser)
+    assert ftext.text == [text]
+    assert ftext.get(MathType.ASCII, FileAddr.EMBEDDED) == text
 
 
-def test_sympy_all():
+def test_xhtml_tag_flat():
+    text = ("<p>Moodle and fp latex package syntax "
+        "is not always equivalent. Here some test for pathological cases.</p>"
+        "<p>Let {x} and {y} some real number.</p><br/>Something outside")
+    parser = XHTMLParser(True, False, None)
+    parser.parse(text)
+    assert len(parser.ftext) == 4
+    assert parser.ftext[3] == "Something outside"
+    assert parser.ftext[0].tag == "p"
+    assert len(parser.ftext[0]) == 1
+    assert parser.ftext[0][0] == ("Moodle and fp latex package syntax "
+            "is not always equivalent. Here some test for pathological cases.")
+    assert parser.get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.TEXT) == text
+
+
+def test_xhtml_tag_hierarchical():
+    text = ("<p><b>Moodle</b> and <b>fp</b> latex package syntax "
+        "is not always equivalent. Here some test for pathological cases.</p>"
+        "<p>Let {x} and {y} some real number.<br/></p><ul><li>argument of "
+        "'pow' function are in a different order {=pow({x},2)}</li><li>"
+        "the 'sqrt' function doesn't exist, need 'root(n, x)' in fp, "
+        "{=sqrt(({x}-{y})*({x}+{y}))}</li><li>'pi' is a function in moodle,"
+        " {=sin(1.5*pi())}</li><li>test with '- unary' expression"
+        " {=-{x}+(-{y}+2)}<br/></li></ul>Something outside")
+    parser = XHTMLParser(True, False, None)
+    parser.parse(text)
+    assert len(parser.ftext) == 4
+    assert len(parser.ftext[0]) == 4
+    assert len(parser.ftext[0][0]) == 1
+    assert len(parser.ftext[2]) == 4
+    assert len(parser.ftext[2][3]) == 2
+    assert parser.get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.TEXT) == text
+
+def test_moodle_all():
     s = ("<p><b>Moodle</b> and <b>fp</b> latex package syntax "
         "is not always equivalent. Here some test for pathological cases.</p>"
         "<p>Let {x} and {y} some real number.<br/></p><ul><li>argument of "
@@ -50,8 +90,13 @@ def test_sympy_all():
         "{=sqrt(({x}-{y})*({x}+{y}))}</li><li>'pi' is a function in moodle,"
         " {=sin(1.5*pi())}</li><li>test with '- unary' expression"
         " {=-{x}+(-{y}+2)}<br/></li></ul>Something outside")
-    _results = utils.FText.from_string(s)
-    assert _results.text == ["<p><b>Moodle</b> and <b>fp</b> "
+    parser = MoodleXHTMLParser(True, False, None)
+    parser.parse(s)
+    assert parser.ftext[0].tag == "p"
+    tmp = XItem("b")
+    tmp.append("Moodle")
+    assert parser.ftext[0][0] == tmp
+    assert parser.ftext[0][0] == ["<p><b>Moodle</b> and <b>fp</b> "
             "latex package syntax is not always equivalent. Here some "
             "test for pathological cases.</p><p>Let ", X, ' and ', Y, 
             " some real number.<br/></p><ul><li>argument of 'pow' "
@@ -61,6 +106,27 @@ def test_sympy_all():
             "</li><li>'pi' is a function in moodle, ", -1, 
             "</li><li>test with '- unary' expression ", -X - Y + 2, 
             '<br/></li></ul>']
+    assert parser.ftext[1] == ["<p><b>Moodle</b> and <b>fp</b> "
+            "latex package syntax is not always equivalent. Here some "
+            "test for pathological cases.</p><p>Let ", X, ' and ', Y, 
+            " some real number.<br/></p><ul><li>argument of 'pow' "
+            "function are in a different order ", X**2, 
+            "</li><li>the 'sqrt' function doesn't exist, need"
+            " 'root(n, x)' in fp, ", sqrt((X - Y)*(X + Y)), 
+            "</li><li>'pi' is a function in moodle, ", -1, 
+            "</li><li>test with '- unary' expression ", -X - Y + 2, 
+            '<br/></li></ul>']
+    assert parser.ftext[2] == ["<p><b>Moodle</b> and <b>fp</b> "
+            "latex package syntax is not always equivalent. Here some "
+            "test for pathological cases.</p><p>Let ", X, ' and ', Y, 
+            " some real number.<br/></p><ul><li>argument of 'pow' "
+            "function are in a different order ", X**2, 
+            "</li><li>the 'sqrt' function doesn't exist, need"
+            " 'root(n, x)' in fp, ", sqrt((X - Y)*(X + Y)), 
+            "</li><li>'pi' is a function in moodle, ", -1, 
+            "</li><li>test with '- unary' expression ", -X - Y + 2, 
+            '<br/></li></ul>']
+    assert parser.ftext[3] == "Something outside"
 
 
 def test_var_latex():

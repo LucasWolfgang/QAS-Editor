@@ -37,20 +37,18 @@ _CLOZE_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
 
 def _parse_mc(opts: dict, feeds: list, _type: EmbeddedFormat):
     tmp = ChoicesItem(feeds)
-    res = {}
     if _type in (EmbeddedFormat.MR, EmbeddedFormat.MC):
         tmp.orientation = Orientation.VER
-    for idx, (key, val) in enumerate(opts.items()):
+    for key in opts["values"]:
         tmp.options.append(Choice(key))
-        res[idx] = val
-    tmp.processor = prcs.Proc(prcs.mapper, res)
+    tmp.processor = prcs.Proc(prcs.mapper, opts)
     return tmp
 
 
 def _parse_sa(opts: dict, feeds: list, _type: EmbeddedFormat):
     tmp = EntryItem(feeds)
-    func = prcs.mapper if _type == EmbeddedFormat.SA else prcs.mapper_nocase
-    tmp.processor = prcs.Proc(func, opts)
+    opts["case"] = "i" if _type == EmbeddedFormat.SAC else None
+    tmp.processor = prcs.Proc(prcs.string_process, opts)
     return tmp
 
 
@@ -81,7 +79,7 @@ def _from_cloze_text(data: str, lang: Language, embedded_name: bool):
     question = QQuestion({lang: name})
     start = 0
     for imatch in _CLOZE_PATTERN.finditer(text):
-        opts = {}
+        opts = {"values": {}}
         feeds = []
         fmt = EmbeddedFormat(imatch[2])
         grade, parser = int(imatch[1]), OPTIONS[fmt]
@@ -105,7 +103,7 @@ def _from_cloze_text(data: str, lang: Language, embedded_name: bool):
             if fmt == EmbeddedFormat.NUM:
                 tmp = tuple(map(float, tmp.split(":")))
                 tmp = (tmp[0]-tmp[1], tmp[0]+tmp[1])
-            opts[tmp] = {"value": frac, "feedback": idx}
+            opts["values"][tmp] = {"value": frac, "feedback": idx}
             feeds.append(feedback)
         question.body[lang].text.append(text[start: imatch.start()])
         question.body[lang].text.append(parser(opts, feeds, fmt))
@@ -119,17 +117,17 @@ def _from_cloze_text(data: str, lang: Language, embedded_name: bool):
 
 def _get_format(item: ChoicesItem|EntryItem):
     if isinstance(item, EntryItem):
-        if len(next(iter(item.processor.args))) == 2:
-            return EmbeddedFormat.NUM
-        for key, value in item.processor.args.items():
-            if value != 0:
-                if item.processor.func(key.upper())["value"] == 0:
-                    fmt = EmbeddedFormat.SAC
-                else:
-                    fmt = EmbeddedFormat.SA
-                break
+        if item.processor.func.__name__ == "default_proc_numerical_range":
+            fmt = EmbeddedFormat.NUM
+        elif item.processor.func.__name__ == "default_proc_string":
+            if item.processor.args.get("case") == "i":
+                fmt = EmbeddedFormat.SAC
+            else:
+                fmt = EmbeddedFormat.SA
+        elif "close" in item.meta:
+            fmt = item.meta["cloze"]
         else:
-            fmt = EmbeddedFormat.SA
+            raise ValueError("Function cant be processed")
     else:
         if item.max_choices > 1:
             if item.orientation == Orientation.HOR:
@@ -146,7 +144,7 @@ def _get_format(item: ChoicesItem|EntryItem):
 
 def _get_options(item: ChoicesItem|EntryItem, grade: float, fmt: EmbeddedFormat):
     def to_item(key, value):
-        feed = item.feedbacks[value['feedback']] if 'feedback' in value else ''
+        feed = item.feedbacks[value['feedback']] if 'feedback' in value else FText()
         if fmt == EmbeddedFormat.NUM:
             key = f"{sum(key)/2}:{round((key[1] - key[0])/2, 4)}"
         if value["value"] == grade:
@@ -157,12 +155,13 @@ def _get_options(item: ChoicesItem|EntryItem, grade: float, fmt: EmbeddedFormat)
         return f"~%{tmp}%{key}#{feed.get()}"
     text = ""
     if isinstance(item, EntryItem):
-        for key, value in item.processor.args.items():
+        for key, value in item.processor.args["values"].items():
             text += to_item(key, value)
     else:
-        for idx, opt in enumerate(item.options):
-            text += to_item(str(opt), item.processor.func(idx))
+        for opt in item.options:
+            text += to_item(str(opt), item.processor.func(str(opt)))
     return text
+
 
 def _to_cloze_text(buffer, qst: QQuestion, embedded_name: bool, lang: Language):
     """Return the text formatted as expected by the end-tool, which is
@@ -174,7 +173,7 @@ def _to_cloze_text(buffer, qst: QQuestion, embedded_name: bool, lang: Language):
         if isinstance(item, str):
             buffer.write(item)
         elif isinstance(item, (ChoicesItem, EntryItem)):
-            grade = max(a["value"] for a in item.processor.args.values())
+            grade = max(a["value"] for a in item.processor.args["values"].values())
             fmt = _get_format(item)
             text = _get_options(item, grade, fmt)
             text = "{" + f"{grade}:{fmt.value}:" + text[1:] + "}"
