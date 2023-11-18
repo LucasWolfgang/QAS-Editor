@@ -17,17 +17,22 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 
-from html.parser import HTMLParser
+import logging
+from html import parser, unescape
 from importlib import util
 from io import TextIOWrapper
 from typing import Callable, List
+from urllib import parse
 
 from ..enums import FileAddr, MathType, OutFormat
-from ..utils import File, LinkRef, ParseError, render_latex
+from ..utils import File, ParseError, render_latex
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 if EXTRAS_FORMULAE:
     from sympy import Expr, printing
+
+_LOG = logging.getLogger(__name__)
+
 
 class Var:
     """A variable used in case there is no sympy installed.
@@ -43,11 +48,21 @@ class XItem:
 
     def __init__(self, tag, attrib: dict = None, closed: bool = False):
         self.tag = tag
-        self.attrs = attrib
+        self.attrs = attrib or None
         self._children = None if closed else []
+
+    def __eq__(self, val: object) -> bool:
+        return (isinstance(val, XItem) and val.tag == self.tag and
+            val.attrs == self.attrs and val._children == self._children)
+
+    def __getitem__(self, idx: int) -> XItem:
+        return self._children[idx]
 
     def __iter__(self):
         return iter(self._children)
+
+    def __len__(self):
+        return len(self._children)
 
     def append(self, item: XItem):
         """"Appends a child to the item.
@@ -56,7 +71,10 @@ class XItem:
         """
         self._children.append(item)
 
-    def get(self, mtype: MathType, ftype: FileAddr) -> str:
+    def extend(self, items: list):
+        self._children.extend(items)
+
+    def get(self, mtype: MathType, ftype: FileAddr, otype: OutFormat) -> str:
         """_summary_
         Args:
             mtype (MathType): _description_
@@ -68,70 +86,143 @@ class XItem:
         if self.attrs:
             for key, val in self.attrs.items():
                 value += f"{key}={val} "
-        value += ">"
-        for child in self._children:
-            value += FText.to_string(child, mtype, ftype)
-        value = f"</{self.tag}>"
+        if self._children:
+            value = value.rstrip() + ">"
+            for child in self._children:
+                value += FText.to_string(child, mtype, ftype, otype)
+            value += f"</{self.tag}>"
+        else:
+            value = value.rstrip() + "/>"
         return value
 
 
-class XHTMLParser(HTMLParser):
+class LinkRef:
+    """A text reference of a file or link. Used in a FText to allow instance
+    specific metadata.
+    Attributes:
+        file (File):
+        metadata (Dict[str, str]):
+    """
+
+    def __init__(self, tag: str, file: File, attrs):
+        super().__init__()
+        self.tag = tag
+        self.file = file
+        self.attrs = attrs
+
+    def _replace_href_scr(self, value: str, format: OutFormat):
+        if "$IMS-CC-FILEBASE$" in value:
+            new_item = parse.unquote(value).replace("$IMS-CC-FILEBASE$", "/static")
+            return new_item.split("?")[0].replace("&amp;", "&")
+        elif "$WIKI_REFERENCE$" in value:
+            search_key = parse.unquote(value).replace("$WIKI_REFERENCE$/pages/", "")
+            search_key = search_key.split("?")[0] + ".html"
+            if self.file.path.endswith(search_key):
+                return f"/jump_to_id/{self.file.metadata['identifier']}"
+            _LOG.warning("Unable to process Wiki link - %s", value)
+        elif "$CANVAS_OBJECT_REFERENCE$/external_tools" in value:
+            query = parse.parse_qs(unescape(parse.urlparse(value).query))
+            return query.get("url", [""])[0]
+        elif "$CANVAS_OBJECT_REFERENCE$" in value:
+            return parse.unquote(value).replace("$CANVAS_OBJECT_REFERENCE$/quizzes/", 
+                                                "/jump_to_id/")
+        elif "@@PLUGINFILE@@" in value:
+            return parse.unquote(value).replace("@@PLUGINFILE@@", "/")
+
+    def get(self, embedded: bool, otype: OutFormat) -> str:
+        """_summary_
+        Args:
+            embedded (bool): _description_
+            format (OutFormat): _description_
+        Returns:
+            str: _description_
+        """
+        for val in ("href", "src"):
+            if val in self.attrs:
+                self.attrs[val] = self._replace_href_scr(self.attrs[val])
+        if self.tag == "iframe" and otype == OutFormat.OLX:
+            output_bb = '<video ' # TODO probably need something else here
+        elif self.tag == "transcript" or self.file.mtype == "transcript":
+            return '<transcript language="" src="">'
+        else:
+            output_bb = f'<{self.tag}'
+        if embedded:
+            output_bb += f'data:{self.file.mtype};base64,{self.file.data}" '
+        else:
+            output_bb += self._replace_href_scr(self.file.path) + '" '
+        for key, value in self.attrs.items():
+            output_bb += f' {key}="{value}"'
+        for key, value in self.file.metadata.items():
+            if key not in self.attrs:
+                output_bb += f' {key}="{value}"'
+        if self.file.children:
+            output_bb += '>'
+            for value in self.file.children:
+                output_bb += value.get_tag()
+            output_bb += f'</{self.tag}>'
+        else:
+            output_bb += '/>'
+
+
+class XHTMLParser(parser.HTMLParser):
     """A parser for HTML and XML that may contain other formats"""
+
+    AUTOCLOSE = ("source", "area", "track", "input", "col", "embed", "hr", 
+                 "link", "meta", "br", "base", "wbr", "img")
+    REFS = ("a", "base", "base", "input", "link", "img", "audio", "embed",
+            "video", "file", "track", "script", "source", "iframe")
 
     def __init__(self, convert_charrefs: bool = True, check_closing: bool = False,
                  files: List[File] = None):
         super().__init__(convert_charrefs=convert_charrefs)
-        self.root = XItem("")
-        self._stack = [self.root]
+        self.ftext: list = None
+        self._stack: List[XItem] = [XItem("")]
         self._check = check_closing
         self.files = files or []
 
-    def __str__(self) -> str:
-        """Hope this will not need to be enhanced due to performance metrics
-        Returns:
-            str: resulting text
-        """
-        return str(self.root)
-
-    def _get_file_ref(self, data: str):
-        tag = self._stack[-1].tag
-        attrs = self._stack[-1].attrs
-        if tag == "file":
-            path = attrs.pop("path", "/") + attrs.pop("name")
-            file = File(path, data)
-        else:
+    def handle_startendtag(self, tag: str, attrs: tuple):
+        if self._check or tag not in self.AUTOCLOSE:
+            raise ParseError()
+        attrs = dict(attrs)
+        if tag in self.REFS:
+            xitem = LinkRef(tag, None, attrs)
             if attrs.get("src", "")[:5] == "data:":
                 data, scr = attrs.pop("src").split(";", 1)
                 _, ext = data.split("/", 1)
                 path = f"/{len(self.files)}.{ext}"
-                file = File(path, scr[7:])  # Consider this is a base64 data
+                xitem.file = file = File(path, scr[7:])
             else:
                 path = attrs.pop("src")
                 for item in self.files:
                     if item.path == path:
-                        return LinkRef(tag, item, **attrs)
-                file = File(path, None)
-        self.files.append(file)
-        return LinkRef(tag, file, **attrs)
+                        file = xitem.file = item
+                        break
+                else:
+                    file = xitem.file = File(path)
+            if file not in self.files:
+                self.files.append(file)
+        else:
+            xitem = XItem(tag, attrs)
+        self._stack[-1].append(xitem)
 
-    def handle_startendtag(self, tag, attrs):
-        if self._check or tag not in ("source", "area", "track", "input", "col",
-                 "embed", "hr",  "link", "meta", "br", "base", "wbr", "img"):
-            raise ParseError()
-        self._stack[-1].append(XItem(tag, attrs, True))
+    def handle_starttag(self, tag: str, attrs: tuple):
+        if tag in self.REFS:
+            item = LinkRef(tag, None, dict(attrs))
+        else:
+            item = XItem(tag, dict(attrs))
+        self._stack.append(item)
+        self._stack[-2].append(item)
 
-    def handle_starttag(self, tag, attrs):
-        self._stack.append(XItem(tag, attrs))
-        self.root.append(self._stack[-1])
-
-    def handle_endtag(self, tag):
+    def handle_endtag(self, _):
         self._stack.pop()
 
-    def handle_data(self, data):
-        if self._stack[-1].tag not in ("", "a", "base", "base", "input", "link",
-                                       "audio", "embed", "img", "video", "file", 
-                                       "script", "source", "iframe", "track"):
-            self._get_file_ref(data)
+    def handle_data(self, data: str):
+        if self._stack[-1].tag == "file":
+            attrs = self._stack[-1].attrs
+            path = attrs.pop("path", "/") + attrs.pop("name")
+            file = File(path, data)
+            if file not in self.files:
+                self.files.append(file)
         else:
             self._stack[-1].append(data)
 
@@ -151,6 +242,7 @@ class XHTMLParser(HTMLParser):
             self.close()
         else:
             raise ParseError()
+        self.ftext = list(self._stack[0])
 
 
 class TextParser():
@@ -163,14 +255,6 @@ class TextParser():
         self.pos = 0
         self.lst = 0
         self.scp = False
-
-    def _wrapper(self, callback: Callable, size=1):
-        if self.text[self.lst: self.pos]:
-            self.ftext.append(self.text[self.lst: self.pos])
-        self.pos += size
-        self.lst = self.pos
-        self.ftext.append(callback())
-        self.lst = self.pos + 1
 
     def _nxt(self):
         self.scp = (self.text[self.pos] == "\\") and not self.scp
@@ -212,10 +296,17 @@ class FText:
         files (List[File]): Local reference of the list of files used.
     """
 
-    def __init__(self, files: List[File] = None):
+    def __init__(self, parser = None):
         super().__init__()
-        self._files = files or []
-        self._text = []
+        if parser is not None:
+            self._text = parser.ftext
+            if hasattr(parser, "files"):
+                self._files = parser.files
+            else:
+                self._files = []
+        else:
+            self._text = []
+            self._files = []
 
     def __iter__(self):
         return iter(self._text)
@@ -253,12 +344,14 @@ class FText:
         Returns:
             str: _description_
         """
-        if isinstance(item, str) or hasattr(item, "__str__"):
-            res = str(item)
+        if isinstance(item, str):
+            res = item
+        elif isinstance(item, XItem):
+            res = item.get(mtype, ftype, otype)
         elif hasattr(item, "MARKER_INT"):
             res = chr(item.MARKER_INT)
         elif isinstance(item, LinkRef):
-            res = item.get_tag(ftype == FileAddr.EMBEDDED, otype)
+            res = item.get(ftype == FileAddr.EMBEDDED, otype)
         elif EXTRAS_FORMULAE and isinstance(item, Expr):
             if mtype == MathType.LATEX:
                 res = f"$${printing.latex(item)}$$"
@@ -267,9 +360,9 @@ class FText:
             elif mtype == MathType.MATHJAX:
                 res =  f"[mathjax]{printing.latex(item)}[/mathjax]"
             elif mtype == MathType.MATHML:
-                res =  str(printing.mathml(item))
+                res = str(printing.mathml(item))
             elif mtype == MathType.ASCII:
-                res =  str(printing.pretty(item))
+                res = str(printing.pretty(item))
             elif mtype == MathType.FILE:
                 res = render_latex(printing.latex(item), ftype)
         else:

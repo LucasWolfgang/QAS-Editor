@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Callable, List
+from typing import Callable, Dict, List
 
 from .enums import (Direction, EmbeddedFormat, Orientation, ShapeType,
                     TextFormat, TolFormat, TolType)
@@ -45,6 +45,7 @@ class Item:
         self._proc = None
         self._feedbacks = feedbacks
         self._hints = hints
+        self.meta: Dict[str, str] = {}
 
     @property
     def feedbacks(self) -> List[FText]:
@@ -79,7 +80,6 @@ class Item:
 class Choice:
     """This is the basic class used to hold possible answers
     Attributes:
-
     """
 
     def __init__(self, text, parser: Callable = None):
@@ -89,7 +89,7 @@ class Choice:
         self.show = False
 
     def __str__(self) -> str:
-        return self._text.text[0]
+        return self._text.get()
 
 
 class ChoicesItem(Item):
@@ -121,6 +121,20 @@ class ChoicesItem(Item):
 
 
 class EntryItem(Item):
+    """Represent an input entry.
+    """
+
+    def __init__(self, feedbacks: List[FText] = None, hints: List[FText] = None):
+        super().__init__(feedbacks, hints)
+        self.patternmask_msg = None
+        
+
+class TextboxItem(Item):
+    """Represent an input entry.
+    """
+
+
+class GapMatch(Item):
     """Represent an input entry.
     """
 

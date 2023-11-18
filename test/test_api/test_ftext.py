@@ -22,7 +22,8 @@ from sympy import Symbol, sqrt
 from qas_editor import utils
 from qas_editor.enums import FileAddr, MathType, OutFormat
 from qas_editor.parsers.moodle import MoodleXHTMLParser
-from qas_editor.parsers.text import FText, TextParser, XHTMLParser, XItem
+from qas_editor.parsers.text import (FText, LinkRef, TextParser, XHTMLParser,
+                                     XItem)
 
 TEST_PATH = os.path.dirname(__file__)
 SRC_PATH = os.path.abspath(os.path.join(TEST_PATH, '..'))
@@ -34,7 +35,7 @@ def test_plaintext_empty():
     text = 'nothing'
     parser = TextParser()
     parser.parse(text)
-    ftext = FText(None, parser)
+    ftext = FText(parser)
     assert parser.pos == 7
     assert ftext.text == [text]
 
@@ -43,7 +44,7 @@ def test_xhtml_empty():
     text = 'nothing'
     parser = XHTMLParser(True, False, None)
     parser.parse(text)
-    ftext = FText(None, parser)
+    ftext = FText(parser)
     assert ftext.text == [text]
     assert ftext.get(MathType.ASCII, FileAddr.EMBEDDED) == text
 
@@ -54,13 +55,14 @@ def test_xhtml_tag_flat():
         "<p>Let {x} and {y} some real number.</p><br/>Something outside")
     parser = XHTMLParser(True, False, None)
     parser.parse(text)
-    assert len(parser.ftext) == 4
-    assert parser.ftext[3] == "Something outside"
-    assert parser.ftext[0].tag == "p"
-    assert len(parser.ftext[0]) == 1
-    assert parser.ftext[0][0] == ("Moodle and fp latex package syntax "
+    ftext = FText(parser)
+    assert len(ftext.text) == 4
+    assert ftext[3] == "Something outside"
+    assert ftext[0].tag == "p"
+    assert len(ftext.text[0]) == 1
+    assert ftext[0][0] == ("Moodle and fp latex package syntax "
             "is not always equivalent. Here some test for pathological cases.")
-    assert parser.get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.TEXT) == text
+    assert ftext.get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.TEXT) == text
 
 
 def test_xhtml_tag_hierarchical():
@@ -74,14 +76,56 @@ def test_xhtml_tag_hierarchical():
         " {=-{x}+(-{y}+2)}<br/></li></ul>Something outside")
     parser = XHTMLParser(True, False, None)
     parser.parse(text)
-    assert len(parser.ftext) == 4
-    assert len(parser.ftext[0]) == 4
-    assert len(parser.ftext[0][0]) == 1
-    assert len(parser.ftext[2]) == 4
-    assert len(parser.ftext[2][3]) == 2
-    assert parser.get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.TEXT) == text
+    ftext = FText(parser)
+    assert len(ftext) == 4
+    assert len(ftext[0]) == 4
+    assert len(ftext[0][0]) == 1
+    assert len(ftext[2]) == 4
+    assert len(ftext[2][3]) == 2
+    assert ftext.get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.TEXT) == text
 
-def test_moodle_all():
+
+def test_xhtml_img_ref():
+    text = ("""and <p style="text-align: left;">file <img src="""
+        """"/dessin.svg" alt="escargot" style="vertical-align: text-bottom;" """
+        """class="img-responsive" width="100" height="141"/> is close.</p>""")
+    parser = XHTMLParser(True, False, None)
+    parser.parse(text)
+    ftext = FText(parser)
+    assert len(ftext.files) == 1
+    assert isinstance(ftext[1][1], LinkRef)
+    assert ftext.files[0] == utils.File("/dessin.svg")
+    assert ftext.files[0] == ftext[1][1].file
+    assert ftext[1][1].attrs == {'alt': 'escargot',
+            'style': 'vertical-align: text-bottom;', 'class': 'img-responsive',
+            'width': '100', 'height': '141'}
+
+
+def test_xhtml_ref_base64():
+    text = ("""and <p style="text-align: left;">file <img src="data:image/png;"""
+        """base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4"""
+        """//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red"""
+        """ dot" width="100" height="141"/> is close.</p>""")
+    parser = XHTMLParser(True, False, None)
+    parser.parse(text)
+    ftext = FText(parser)
+    assert len(ftext) == 2
+    assert isinstance(ftext[1][1], LinkRef)
+    assert len(ftext.files) == 1
+    assert ftext.files[0] == utils.File("/0.png", 'iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==')
+    assert ftext.files[0] == ftext[1][1].file
+    assert ftext[1][1].attrs == {'alt': 'Red dot', 'width': '100', 'height': '141'}
+
+
+def test_moodle_latex_embedded():
+    text = 'var {x}'
+    parser = MoodleXHTMLParser(True, False, None)
+    parser.parse(text)
+    ftext = FText(parser)
+    assert ftext.get(MathType.LATEX, FileAddr.EMBEDDED, OutFormat.MOODLE) == "var $$x$$"
+
+
+def test_moodle_ascii_embeeded():
     s = ("<p><b>Moodle</b> and <b>fp</b> latex package syntax "
         "is not always equivalent. Here some test for pathological cases.</p>"
         "<p>Let {x} and {y} some real number.<br/></p><ul><li>argument of "
@@ -92,75 +136,38 @@ def test_moodle_all():
         " {=-{x}+(-{y}+2)}<br/></li></ul>Something outside")
     parser = MoodleXHTMLParser(True, False, None)
     parser.parse(s)
-    assert parser.ftext[0].tag == "p"
+    assert parser.pos == 17
+    ftext = FText(parser)
+    assert ftext[0].tag == "p"
     tmp = XItem("b")
     tmp.append("Moodle")
-    assert parser.ftext[0][0] == tmp
-    assert parser.ftext[0][0] == ["<p><b>Moodle</b> and <b>fp</b> "
-            "latex package syntax is not always equivalent. Here some "
-            "test for pathological cases.</p><p>Let ", X, ' and ', Y, 
-            " some real number.<br/></p><ul><li>argument of 'pow' "
-            "function are in a different order ", X**2, 
-            "</li><li>the 'sqrt' function doesn't exist, need"
-            " 'root(n, x)' in fp, ", sqrt((X - Y)*(X + Y)), 
-            "</li><li>'pi' is a function in moodle, ", -1, 
-            "</li><li>test with '- unary' expression ", -X - Y + 2, 
-            '<br/></li></ul>']
-    assert parser.ftext[1] == ["<p><b>Moodle</b> and <b>fp</b> "
-            "latex package syntax is not always equivalent. Here some "
-            "test for pathological cases.</p><p>Let ", X, ' and ', Y, 
-            " some real number.<br/></p><ul><li>argument of 'pow' "
-            "function are in a different order ", X**2, 
-            "</li><li>the 'sqrt' function doesn't exist, need"
-            " 'root(n, x)' in fp, ", sqrt((X - Y)*(X + Y)), 
-            "</li><li>'pi' is a function in moodle, ", -1, 
-            "</li><li>test with '- unary' expression ", -X - Y + 2, 
-            '<br/></li></ul>']
-    assert parser.ftext[2] == ["<p><b>Moodle</b> and <b>fp</b> "
-            "latex package syntax is not always equivalent. Here some "
-            "test for pathological cases.</p><p>Let ", X, ' and ', Y, 
-            " some real number.<br/></p><ul><li>argument of 'pow' "
-            "function are in a different order ", X**2, 
-            "</li><li>the 'sqrt' function doesn't exist, need"
-            " 'root(n, x)' in fp, ", sqrt((X - Y)*(X + Y)), 
-            "</li><li>'pi' is a function in moodle, ", -1, 
-            "</li><li>test with '- unary' expression ", -X - Y + 2, 
-            '<br/></li></ul>']
-    assert parser.ftext[3] == "Something outside"
+    assert ftext[0][0] == tmp
+    tmp = XItem("p")
+    tmp.extend(("Let ", X, ' and ', Y, " some real number.", XItem("br", closed=True)))
+    assert ftext[1] == tmp
+    assert ftext[1].get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.MOODLE) == (
+            "<p>Let x and y some real number.<br/></p>")
+    tmp = XItem("li")
+    tmp.extend(("the 'sqrt' function doesn't exist, need 'root(n, x)' in fp, ", 
+                sqrt((X - Y)*(X + Y))))
+    assert ftext[2][1] == tmp
+    assert ftext[2][1].get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.MOODLE) == (
+            "<li>the 'sqrt' function doesn't exist, need 'root(n, x)' in fp, "
+            "  _________________\n╲╱ (x - y)⋅(x + y) </li>")
+    assert ftext[3] == "Something outside"
 
 
-def test_var_latex():
-    _results = utils.FText.from_string('var {x}')
-    assert _results.get(MathType.LATEX) == "var $$x$$"
-
-
-def test_img_ref():
-    text = ("""and<p style="text-align: left;">file <img src="@@PLUGINFILE@@"""
+def test_moodle_ascii_img_ref():
+    text = ("""and <p style="text-align: left;">file <img src="@@PLUGINFILE@@"""
         """/dessin.svg" alt="escargot" style="vertical-align: text-bottom;" """
         """class="img-responsive" width="100" height="141"/> is close.</p>""")
-    _results = utils.FText.from_string(text)
-    assert len(_results.text) == 6
-    assert isinstance(_results.text[3], utils.LinkRef)
-    assert len(_results.files) == 1
-    assert _results.files[0] == utils.File("/dessin.svg","")
-    assert _results.files[0] == _results.text[3].file
-    assert _results.text[3].metadata == {'alt': 'escargot',
+    parser = XHTMLParser(True, False, None)
+    parser.parse(text)
+    ftext = FText(parser)
+    assert len(ftext.files) == 1
+    assert isinstance(ftext[1][1], LinkRef)
+    assert ftext.files[0] == utils.File("/dessin.svg")
+    assert ftext.files[0] == ftext[1][1].file
+    assert ftext[1][1].attrs == {'alt': 'escargot',
             'style': 'vertical-align: text-bottom;', 'class': 'img-responsive',
             'width': '100', 'height': '141'}
-
-
-def test_img_ref_base64():
-    text = ("""and<p style="text-align: left;">file <img src="data:image/png;"""
-        """base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4"""
-        """//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red"""
-        """ dot" width="100" height="141"/> is close.</p>""")
-    _results = utils.FText.from_string(text)
-    assert len(_results.text) == 6
-    assert isinstance(_results.text[3], utils.LinkRef)
-    assert len(_results.files) == 1
-    assert _results.files[0] == utils.File("/0.png","")
-    assert _results.files[0] == _results.text[3].file
-    assert _results.text[3].metadata == {'alt': 'Red dot', 'width': '100', 'height': '141'}
-
-
-

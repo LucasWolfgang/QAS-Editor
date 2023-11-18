@@ -18,61 +18,60 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import inspect
-from typing import TYPE_CHECKING, Any, Callable, Dict, Tuple
-
-if TYPE_CHECKING:
-    from .parsers.text import FText
+import re
+from typing import Any, Callable, Dict
 
 
-def mapper(_input: Dict[Any, dict]):
+def mapper(args: Dict[str, dict]):
     """_summary_
     Args:
         input (Dict[Any, float]): _description_
     """
-    def processor(dbid):
+    def default_proc_mapper(dbid):
         output: Dict[str, Any] = {}
-        for key, value in _input.items():
+        for key, value in args["values"].items():
             if dbid == key:
                 output = value
                 break
         else:
             output = {"value": 0.0}
         return output
-    return processor
+    return default_proc_mapper
 
 
-def mapper_nocase(_input: Dict[str, dict]):
+def string_process(data: Dict[str, dict]):
     """_summary_
     Args:
         input (Dict[str, float]): _description_
     """
-    def processor(dbid: str):
+    flag = re.I if data.get("case") else 0
+    def default_proc_string(dbid: str):
         output = None
-        for key, value in _input.items():
-            if dbid.lower() == key.lower():
+        for key, value in data["values"].items():
+            if re.match(key, dbid, flags=flag):
                 output = value
                 break
         else:
             output = {"value": 0.0}
         return output
-    return processor
+    return default_proc_string
 
 
-def numerical_range(_input: Dict[Tuple[float, float], dict]):
+def numerical_range(_input: Dict[str, dict]):
     """_summary_
     Args:
         input (Dict[str, float]): _description_
     """
-    def processor(dbid: float):
+    def default_proc_numerical_range(dbid: float):
         output = None
-        for key, value in _input.items():
+        for key, value in _input["values"].items():
             if key[0] < dbid < key[1]:
                 output = value
                 break
         else:
             output = {"value": 0.0}
         return output
-    return processor
+    return default_proc_numerical_range
 
 
 class Proc:
@@ -92,3 +91,4 @@ class Proc:
     def to_xml(self):
         """_summary_
         """
+        inspect.getsource(self.func)

@@ -18,8 +18,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import base64
-import copy
-import html
 import logging
 import mimetypes
 import os
@@ -31,20 +29,18 @@ import unicodedata
 from enum import Enum
 from importlib import util
 from io import BytesIO
-from typing import TYPE_CHECKING, Dict, Generic, Iterable, List, Tuple, TypeVar
-from urllib import parse, request
+from typing import Dict, Generic, Iterable, List, Tuple, TypeVar
+from urllib import request
 from xml.etree import ElementTree as et
 from xml.sax import saxutils
 
-from .enums import Distribution, FileAddr, OutFormat, Status, TextFormat
+from .enums import Distribution, FileAddr, Status, TextFormat
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 if EXTRAS_FORMULAE:
     from matplotlib import figure, font_manager, mathtext
     from matplotlib.backends import backend_agg
     from pyparsing import ParseFatalException  # Part of matplotlib package
-if TYPE_CHECKING:
-    from parsers.text import FText
 
 T = TypeVar('T')
 KT = TypeVar('KT')  # Key type.
@@ -233,7 +229,7 @@ class Compare:
         for key, value in itma.items():
             if key in ("_QQuestion__parent", "_Category__parent"):
                 continue
-            path.append(value)
+            path.append(str(key))
             Compare._itercmp(value, itmb.get(key), path)
             path.pop()
         return True
@@ -242,25 +238,15 @@ class Compare:
     def _cmp_list(itma: list, itmb: list, path: list):
         if len(itma) != len(itmb):
             raise ValueError(f"Len diff ({len(itma)},{len(itmb)}) in {path[:100]}.")
-        tmp: list = copy.copy(itmb)
-        for ita in itma:
-            path.append(ita)
-            idx = 0
-            for idx, itb in enumerate(tmp):
-                try:
-                    Compare._itercmp(ita, itb, path)
-                except ValueError:
-                    continue
-                break
-            else:
-                raise IndexError(f"Missing item {ita} in {path[:100]}.")
-            tmp.pop(idx)
+        for idx, (ita, itb) in enumerate(zip(itma, itmb)):
+            path.append(idx)
+            Compare._itercmp(ita, itb, path)
             path.pop()
 
     @staticmethod
     def _itercmp(__a, __b, path: list):
         if not isinstance(__b, __a.__class__):
-            raise ValueError(f"In {path}. Use debugger.")
+            raise TypeError(f"In {path}. Use debugger.")
         if isinstance(__a, list):
             Compare._cmp_list(__a, __b, path)
         elif isinstance(__a, dict):
@@ -329,10 +315,21 @@ class File:
         metadata (**kwargs): File specific metadata, such as author, id, etc.
     """
 
+    ROOTS = (
+        #Moodle            #QTI                #Relative paths
+        "@@PLUGINFILE@@", "$IMS-CC-FILEBASE$", "", ".", ".."
+    )
+
     def __init__(self, path: str, data: str = None, mimetype: str = None,
                  **metadata):
         super().__init__()
         self.data = data
+        path = path.replace("\\", "/")
+        tmp = path.split("/", 1)
+        if len(tmp) == 1:
+            tmp.insert(0, "")
+        if tmp[0] in self.ROOTS:
+            path = "///"+tmp[1]
         self.path = path
         self.metadata = metadata
         self.mtype = mimetype
@@ -354,7 +351,6 @@ class File:
             except Exception:
                 self._type = FileAddr.LOCAL
                 _LOG.exception("It was not possible to find the file %s", path)
-
 
     def __eq__(self, __o: object) -> bool:
         if not isinstance(__o, File):
@@ -382,83 +378,6 @@ class File:
             output_bb += f' {key}="{value}"'
         self.get_data()
         return f"{output_bb}/>{self.data}</file>"
-
-
-class LinkRef:
-    """A text reference of a file or link. Used in a FText to allow instance
-    specific metadata.
-    Attributes:
-        file (File):
-        metadata (Dict[str, str]):
-    """
-
-    REFS = {
-        #Name       #Moodle             #QTI
-        "<file>" : ["@@PLUGINFILE@@", "$IMS-CC-FILEBASE$"]
-    }
-
-    def __init__(self, tag: str, file: File, **kwargs):
-        super().__init__()
-        self.tag = tag
-        self.file = file
-        self.metadata = kwargs
-
-    def _replace_href_scr(self, value: str, format: OutFormat):
-        if "$IMS-CC-FILEBASE$" in value:
-            new_item = parse.unquote(value).replace("$IMS-CC-FILEBASE$", "/static")
-            return new_item.split("?")[0].replace("&amp;", "&")
-        elif "$WIKI_REFERENCE$" in value:
-            search_key = parse.unquote(value).replace("$WIKI_REFERENCE$/pages/", "")
-            search_key = search_key.split("?")[0] + ".html"
-            if self.file.path.endswith(search_key):
-                return f"/jump_to_id/{self.file.metadata['identifier']}"
-            _LOG.warning("Unable to process Wiki link - %s", value)
-        elif "$CANVAS_OBJECT_REFERENCE$/external_tools" in value:
-            query = parse.parse_qs(html.unescape(parse.urlparse(value).query))
-            return query.get("url", [""])[0]
-        elif "$CANVAS_OBJECT_REFERENCE$" in value:
-            return parse.unquote(value).replace("$CANVAS_OBJECT_REFERENCE$/quizzes/", 
-                                                "/jump_to_id/")
-        elif "@@PLUGINFILE@@" in value:
-            return parse.unquote(value).replace("@@PLUGINFILE@@", "/")
-
-    def _handle_iframe(self, format: OutFormat):
-        if format == OutFormat.OLX:
-            elem = et.Element("video")
-
-    def get_tag(self, embedded: bool, otype: OutFormat) -> str:
-        """_summary_
-        Args:
-            embedded (bool): _description_
-            format (OutFormat): _description_
-        Returns:
-            str: _description_
-        """
-        for val in ("href", "src"):
-            if val in self.metadata:
-                self.metadata[val] = self._replace_href_scr(self.metadata[val])
-        if self.tag == "iframe" and otype == OutFormat.OLX:
-            output_bb = '<video ' # TODO probably need something else here
-        elif self.tag == "transcript" or self.file.mtype == "transcript":
-            return '<transcript language="" src="">'
-        else:
-            output_bb = f'<{self.tag}'
-        if embedded:
-            output_bb += f'data:{self.file.mtype};base64,{self.file.data}" '
-        else:
-            output_bb += self._replace_href_scr(self.file.path) + '" '
-        for key, value in self.metadata.items():
-            output_bb += f' {key}="{value}"'
-        for key, value in self.file.metadata.items():
-            if key not in self.metadata:
-                output_bb += f' {key}="{value}"'
-        if self.file.children:
-            output_bb += '>'
-            for value in self.file.children:
-                output_bb += value.get_tag()
-            output_bb += f'</{self.tag}>'
-        else:
-            output_bb += '/>'
 
 
 class Dataset:
