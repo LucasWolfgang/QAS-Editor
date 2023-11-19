@@ -54,8 +54,8 @@ def _from_question(buffer, line: str, name: str, language: Language):
         simple_choice.options.append(Choice(match[1]))
     question.body[language].text.append(header.strip())
     question.body[language].text.append(simple_choice)
-    mapper = {"values": {target: {"value": 100}}}
-    simple_choice.processor = pcsr.Proc(pcsr.mapper, mapper)
+    args = {"values": {target: {"value": 100}}}
+    simple_choice.processor = pcsr.Proc.from_default("mapper", args)
     return question
 
 

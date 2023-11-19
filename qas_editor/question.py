@@ -34,7 +34,6 @@ if TYPE_CHECKING:
     from datetime import datetime
 
     from .category import Category
-    from .enums import Direction
 _LOG = logging.getLogger(__name__)
 
 
@@ -245,48 +244,6 @@ class QCalculatedMC(_QHasOptions):
         """
         data = Dataset(status, name, "calculated", dist, minim, maxim, dec)
         self.datasets.append(data)
-
-
-class QCrossWord(_Question):
-    """Represents a Crossword question.
-    """
-
-    def __init__(self, x_grid: int = 0, y_grid: int = 0,
-                 words: List[ACrossWord] = None, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.x_grid = x_grid
-        self.y_grid = y_grid
-        self.words = words if words else []      # The class only checks grid
-
-    def add_word(self, word: str, coord_x: int, coord_y: int,
-                 direction: Direction, clue: str) -> None:
-        """_summary_
-
-        Args:
-            word (str): _description_
-            coord_x (int): _description_
-            coord_y (int): _description_
-            direction (Direction): _description_
-            clue (str): _description_
-
-        Raises:
-            ValueError: _description_
-        """
-        if coord_x < 0 or coord_x > self.x_grid+len(word) or \
-                coord_y < 0 or coord_y > self.y_grid+len(word):
-            raise ValueError("New word does not fit in the current grid")
-        self.words.append(ACrossWord(word, coord_x, coord_y, clue, direction))
-
-    def get_solution(self) -> bool:
-        """
-        Iterate over the object list to verify if it is valid.
-        """
-        solution: Dict[int, Dict[int, str]] = {}
-        for word in self.words:
-            if word.coord_x not in solution:
-                solution[word.x] = {}
-            if word.coord_y not in solution:
-                solution[word.coord_x][word.coord_y] = {}
 
 
 class QDaDImage(_QHasOptions):

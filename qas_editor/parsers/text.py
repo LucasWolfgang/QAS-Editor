@@ -369,22 +369,6 @@ class FText:
             raise TypeError(f"Item has unknown type {type(item)}")
         return res
 
-    def parse(self, text: str, parser: Callable, **args):
-        """Parses the provided string to a FText class by finding file pointers
-        and math expression and returning them as a list.
-        Args:
-            text (str): _description_
-        Returns:
-            FText: _description_
-        """
-        if parser is None:
-            self._text.append(text)
-        else:
-            if "files" not in args:
-                args["files"] = self._files
-            tmp = parser(**args).parse(text)
-            self._text = tmp.ftext
-
     def get(self, mtype=MathType.ASCII, ftype=FileAddr.LOCAL, 
             otype: OutFormat=OutFormat.QTI) -> str:
         """Get a string representation of the object. This representation 

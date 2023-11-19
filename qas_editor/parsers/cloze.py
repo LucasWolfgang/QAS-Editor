@@ -35,26 +35,26 @@ _LOG = logging.getLogger(__name__)
 _CLOZE_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
 
 
-def _parse_mc(opts: dict, feeds: list, _type: EmbeddedFormat):
+def _parse_mc(args: dict, feeds: list, _type: EmbeddedFormat):
     tmp = ChoicesItem(feeds)
     if _type in (EmbeddedFormat.MR, EmbeddedFormat.MC):
         tmp.orientation = Orientation.VER
-    for key in opts["values"]:
+    for key in args["values"]:
         tmp.options.append(Choice(key))
-    tmp.processor = prcs.Proc(prcs.mapper, opts)
+    tmp.processor = prcs.Proc.from_default("mapper", args)
     return tmp
 
 
-def _parse_sa(opts: dict, feeds: list, _type: EmbeddedFormat):
+def _parse_sa(args: dict, feeds: list, _type: EmbeddedFormat):
     tmp = EntryItem(feeds)
-    opts["case"] = "i" if _type == EmbeddedFormat.SAC else None
-    tmp.processor = prcs.Proc(prcs.string_process, opts)
+    args["case"] = "i" if _type == EmbeddedFormat.SAC else None
+    tmp.processor = prcs.Proc.from_default("string_process", args)
     return tmp
 
 
-def _parse_num(opts: dict, feeds: list, _):
+def _parse_num(args: dict, feeds: list, _):
     tmp = EntryItem(feeds)
-    tmp.processor = prcs.Proc(prcs.numerical_range, opts)
+    tmp.processor = prcs.Proc.from_default("numerical_range", args)
     return tmp
 
 
@@ -117,13 +117,16 @@ def _from_cloze_text(data: str, lang: Language, embedded_name: bool):
 
 def _get_format(item: ChoicesItem|EntryItem):
     if isinstance(item, EntryItem):
-        if item.processor.func.__name__ == "default_proc_numerical_range":
-            fmt = EmbeddedFormat.NUM
-        elif item.processor.func.__name__ == "default_proc_string":
-            if item.processor.args.get("case") == "i":
-                fmt = EmbeddedFormat.SAC
+        if item.processor.args:  # It is a template function
+            if item.processor.source == "numerical_range":
+                fmt = EmbeddedFormat.NUM
+            elif item.processor.source == "string_process":
+                if item.processor.args.get("case") == "i":
+                    fmt = EmbeddedFormat.SAC
+                else:
+                    fmt = EmbeddedFormat.SA
             else:
-                fmt = EmbeddedFormat.SA
+                raise ValueError("Function cant be processed")
         elif "close" in item.meta:
             fmt = item.meta["cloze"]
         else:
