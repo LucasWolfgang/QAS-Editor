@@ -16,24 +16,29 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
 import logging
-from typing import TYPE_CHECKING
 from os.path import splitext
+from typing import TYPE_CHECKING
 from uuid import uuid4
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QFont, QImage, QTextDocument, QKeySequence, QIcon,\
-                        QTextCursor
-from PyQt5.QtWidgets import QWidget, QActionGroup, QCompleter, QTextEdit,\
-                            QToolBar, QFontComboBox, QComboBox, QHBoxLayout,\
-                            QFrame, QPushButton, QLabel, QAction, QLineEdit,\
-                            QCheckBox, QListWidget, QGridLayout
-from .utils import IMG_PATH
-from ..question import MARKER_INT
-from ..answer import Answer, ACalculated, DragGroup, EmbeddedItem, DropZone,\
-                     SelectOption
-from ..enums import EmbeddedFormat, TextFormat, TolType, TolFormat, EnhancedEnum
-from ..utils import Hint
+
+from PyQt5.QtCore import QSize, Qt
+from PyQt5.QtGui import (QFont, QIcon, QImage, QKeySequence, QTextCursor,
+                         QTextDocument)
+from PyQt5.QtWidgets import (QAction, QActionGroup, QCheckBox, QComboBox,
+                             QCompleter, QFontComboBox, QFrame, QGridLayout,
+                             QHBoxLayout, QLabel, QLineEdit, QListWidget,
+                             QPushButton, QTextEdit, QToolBar, QWidget)
+
+from ..answer import (ACalculated, Answer, DragGroup, DropZone, EmbeddedItem,
+                      SelectOption)
+from ..enums import (EmbeddedFormat, EnhancedEnum, TextFormat, TolFormat,
+                     TolType)
 from ..parsers.text import FText
+from ..question import MARKER_INT
+from ..utils import Hint
+from .utils import IMG_PATH
+
 if TYPE_CHECKING:
     from PyQt5.QtGui import QKeyEvent
 
@@ -790,19 +795,6 @@ class GHint(QFrame):
         """Object
         """
         return self.__obj
-
-
-class GCrossWord(QWidget):
-    """GUI class for the CrossWord question class.
-    """
-
-    def from_obj(self, _) -> None:
-        """_summary_
-
-        Args:
-            obj (QCrossWord): _description_
-        """
-        LOG.debug(f"Function <from_obj> not implemented in {self}")
 
 
 class GTagBar(QFrame):

@@ -1,35 +1,41 @@
-""""
-Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
+# Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+# Copyright (C) 2022  Lucas Wolfgang
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+## Description
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
 import os
 import uuid
-from zipfile import ZipFile, ZIP_DEFLATED
-from xml.etree import ElementTree as et
 from typing import TYPE_CHECKING
+from xml.etree import ElementTree as et
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from qas_editor.enums import ShuffleType
-from ...question import QMultichoice, QShortAnswer, QTrueFalse, QNumerical,\
-                       QMultichoice, QEmbedded, QQuestion
+
+from ...question import (QEmbedded, QMultichoice, QNumerical, QQuestion,
+                         QShortAnswer, QTrueFalse)
 from . import imscc, qti1v2
+
 if TYPE_CHECKING:
     from typing import Dict
+
     from ...category import Category
-    from ...question import _Question, _QHasOptions
+    from ...question import _QHasOptions, _Question
 
 
 __doc__= """BlackBoard uses a modified version of QTI Content Package v1.2.

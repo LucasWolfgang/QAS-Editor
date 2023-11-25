@@ -1,37 +1,39 @@
+# Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+# Copyright (C) 2022  Lucas Wolfgang
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
+## Description
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import os
 import logging
+import os
 import zipfile
+from importlib import util
 from typing import TYPE_CHECKING, List
 from xml.etree import ElementTree as et
-from importlib import util
 
-from ..answer import ACalculated, ANumerical, Answer, DragItem, DragGroup, \
-                     DragImage, DropZone, Subquestion, SelectOption
-from ..question import QCalculated, QCalculatedMC, QProblem, QDaDImage,\
-                       QEmbedded, QMissingWord, QTrueFalse, QDaDMarker,\
-                       QNumerical, QDaDText, QEssay, QMatching,\
-                       QMultichoice, QRandomMatching, QShortAnswer
-from ..enums import TextFormat, ShowUnits, Numbering, RespFormat, Synchronise,\
-                    ShapeType, Grading, Status, TolFormat, TolType,\
-                    Distribution, ShowAnswer, MathType, ShuffleType
-from ..utils import gen_hier, Dataset, Hint, TList, File, Unit, serialize_fxml
+from ..answer import (ACalculated, Answer, ANumerical, DragGroup, DragImage,
+                      DragItem, DropZone, SelectOption, Subquestion)
+from ..enums import (Distribution, Grading, MathType, Numbering, RespFormat,
+                     ShapeType, ShowAnswer, ShowUnits, ShuffleType, Status,
+                     Synchronise, TextFormat, TolFormat, TolType)
+from ..question import (QCalculated, QCalculatedMC, QDaDImage, QDaDMarker,
+                        QDaDText, QEmbedded, QEssay, QMatching, QMissingWord,
+                        QMultichoice, QNumerical, QProblem, QRandomMatching,
+                        QShortAnswer, QTrueFalse)
+from ..utils import Dataset, File, Hint, TList, Unit, gen_hier, serialize_fxml
 from .text import FText, XHTMLParser
 
 if TYPE_CHECKING:
@@ -61,21 +63,27 @@ class MoodleXHTMLParser(XHTMLParser):
             self._stack[-1].append(data[self.lst: self.pos])
         self.pos += size
         self.lst = self.pos
-        self._stack[-1].append(callback())
+        self._stack[-1].append(callback(data))
         self.lst = self.pos + 1
 
     def handle_data(self, data: str):
         self.pos = self.lst = 0
         self.scp = False
-        if EXTRAS_FORMULAE:
+        if self._stack[-1].tag in ("a", "base", "base", "input", "link", "img",
+                                   "audio", "embed",  "video", "file", "track",
+                                   "script", "source", "iframe"):
+            data = self._update_fileref(data)
+        elif EXTRAS_FORMULAE:
             while self.pos < len(data):
                 if data[self.pos:self.pos+2] == "{=" and not self.scp:
-                    self._wrapper(self._get_moodle_exp, 2)
+                    self._wrapper(data, self._get_moodle_exp, 2)
                 elif data[self.pos] == "(" and self.scp: 
-                    self._wrapper(self._get_latex_exp)  # This is correct: "\("
+                    self._wrapper(data, self._get_latex_exp)  # This is correct: "\("
                 elif data[self.pos] == "{" and not self.scp:
-                    self._wrapper(self._get_moodle_var)
-        return super().handle_data(data)
+                    self._wrapper(data, self._get_moodle_var)
+                self.pos += 1
+        if data[self.lst: self.pos]:
+            self._stack[-1].append(data[self.lst: self.pos])
 
     def _get_moodle_exp(self, data: str):
         cnt = 0

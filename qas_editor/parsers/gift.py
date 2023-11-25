@@ -1,29 +1,33 @@
-""""
-Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+# Copyright (C) 2022  Lucas Wolfgang
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import re
+## Description
+
+"""
 import logging
+import re
 from typing import TYPE_CHECKING
-from ..question import MARKER_INT, QMatching, QEssay, QTrueFalse, QNumerical,\
-                       QProblem, QShortAnswer, QMultichoice
-from ..enums import TextFormat
+
 from ..answer import Answer, ANumerical, Subquestion
+from ..enums import TextFormat
+from ..question import (MARKER_INT, QEssay, QMatching, QMultichoice,
+                        QNumerical, QProblem, QShortAnswer, QTrueFalse)
 from ..utils import gen_hier
 from .text import FText
+
 if TYPE_CHECKING:
     from ..category import Category
 _LOG = logging.getLogger(__name__)

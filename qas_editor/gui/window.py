@@ -1,43 +1,49 @@
-""""
-Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
+# Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+# Copyright (C) 2022  Lucas Wolfgang
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+## Description
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
-import glob
+
 import copy
+import glob
 from importlib import resources
 from typing import TYPE_CHECKING, List
-from PyQt5.QtCore import Qt, QVariant, QSize
-from PyQt5.QtGui import QStandardItemModel, QIcon, QStandardItem
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QFrame, QLabel, QGridLayout,\
-                            QSplitter, QTreeView, QMainWindow, QStatusBar,\
-                            QFileDialog, QMenu, QAction, QAbstractItemView,\
-                            QScrollArea, QHBoxLayout, QGroupBox, QShortcut,\
-                            QPushButton
-from ..category import Category, EXTS
+
+from PyQt5.QtCore import QSize, Qt, QVariant
+from PyQt5.QtGui import QIcon, QStandardItem, QStandardItemModel
+from PyQt5.QtWidgets import (QAbstractItemView, QAction, QFileDialog, QFrame,
+                             QGridLayout, QGroupBox, QHBoxLayout, QLabel,
+                             QMainWindow, QMenu, QPushButton, QScrollArea,
+                             QShortcut, QSplitter, QStatusBar, QTreeView,
+                             QVBoxLayout, QWidget)
+
+from ..category import EXTS, Category
+from ..enums import Grading, Numbering, RespFormat, ShowUnits, Synchronise
 from ..question import _Question
-from ..enums import Numbering, Grading, ShowUnits, RespFormat, Synchronise
-from .widget import GTextToolbar, GTextEditor, GTagBar, GField, GCheckBox,\
-                    GDropbox, GList
-from .layout import GCollapsible, GOptions, GHintsList, AutoUpdateVBox
-from .popup import PAbout, PTips, PHotkey, PName, PQuestion, PFind, PDataset
+from .layout import AutoUpdateVBox, GCollapsible, GHintsList, GOptions
+from .popup import PAbout, PDataset, PFind, PHotkey, PName, PQuestion, PTips
 from .utils import HOTKEYS, action_handler
+from .widget import (GCheckBox, GDropbox, GField, GList, GTagBar, GTextEditor,
+                     GTextToolbar)
+
 if TYPE_CHECKING:
-    from PyQt5.QtGui import QDropEvent
     from PyQt5.QtCore import QModelIndex
+    from PyQt5.QtGui import QDropEvent
 
 
 class Editor(QMainWindow):

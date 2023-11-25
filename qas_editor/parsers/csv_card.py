@@ -16,12 +16,17 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
+
 import csv
-from ..question import QMatching, QMultichoice, QShortAnswer
-from ..answer import Answer
 from typing import TYPE_CHECKING, Callable
+
+from ..answer import ChoicesItem, EntryItem
+from ..processors import Proc
+from ..question import QMatching, QMultichoice, QQuestion, QShortAnswer
+
 if TYPE_CHECKING:
     from ..category import Category
+    from ..enums import Language
 
 
 __doc__ = """Applications that provide Card based learning, like the amazing
@@ -32,19 +37,22 @@ __doc__ = """Applications that provide Card based learning, like the amazing
           """
 
 
-def read_cards(cls, file_path: str) -> Category:
+def read_cards(cls, file_path: str, lang: Language) -> Category:
     """Read a comma separated deck.
     """
     cls: Category = cls()
-    with open(file_path) as ifile:
+    with open(file_path, encoding="utf-8") as ifile:
         for num, items in enumerate(csv.reader(ifile, delimiter="\t")):
             if len(items) == 2:
                 header, answer = items
-                ans = Answer(100, answer)
-                qst = QShortAnswer(True, name=num, options=[ans], question=header)
+                ans = EntryItem()
+                args = {"values":{answer:{"value":100}}}
+                ans.processor = Proc.from_default("string_process", args)
+                qst = QQuestion({lang: num}, None, None)
+                qst.body[lang].text.append(header)
                 cls.add_question(qst)
             else:
-                NotImplementedError("Flow not implemented")
+                raise NotImplementedError("Flow not implemented")
     return cls
 
 
@@ -64,17 +72,23 @@ def _write_qsa_qmc(question: QShortAnswer|QMultichoice, write):
     write((question.question.get(), correct))
 
 
-def write_cards(self, file_path: str):
+def write_cards(self, lang: Language, file_path: str):
     """Write a comma separated deck.
     """
     def _kwrecursive(cat: "Category", write: Callable):
         for qst in cat.questions:
             qst.check()
+            for item in qst.body[lang].text:
+                if isinstance(item, str):
+                    write(item)
+                elif isinstance(item, (ChoicesItem, EntryItem)):
+                    pass
+
             if isinstance(qst, (QMultichoice, QShortAnswer)):
                 _write_qsa_qmc(qst, write)
             elif isinstance(qst, QMatching):
                 _write_qmatching(qst, write)
         for name in cat:                            # Then add children data
             _kwrecursive(cat[name], write)
-    with open(file_path, "w") as ofile:
+    with open(file_path, "w", encoding="utf-8") as ofile:
         _kwrecursive(self, csv.writer(ofile, delimiter="\t").writerow)

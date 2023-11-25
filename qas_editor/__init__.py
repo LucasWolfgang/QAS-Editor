@@ -1,4 +1,4 @@
-""""
+"""<pre>
 Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
 Copyright (C) 2022  Lucas Wolfgang
 
@@ -14,15 +14,15 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
+</pre>
+
+## Description
+Question and Answer Sheet Editor is a desktop-focused python API and a UI
+utility to automate/help with tasks related to the creation, deletion, update,
+rganization and convertion of question databases.
 """
 import logging
+
 _LOG = logging.getLogger(__name__)
-
 __author__ = "Lucas Wolfgang"
-
-__version__ = "0.0.7"
-
-__doc__= """Question and Answer Sheet Editor is a desktop-focused python API\
-and a UI\nutility to automate/help with tasks related to the creation, deletion\
-, update,\n organization and convertion of question databases.
-"""
+__version__ = "0.0.8"

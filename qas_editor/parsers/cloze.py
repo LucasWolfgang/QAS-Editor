@@ -1,19 +1,21 @@
+# Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+# Copyright (C) 2022  Lucas Wolfgang
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
+## Description
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 
@@ -22,7 +24,7 @@ import re
 from typing import TYPE_CHECKING, Type
 
 from .. import processors as prcs
-from ..answer import Choice, ChoicesItem, EntryItem
+from ..answer import ChoicesItem, EntryItem, Option
 from ..enums import EmbeddedFormat, Language, Orientation
 from ..question import QQuestion
 from .text import FText
@@ -40,7 +42,7 @@ def _parse_mc(args: dict, feeds: list, _type: EmbeddedFormat):
     if _type in (EmbeddedFormat.MR, EmbeddedFormat.MC):
         tmp.orientation = Orientation.VER
     for key in args["values"]:
-        tmp.options.append(Choice(key))
+        tmp.options.append(Option(key))
     tmp.processor = prcs.Proc.from_default("mapper", args)
     return tmp
 

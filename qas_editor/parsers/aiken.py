@@ -1,19 +1,21 @@
-""""
-Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
+# Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+# Copyright (C) 2022  Lucas Wolfgang
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+## Description
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 
@@ -23,7 +25,7 @@ import re
 from typing import TYPE_CHECKING, Type
 
 from .. import processors as pcsr
-from ..answer import Choice, ChoicesItem
+from ..answer import ChoicesItem, Option
 from ..enums import Language
 from ..question import QQuestion
 
@@ -42,7 +44,7 @@ def _from_question(buffer, line: str, name: str, language: Language):
     for _line in buffer:
         match = _PATTERN.match(_line)
         if match:
-            simple_choice.options.append(Choice(match[1]))
+            simple_choice.options.append(Option(match[1]))
             break
         header += _line
     target = 0
@@ -51,7 +53,7 @@ def _from_question(buffer, line: str, name: str, language: Language):
         if not match:
             target = ord(_line[8].upper())-65
             break
-        simple_choice.options.append(Choice(match[1]))
+        simple_choice.options.append(Option(match[1]))
     question.body[language].text.append(header.strip())
     question.body[language].text.append(simple_choice)
     args = {"values": {target: {"value": 100}}}

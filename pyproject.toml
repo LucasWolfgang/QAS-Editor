@@ -43,7 +43,7 @@ pytest-qt = { version = "*", optional = true }
 "formulae" = ["sympy", "matplotlib"]
 "gui" = ["PyQt5 >= 5.15.0"]
 "docx" = ["odfpy"]
-"test" = ["pytest", "pytest-qt"]
+"dev" = ["pytest", "pytest-qt", "pylint", "pytest", "flake8"]
 
 
 [tool.poetry.group.dev.dependencies]

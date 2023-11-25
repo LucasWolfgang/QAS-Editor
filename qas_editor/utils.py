@@ -1,19 +1,21 @@
-""""
-Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
+# Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+# Copyright (C) 2022  Lucas Wolfgang
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+"""
+## Description
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 from __future__ import annotations
 
@@ -179,7 +181,7 @@ def render_latex(latex: str, ftype: FileAddr, scale=1.0):
             else:
                 run_me(["dvisvgm", "--no-fonts", "-o", name, "text.dvi"])
                 shutil.move(f"{workdir}/{name}", ".")
-                res = File(name, FileAddr.LOCAL, name, **attr)
+                res = File(name, FileAddr.LOCAL, **attr)
     elif EXTRAS_FORMULAE:
         try:
             prop = font_manager.FontProperties(size=12)
@@ -191,7 +193,7 @@ def render_latex(latex: str, ftype: FileAddr, scale=1.0):
             backend_agg.FigureCanvasAgg(fig)  # set the canvas used
             if ftype != FileAddr.EMBEDDED:
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
-                res = File(name, FileAddr.LOCAL, name, **attr)
+                res = File(name, FileAddr.LOCAL, **attr)
             else:
                 buffer = BytesIO()
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
@@ -320,8 +322,7 @@ class File:
         "@@PLUGINFILE@@", "$IMS-CC-FILEBASE$", "", ".", ".."
     )
 
-    def __init__(self, path: str, data: str = None, mimetype: str = None,
-                 **metadata):
+    def __init__(self, path: str, data: str = None, **metadata):
         super().__init__()
         self.data = data
         path = path.replace("\\", "/")
@@ -332,7 +333,6 @@ class File:
             path = "///"+tmp[1]
         self.path = path
         self.metadata = metadata
-        self.mtype = mimetype
         self.children = None
         if self.mtype is None and path:
             try:
