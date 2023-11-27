@@ -101,6 +101,8 @@ class Language(Enum):
     """
     EN_US = "us english"
     PT_BR = "brazilian portuguese"
+    ANY = "any"
+    """When the language is universaly understood, like math."""
 
 
 class MathType(Enum):

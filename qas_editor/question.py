@@ -524,9 +524,11 @@ class QQuestion:
         self.dbid = dbid
         self.time_lim = 0
         self.notes: Dict[datetime, str] = {}
-        self.name = name
         self.tool_name = self.tool_ver = None
+        self._name = name
         self._body: Dict[Language, FText] = {}
+        self._feedback: Dict[Language, FText] = {}
+        self._proc = None
         for key in name:
             self._body[key] = FText()
         self._tags = tags or []
@@ -541,6 +543,18 @@ class QQuestion:
         """Question body
         """
         return self._body
+
+    @property
+    def feedback(self) -> Dict[Language, FText]:
+        """Question body
+        """
+        return self._feedback
+
+    @property
+    def name(self) -> Dict[Language, FText]:
+        """Question name
+        """
+        return self._name
 
     @property
     def parent(self) -> Category:
@@ -568,10 +582,6 @@ class QQuestion:
         before exporting the instance, or right after modifying many valid of
         a instance.
         """
-        if (not isinstance(self.name, str) or self.time_lim < 0
+        if (not isinstance(self.time_lim, int) or self.time_lim < 0
                 or (self.dbid is not None and not isinstance(self.dbid, int))):
             raise ValueError("Invalid value(s).")
-        for key, value in self._feedbacks.items():
-            if not isinstance(key, float) or not isinstance(value, FText):
-                raise TypeError()
-            

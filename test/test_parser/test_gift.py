@@ -20,12 +20,12 @@
 
 import os
 
-from qas_editor import category
+from qas_editor import category, enums
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
 def test_read_all():
-    EXAMPLE = f"{TEST_PATH}/datasets/gift/gift.gift"
+    EXAMPLE = f"{TEST_PATH}/datasets/gift/all.gift"
     control = category.Category.read_gift(EXAMPLE)
     control = control["qas editor"]
     assert len(control) == 9
@@ -41,3 +41,25 @@ def test_read_all():
     assert len(question.options) == 3
     assert question.options[1].text == ('<p><span style\\="font-size\\: 14px;'
                                         '">November 2015</span><br></p>')
+
+
+def test_read_essay():
+    EXAMPLE = f"{TEST_PATH}/datasets/gift/essay.gift"
+    control = category.Category.read_gift(EXAMPLE)
+    lang = enums.Language.EN_US
+    assert control.get_size(True) == 2
+    qst = control.get_question(0)
+    assert qst.dbid == "432"
+    assert len(qst.feedback) == 0
+    assert qst.name[lang] == 'Essay 1'
+    assert qst.tags == ['Advanced', 'ad']
+    assert len(qst.body[lang].text) == 6
+    assert qst.body[lang].text[2][0] == ('In 50 words, explain which question'
+            ' type you think you will use the most \xa0-and why - and then '
+            'which question type you will use the least - and why?')
+
+def test_read_matching():
+    EXAMPLE = f"{TEST_PATH}/datasets/gift/matching.gift"
+    control = category.Category.read_gift(EXAMPLE)
+    control = control["qas editor"]
+    

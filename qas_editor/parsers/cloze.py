@@ -27,7 +27,7 @@ from .. import processors as prcs
 from ..answer import ChoicesItem, EntryItem, Option
 from ..enums import EmbeddedFormat, Language, Orientation
 from ..question import QQuestion
-from .text import FText
+from .text import FText, PlainParser
 
 if TYPE_CHECKING:
     from ..category import Category
@@ -42,7 +42,9 @@ def _parse_mc(args: dict, feeds: list, _type: EmbeddedFormat):
     if _type in (EmbeddedFormat.MR, EmbeddedFormat.MC):
         tmp.orientation = Orientation.VER
     for key in args["values"]:
-        tmp.options.append(Option(key))
+        parser = PlainParser()
+        parser.parse(key)
+        tmp.options.append(Option(FText(parser)))
     tmp.processor = prcs.Proc.from_default("mapper", args)
     return tmp
 

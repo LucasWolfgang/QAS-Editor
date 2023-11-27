@@ -28,6 +28,7 @@ from .. import processors as pcsr
 from ..answer import ChoicesItem, Option
 from ..enums import Language
 from ..question import QQuestion
+from .text import FText, PlainParser
 
 if TYPE_CHECKING:
     from ..category import Category
@@ -44,7 +45,9 @@ def _from_question(buffer, line: str, name: str, language: Language):
     for _line in buffer:
         match = _PATTERN.match(_line)
         if match:
-            simple_choice.options.append(Option(match[1]))
+            parser = PlainParser()
+            parser.parse(match[1])
+            simple_choice.options.append(Option(FText(parser)))
             break
         header += _line
     target = 0
@@ -53,7 +56,9 @@ def _from_question(buffer, line: str, name: str, language: Language):
         if not match:
             target = ord(_line[8].upper())-65
             break
-        simple_choice.options.append(Option(match[1]))
+        parser = PlainParser()
+        parser.parse(match[1])
+        simple_choice.options.append(Option(FText(parser)))
     question.body[language].text.append(header.strip())
     question.body[language].text.append(simple_choice)
     args = {"values": {target: {"value": 100}}}
@@ -67,11 +72,9 @@ processor = print
 def read_aiken(cls: Type[Category], file_path: str, category: str, 
                language: Language) -> Category:
     """_summary_
-
     Args:
         file_path (str): _description_
         category (str, optional): _description_. Defaults to "$".
-
     Returns:
         Quiz: _description_
     """

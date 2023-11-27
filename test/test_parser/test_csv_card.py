@@ -20,7 +20,7 @@
 
 import os
 
-from qas_editor import category, enums
+from qas_editor import category, enums, utils
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
@@ -44,8 +44,8 @@ def test_diff_simple():
     tmp_test = f"{file_name}.tmp"
     lang = enums.Language.EN_US
     control = category.Category.read_csvcard(file_name, lang)
-    control.write_csvcard(tmp_test)
-    new_data = category.Category.read_csvcard(tmp_test)
-    assert control.compare(new_data, [])
+    control.write_csvcard(tmp_test, lang)
+    new_data = category.Category.read_csvcard(tmp_test, lang)
+    assert utils.Compare.compare(new_data, control)
     os.remove(tmp_test)
     return control

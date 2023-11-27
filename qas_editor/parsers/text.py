@@ -166,6 +166,29 @@ class LinkRef:
             output_bb += '/>'
 
 
+class PlainParser():
+    """A interface for plain text files that dont need any parsing. Same as
+    justing putting the text in a list.
+    """
+
+    def __init__(self):
+        self.ftext = []
+
+    def parse(self, data: str|TextIOWrapper):
+        """Parse the data provided.
+        Args:
+            data (str | TextIOWrapper): data to be parsed
+        Raises:
+            ParseError: If the data is not a string or TextIO
+        """
+        if isinstance(data, str):
+            self.ftext = [data]
+        elif isinstance(data, TextIOWrapper):
+            self.ftext = [data.read()]
+        else:
+            raise ParseError()
+
+
 class XHTMLParser(parser.HTMLParser):
     """A parser for HTML and XML that may contain other formats"""
 
@@ -251,7 +274,7 @@ class TextParser():
     """A global text parser to generate FText instances
     """
 
-    def __init__(self, **_):
+    def __init__(self):
         self.ftext = []
         self.text = ""
         self.pos = 0
@@ -292,23 +315,14 @@ class TextParser():
 
 
 class FText:
-    """A formated text. 
-    Attributes:
-        text (list): 
-        files (List[File]): Local reference of the list of files used.
+    """A formatted text.
     """
 
-    def __init__(self, parser = None):
-        super().__init__()
+    def __init__(self, parser = None, files: List[File] = None):
+        self._text = []
+        self._files = files if files is not None else []
         if parser is not None:
-            self._text = parser.ftext
-            if hasattr(parser, "files"):
-                self._files = parser.files
-            else:
-                self._files = []
-        else:
-            self._text = []
-            self._files = []
+            self.add(parser)
 
     def __iter__(self):
         return iter(self._text)
@@ -317,7 +331,7 @@ class FText:
         return len(self._text)
 
     def __getitem__(self, idx: int):
-        return self._text[idx]
+        return self._text[idx] 
 
     @property
     def files(self):
@@ -384,3 +398,10 @@ class FText:
         for item in self._text:
             data += self.to_string(item, mtype, ftype, otype)
         return data
+
+    def add(self, parser):
+        self._text.extend(parser.ftext)
+        if hasattr(parser, "files"):
+            for file in parser.files:
+                if file not in self._files:
+                    self._files.append(file)

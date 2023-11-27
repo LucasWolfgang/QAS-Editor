@@ -80,13 +80,13 @@ class Item:
 
 
 class Option:
-    """This is the basic class used to hold possible answers
+    """This is the basic class used to hold possible answers.Represents
+    qti-simple-choice. 
     Attributes:
     """
 
-    def __init__(self, text, parser: Callable = None):
-        self._text = FText()
-        self._text.parse(text, parser)
+    def __init__(self, text: FText):
+        self._text = text
         self.fixed = False
         self.show = False
 
@@ -96,7 +96,7 @@ class Option:
 
 class ChoicesItem(Item):
     """Basic class used to represent a multichoice item. Represents
-    qti-choice-interaction in QTI and 
+    qti-choice-interaction. 
     """
     MARKER_INT = 9635
 
@@ -104,7 +104,7 @@ class ChoicesItem(Item):
                  hints: List[FText] = None):
         super().__init__(feedbacks, hints)
         self._options: List = []
-        self.shuffle = False
+        self.shuffle: bool = False
         self.max_choices: int = 1
         self.min_choices: int = 0
         self.orientation: Orientation = Orientation.VER
@@ -124,17 +124,27 @@ class ChoicesItem(Item):
 
 
 class EntryItem(Item):
-    """Represent an input entry item.
+    """Represent an input entry item. Represents qti-text-entry-interaction.
     """
 
     def __init__(self, feedbacks: List[FText] = None, hints: List[FText] = None):
         super().__init__(feedbacks, hints)
-        self.patternmask_msg = None
+        self.patternmask: str = None
+        """Pattern mask"""
+        self.patternmask_msg: str = None
+        self.place_holder: str = None
+        self.format: str = TextFormat.PLAIN
+        self.length: int = 10
         
 
-class TextboxItem(Item):
-    """Represent an input entry.
+class TextItem(EntryItem):
+    """Represent an input entry. Represents a qti-extended-text-interaction.
     """
+
+    def __init__(self, feedbacks: List[FText] = None, hints: List[FText] = None):
+        super().__init__(feedbacks, hints)
+        self.max_strings = ""
+        self.min_strings = ""
 
 
 class GapMatch(Item):

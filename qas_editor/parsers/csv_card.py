@@ -1,40 +1,38 @@
+# Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+# Copyright (C) 2022  Lucas Wolfgang
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
+## Description
+Applications that provide Card based learning, like the amazing
+Anki and Quizlet, usually give an easy way to export the data in a
+plain text format with some options. Using the correct ones you will
+end up with a comma separated file, with 2 columns and N rows, one
+for each card in your deck. This parser handles this type of files.
 """
 from __future__ import annotations
 
 import csv
 from typing import TYPE_CHECKING, Callable
 
-from ..answer import ChoicesItem, EntryItem
+from ..answer import EntryItem
 from ..processors import Proc
-from ..question import QMatching, QMultichoice, QQuestion, QShortAnswer
+from ..question import QQuestion
 
 if TYPE_CHECKING:
     from ..category import Category
     from ..enums import Language
-
-
-__doc__ = """Applications that provide Card based learning, like the amazing
-          Anki and Quizlet, usually give an easy way to export the data in a
-          plain text format with some options. Using the correct ones you will
-          end up with a comma separated file, with 2 columns and N rows, one
-          for each card in your deck. This parser handles this type of files.
-          """
 
 
 def read_cards(cls, file_path: str, lang: Language) -> Category:
@@ -50,6 +48,7 @@ def read_cards(cls, file_path: str, lang: Language) -> Category:
                 ans.processor = Proc.from_default("string_process", args)
                 qst = QQuestion({lang: num}, None, None)
                 qst.body[lang].text.append(header)
+                qst.body[lang].text.append(ans)
                 cls.add_question(qst)
             else:
                 raise NotImplementedError("Flow not implemented")
@@ -59,35 +58,22 @@ def read_cards(cls, file_path: str, lang: Language) -> Category:
 # -----------------------------------------------------------------------------
 
 
-def _write_qmatching(question: QMatching, write):
-    for ans in question.options:
-        write((question.question.get() + ans.text, ans.answer))
-
-
-def _write_qsa_qmc(question: QShortAnswer|QMultichoice, write):
-    for ans in question.options:
-        if ans.fraction == 100:
-            correct = ans.text
-            break
-    write((question.question.get(), correct))
-
-
-def write_cards(self, lang: Language, file_path: str):
+def write_cards(self, file_path: str, lang: Language):
     """Write a comma separated deck.
     """
     def _kwrecursive(cat: "Category", write: Callable):
         for qst in cat.questions:
             qst.check()
-            for item in qst.body[lang].text:
-                if isinstance(item, str):
-                    write(item)
-                elif isinstance(item, (ChoicesItem, EntryItem)):
-                    pass
-
-            if isinstance(qst, (QMultichoice, QShortAnswer)):
-                _write_qsa_qmc(qst, write)
-            elif isinstance(qst, QMatching):
-                _write_qmatching(qst, write)
+            text = qst.body[lang].text
+            if len(text) == 2:
+                head, resp = text
+                if isinstance(resp, EntryItem):
+                    for key, val in resp.processor.args["values"].items():
+                        if val["value"] == 100:
+                            break
+                    else:
+                        continue
+                    write((head, key))
         for name in cat:                            # Then add children data
             _kwrecursive(cat[name], write)
     with open(file_path, "w", encoding="utf-8") as ofile:
