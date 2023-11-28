@@ -1,0 +1,17 @@
+// question: 109  name: h1
+::match1::[html]<p>Match the cool Moodle features with the version in which they first appeared\:</p>{
+	=<p>Drag and drop files</p> -> Moodle 2.3
+	=<p>Groupings</p> -> Moodle 1.9
+	=<p>Repositories</p> -> Moodle 2.0
+	= -> Moodle 2.5
+}
+
+// question: 1013  name: matching
+::match2::[html]<p>This is an example of a matching question type.</p><p><span style\="font-size\: 14px;">Match the Moodle features to the versions they appeared in\:</span><br></p>{
+	=<p><span style\="font-size\: 14px;">H5P was first added as standard (with limited functionality) in&nbsp;</span></p> -> Moodle 3.8
+	=<p><span style\="font-size\: 14px;">Adding sound and video in the Atto editor was first added in</span></p> -> Moodle 3.5
+	=<p><span style\="font-size\: 14px;">A new Activity chooser was added in</span></p> -> Moodle 3.9
+	=<p>Forum grading was implemented in</p> -> Moodle 3.8
+	=<p><span style\="font-size\: 14px;">A Download course content button first appeared in&nbsp;</span></p> -> Moodle 3.10
+	####<p><span style\="font-size\: 14px;">You can use the&nbsp;http\://docs.moodle.org/dev/Releases to help you locate the features and versions.</span><br></p>
+}

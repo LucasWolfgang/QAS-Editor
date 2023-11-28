@@ -24,8 +24,8 @@ import random
 import re
 from typing import TYPE_CHECKING, Dict, List, Tuple
 
-from .answer import (ACalculated, ACrossWord, Answer, ANumerical, DragGroup,
-                     DragImage, DragItem, DropZone, EmbeddedItem, SelectOption,
+from .answer import (ACalculated, Answer, ANumerical, DragGroup, DragImage,
+                     DragItem, DropZone, EmbeddedItem, SelectOption,
                      Subquestion)
 from .enums import (Distribution, Grading, Language, Numbering, RespFormat,
                     ShowAnswer, ShowUnits, ShuffleType, Status, Synchronise)
@@ -521,8 +521,8 @@ class QQuestion:
             name (str): name of the question
             dbid (int, optional): id number.
         """
-        self.dbid = dbid
-        self.time_lim = 0
+        self.dbid: int = dbid
+        self.time_lim: int = 0
         self.notes: Dict[datetime, str] = {}
         self.tool_name = self.tool_ver = None
         self._name = name
@@ -531,7 +531,7 @@ class QQuestion:
         self._proc = None
         for key in name:
             self._body[key] = FText()
-        self._tags = tags or []
+        self._tags = [] if tags is None else tags
         self.__parent = None
         _LOG.debug("New question (%s) created.", self)
 

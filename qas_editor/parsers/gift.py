@@ -21,10 +21,11 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from ..answer import Answer, ANumerical, Subquestion, TextItem
+from ..answer import Answer, ANumerical, MatchItem, MatchOption, TextItem
 from ..enums import Language, TextFormat
-from ..question import (MARKER_INT, QEssay, QMatching, QMultichoice,
-                        QNumerical, QQuestion, QShortAnswer, QTrueFalse)
+from ..processors import Proc
+from ..question import (QMultichoice, QNumerical, QQuestion, QShortAnswer,
+                        QTrueFalse)
 from ..utils import gen_hier
 from .text import FText, PlainParser, XHTMLParser
 
@@ -41,6 +42,7 @@ class _FromParser:
         self._pos = 0
         self._scp = False
         self._str = ""
+        self._qst = self._lng = self._fmt = None
 
     def _nxt(self):
         self._scp = (self._str[self._pos] == "\\") and not self._scp
@@ -88,8 +90,8 @@ class _FromParser:
             tol = val - tol
         return str(val), tol
 
-    def _from_qessay(self, body: list):
-        body.append(TextItem())
+    def _from_qessay(self):
+        self._qst.body[self._qst].text.append(TextItem())
 
     def _from_qtruefalse(self, name: str, header: FText):
         correct = self._next(["}", "#"], 1).lower() in ["true", "t"]
@@ -136,30 +138,37 @@ class _FromParser:
                 qst.options.append(ans)
         return qst
 
+    def _from_match_opt(self, string: str, setx: list):
+        parser = self.PARSER[self._fmt]()
+        parser.parse(string)
+        opt = MatchOption(parser)
+        opt.match_max = 1
+        setx.append(opt)
 
-    def _from_qmatching(name: str, header: FText, options: list):
-        qst = QMatching(name=name, question=header)
+    def _from_matching(self, options: list):
+        item = MatchItem()
+        matches = {}
         for _, val, _ in options:
             mch = re.match(r"(.*?)(?<!\\) -> (.*)", val)
-            qst.options.append(Subquestion(mch[1], mch[2]))
-        return qst
+            self._from_match_opt(mch[1], item.seta)
+            self._from_match_opt(mch[2], item.setb)
+            matches[mch[1]] = {mch[2]: 100/3}
+        item.processor = Proc.from_default("matching", {"values":matches})
+        self._qst.body[self._lng].text.append(item)
 
-
-    def _from_qshortanswer(name: str, header: FText, options: list):
+    def _from_qshortanswer(self, name: str, header: FText, options: list):
         qst = QShortAnswer(name=name, question=header)   # Moodle does this way,
         for frac, val, fdbk in options:                  # so I will do the same
             qst.options.append(Answer(frac, val, fdbk))
         return qst
 
-
-    def _from_qmultichoice(name: str, header: FText, options: list):
+    def _from_qmultichoice(self, name: str, header: FText, options: list):
         qst = QMultichoice(name=name, question=header)   # Moodle does this way,
         for frac, val, fdbk in options:                  # so I will do the same
             qst.options.append(Answer(frac, val, fdbk))
         return qst
 
-
-    def _from_block(self, name: str, header: FText, question: QQuestion, lang: Language):
+    def _from_block(self):
         """ Essay differs to Description only because they have an empty block.
         T/F starts with T or F. Numerical, with #. The others requires identifing
         the type of answers given in the block, except MissingWord and ShortAnswer.
@@ -167,20 +176,20 @@ class _FromParser:
         """
         self._nxt()
         if self._str[self._pos] in ["T", "F"]:
-            return self._from_qtruefalse(name, header)
+            return self._from_qtruefalse()
         if self._str[self._pos] == "#" and self._str[self._pos:self._pos+4] != "####":
-            return self._from_qnumerical(name, header)
+            return self._from_qnumerical()
         feedback, options, all_equals = self._handle_item()
         if not options:
-            self._from_qessay(question.body[lang].text)
+            self._from_qessay()
         elif " -> " in options[0][1]:
-            question = self._from_qmatching(name, header, options)
+            self._from_matching(options)
         elif all_equals:
-            question = self._from_qshortanswer(name, header, options)
+            self._from_qshortanswer(options)
         else:   # Moodle traits MissingWord as a Multichoice...
-            question = self._from_qmultichoice(name, header, options)
+            self._from_qmultichoice(options)
         if feedback:
-            question.feedback[lang] = feedback
+            self._qst.feedback[self._lng] = feedback
 
 
     def get(self):
@@ -210,9 +219,10 @@ class _FromParser:
         lang = self._attr.get("lang", Language.EN_US)
         question = QQuestion({lang: name}, self._attr.get("id"), 
                              self._attr.get("tags"))
+        self._qst, self._lng, self._fmt = question, lang, cformat
         question.body[lang].add(parser)
         if self._pos < len(self._str) and self._str[self._pos] == "{":
-            self._from_block(name, None, question, lang)
+            self._from_block()
         tail = self._str[self._pos+1:]
         if tail:
             parser = self.PARSER.get(cformat, PlainParser)()

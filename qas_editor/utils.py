@@ -334,11 +334,10 @@ class File:
         self.path = path
         self.metadata = metadata
         self.children = None
-        if self.mtype is None and path:
-            try:
-                self.mtype = mimetypes.guess_type(path)[0]
-            except Exception:
-                pass
+        try:
+            self.mtype = mimetypes.guess_type(path)[0]
+        except Exception:
+            self.mtype = None
         if data is not None:
             self._type = FileAddr.EMBEDDED
         elif os.path.exists(path):

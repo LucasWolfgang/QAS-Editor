@@ -79,7 +79,7 @@ class Item:
         return True
 
 
-class Option:
+class ChoiceOption:
     """This is the basic class used to hold possible answers.Represents
     qti-simple-choice. 
     Attributes:
@@ -94,7 +94,7 @@ class Option:
         return self._text.get()
 
 
-class ChoicesItem(Item):
+class ChoiceItem(Item):
     """Basic class used to represent a multichoice item. Represents
     qti-choice-interaction. 
     """
@@ -103,7 +103,7 @@ class ChoicesItem(Item):
     def __init__(self, feedbacks: List[FText] = None,
                  hints: List[FText] = None):
         super().__init__(feedbacks, hints)
-        self._options: List = []
+        self._options: List[ChoiceOption] = []
         self.shuffle: bool = False
         self.max_choices: int = 1
         self.min_choices: int = 0
@@ -112,7 +112,7 @@ class ChoicesItem(Item):
         self.max_smsg = "Selected options exceed maximum"
 
     @property
-    def options(self) -> List[Option]:
+    def options(self) -> List[ChoiceOption]:
         """_summary_
         Returns:
             List[Choice]: _description_
@@ -147,9 +147,29 @@ class TextItem(EntryItem):
         self.min_strings = ""
 
 
-class GapMatch(Item):
-    """Represent an input entry.
-    """
+class MatchItem(Item):
+    """qti-match-interaction"""
+
+    def __init__(self, feedbacks: List[FText] = None, hints: List[FText] = None):
+        super().__init__(feedbacks, hints)
+        self.max_assoc = 1
+        self.min_assoc = None
+        self.shuffle = False
+        self.seta: List[MatchOption] = []
+        self.setb: List[MatchOption] = []
+
+
+class MatchOption:
+    """qti-simple-associable-choice"""
+
+    def __init__(self, text: FText) -> None:
+        self.text = text
+        self.template_id = None
+        self.show = True
+        self.match_group = None	
+        self.match_max: int = None	
+        self.match_min: int = 0
+        self.fixed = False
 
 
 class Answer:
@@ -269,19 +289,6 @@ class DropZone:
         self.text = text
         self.choice = choice
         self.number = number
-
-
-class ACrossWord:
-    """_summary_
-    """
-
-    def __init__(self, word: str, coord_x: int, coord_y: int, clue: str,
-                 direction: Direction):
-        self.word = word
-        self.coord_x = coord_x
-        self.coord_y = coord_y
-        self.direction = direction
-        self.clue = clue
 
 
 class Subquestion:

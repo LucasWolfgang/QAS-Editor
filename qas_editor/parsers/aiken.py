@@ -25,7 +25,7 @@ import re
 from typing import TYPE_CHECKING, Type
 
 from .. import processors as pcsr
-from ..answer import ChoicesItem, Option
+from ..answer import ChoiceItem, ChoiceOption
 from ..enums import Language
 from ..question import QQuestion
 from .text import FText, PlainParser
@@ -39,7 +39,7 @@ _PATTERN = re.compile(r"[A-Z]+\) (.+)")
 
 def _from_question(buffer, line: str, name: str, language: Language):
     question = QQuestion({language: name}, None, None)
-    simple_choice = ChoicesItem()
+    simple_choice = ChoiceItem()
     header = line
     match = None
     for _line in buffer:
@@ -47,7 +47,7 @@ def _from_question(buffer, line: str, name: str, language: Language):
         if match:
             parser = PlainParser()
             parser.parse(match[1])
-            simple_choice.options.append(Option(FText(parser)))
+            simple_choice.options.append(ChoiceOption(FText(parser)))
             break
         header += _line
     target = 0
@@ -58,7 +58,7 @@ def _from_question(buffer, line: str, name: str, language: Language):
             break
         parser = PlainParser()
         parser.parse(match[1])
-        simple_choice.options.append(Option(FText(parser)))
+        simple_choice.options.append(ChoiceOption(FText(parser)))
     question.body[language].text.append(header.strip())
     question.body[language].text.append(simple_choice)
     args = {"values": {target: {"value": 100}}}
@@ -100,7 +100,7 @@ def write_aiken(category: Category, language: Language, file_path: str) -> None:
     def _to_aiken(cat: Category, writer):
         for question in cat.questions:
             if (len(question.body[language]) == 2 and
-                        isinstance(question.body[language][1], ChoicesItem)):
+                        isinstance(question.body[language][1], ChoiceItem)):
                 writer(f"{question.body[language].text[0]}\n")
                 correct = "ANSWER: None\n\n"
                 proc = question.body[language].text[1].processor

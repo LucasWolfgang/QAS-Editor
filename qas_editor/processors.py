@@ -74,6 +74,18 @@ def processor(dbid: float):
     return output
 """
 
+_matching = """
+{"values": {"a": {"r": 0}}}
+def processor(dbid: dict):
+    args = {args}
+    total = 0.0
+    for key, items in dbid.items():
+        for nkey, val in args["values"][key].items():
+            if nkey in items:
+                total += val
+    return {{"value": total}}
+"""
+
 
 class Proc:
     """_summary_
@@ -82,7 +94,8 @@ class Proc:
     TEMPLATES = {
         "mapper": _mapper,
         "string_process": _string_process,
-        "numerical_range": _numerical_range
+        "numerical_range": _numerical_range,
+        "matching": _matching
     }
 
     def __init__(self, func: Callable, args: dict = None, source: str = None) -> None:

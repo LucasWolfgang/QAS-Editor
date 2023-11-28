@@ -24,7 +24,7 @@ import re
 from typing import TYPE_CHECKING, Type
 
 from .. import processors as prcs
-from ..answer import ChoicesItem, EntryItem, Option
+from ..answer import ChoiceItem, ChoiceOption, EntryItem
 from ..enums import EmbeddedFormat, Language, Orientation
 from ..question import QQuestion
 from .text import FText, PlainParser
@@ -38,13 +38,13 @@ _CLOZE_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
 
 
 def _parse_mc(args: dict, feeds: list, _type: EmbeddedFormat):
-    tmp = ChoicesItem(feeds)
+    tmp = ChoiceItem(feeds)
     if _type in (EmbeddedFormat.MR, EmbeddedFormat.MC):
         tmp.orientation = Orientation.VER
     for key in args["values"]:
         parser = PlainParser()
         parser.parse(key)
-        tmp.options.append(Option(FText(parser)))
+        tmp.options.append(ChoiceOption(FText(parser)))
     tmp.processor = prcs.Proc.from_default("mapper", args)
     return tmp
 
@@ -119,7 +119,7 @@ def _from_cloze_text(data: str, lang: Language, embedded_name: bool):
 # -----------------------------------------------------------------------------
 
 
-def _get_format(item: ChoicesItem|EntryItem):
+def _get_format(item: ChoiceItem|EntryItem):
     if isinstance(item, EntryItem):
         if item.processor.args:  # It is a template function
             if item.processor.source == "numerical_range":
@@ -149,7 +149,7 @@ def _get_format(item: ChoicesItem|EntryItem):
     return fmt
 
 
-def _get_options(item: ChoicesItem|EntryItem, grade: float, fmt: EmbeddedFormat):
+def _get_options(item: ChoiceItem|EntryItem, grade: float, fmt: EmbeddedFormat):
     def to_item(key, value):
         feed = item.feedbacks[value['feedback']] if 'feedback' in value else FText()
         if fmt == EmbeddedFormat.NUM:
@@ -179,7 +179,7 @@ def _to_cloze_text(buffer, qst: QQuestion, embedded_name: bool, lang: Language):
     for item in qst.body[lang].text:
         if isinstance(item, str):
             buffer.write(item)
-        elif isinstance(item, (ChoicesItem, EntryItem)):
+        elif isinstance(item, (ChoiceItem, EntryItem)):
             grade = max(a["value"] for a in item.processor.args["values"].values())
             fmt = _get_format(item)
             text = _get_options(item, grade, fmt)
