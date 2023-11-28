@@ -34,7 +34,7 @@ def test_read_all():
     assert control.get_size(False) == 91
     assert control.get_size(True) == 91
     qst = control.get_question(10)
-    assert qst.body[lang].get() == '2 x 1 ='
+    assert qst.body[lang][0] == '2 x 1 ='
 
 
 def test_diff_simple():

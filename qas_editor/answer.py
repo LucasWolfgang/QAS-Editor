@@ -36,6 +36,7 @@ class Item:
     """This is an abstract class Question used as a parent for specific
     types of Questions.
     """
+    MARKER_INT = 9635
 
     def __init__(self, feedbacks: List[FText] = None,
                  hints: List[FText] = None):
@@ -87,6 +88,7 @@ class ChoiceOption:
 
     def __init__(self, text: FText):
         self._text = text
+        self.template_id = None
         self.fixed = False
         self.show = False
 
@@ -94,11 +96,31 @@ class ChoiceOption:
         return self._text.get()
 
 
+class InlineItem(Item):
+
+    def __init__(self, feedbacks: List[FText] = None,
+                 hints: List[FText] = None):
+        super().__init__(feedbacks, hints)
+        self._options: List[ChoiceOption] = []
+        self.shuffle: bool = False
+        self.required: bool = False
+
+    @property
+    def options(self) -> List[ChoiceOption]:
+        """_summary_
+        Returns:
+            List[Choice]: _description_
+        """
+        return self._options
+
+    def check(self):
+        return True
+
+
 class ChoiceItem(Item):
     """Basic class used to represent a multichoice item. Represents
     qti-choice-interaction. 
     """
-    MARKER_INT = 9635
 
     def __init__(self, feedbacks: List[FText] = None,
                  hints: List[FText] = None):

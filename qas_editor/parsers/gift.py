@@ -21,11 +21,11 @@ import logging
 import re
 from typing import TYPE_CHECKING
 
-from ..answer import Answer, ANumerical, MatchItem, MatchOption, TextItem
+from ..answer import (Answer, ANumerical, ChoiceItem, ChoiceOption, MatchItem,
+                      MatchOption, TextItem)
 from ..enums import Language, TextFormat
 from ..processors import Proc
-from ..question import (QMultichoice, QNumerical, QQuestion, QShortAnswer,
-                        QTrueFalse)
+from ..question import QNumerical, QQuestion, QShortAnswer, QTrueFalse
 from ..utils import gen_hier
 from .text import FText, PlainParser, XHTMLParser
 
@@ -91,7 +91,7 @@ class _FromParser:
         return str(val), tol
 
     def _from_qessay(self):
-        self._qst.body[self._qst].text.append(TextItem())
+        self._qst.body[self._lng].text.append(TextItem())
 
     def _from_qtruefalse(self, name: str, header: FText):
         correct = self._next(["}", "#"], 1).lower() in ["true", "t"]
@@ -147,13 +147,13 @@ class _FromParser:
 
     def _from_matching(self, options: list):
         item = MatchItem()
-        matches = {}
+        args = {}
         for _, val, _ in options:
             mch = re.match(r"(.*?)(?<!\\) -> (.*)", val)
             self._from_match_opt(mch[1], item.seta)
             self._from_match_opt(mch[2], item.setb)
-            matches[mch[1]] = {mch[2]: 100/3}
-        item.processor = Proc.from_default("matching", {"values":matches})
+            args[mch[1]] = {mch[2]: 100/3}
+        item.processor = Proc.from_default("matching", {"values":args})
         self._qst.body[self._lng].text.append(item)
 
     def _from_qshortanswer(self, name: str, header: FText, options: list):
@@ -162,11 +162,17 @@ class _FromParser:
             qst.options.append(Answer(frac, val, fdbk))
         return qst
 
-    def _from_qmultichoice(self, name: str, header: FText, options: list):
-        qst = QMultichoice(name=name, question=header)   # Moodle does this way,
-        for frac, val, fdbk in options:                  # so I will do the same
-            qst.options.append(Answer(frac, val, fdbk))
-        return qst
+    def _from_qmultichoice(self, options: list):
+        item = ChoiceItem()
+        item.max_choices = 1
+        args = {"values": {}}
+        for idx, (frac, val, fdbk )in enumerate(options):
+            parser = self.PARSER[self._fmt]()
+            parser.parse(val.strip())
+            item.options.append(ChoiceOption(FText(parser)))
+            args["values"][idx] = {"value": frac, "feedback": fdbk}
+        item.processor = Proc.from_default("mapper", args)
+        self._qst.body[self._lng].text.append(item)
 
     def _from_block(self):
         """ Essay differs to Description only because they have an empty block.
@@ -186,10 +192,12 @@ class _FromParser:
             self._from_matching(options)
         elif all_equals:
             self._from_qshortanswer(options)
-        else:   # Moodle traits MissingWord as a Multichoice...
+        else:   # GIFT traits MissingWord as a Multichoice...
             self._from_qmultichoice(options)
         if feedback:
-            self._qst.feedback[self._lng] = feedback
+            parser = self.PARSER[self._fmt]()
+            parser.parse(feedback)
+            self._qst.feedback[self._lng] = FText(parser)
 
 
     def get(self):
@@ -255,7 +263,7 @@ def read_gift(cls, file_path: str, comment=None) -> "Category":
                     if match[:5] == "tags:":
                         attrs["tags"] = match[5:].split()
                     elif match[:3] == "id:":
-                        attrs["id"] = match[3:]
+                        attrs["id"] = int(match[3:])
                     elif match[:5] == "lang:":
                         try:
                             attrs["lang"] = Language(match[5:])

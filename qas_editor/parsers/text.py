@@ -248,8 +248,10 @@ class XHTMLParser(parser.HTMLParser):
             file = File(path, data)
             if file not in self.files:
                 self.files.append(file)
-        else:
+        elif isinstance(self._stack[-1], XItem):
             self._stack[-1].append(data)
+        else:
+            _LOG.warning(f"A {self._stack[-1]. __class__} got an unexpected value: {data}")
 
     def parse(self, data: str|TextIOWrapper):
         """Parse the data provided.

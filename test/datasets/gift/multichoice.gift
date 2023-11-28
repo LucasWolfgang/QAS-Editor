@@ -1,0 +1,30 @@
+// [id:108]
+::Multichoice1::[html]<p>Why is the 20th August an important date? (You may choose more than one answer.)</p>{
+	~%33.33333%<p>It is World Mosquito Day</p>#<p>Yes it is! But that doesn't have much to do with Moodle so....</p>
+	~%33.33333%<p>It is the date of the first official release of Moodle in 2002.</p>#<p>Correct. But the date has other significances too.</p>
+	~%33.33333%<p>It is the birthday of the founder of Moodle, Martin Dougiamas.</p>#<p>Correct! But the date has other significances too.</p>
+}
+
+::Multichoice2::[html]<p>During the month of September 2013, Moodle ran a successful MOOC for teachers new to Moodle. What was the name of the course?</p>{
+	=<p>Teaching with Moodle</p>#<p>Correct! Check out the site <a href\="http\://learn.moodle.net/">http\://learn.moodle.net/</a> available until January 2014 to see the archive.</p>
+	~<p>Moodle MOOC</p>#<p>No; that is not correct.</p>
+	~<p>Moodle for Teachers</p>#<p>No; that is not correct.</p>
+}
+
+// [id:1015]
+::Multichoice3::[html]<p style\="font-size\: 14px;">This is an example of a multiple choice question with only one answer.</p><p style\="font-size\: 14px;">When was Moodle 3.0 released?</p>{
+	~<p><span style\="font-size\: 14px;">November 2020</span><br></p>#<p><span style\="font-size\: 14px;">You haven't been paying attention. Please go back and look again.</span><br></p>
+	=<p><span style\="font-size\: 14px;">November 2015</span><br></p>#<p><span style\="font-size\: 14px;">Correct! Easy when you know or when you can use the references provided correctly.</span><br></p>
+	~<p><span style\="font-size\: 14px;">May 2020</span><br></p>#<p><span style\="font-size\: 14px;">No. You haven't been paying attention. Please go back and look again.</span><br></p>
+	####<p><span style\="font-size\: 14px;">Remember - the developer docs Release notes are your friend!&nbsp;</span><a href\="http\://docs.moodle.org/dev/Releases" style\="font-size\: 14px;">http\://docs.moodle.org/dev/Releases</a><br></p>
+}
+
+::Multichoice4::[html]<p>This is an example of a multiple choice question where there is more than one correct answer.</p>\n<p>Several of these statements are correct. Select the ones which are correct.</p>{
+	~%33.33333%<p><span style\="font-size\: 14px;">The word Moodle is a registered trademark.</span><br></p>#<p><span style\="font-size\: 14px;">See&nbsp;http\://docs.moodle.org/dev/License</span><br></p>
+	~%-33.33333%<p><span style\="font-size\: 14px;">Moodle documentation is in the Public Domain</span><br></p>#<p><span style\="font-size\: 14px;">Check out the footer in the Moodle documentation.</span></p>
+	~%33.33333%<p><span style\="font-size\: 14px;">The first ever Moodle course was called "Internet Overview"</span><br></p>#<p><span style\="font-size\: 14px;">See&nbsp;https\://otl.curtin.edu.au/events/conferences/tlf/tlf2000/dougiamas.html</span><br></p>
+	~%-33.33333%<p><span style\="font-size\: 14px;">The first contributed module was the Quiz module in 2003.</span><br></p>#<p><span style\="font-size\: 14px;">Check out the Moodle history page as &nbsp;you were told to!</span><br></p>
+	~%-33.33333%<p><span style\="font-size\: 14px;">The first ever Global MoodleMoot took place in Perth, Australia, in November 2018</span></p>#<p>Read the docs\: https\://docs.moodle.org/en/History</p>
+	~%33.33333%<p><span style\="font-size\: 14px;">Mount Orange and Sandbox are two demonstration sites</span></p>#Well done! Did you find them on https\://moodle.org/demo ?
+}
+

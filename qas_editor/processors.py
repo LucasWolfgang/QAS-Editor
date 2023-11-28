@@ -75,7 +75,6 @@ def processor(dbid: float):
 """
 
 _matching = """
-{"values": {"a": {"r": 0}}}
 def processor(dbid: dict):
     args = {args}
     total = 0.0

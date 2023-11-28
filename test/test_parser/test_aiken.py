@@ -57,6 +57,6 @@ def test_diff_simple():
     test = f"{example}.tmp"
     control.write_aiken(lang, test)
     new_data = category.Category.read_aiken(test, None, lang)
-    os.remove(test)
     assert utils.Compare.compare(new_data, control)
+    os.remove(test)
     

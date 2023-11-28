@@ -49,7 +49,7 @@ def test_read_essay():
     lang = enums.Language.EN_US
     assert control.get_size(True) == 2
     qst = control.get_question(0)
-    assert qst.dbid == "432"
+    assert qst.dbid == 432
     assert len(qst.feedback) == 0
     assert qst.name[lang] == 'Essay 1'
     assert qst.tags == ['Advanced', 'ad']
@@ -61,5 +61,51 @@ def test_read_essay():
 def test_read_matching():
     EXAMPLE = f"{TEST_PATH}/datasets/gift/matching.gift"
     control = category.Category.read_gift(EXAMPLE)
-    control = control["qas editor"]
-    
+    lang = enums.Language.EN_US
+    assert control.get_size(True) == 2
+    qst = control.get_question(0)
+    assert qst.dbid == None
+    assert len(qst.feedback) == 0
+    assert qst.name[lang] == 'match1'
+    assert qst.tags == []
+    assert len(qst.body[lang].text) == 2
+    assert qst.body[lang].text[0][0] == ('Match the cool Moodle features with'
+                                ' the version in which they first appeared\:')
+    assert len(qst.body[lang].text[1].seta) == 4
+    assert len(qst.body[lang].text[1].setb) == 4
+
+
+def test_read_missing_word():
+    EXAMPLE = f"{TEST_PATH}/datasets/gift/missing_words.gift"
+    control = category.Category.read_gift(EXAMPLE)
+    lang = enums.Language.EN_US
+    assert control.get_size(True) == 1
+    qst = control.get_question(0)
+    assert qst.dbid == None
+    assert len(qst.feedback) == 0
+    assert qst.name[lang] == 'default'
+    assert qst.tags == []
+    assert len(qst.body[lang].text) == 3
+    assert qst.body[lang].text[2] == ' to download from moodle.org.'
+    assert len(qst.body[lang].text[1].options) == 3
+    assert qst.body[lang].text[1].processor.func(None)["value"] == 0
+    assert qst.body[lang].text[1].processor.func(0)["value"] == 0
+    assert qst.body[lang].text[1].processor.func(1)["value"] == 100
+
+def test_read_multichoice():
+    EXAMPLE = f"{TEST_PATH}/datasets/gift/multichoice.gift"
+    control = category.Category.read_gift(EXAMPLE)
+    lang = enums.Language.EN_US
+    assert control.get_size(True) == 4
+    qst = control.get_question(2)
+    assert qst.dbid == 1015
+    assert len(qst.feedback) == 1
+    assert qst.feedback[lang].text[0][0][0] == 'Remember - the developer docs Release notes are your friend!\xa0'
+    assert qst.name[lang] == 'Multichoice3'
+    assert qst.tags == []
+    assert len(qst.body[lang].text) == 3
+    assert qst.body[lang].text[1][0] == 'When was Moodle 3.0 released?'
+    assert len(qst.body[lang].text[2].options) == 3
+    assert qst.body[lang].text[2].processor.func(None)["value"] == 0
+    assert qst.body[lang].text[2].processor.func(1)["value"] == 100
+    assert qst.body[lang].text[2].processor.func(2)["value"] == 0
