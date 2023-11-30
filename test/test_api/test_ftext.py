@@ -24,7 +24,7 @@ from sympy import Symbol, sqrt
 from qas_editor import utils
 from qas_editor.enums import FileAddr, MathType, OutFormat
 from qas_editor.parsers.moodle import MoodleXHTMLParser
-from qas_editor.parsers.text import (FText, LinkRef, TextParser, XHTMLParser,
+from qas_editor.parsers.text import (FText, LinkRef, PlainParser, XHTMLParser,
                                      XItem)
 
 TEST_PATH = os.path.dirname(__file__)
@@ -35,16 +35,15 @@ Y = Symbol("y")
 
 def test_plaintext_empty():
     text = 'nothing'
-    parser = TextParser()
+    parser = PlainParser("")
     parser.parse(text)
     ftext = FText(parser)
-    assert parser.pos == 7
     assert ftext.text == [text]
 
 
 def test_xhtml_empty():
     text = 'nothing'
-    parser = XHTMLParser(True, False, None)
+    parser = XHTMLParser("", True, False, None)
     parser.parse(text)
     ftext = FText(parser)
     assert ftext.text == [text]
@@ -55,7 +54,7 @@ def test_xhtml_tag_flat():
     text = ("<p>Moodle and fp latex package syntax "
         "is not always equivalent. Here some test for pathological cases.</p>"
         "<p>Let {x} and {y} some real number.</p><br/>Something outside")
-    parser = XHTMLParser(True, False, None)
+    parser = XHTMLParser("", True, False, None)
     parser.parse(text)
     ftext = FText(parser)
     assert len(ftext.text) == 4
@@ -76,7 +75,7 @@ def test_xhtml_tag_hierarchical():
         "{=sqrt(({x}-{y})*({x}+{y}))}</li><li>'pi' is a function in moodle,"
         " {=sin(1.5*pi())}</li><li>test with '- unary' expression"
         " {=-{x}+(-{y}+2)}<br/></li></ul>Something outside")
-    parser = XHTMLParser(True, False, None)
+    parser = XHTMLParser("", True, False, None)
     parser.parse(text)
     ftext = FText(parser)
     assert len(ftext) == 4
@@ -91,7 +90,7 @@ def test_xhtml_img_ref():
     text = ("""and <p style="text-align: left;">file <img src="""
         """"/dessin.svg" alt="escargot" style="vertical-align: text-bottom;" """
         """class="img-responsive" width="100" height="141"/> is close.</p>""")
-    parser = XHTMLParser(True, False, None)
+    parser = XHTMLParser("", True, False, None)
     parser.parse(text)
     ftext = FText(parser)
     assert len(ftext.files) == 1
@@ -108,7 +107,7 @@ def test_xhtml_ref_base64():
         """base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4"""
         """//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==" alt="Red"""
         """ dot" width="100" height="141"/> is close.</p>""")
-    parser = XHTMLParser(True, False, None)
+    parser = XHTMLParser("", True, False, None)
     parser.parse(text)
     ftext = FText(parser)
     assert len(ftext) == 2
@@ -121,7 +120,7 @@ def test_xhtml_ref_base64():
 
 def test_moodle_latex_embedded():
     text = 'var {x}'
-    parser = MoodleXHTMLParser(True, False, None)
+    parser = MoodleXHTMLParser("", True, False, None)
     parser.parse(text)
     ftext = FText(parser)
     assert ftext.get(MathType.LATEX, FileAddr.EMBEDDED, OutFormat.MOODLE) == "var $$x$$"
@@ -136,7 +135,7 @@ def test_moodle_ascii_embeeded():
         "{=sqrt(({x}-{y})*({x}+{y}))}</li><li>'pi' is a function in moodle,"
         " {=sin(1.5*pi())}</li><li>test with '- unary' expression"
         " {=-{x}+(-{y}+2)}<br/></li></ul>Something outside")
-    parser = MoodleXHTMLParser(True, True, None)
+    parser = MoodleXHTMLParser("", True, True, None)
     parser.parse(s)
     assert parser.pos == 17
     ftext = FText(parser)
@@ -163,7 +162,7 @@ def test_moodle_ascii_img_ref():
     text = ("""and <p style="text-align: left;">file <img src="@@PLUGINFILE@@"""
         """/dessin.svg" alt="escargot" style="vertical-align: text-bottom;" """
         """class="img-responsive" width="100" height="141"/> is close.</p>""")
-    parser = XHTMLParser(True, False, None)
+    parser = XHTMLParser("", True, False, None)
     parser.parse(text)
     ftext = FText(parser)
     assert len(ftext.files) == 1

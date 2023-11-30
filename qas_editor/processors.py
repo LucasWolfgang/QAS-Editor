@@ -36,16 +36,8 @@ from typing import Callable
 _mapper = """
 def processor(dbid: Any) -> Dict[str, Any]:
     args = {args}
-    output: Dict[str, Any] = {{}}
-    for key, value in args["values"].items():
-        if dbid == key:
-            output = value
-            break
-    else:
-        output = {{"value": 0.0}}
-    return output
+    return args["values"].get(dbid, {{"value": 0.0}})
 """
-
 
 _string_process = """
 def processor(dbid: str):
@@ -85,6 +77,20 @@ def processor(dbid: dict):
     return {{"value": total}}
 """
 
+_numeric_value = """
+def processor(dbid: float):
+    args = {args}
+    if not isinstance(dbid, (int, float)):
+        return {{"value": 0.0}}
+    for items in args["values"]:
+        if items["value"] - items["tol"] >= dbid >= items["value"] + items["tol"]:
+            data = {{"value": items["grade"]}}
+            if "feedback" in items:
+                data["feedback"] = items["feedback"]
+            return data
+    return {{"value": 0.0}}
+"""
+
 
 class Proc:
     """_summary_
@@ -94,7 +100,8 @@ class Proc:
         "mapper": _mapper,
         "string_process": _string_process,
         "numerical_range": _numerical_range,
-        "matching": _matching
+        "matching": _matching,
+        "numeric_value": _numeric_value
     }
 
     def __init__(self, func: Callable, args: dict = None, source: str = None) -> None:
@@ -128,7 +135,7 @@ class Proc:
         return cls(cls._from(code), None, code)
 
     @classmethod
-    def from_default(cls, name: str, args: dict):
+    def from_template(cls, name: str, args: dict):
         code = cls.TEMPLATES[name].format(args=args)
         func = cls._from(code)
         return cls(func, args, name)

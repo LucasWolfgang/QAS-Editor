@@ -1,0 +1,17 @@
+// question: 1003  name: (tour stage 08) Q5 SA
+::Short Answer 1::[html]<p>And the final behaviour is usually reserved for essay questions but could, if you so wished (but why would you?) be used for all questions. In this behaviour questions are  _______ graded. What is the missing word?</p>{
+	=%100%*manually*#<p>Your answer is correct.</p>
+	=%0%*manual*#<p>You are on the right lines but don't have quite the correct terminology.</p>
+	=%0%*#<p>Your answer is incorrect.</p>
+	####<p><em>Essays</em> have to be marked by hand. They are <em>manually graded.</em></p>\n<p>The full list of question behaviours is therefore</p>\n<ul>\n<li>deferred feedback with and without Certainty Based Marking</li>\n<li>interactive with multiple tries</li>\n<li>immediate feedback with and without Certainty Based Marking</li>\n<li>manually graded</li>\n</ul>\n<p>All within one quiz system.</p>
+}
+
+::Short Answer 2:: Two plus two equals {=four =4}
+
+::Short Answer 3::[html]<p>Type in the name of the ISLAND where the first ever Moodle Research conference was held.</p>{
+	=%100%Crete#<p>Correct. Well done! More information on Moodle Research conferences on the<a href\="http\://research.moodle.net/" title\="Moodle Research site"> Moodle Research site.</a></p>
+	=%0%Greece#<p>That is the correct country, but we want the island.</p>
+}
+
+Who's buried in Grant's tomb?{=Grant =Ulysses S. Grant =Ulysses Grant}
+

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import glob
 import logging
+import os
 import re
 from typing import TYPE_CHECKING, Type
 
@@ -37,7 +38,7 @@ LOG = logging.getLogger(__name__)
 _PATTERN = re.compile(r"[A-Z]+\) (.+)")
 
 
-def _from_question(buffer, line: str, name: str, language: Language):
+def _from_question(buffer, line: str, path: str, name: str, language: Language):
     question = QQuestion({language: name}, None, None)
     simple_choice = ChoiceItem()
     header = line
@@ -45,7 +46,7 @@ def _from_question(buffer, line: str, name: str, language: Language):
     for _line in buffer:
         match = _PATTERN.match(_line)
         if match:
-            parser = PlainParser()
+            parser = PlainParser(path)
             parser.parse(match[1])
             simple_choice.options.append(ChoiceOption(FText(parser)))
             break
@@ -56,18 +57,18 @@ def _from_question(buffer, line: str, name: str, language: Language):
         if not match:
             target = ord(_line[8].upper())-65
             break
-        parser = PlainParser()
+        parser = PlainParser(path)
         parser.parse(match[1])
         simple_choice.options.append(ChoiceOption(FText(parser)))
     question.body[language].text.append(header.strip())
     question.body[language].text.append(simple_choice)
     args = {"values": {target: {"value": 100}}}
-    simple_choice.processor = pcsr.Proc.from_default("mapper", args)
+    simple_choice.processor = pcsr.Proc.from_template("mapper", args)
     return question
 
 
 # -----------------------------------------------------------------------------
-processor = print
+
 
 def read_aiken(cls: Type[Category], file_path: str, category: str, 
                language: Language) -> Category:
@@ -79,13 +80,14 @@ def read_aiken(cls: Type[Category], file_path: str, category: str,
         Quiz: _description_
     """
     quiz = cls(category)
+    path = os.path.dirname(file_path)
     cnt = 0
     for _path in glob.glob(file_path):
         with open(_path, encoding="utf-8") as ifile:
             for line in ifile:
                 if line == "\n":
                     continue
-                question = _from_question(ifile, line, f"aiken_{cnt}", language)
+                question = _from_question(ifile, line, path, f"aiken_{cnt}", language)
                 quiz.add_question(question)
                 cnt += 1
     return quiz

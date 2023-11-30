@@ -20,28 +20,14 @@ Besides repos listed above, some testcases were also taken from [moodle test web
 
 ## Requirements
 - Requires at least Python 3. If using all dependencies, at least Python 3.6.
-- Use the setup.py to install the package using:
+- To install it, simply download the repo, cd to it and run:
 
-    ```python setup.py install```  
-    or   
     ```python -m pip install .```  
 
 ## Features
-  - Hierarchical structures to more easily use and extend module.
- <center>
- 
- |  Type                  | Class |  GUI  | Test | Type             | Class |  GUI  | Test |
- | ---------------------- | :---: | :---: | :--: | ---------------- | :---: | :---: | :--: |
- | Calculated             |  :o:  |  :x:  |  :x: | Matching         |  :o:  |  :x:  |  :x: |
- | Calculated multichoice |  :o:  |  :x:  |  :x: | Missing word     |  :o:  |  :o:  |  :x: |
- | CrossWord              |  :o:  |  :x:  |  :x: | Multiple choice  |  :o:  |  :o:  |  :x: |
- | Drag and drop image    |  :o:  |  :x:  |  :x: | Numerical        |  :o:  |  :x:  |  :x: |
- | Drag and drop markers  |  :o:  |  :x:  |  :x: | Enumeration      |  :o:  |  :x:  |  :x: |
- | Drag and drop text     |  :o:  |  :x:  |  :x: | Random matching  |  :o:  |  :x:  |  :x: |
- | Embedded (Cloze)       |  :o:  |  :x:  |  :x: | Short Answer     |  :o:  |  :x:  |  :x: |
- | Drawing                |  :o:  |  :x:  |  :x: | True/False       |  :o:  |  :x:  |  :x: |
- | Essay                  |  :o:  |  :x:  |  :x: |
- </center><br/
+  - A brand-new processor based flow. No need of multiple question types anymore.
+  All you need is a single type to rule them all, plus python functions to 
+  define how it iteractive item in the question body will behave.
 
   - A GUI to create, delete, modify and organize questions.
  <center>

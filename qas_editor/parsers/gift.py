@@ -18,14 +18,15 @@
 
 """
 import logging
+import os
 import re
 from typing import TYPE_CHECKING
 
-from ..answer import (Answer, ANumerical, ChoiceItem, ChoiceOption, MatchItem,
+from ..answer import (ChoiceItem, ChoiceOption, EntryItem, MatchItem,
                       MatchOption, TextItem)
 from ..enums import Language, TextFormat
 from ..processors import Proc
-from ..question import QNumerical, QQuestion, QShortAnswer, QTrueFalse
+from ..question import QQuestion
 from ..utils import gen_hier
 from .text import FText, PlainParser, XHTMLParser
 
@@ -34,36 +35,60 @@ if TYPE_CHECKING:
 _LOG = logging.getLogger(__name__)
 
 
-class _FromParser:
+def _unescape(data: str) -> str:
+    for repl in (("\\:", ":"), ("\\~", "~"), ("\\=", "="), ("\\#", "#"), 
+                 ("\\{", "{"), ("\\}", "}")):
+        data = data.replace(*repl)
+    return data
 
-    PARSER = {TextFormat.PLAIN: PlainParser, TextFormat.HTML: XHTMLParser}
+def _escape(data: str) -> str:
+    for repl in ((":", "\\:"), ("~", "\\~"), ("=", "\\="), ("#", "\\#"), 
+                 ("{", "\\{"), ("}", "\\}")):
+        data = data.replace(*repl)
+    return data
 
-    def __init__(self) -> None:
+
+class GiftXHTMLParser(XHTMLParser):
+
+    def handle_startendtag(self, tag: str, attrs: list):
+        for idx, (key, val) in enumerate(attrs):
+            attrs[idx] = (key[:-1], val)
+        super().handle_startendtag(tag,attrs)
+
+    def handle_data(self, data: str):
+        return super().handle_data(_unescape(data))
+
+
+class _Reader:
+
+    PARSER = {TextFormat.PLAIN: PlainParser, TextFormat.HTML: GiftXHTMLParser}
+    NUM_RGX = re.compile(r"=(%\d+%)?([.0-9-]+)(:|(?:\.\.))([.0-9-]+)")
+    ANY_RGX = re.compile(r"([=~])(%\d+%)?(.+)")
+    MTCH_RGX = re.compile(r"(.*?)(?<!\\) -> (.*)")
+
+    def __init__(self, path: str) -> None:
         self._pos = 0
         self._scp = False
         self._str = ""
         self._qst = self._lng = self._fmt = None
+        self._rpath = path.replace("\\", "/")
 
     def _nxt(self):
         self._scp = (self._str[self._pos] == "\\") and not self._scp
         self._pos += 1
 
-    def _next(self, comp: list, size: int = 1) -> str:
+    def _next(self, comp: list) -> str:
         start = self._pos
         self._pos += 1
-        while self._str[self._pos:self._pos+size] not in comp or self._scp:
-            self._scp = (self._str[self._pos] == "\\") and not self._scp
-            self._pos += 1
+        while not any(self._str[self._pos:self._pos+len(x)] == x for x in comp) or self._scp:
+            self._nxt()
         return self._str[start:self._pos]
 
     def _handle_item(self):
-        options = []
-        rgx = re.compile(r"([=~])(%+\d%)?(.+)")
-        feedback = ""
-        all_equals = True
+        all_equals, options = True, []
         while self._str[self._pos] != "}" or self._scp:
             if self._str[self._pos] in ["=", "~"] and not self._scp:
-                mch = rgx.match(self._next(["=", "~", "#", "}"]))
+                mch = self.ANY_RGX.match(self._next(["=", "~", "#", "}"]))
                 all_equals &= mch[1] == "="
                 if mch[2]:
                     frac = int(mch[2][1:-1])
@@ -71,107 +96,121 @@ class _FromParser:
                     frac = 0
                 else:
                     frac = 100
-                if self._str[self._pos:self._pos+4] != "####" and self._str[self._pos] == "#":
-                    fdbk = self._next(["=", "~", "#", "}"])
+                if self._str[self._pos] == "#" and self._str[self._pos:self._pos+4] != "####":
+                    fdbk = FText(self._parse_text(self._next(["=", "~", "#", "}"]).strip()))
                 else:
-                    fdbk = ""
-                options.append((frac, mch[3], fdbk))
+                    fdbk = None
+                options.append((frac, mch[3].strip(), fdbk))
             elif self._str[self._pos:self._pos+4] == "####":
-                feedback = self._next(["}"], 1)[4:]
+                feedback = self._parse_text(self._next(["}"])[4:])
+                self._qst.feedback[self._lng].append(FText(feedback))
             else:
-                _LOG.info("Char may be incorrectly placed: %s", self._str[self._pos])
+                _LOG.info("GIFT: Char may be incorrectly placed: %s", self._str[self._pos])
                 self._nxt()
-        return feedback, options, all_equals
+        return options, all_equals
 
     def _set_value_tolerance(self, mtype: str, val: str, tol: str):
         tol = float(tol)
         if mtype == "..":
             val = (float(val) + tol)/2
             tol = val - tol
-        return str(val), tol
+        return float(val), tol
+
+    def _parse_text(self, text: str):
+        parser = self.PARSER[self._fmt](self._rpath)
+        parser.parse(text)
+        return parser
 
     def _from_qessay(self):
         self._qst.body[self._lng].text.append(TextItem())
 
-    def _from_qtruefalse(self, name: str, header: FText):
-        correct = self._next(["}", "#"], 1).lower() in ["true", "t"]
-        fdbk_false = fdbk_true = fdbk_general = ""
+    def _from_qtruefalse(self):
+        args, feeds = {"values": {0: {"value": 0}, 1: {"value": 0}}}, []
+        if self._next(["}", "#"]).lower() in ["true", "t"]:
+            args["values"][0]["value"] = 100
+        else:
+            args["values"][1]["value"] = 100
         if self._str[self._pos] != "}":
-            fdbk_false = self._next(("}", "#"), 1)
+            args["values"][0]["feedback"] = len(feeds)
+            feeds.append(FText(self._parse_text(self._next(("}", "#")))))
         if self._str[self._pos] != "}":
-            fdbk_true = self._next(("}", "#"), 1)
+            args["values"][1]["feedback"] = len(feeds)
+            feeds.append(FText(self._parse_text(self._next(("}", "#")))))
         if self._str[self._pos] != "}":
-            fdbk_general = self._next(("}",), 1)[3:]
-        return QTrueFalse(correct, fdbk_true, fdbk_false, name=name,
-                        question=header, remarks=fdbk_general)
+            txt = FText(self._parse_text(self._next(("}",))[3:]))
+            self._qst.feedback[self._lng].append(txt)
+        item = ChoiceItem(feeds, Proc.from_template("mapper", args))
+        item.options.append(ChoiceOption(FText("True")))
+        item.options.append(ChoiceOption(FText("False")))
+        self._qst.body[self._lng].text.append(item)
 
-    def _from_qnumerical(self, name: str, header: FText):
-        qst = QNumerical(name=name, question=header)
+    def _from_qnumerical(self):
         self._pos += 1   # Jump the Question type marker
+        args = {"values": []}
+        feeds = []
         if self._str[self._pos] not in ["=", "~"]:
             rgx = re.match(r"([.0-9-]+)(:|(?:\.\.))([.0-9-]+)\}", self._str[self._pos:])
             val, tol = self._set_value_tolerance(rgx[2], rgx[1], rgx[3])
-            qst.options.append(ANumerical(tol, fraction=100, text=val))
+            args["values"].append({"tol": tol, "grade": 100, "value": val})
         else:
-            rgx = re.compile(r"([=~])(%\d+%)?([.0-9-]+)(:|(?:\.\.))([.0-9-]+)")
-            ans = None
-            while self._str[self._pos] != "}":
+            while self._str[self._pos] != "}" and not self._scp:
                 if self._str[self._pos:self._pos+4] == "####":
-                    qst.remarks = self._next(["}"], 1)[4:]
-                    continue
-                txt = self._next(["=", "~", "#", "}"], 1)
-                if txt[0] == "#":           # Should only happen after "ans" is
-                    ans.feedback = txt[1:]  # defined, so this is secure
-                    continue
-                if txt[0] == "~":           # Wrong answer. Created only to hold a
-                    frac = val = tol = 0    # feedback. If no feedback.. something
-                else:                       # is wrong
-                    mtc = rgx.match(txt)
-                    val, tol = self._set_value_tolerance(mtc[4], mtc[3], mtc[5])
-                    if mtc[1] == "~":
-                        frac = 0
-                    elif mtc[2]:
-                        frac = int(mtc[2][1:-1])
+                    txt = self._next(("=", "~", "}"))
+                    self._qst.feedback[self._lng].append(FText(self._parse_text(txt[4:])))
+                else:
+                    txt = self._next(("#", "=", "~", "}"))
+                    if txt[0] in "~":
+                        frac = val = tol = 0
                     else:
-                        frac = 100
-                ans = ANumerical(tol, fraction=frac, text=val)
-                qst.options.append(ans)
-        return qst
-
+                        mtc = self.NUM_RGX.match(txt)
+                        val, tol = self._set_value_tolerance(mtc[3], mtc[2], mtc[4])
+                        frac = int(mtc[1][1:-1]) if mtc[1] else 100
+                    arg = {"tol": tol, "grade": frac, "value": val}
+                    if self._str[self._pos] == "#" and self._str[self._pos+1] != "#":
+                        txt = self._next(("=", "~", "}", "#"))
+                        feeds.append(FText(self._parse_text(txt[1:])))
+                        arg["feedback"] = len(feeds)-1
+                    args["values"].append(arg)
+        item = EntryItem(feeds, Proc.from_template("numeric_value", args))
+        self._qst.body[self._lng].text.append(item)
+        
     def _from_match_opt(self, string: str, setx: list):
-        parser = self.PARSER[self._fmt]()
-        parser.parse(string)
-        opt = MatchOption(parser)
+        opt = MatchOption(FText(self._parse_text(string)))
         opt.match_max = 1
         setx.append(opt)
 
     def _from_matching(self, options: list):
         item = MatchItem()
         args = {}
-        for _, val, _ in options:
-            mch = re.match(r"(.*?)(?<!\\) -> (.*)", val)
-            self._from_match_opt(mch[1], item.seta)
-            self._from_match_opt(mch[2], item.setb)
-            args[mch[1]] = {mch[2]: 100/3}
-        item.processor = Proc.from_default("matching", {"values":args})
+        for frac, val, _ in options:
+            mch = self.MTCH_RGX.match(" " + val)
+            self._from_match_opt(mch[1], item.set_from)
+            self._from_match_opt(mch[2], item.set_to)
+            args[mch[1]] = {mch[2]: frac}
+        item.processor = Proc.from_template("matching", {"values":args})
         self._qst.body[self._lng].text.append(item)
 
-    def _from_qshortanswer(self, name: str, header: FText, options: list):
-        qst = QShortAnswer(name=name, question=header)   # Moodle does this way,
-        for frac, val, fdbk in options:                  # so I will do the same
-            qst.options.append(Answer(frac, val, fdbk))
-        return qst
+    def _from_qshortanswer(self, options: list):
+        args = {"values": {}}
+        feeds = []
+        for frac, val, fdbk in options:
+            tmp = {"value": frac}
+            if fdbk:
+                tmp["feedback"] = len(feeds)
+                feeds.append(fdbk)
+            args["values"][val] = tmp
+        item = EntryItem(feeds, Proc.from_template("mapper", args))
+        self._qst.body[self._lng].text.append(item)
 
     def _from_qmultichoice(self, options: list):
         item = ChoiceItem()
         item.max_choices = 1
         args = {"values": {}}
-        for idx, (frac, val, fdbk )in enumerate(options):
-            parser = self.PARSER[self._fmt]()
-            parser.parse(val.strip())
-            item.options.append(ChoiceOption(FText(parser)))
-            args["values"][idx] = {"value": frac, "feedback": fdbk}
-        item.processor = Proc.from_default("mapper", args)
+        for idx, (frac, val, fdbk) in enumerate(options):
+            item.options.append(ChoiceOption(FText(self._parse_text(val.strip()))))
+            args["values"][idx] = {"value": frac, "feedback": len(item.feedbacks)}
+            item.feedbacks.append(fdbk)
+        item.processor = Proc.from_template("mapper", args)
         self._qst.body[self._lng].text.append(item)
 
     def _from_block(self):
@@ -185,7 +224,7 @@ class _FromParser:
             return self._from_qtruefalse()
         if self._str[self._pos] == "#" and self._str[self._pos:self._pos+4] != "####":
             return self._from_qnumerical()
-        feedback, options, all_equals = self._handle_item()
+        options, all_equals = self._handle_item()
         if not options:
             self._from_qessay()
         elif " -> " in options[0][1]:
@@ -194,11 +233,6 @@ class _FromParser:
             self._from_qshortanswer(options)
         else:   # GIFT traits MissingWord as a Multichoice...
             self._from_qmultichoice(options)
-        if feedback:
-            parser = self.PARSER[self._fmt]()
-            parser.parse(feedback)
-            self._qst.feedback[self._lng] = FText(parser)
-
 
     def get(self):
         """Was initially using regex, but it does not handle escaped char in
@@ -213,29 +247,25 @@ class _FromParser:
             name = self._str[2:self._pos].replace("\\", "")
             self._pos += 2
         if self._str[self._pos] == "[":  # The types are limited, so we can consider
-            self._pos += 1              # that if any '\' appears, it should be an
-            start = self._pos           # error anyway.
+            self._pos += 1               # that if any '\' appears, it should be an
+            start = self._pos            # error anyway.
             while self._str[self._pos] != "]":
                 self._pos += 1
             cformat = TextFormat(self._str[start:self._pos])
             self._nxt()
-        parser = self.PARSER.get(cformat, PlainParser)()
         start = self._pos
         while self._pos < len(self._str) and self._str[self._pos] != "{" or self._scp:
             self._nxt()
-        parser.parse(self._str[start:self._pos])
         lang = self._attr.get("lang", Language.EN_US)
         question = QQuestion({lang: name}, self._attr.get("id"), 
                              self._attr.get("tags"))
         self._qst, self._lng, self._fmt = question, lang, cformat
-        question.body[lang].add(parser)
+        question.body[lang].add(self._parse_text(self._str[start:self._pos]))
         if self._pos < len(self._str) and self._str[self._pos] == "{":
             self._from_block()
         tail = self._str[self._pos+1:]
         if tail:
-            parser = self.PARSER.get(cformat, PlainParser)()
-            parser.parse(tail)
-            question.body[lang].add(parser)
+            question.body[lang].add(self._parse_text(tail))
         return question
 
     def reset(self, data: str, attrs: dict) -> None:
@@ -252,7 +282,7 @@ def read_gift(cls, file_path: str, comment=None) -> "Category":
     """
     top_quiz: "Category" = cls()
     quiz = top_quiz
-    parser = _FromParser()
+    parser = _Reader(os.path.dirname(file_path))
     attrs = {}
     with open(file_path, "r", encoding="utf-8") as ifile:
         for line in ifile:

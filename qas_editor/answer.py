@@ -38,17 +38,14 @@ class Item:
     """
     MARKER_INT = 9635
 
-    def __init__(self, feedbacks: List[FText] = None,
-                 hints: List[FText] = None):
-        """[summary]
-        Args:
-            feedback (str, optional): general feedback.
-            hints (Dict[str, FText], optional): hints.
+    def __init__(self, feedbacks: List[FText] = None, proc: Proc = None):
         """
-        self._proc = None
-        self._feedbacks = feedbacks
-        self._hints = hints
-        self.meta: Dict[str, str] = {}
+        Args:
+            feedback (str, optional): General feedback.
+        """
+        self._proc = proc
+        self._feedbacks = [] if feedbacks is None else feedbacks
+        self._meta = {}
 
     @property
     def feedbacks(self) -> List[FText]:
@@ -57,10 +54,10 @@ class Item:
         return self._feedbacks
 
     @property
-    def hints(self) -> List[FText]:
+    def meta(self) -> Dict[str, str]:
         """_summary_
         """
-        return self._hints
+        return self._meta
 
     @property
     def processor(self) -> Proc:
@@ -96,11 +93,31 @@ class ChoiceOption:
         return self._text.get()
 
 
-class InlineItem(Item):
+class GapOption:
+    """qti-simple-associable-choice"""
 
-    def __init__(self, feedbacks: List[FText] = None,
-                 hints: List[FText] = None):
-        super().__init__(feedbacks, hints)
+    def __init__(self, text: FText) -> None:
+        self.text = text
+        self.template_id = None
+        self.show = True
+        self.match_group = None	
+        self.match_max: int = None	
+        self.match_min: int = 0
+
+
+class MatchOption(GapOption):
+    """qti-simple-associable-choice"""
+
+    def __init__(self, text: FText) -> None:
+        super().__init__(text)
+        self.fixed = False
+
+
+class InlineChoiceItem(Item):
+    """qti-inline-choice"""
+
+    def __init__(self, feedbacks: List[FText] = None, proc: Proc = None):
+        super().__init__(feedbacks, proc)
         self._options: List[ChoiceOption] = []
         self.shuffle: bool = False
         self.required: bool = False
@@ -122,9 +139,8 @@ class ChoiceItem(Item):
     qti-choice-interaction. 
     """
 
-    def __init__(self, feedbacks: List[FText] = None,
-                 hints: List[FText] = None):
-        super().__init__(feedbacks, hints)
+    def __init__(self, feedbacks: List[FText] = None, proc: Proc = None):
+        super().__init__(feedbacks, proc)
         self._options: List[ChoiceOption] = []
         self.shuffle: bool = False
         self.max_choices: int = 1
@@ -136,8 +152,6 @@ class ChoiceItem(Item):
     @property
     def options(self) -> List[ChoiceOption]:
         """_summary_
-        Returns:
-            List[Choice]: _description_
         """
         return self._options
 
@@ -149,8 +163,8 @@ class EntryItem(Item):
     """Represent an input entry item. Represents qti-text-entry-interaction.
     """
 
-    def __init__(self, feedbacks: List[FText] = None, hints: List[FText] = None):
-        super().__init__(feedbacks, hints)
+    def __init__(self, feedbacks: List[FText] = None, proc: Proc = None):
+        super().__init__(feedbacks, proc)
         self.patternmask: str = None
         """Pattern mask"""
         self.patternmask_msg: str = None
@@ -163,35 +177,33 @@ class TextItem(EntryItem):
     """Represent an input entry. Represents a qti-extended-text-interaction.
     """
 
-    def __init__(self, feedbacks: List[FText] = None, hints: List[FText] = None):
-        super().__init__(feedbacks, hints)
+    def __init__(self, feedbacks: List[FText] = None, proc: Proc = None):
+        super().__init__(feedbacks, proc)
         self.max_strings = ""
         self.min_strings = ""
+
+
+class GapItem(Item):
+    """qti-gap-match-interaction"""
+    
+    def __init__(self, feedbacks: List[FText] = None, proc: Proc = None):
+        super().__init__(feedbacks, proc)
+        self.max_assoc = 1
+        self.min_assoc = None
+        self.shuffle = False
+        self.set: List[MatchOption] = []
 
 
 class MatchItem(Item):
     """qti-match-interaction"""
 
-    def __init__(self, feedbacks: List[FText] = None, hints: List[FText] = None):
-        super().__init__(feedbacks, hints)
+    def __init__(self, feedbacks: List[FText] = None, proc: Proc = None):
+        super().__init__(feedbacks, proc)
         self.max_assoc = 1
         self.min_assoc = None
         self.shuffle = False
-        self.seta: List[MatchOption] = []
-        self.setb: List[MatchOption] = []
-
-
-class MatchOption:
-    """qti-simple-associable-choice"""
-
-    def __init__(self, text: FText) -> None:
-        self.text = text
-        self.template_id = None
-        self.show = True
-        self.match_group = None	
-        self.match_max: int = None	
-        self.match_min: int = 0
-        self.fixed = False
+        self.set_from: List[MatchOption] = []
+        self.set_to: List[MatchOption] = []
 
 
 class Answer:

@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import TYPE_CHECKING, Type
 
@@ -34,86 +35,93 @@ if TYPE_CHECKING:
 
 
 _LOG = logging.getLogger(__name__)
-_CLOZE_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
 
 
-def _parse_mc(args: dict, feeds: list, _type: EmbeddedFormat):
-    tmp = ChoiceItem(feeds)
-    if _type in (EmbeddedFormat.MR, EmbeddedFormat.MC):
-        tmp.orientation = Orientation.VER
-    for key in args["values"]:
-        parser = PlainParser()
-        parser.parse(key)
-        tmp.options.append(ChoiceOption(FText(parser)))
-    tmp.processor = prcs.Proc.from_default("mapper", args)
-    return tmp
+class _Reader:
+    
+    _CLOZE_PATTERN = re.compile(r"(?!\\)\{(\d+)?(?:\:(.*?)\:)(.*?(?!\\)\})")
+
+    def __init__(self, rpath: str, lang: Language, embedded_name: bool) -> None:
+        self.feeds = self.fmt = self.args = None
+        self.rpath = rpath
+        self.lang = lang
+        self.embedded_name = embedded_name
+        self.OPTIONS = {
+            EmbeddedFormat.MC : self._parse_mc,
+            EmbeddedFormat.MCH : self._parse_mc,
+            EmbeddedFormat.MR : self._parse_mc,
+            EmbeddedFormat.MRH : self._parse_mc,
+            EmbeddedFormat.NUM : self._parse_num,
+            EmbeddedFormat.SA : self._parse_sa,
+            EmbeddedFormat.SAC : self._parse_sa,
+        }
+
+    def _parse_mc(self):
+        tmp = ChoiceItem(self.feeds)
+        if self.fmt in (EmbeddedFormat.MR, EmbeddedFormat.MC):
+            tmp.orientation = Orientation.VER
+        for key in self.args["values"]:
+            parser = PlainParser(self.rpath)
+            parser.parse(key)
+            tmp.options.append(ChoiceOption(FText(parser)))
+        tmp.processor = prcs.Proc.from_template("mapper", self.args)
+        return tmp
 
 
-def _parse_sa(args: dict, feeds: list, _type: EmbeddedFormat):
-    tmp = EntryItem(feeds)
-    args["case"] = "i" if _type == EmbeddedFormat.SAC else None
-    tmp.processor = prcs.Proc.from_default("string_process", args)
-    return tmp
+    def _parse_sa(self):
+        tmp = EntryItem(self.feeds)
+        self.args["case"] = "i" if self.fmt == EmbeddedFormat.SAC else None
+        tmp.processor = prcs.Proc.from_template("string_process", self.args)
+        return tmp
 
 
-def _parse_num(args: dict, feeds: list, _):
-    tmp = EntryItem(feeds)
-    tmp.processor = prcs.Proc.from_default("numerical_range", args)
-    return tmp
+    def _parse_num(self):
+        tmp = EntryItem(self.feeds)
+        tmp.processor = prcs.Proc.from_template("numerical_range", self.args)
+        return tmp
 
 
-OPTIONS = {
-    EmbeddedFormat.MC : _parse_mc,
-    EmbeddedFormat.MCH : _parse_mc,
-    EmbeddedFormat.MR : _parse_mc,
-    EmbeddedFormat.MRH : _parse_mc,
-    EmbeddedFormat.NUM : _parse_num,
-    EmbeddedFormat.SA : _parse_sa,
-    EmbeddedFormat.SAC : _parse_sa,
-}
-
-def _from_cloze_text(data: str, lang: Language, embedded_name: bool):
-    """Return a tuple with the Marked text and the data extracted.
-    """
-    if embedded_name:
-        name, text = data.split("\n", 1)
-    else:
-        name = "Cloze"
-        text = data
-    question = QQuestion({lang: name})
-    start = 0
-    for imatch in _CLOZE_PATTERN.finditer(text):
-        opts = {"values": {}}
-        feeds = []
-        fmt = EmbeddedFormat(imatch[2])
-        grade, parser = int(imatch[1]), OPTIONS[fmt]
-        for idx, opt in enumerate(imatch[3].split("~")):
-            if not opt:
-                continue
-            tmp = opt.strip("}~").split("#")
-            if len(tmp) == 2:
-                tmp, fdb = tmp
-            else:
-                tmp, fdb = tmp[0], ""
-            frac = 0.0
-            if tmp[0] == "=":
-                frac = grade
-                tmp = tmp[1:]
-            elif tmp[0] == "%":
-                frac, tmp = tmp[1:].split("%")
-                frac = float(frac)*grade/100
-            feedback = FText()
-            feedback.text.append(fdb)
-            if fmt == EmbeddedFormat.NUM:
-                tmp = tuple(map(float, tmp.split(":")))
-                tmp = (tmp[0]-tmp[1], tmp[0]+tmp[1])
-            opts["values"][tmp] = {"value": frac, "feedback": idx}
-            feeds.append(feedback)
-        question.body[lang].text.append(text[start: imatch.start()])
-        question.body[lang].text.append(parser(opts, feeds, fmt))
-        start = imatch.end()
-    question.body[lang].text.append(text[start:])
-    return question
+    def _from_cloze_text(self, data: str):
+        """Return a tuple with the Marked text and the data extracted.
+        """
+        if self.embedded_name:
+            name, text = data.split("\n", 1)
+        else:
+            name = "Cloze"
+            text = data
+        question = QQuestion({self.lang: name})
+        start = 0
+        for imatch in self._CLOZE_PATTERN.finditer(text):
+            self.args, self.feeds = {"values": {}}, []
+            self.fmt = EmbeddedFormat(imatch[2])
+            grade, parser = int(imatch[1]), self.OPTIONS[self.fmt]
+            for idx, opt in enumerate(imatch[3].split("~")):
+                if not opt:
+                    continue
+                tmp = opt.strip("}~").split("#")
+                if len(tmp) == 2:
+                    tmp, fdb = tmp
+                else:
+                    tmp, fdb = tmp[0], ""
+                frac = 0.0
+                if tmp[0] == "=":
+                    frac = grade
+                    tmp = tmp[1:]
+                elif tmp[0] == "%":
+                    frac, tmp = tmp[1:].split("%")
+                    frac = float(frac)*grade/100
+                feedback = FText()
+                feedback.text.append(fdb)
+                if self.fmt == EmbeddedFormat.NUM:
+                    tmp = tuple(map(float, tmp.split(":")))
+                    tmp = (tmp[0]-tmp[1], tmp[0]+tmp[1])
+                self.args["values"][tmp] = {"value": frac, "feedback": idx}
+                self.feeds.append(feedback)
+            question.body[self.lang].text.append(text[start: imatch.start()])
+            question.body[self.lang].text.append(parser())
+            start = imatch.end()
+        question.body[self.lang].text.append(text[start:])
+        return question
 
 
 # -----------------------------------------------------------------------------
@@ -201,13 +209,14 @@ def read_cloze(cls: Type[Category], file_path: str, lang: Language,
         Category: _description_
     """
     top_quiz = cls()
+    reader = _Reader(os.path.dirname(file_path), lang, embedded_name)
     with open(file_path, "r", encoding="utf-8") as buffer:
         data = buffer.read()
         if multiquestion is not None:
             for text in data.split(multiquestion):
-                top_quiz.add_question(_from_cloze_text(text, lang, embedded_name))
+                top_quiz.add_question(reader._from_cloze_text(text))
         else:
-            top_quiz.add_question(_from_cloze_text(data, lang, embedded_name))
+            top_quiz.add_question(reader._from_cloze_text(data))
     _LOG.info(f"Created new Quiz instance from cloze file {file_path}")
     return top_quiz
 

@@ -45,7 +45,7 @@ def read_cards(cls, file_path: str, lang: Language) -> Category:
                 header, answer = items
                 ans = EntryItem()
                 args = {"values":{answer:{"value":100}}}
-                ans.processor = Proc.from_default("string_process", args)
+                ans.processor = Proc.from_template("string_process", args)
                 qst = QQuestion({lang: num}, None, None)
                 qst.body[lang].text.append(header)
                 qst.body[lang].text.append(ans)

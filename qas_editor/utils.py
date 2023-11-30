@@ -45,8 +45,6 @@ if EXTRAS_FORMULAE:
     from pyparsing import ParseFatalException  # Part of matplotlib package
 
 T = TypeVar('T')
-KT = TypeVar('KT')  # Key type.
-VT = TypeVar('VT')  # Value type.
 _LOG = logging.getLogger(__name__)
 EXTRAS_GUI = util.find_spec("PyQt5") is not None
                 # moodle, sympy, latex
@@ -181,7 +179,7 @@ def render_latex(latex: str, ftype: FileAddr, scale=1.0):
             else:
                 run_me(["dvisvgm", "--no-fonts", "-o", name, "text.dvi"])
                 shutil.move(f"{workdir}/{name}", ".")
-                res = File(name, FileAddr.LOCAL, **attr)
+                res = File(name, **attr)
     elif EXTRAS_FORMULAE:
         try:
             prop = font_manager.FontProperties(size=12)
@@ -193,7 +191,7 @@ def render_latex(latex: str, ftype: FileAddr, scale=1.0):
             backend_agg.FigureCanvasAgg(fig)  # set the canvas used
             if ftype != FileAddr.EMBEDDED:
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
-                res = File(name, FileAddr.LOCAL, **attr)
+                res = File(name, **attr)
             else:
                 buffer = BytesIO()
                 fig.savefig(name, dpi=dpi, format="svg", transparent=True)
@@ -322,7 +320,7 @@ class File:
         "@@PLUGINFILE@@", "$IMS-CC-FILEBASE$", "", ".", ".."
     )
 
-    def __init__(self, path: str, data: str = None, **metadata):
+    def __init__(self, path: str, data: str = None, rpath: str="", **metadata):
         super().__init__()
         self.data = data
         path = path.replace("\\", "/")
@@ -330,14 +328,14 @@ class File:
         if len(tmp) == 1:
             tmp.insert(0, "")
         if tmp[0] in self.ROOTS:
-            path = "///"+tmp[1]
+            path = rpath + "/" + tmp[1]
         self.path = path
         self.metadata = metadata
         self.children = None
         try:
-            self.mtype = mimetypes.guess_type(path)[0]
+            self.mime = mimetypes.guess_type(path)[0]
         except Exception:
-            self.mtype = None
+            self.mime = None
         if data is not None:
             self._type = FileAddr.EMBEDDED
         elif os.path.exists(path):

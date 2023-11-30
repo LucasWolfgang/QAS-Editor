@@ -523,14 +523,15 @@ class QQuestion:
         """
         self.dbid: int = dbid
         self.time_lim: int = 0
-        self.notes: Dict[datetime, str] = {}
         self.tool_name = self.tool_ver = None
         self._name = name
-        self._body: Dict[Language, FText] = {}
-        self._feedback: Dict[Language, FText] = {}
-        self._proc = None
+        self._notes = {}
+        self._body = {}
+        self._feedback = {}
+        self._procs = []
         for key in name:
             self._body[key] = FText()
+            self._feedback[key] = []
         self._tags = [] if tags is None else tags
         self.__parent = None
         _LOG.debug("New question (%s) created.", self)
@@ -545,7 +546,7 @@ class QQuestion:
         return self._body
 
     @property
-    def feedback(self) -> Dict[Language, FText]:
+    def feedback(self) -> Dict[Language, List[FText]]:
         """Question body
         """
         return self._feedback
@@ -557,10 +558,22 @@ class QQuestion:
         return self._name
 
     @property
+    def notes(self) -> Dict[datetime, str]:
+        """Question name
+        """
+        return self._notes
+
+    @property
     def parent(self) -> Category:
         """_summary_
         """
         return self.__parent
+
+    @property
+    def procs(self) -> Category:
+        """Processes that will run after each item is concluded.
+        """
+        return self._procs
 
     @parent.setter
     def parent(self, value: Category):
