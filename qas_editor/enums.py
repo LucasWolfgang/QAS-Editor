@@ -135,6 +135,7 @@ class OutFormat(Enum):
     OLX = auto()
     QTI = auto()
     GIFT = auto()
+    LATEX = auto()
 
 
 class Orientation(Enum):
@@ -212,10 +213,17 @@ class TextFormat(EnhancedEnum):
     """Enumerates text format types
     """
     HTML = "html", "HTML"
+    """"""
+    XHTML = "html", "HTML"
+    """A XML complaint HTML"""
     AUTO = "auto", "moodle_auto_format", "Auto"
+    """"""
     PLAIN = "plain_text", "Plain"
+    """"""
     MD = "markdown", "Markdown"
+    """"""
     LATEX = "latex", "LaTEX"
+    """"""
 
 
 class TolType(EnhancedEnum):

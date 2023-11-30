@@ -24,25 +24,17 @@ import logging
 import mimetypes
 import os
 import re
-import shutil
-import subprocess
-import tempfile
 import unicodedata
 from enum import Enum
 from importlib import util
-from io import BytesIO
 from typing import Dict, Generic, Iterable, List, Tuple, TypeVar
 from urllib import request
 from xml.etree import ElementTree as et
-from xml.sax import saxutils
 
 from .enums import Distribution, FileAddr, Status, TextFormat
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
-if EXTRAS_FORMULAE:
-    from matplotlib import figure, font_manager, mathtext
-    from matplotlib.backends import backend_agg
-    from pyparsing import ParseFatalException  # Part of matplotlib package
+
 
 T = TypeVar('T')
 _LOG = logging.getLogger(__name__)
@@ -145,64 +137,6 @@ def read_fxml(source) -> Tuple[et.Element, Dict[str, str]]:
             source.close()
     ns = dict([node for _, node in parser.read_events()])
     return root, ns
-
-
-_latex_cache: Dict[str, str] = {}
-def render_latex(latex: str, ftype: FileAddr, scale=1.0):
-    """TODO optimize. It has just too many calls. But at least it works...
-    """
-    key = saxutils.escape(latex, entities={'[': '(', ']': ')'})
-    if key in _latex_cache:
-        return _latex_cache[key]
-    res = None
-    name = f"eq{len(_latex_cache): 05}.svg"
-    if latex[:2] == "$$":
-        attr = {'style':'vertical-align:middle;'}
-    else:
-        attr = {'style':'display:block;margin-left:auto;margin-right:auto;'}
-    if shutil.which("dvisvgm"):
-        with tempfile.TemporaryDirectory() as workdir:
-            def run_me(cmd):
-                flag = 0x08000000 if os.name == 'nt' else 0
-                return subprocess.run(cmd, stdout=subprocess.PIPE, check=True, 
-                                      creationflags=flag, cmd=workdir)
-
-            with open(f"{workdir}/texput.tex", 'w', encoding='utf-8') as fh:
-                fh.write("\\documentclass[varwidth,12pt]{standalone}"
-                         "\n\\usepackage{amsmath}\n\\usepackage{amsmath}\n\n"
-                         "\\begin{document}\n"+ latex + "\n\n\\end{document}")
-            run_me(['latex', '-halt-on-error', '-interaction=nonstopmode',
-                    'text.tex'])
-            if ftype == FileAddr.EMBEDDED:
-                res = run_me(["dvisvgm", "--no-fonts", "--stdout", "text.dvi"])
-                res = str(base64.b64encode(res.stdout), "utf-8")
-            else:
-                run_me(["dvisvgm", "--no-fonts", "-o", name, "text.dvi"])
-                shutil.move(f"{workdir}/{name}", ".")
-                res = File(name, **attr)
-    elif EXTRAS_FORMULAE:
-        try:
-            prop = font_manager.FontProperties(size=12)
-            dpi = 120 * scale
-            parser = mathtext.MathTextParser("path")
-            width, height, depth, _, _ = parser.parse(latex, dpi=72, prop=prop)
-            fig = figure.Figure(figsize=(width / 72, height / 72))
-            fig.text(0, depth / height, latex, fontproperties=prop, color='Black')
-            backend_agg.FigureCanvasAgg(fig)  # set the canvas used
-            if ftype != FileAddr.EMBEDDED:
-                fig.savefig(name, dpi=dpi, format="svg", transparent=True)
-                res = File(name, **attr)
-            else:
-                buffer = BytesIO()
-                fig.savefig(name, dpi=dpi, format="svg", transparent=True)
-                buffer.close()
-                res = str(base64.b64encode(buffer.getvalue()), "utf-8")
-        except (ValueError, RuntimeError):
-            return None
-        except ParseFatalException:
-            return None
-    _latex_cache[key] = res
-    return res
 
 
 def clean_q_name(string: str):

@@ -29,6 +29,7 @@ from typing import TYPE_CHECKING, Callable
 from ..answer import EntryItem
 from ..processors import Proc
 from ..question import QQuestion
+from .text import FText
 
 if TYPE_CHECKING:
     from ..category import Category
@@ -65,15 +66,15 @@ def write_cards(self, file_path: str, lang: Language):
         for qst in cat.questions:
             qst.check()
             text = qst.body[lang].text
-            if len(text) == 2:
+            if len(text) == 2 and isinstance(text[1], EntryItem):
                 head, resp = text
-                if isinstance(resp, EntryItem):
-                    for key, val in resp.processor.args["values"].items():
-                        if val["value"] == 100:
-                            break
-                    else:
-                        continue
-                    write((head, key))
+                for key, val in resp.processor.args["values"].items():
+                    if val["value"] == 100:
+                        break
+                else:
+                    continue
+                head = FText.to_string(head)
+                write((head, key))
         for name in cat:                            # Then add children data
             _kwrecursive(cat[name], write)
     with open(file_path, "w", encoding="utf-8") as ofile:

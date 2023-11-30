@@ -15,11 +15,18 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-import logging
+from __future__ import annotations
+
 import csv
-from ..answer import Answer
-from ..question import QMultichoice
-from typing import TYPE_CHECKING, Callable
+import logging
+from typing import TYPE_CHECKING, Callable, Type
+
+from ..answer import ChoiceItem, ChoiceOption
+from ..enums import Language, OutFormat, TextFormat
+from ..processors import Proc
+from ..question import QQuestion
+from .text import FText
+
 if TYPE_CHECKING:
     from ..category import Category
 
@@ -28,7 +35,7 @@ _LOG = logging.getLogger(__name__)
 _TIME = [5, 10, 20, 30, 60, 90, 120, 240]
 
 
-def read_kahoot(cls, file_path: str) -> "Category":
+def read_kahoot(cls: Type[Category], file_path: str, lang: Language) -> "Category":
     """
     """
     cat = cls()
@@ -36,37 +43,44 @@ def read_kahoot(cls, file_path: str) -> "Category":
         csvFile = csv.reader(file)
         next(csvFile)  # ignore the header, since is not useful currently.
         for lines in csvFile:
+            args = {"values": {}}
             num, text, ans1, ans2, ans3, ans4, time, resp = lines
-            resp = resp.split(",")
-            opts = [Answer(100 if "1" in resp else 0, ans1),
-                    Answer(100 if "2" in resp else 0, ans2),
-                    Answer(100 if "3" in resp else 0, ans3),
-                    Answer(100 if "4" in resp else 0, ans4)]
-            qst = QMultichoice(len(resp) == 1, name=f"kahoot{num}",
-                               question=text, time_lim=int(time), options=opts)
+            resp = list(map(int, resp.split(",")))
+            item = ChoiceItem()
+            item.max_choices = len(resp)
+            for idx, ans in enumerate((ans1, ans2, ans3, ans4)):
+                item.options.append(ChoiceOption(FText(ans)))
+                args["values"][idx] = {"value": 100 if idx+1 in resp else 0}
+            item.processor = Proc.from_template("mapper", args)
+            qst = QQuestion({lang: f"kahoot{num}"}, int(num))
+            qst.time_lim = int(time)
+            qst.body[lang].text.append(text)
+            qst.body[lang].text.append(item)
             cat.add_question(qst)
     return cat
 
 
-def write_kahoot(self, file_path: str):
+def write_kahoot(self: Category, file_path: str, lang: Language):
     """
     """
-    def _kwrecursive(cat: "Category", write: Callable):
-        for num, qst in enumerate(cat.questions, 1):
-            if not isinstance(qst, QMultichoice):
+    def _kwrecursive(cat: Category, write: Callable):
+        for qst in cat.questions:
+            if not (len(qst.body[lang]) == 2 or isinstance(qst.body[lang][1], ChoiceItem)):
                 continue
             qst.check()
-            data = [str(num), qst.question.get()]
+            data = [str(qst.dbid), FText.to_string(qst.body[lang][0], None, 
+                                                   OutFormat.TEXT, TextFormat.PLAIN)]
             correct = []
-            if len(qst.options) > 4:
+            if len(qst.body[lang][1].options) > 4:
                 _LOG.warning("Kahoot: question %s has more than 4 options. "
                              "Before importing to Kahoot you will need to it.",
                              qst.name)
-            for pos, ans in enumerate(qst.options, 1):
-                if ans.fraction == 100:
-                    correct.append(str(pos))
-                data.append(ans.text)
-            for _ in range(4 - len(qst.options)):
+            item = qst.body[lang][1]
+            for pos, ans in enumerate(item.options):
+                if item.processor.func(pos)["value"] == 100:
+                    correct.append(str(pos+1))
+                data.append(str(ans))
+            for _ in range(4 - len(item.options)):
                 data.append(None)
             time = qst.time_lim
             if time not in _TIME:       # Rounds question time limit to the

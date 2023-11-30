@@ -48,9 +48,9 @@ _LOG = logging.getLogger(__name__)
 
 class MoodleXHTMLParser(XHTMLParser):
 
-    def __init__(self, convert_charrefs: bool = True, check_closing: bool = False, 
-                 files: List[File] = None):
-        super().__init__(convert_charrefs, check_closing, files)
+    def __init__(self, rpath: str, convert_charrefs: bool = True, 
+                 check_closing: bool = False, files: List[File] = None):
+        super().__init__(rpath, convert_charrefs, check_closing, files)
         self.pos = self.lst = 0
         self.scp = False
 

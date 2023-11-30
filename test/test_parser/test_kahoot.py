@@ -20,15 +20,17 @@
 
 import os
 
-from qas_editor import category
+from qas_editor import category, enums, utils
 
 TEST_PATH = os.path.dirname(os.path.dirname(__file__))
 
 
 def test_diff_all():
     EXAMPLE = f"{TEST_PATH}/datasets/kahoot/kahoot.csv"
-    control = category.Category.read_kahoot(EXAMPLE)
+    lang = enums.Language.EN_US
+    control = category.Category.read_kahoot(EXAMPLE, lang)
     _TEST = f"{EXAMPLE}.tmp"
-    control.write_kahoot(_TEST)
-    data = category.Category.read_kahoot(_TEST)
-    control.compare(data, [])
+    control.write_kahoot(_TEST, lang)
+    data = category.Category.read_kahoot(_TEST, lang)
+    assert utils.Compare.compare(data, control)
+    os.remove(_TEST)
