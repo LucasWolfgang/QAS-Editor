@@ -1,11 +1,7 @@
 \documentclass[a4paper]{article}
 %review
 
-
-%#########################################################################
 \usepackage[utf8]{inputenc}
-%\usepackage[T1]{fontenc}
-%\usepackage[francais]{babel}
 %\usepackage{lmodern}
 \usepackage[hmargin=4cm, vmargin=2cm, includeheadfoot]{geometry}
 \usepackage{alltt}
@@ -15,22 +11,13 @@
 \usepackage{graphicx}
 \usepackage[francais,bloc,completemulti]{sty/automultiplechoice}     % Mandatory for conversion
 \usepackage{sty/mhchem} % needed for chemical equations
-% needed by amc to be commented for amc2moodle usage (fp is not yet supported)
 %\usepackage{fp} 
 % exemple de commande utilisateur
 \providecommand{\abs}[1]{\lvert#1\rvert}
-%#########################################################################
-% Entête
-%#########################################################################
 
 \title{Conversion test for AMC to moodle}
 \author{BN}
 
-
-
-%#########################################################################
-% Document
-%#########################################################################
 \begin{document}
 
 %
@@ -38,25 +25,6 @@
 % e=incohérence; b=bonne; m=mauvaise; p planché (on ne descent pas en dessous)
 \scoringDefaultS{e=-0.5,b=1,m=-0.5}% never put b<1,
 \scoringDefaultM{e=-0.5,b=1,m=-0.25,p=-0.5}% never put b<1, with amc2moodle m correspond to the grade if all the wrong answers are ticked, b correspond to the grade if all the good answers are ticked
-
-
-
-
-%question : environnement, text question
-%element{label}{groupe} :commande, encapsule la commande pour lui donner un groupe
-%reponses : environnement
-%bonne  : commande
-%mauvaise : commande
-% B A R E M E
-% e=incohérence; b=bonne; m=mauvaise; p planché (on ne descent pas en dessous)
-%\scoringDefaultS{e=-0.5,b=1,m=-0.5}
-%\scoringDefaultM{e=-0.5,b=0.5,m=-0.25,p=-0.5}
-% ajouter aucune de ces réponses n'est correcte
-%\usepackage[francais,bloc,completemulti]{automultiplechoice}
-
-
-
-
 
 \element{num}{
 \begin{questionmultx}{num:int-noopts}
@@ -74,14 +42,12 @@ There is one good answer, and to partial answer with a fraction 25 \%.
 \AMCnumericChoices{150}{digits=3,sign=false,scoreexact=2,scoreapprox=0.5,approx=1}
 \end{questionmultx}}
 
-
 \element{num}{
 \begin{questionmultx}{num:float-noopts}
 Give an approximation of $\pi$
 Non additional parameter, will use the default tolerance provided in amc2moodle. Only one good answer.
 \AMCnumericChoices{3.141592653589793}{digits=6, decimals=5}
 \end{questionmultx}}
-
 
 \element{num}{
 \begin{questionmultx}{num:float-noopts1}
@@ -105,17 +71,57 @@ Normally on one good answer, 2 partially good answer with a fraction 50 \%.
 \AMCnumericChoices{3.141592653589793}{digits=6, decimals=5, exact=1, approx=100}
 \end{questionmultx}}
 
+\element{moodle2amc-num}{
+  \begin{questionmultx}{num:int}\label{q:num:int}   
+    Find \(x\) such \(2x-300=0\) ? 
+Here \(x\) is an integer, test for \textbf{exact} match, only.
+
+\AMCnumericChoices{150}{exact = 0, decimals = 0, sign = false, digits = 3, scoreexact = 1}   
+
+  \end{questionmultx}}
+
+% -----------------------------------------------------------------------------
+\element{num}{
+  \begin{questionmultx}{num:float}\label{q:num:float}   
+    Give an approximated value for \(\pi\) up to 3 digits?
+
+\AMCnumericChoices{3.141592653589793}{exact = 1, decimals = 3, sign = false, digits = 4, scoreexact = 1}   
+
+  \end{questionmultx}}
+
+% -----------------------------------------------------------------------------
+\element{num}{
+  \begin{questionmultx}{num:2ans}\label{q:num:2ans}   
+    Let \(z=3+2\mathrm{i}\). What is the imaginary part ?
+
+\AMCnumericChoices{2}{exact = 0, decimals = 0, sign = false, digits = 1, scoreexact = 1}   
+
+  \end{questionmultx}}
+
+% -----------------------------------------------------------------------------
+\element{num}{
+  \begin{questionmultx}{num:2rounding}\label{q:num:2rounding}   
+    Give an approximated value for \(\sqrt{2}\) up to 3 digits ?
+
+\AMCnumericChoices{1.4142135623730951}{decimals = 3, scoreapprox = 0.5, sign = false, digits = 4, scoreexact = 1, exact = 1, approx = 100}   
+
+  \end{questionmultx}}
+
+\element{num}{
+\begin{questionmultx}{with-int}
+How many times does the following program display \texttt{"x"} ?
+
+\texttt{for (int i = 4; i < 24; ++i)\\
+\hspace*{1em}for (int j = i + 2; j - 1 > 0; -{}-j)\\
+\hspace*{2em}puts("x");}
+
+\AMCnumericChoices{290}{digits=3,sign=false,scoreexact=2,scoreapprox=1,approx=10}
+\end{questionmultx}}
 
 
 
-
-% #################################################################
-% C R E A T I O N  D E S  C O P I E S
-% #################################################################
 \exemplaire{1}{        % nombre de sujet différent
-
   %debut de l'en-tête des copies :
-
   \vspace*{.5cm}
   \begin{minipage}{.4\linewidth}
     \centering\large\texttt{amc2moodle}
@@ -128,7 +134,6 @@ Normally on one good answer, 2 partially good answer with a fraction 50 \%.
         \vspace*{1mm}
       \end{minipage}
     }}
-
   \begin{flushleft}
     Test for numeric questions.
     \begin{center}
@@ -141,8 +146,5 @@ Normally on one good answer, 2 partially good answer with a fraction 50 \%.
   \copygroup{num}{BigGroupe}
   \restituegroupe{BigGroupe}
 }
-
-
-
 
 \end{document}

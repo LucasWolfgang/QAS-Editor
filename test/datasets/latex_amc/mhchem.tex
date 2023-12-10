@@ -18,7 +18,7 @@
 \author{amc2moodle}
 \begin{document}
   \scoringDefaultS{e=-0.5,b=1,m=-0.5}% never put b<1,
-  \scoringDefaultM{e=-0.5,b=1,m=-0.25,p=-0.5}% never put b<1, with amc2moodle m correspond to the grade if all the wrong answers are ticked, b correspond to the grade if all the good answers are ticked
+  \scoringDefaultM{e=-0.5,b=1,m=-0.25,p=-0.5}
   \element{dyna}{
   % Test for long equation that may breakdown in LaTeXML due to '%\n' insertion
       \begin{question}{long_eq}
@@ -54,7 +54,6 @@
         \normalsize
       \end{center}
     \end{flushleft}
-
     \cleargroup{BigGroupe}
     \copygroup{dyna}{BigGroupe}
     \restituegroupe{BigGroupe}

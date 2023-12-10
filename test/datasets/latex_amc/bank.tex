@@ -1,11 +1,7 @@
-%amc2moodle \SetQuizOption{amc_aucune}{None of these answers are correct.}
-%===================================================================
 % simple
 \element{cat1}{
   \begin{question}{Qsimple:img}
     We wish to pass \textit{exactly}, through $N$ given points, a \texttt{polynomial} of degree \textbf{strictly} equal to $N-1$. To find the coefficients we must solve a \emph{problem}
-% Use "magic comments" to set imgResolution amc2moodle.
-%amc2moodle \SetOption{imgResolution}{72}  
     \begin{center}
       \includegraphics[width=0.5\textwidth]{src/5.png}
     \end{center}
@@ -16,7 +12,6 @@
     \end{reponses}
   \end{question}
 }
-
 
 %===================================================================
 % questions à réponse multiple
@@ -30,12 +25,9 @@
       \mauvaise{Apple}
       \mauvaise{Tomato}
       \mauvaise{
-%amc2moodle \AddXMLAElement{feedback}{This is an \textbf{answer} feedback !}
       le Kiwi}
     \end{reponseshoriz}
     \explain{Fruits grow on trees $x^3$, most of the \emph{time}.}
-%amc2moodle \AddXMLQElement{partiallycorrectfeedback}{This is \textbf{partially} correct !}
-%amc2moodle \SetOption{amc_aucune}{Aucune de ces réponses n'est correcte.}
   \end{questionmult}
 }
 
@@ -155,18 +147,6 @@ K=\ce{Hg^2+ ->[I-] HgI2 ->[I-] [Hg^{II}I4]^2-}
 \end{question}
 }
 
-% Test for numerical question [other example in numerical.tex]
-\element{num}{
-\begin{questionmultx}{with-int}
-Combien de fois le programme suivant affiche-t-il \texttt{"x"} ?
-
-\texttt{for (int i = 4; i < 24; ++i)\\
-\hspace*{1em}for (int j = i + 2; j - 1 > 0; -{}-j)\\
-\hspace*{2em}puts("x");}
-
-\AMCnumericChoices{290}{digits=3,sign=false,scoreexact=2,scoreapprox=1,approx=10}
-\end{questionmultx}}
-
 
 % Test for open question
 \element{open}{
@@ -248,14 +228,9 @@ where $x$=\FPprint{\x}, $y$=\FPprint{\y} and $z$=\FPprint{\z}.
 \FPeval{\a}{1}
 \FPeval{\b}{neg(\x+\z)}
 \FPeval{\c}{\x*\z-\y*\y}
-% Résolution. Note \FPlsolve is not supported in amc2moodle
 \FPeval{\disc}{(\b)*(\b) - 4*\a*\c}
 \FPeval{\eigone}{(neg(\b) + root(2,\disc))/(2*\a)}
 \FPeval{\eigtwo}{(neg(\b) - root(2,\disc))/(2*\a)}
-
-% Use "magic comments" to set nitems and decimalNumber in amc2moodle
-%amc2moodle \SetOption{nitems}{3}
-%amc2moodle \SetOption{decimalNumber}{2}
 
 \begin{choices}
   \correctchoice{\FPprint{\eigone}}
