@@ -21,6 +21,7 @@
 import os
 from io import StringIO
 
+from qas_editor import enums
 from qas_editor.category import Category
 from qas_editor.parsers import latex
 
@@ -60,7 +61,8 @@ def test_raw_subitems():
 
 def test_latextomoodle_read():
     EXAMPLE = f"{TEST_PATH}/datasets/latex_l2m/read.tex"
-    control = Category.read_latex(EXAMPLE)
+    lang = enums.Language.EN_US
+    control = Category.read_latex(EXAMPLE, lang)
     control = control["My little category from latex"]
     assert len(control) == 1
     assert control.get_size(False) == 3
@@ -76,14 +78,14 @@ def test_latextomoodle_read():
 
 def test_latextomoodle_vs_moodle():
     EXAMPLE = f"{TEST_PATH}/datasets/latex_l2m/multichoice.tex"
-    data = Category.read_latex(EXAMPLE)
-    data.metadata.clear()   # This will always be different
-    XML_TEST = f"{TEST_PATH}/datasets/latex_l2m/multichoice.xml"
-    control = Category.read_moodle(XML_TEST)
+    lang = enums.Language.EN_US
+    data = Category.read_latex(EXAMPLE, lang)
+    
 
 
 def test_amc_element():
-    EXAMPLE = f"{TEST_PATH}/datasets/latex_amc/tikz.tex"
+    EXAMPLE = f"{TEST_PATH}/datasets/latex_amc/hotspot.tex"
+    lang = enums.Language.EN_US
     cat = Category()
     with open(EXAMPLE) as ifile:
         tex = latex._PkgAMQ(cat, ifile, "")

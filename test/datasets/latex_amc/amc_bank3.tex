@@ -11,10 +11,10 @@
 \usepackage{amsmath,amssymb}
 \usepackage{color}
 \usepackage{graphicx}
-\usepackage[francais,bloc,completemulti]{automultiplechoice}     % Mandatory for conversion
-\usepackage{mhchem} % needed for chemical equations
+\usepackage[francais,bloc,completemulti]{sty/automultiplechoice}     % Mandatory for conversion
+\usepackage{sty/mhchem} % needed for chemical equations
 \usepackage{fp}
-%\usepackage{tikz}
+\usepackage{tikz}
 
 % Example of user macro
 \providecommand{\abs}[1]{\lvert#1\rvert}
@@ -38,12 +38,12 @@
 
 % Define test level scoring
 % e=incohérence; b=bonne; m=mauvaise; p planché (on ne descent pas en dessous)
-\baremeDefautS{e=-0.5,b=1,m=-0.5}% never put b<1,
-\baremeDefautM{e=-0.5,b=1,m=-0.25,p=-0.5}% never put b<1, with amc2moodle m correspond to the grade if all the wrong answers are ticked, b correspond to the grade if all the good answers are ticked
+\scoringDefaultS{e=-0.5, b=1,m=-0.5}% never put b<1,
+\scoringDefaultM{e=-0.5,b=1,m=-0.25,p=-0.5}% never put b<1, with amc2moodle m correspond to the grade if all the wrong answers are ticked, b correspond to the grade if all the good answers are ticked
 
 % Include tex file containing the questions
-\include{common-bank} % cat1, cat2, english, mhchem, num, open, desc
-%\include{tikz} % tikz
+\include{amc_bank} % cat1, cat2, english, mhchem, num, open, desc
+\include{tikz_hotspot} % tikz
 
 
 % #################################################################
@@ -78,12 +78,12 @@ Illustration of \texttt{amc2moodle} capabilities. All these questions can be con
   \copygroup{cat1}{BigGroupe}
   \copygroup{cat2}{BigGroupe}
   \copygroup{english}{BigGroupe}
-  %\copygroup{tikz}{BigGroupe}
   \copygroup{mhchem}{BigGroupe}
   \copygroup{num}{BigGroupe}
   \copygroup{open}{BigGroupe}
   \copygroup{desc}{BigGroupe}
   \copygroup{calc}{BigGroupe}  
+  \copygroup{tikz}{BigGroupe}
   % not usefull for testing !
   %\melangegroupe{BigGroupe}
   \restituegroupe{BigGroupe}

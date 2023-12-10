@@ -44,7 +44,7 @@ def test_diff_simple():
     tmp_test = f"{file_name}.tmp"
     lang = enums.Language.EN_US
     control = category.Category.read_csvcard(file_name, lang)
-    control.write_csvcard(tmp_test, lang)
+    control.write_csvcard(tmp_test, lang, enums.Platform.NONE)
     new_data = category.Category.read_csvcard(tmp_test, lang)
     assert utils.Compare.compare(new_data, control)
     os.remove(tmp_test)

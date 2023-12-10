@@ -56,7 +56,8 @@ class Category:  # pylint: disable=R0904
 
     read_aiken = classmethod(aiken.read_aiken)
     read_cloze = classmethod(cloze.read_cloze)
-    read_csvcard = classmethod(csv_card.read_cards)
+    read_anki = classmethod(csv_card.read_anki)
+    read_quizlet = classmethod(csv_card.read_quizlet)
     read_gift = classmethod(gift.read_gift)
     read_kahoot = classmethod(kahoot.read_kahoot)
     read_latex = classmethod(latex.read_latex)
@@ -68,7 +69,8 @@ class Category:  # pylint: disable=R0904
 
     write_aiken = aiken.write_aiken
     write_cloze = cloze.write_cloze
-    write_csvcard = csv_card.write_cards
+    write_anki = csv_card.write_anki
+    write_quizlet = csv_card.write_quizlet
     write_gift = gift.write_gift
     write_kahoot = kahoot.write_kahoot
     write_latex = latex.write_latex

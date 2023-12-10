@@ -22,7 +22,7 @@ import logging
 from typing import TYPE_CHECKING, Callable, Type
 
 from ..answer import ChoiceItem, ChoiceOption
-from ..enums import Language, OutFormat, TextFormat
+from ..enums import Language, Platform, TextFormat
 from ..processors import Proc
 from ..question import QQuestion
 from .text import FText
@@ -69,7 +69,7 @@ def write_kahoot(self: Category, file_path: str, lang: Language):
                 continue
             qst.check()
             data = [str(qst.dbid), FText.to_string(qst.body[lang][0], None, 
-                                                   OutFormat.TEXT, TextFormat.PLAIN)]
+                                                   Platform.NONE, TextFormat.PLAIN)]
             correct = []
             if len(qst.body[lang][1].options) > 4:
                 _LOG.warning("Kahoot: question %s has more than 4 options. "

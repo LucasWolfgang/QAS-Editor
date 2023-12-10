@@ -21,18 +21,21 @@ Distributed under the terms of the GNU General Public License
 See http://www.gnu.org/licenses/gpl.txt for details.
 """
 from __future__ import annotations
-from typing import TYPE_CHECKING, Type, List, Tuple
-import re
-import os
-import logging
 
-from ..enums import Numbering
-from ..answer import Answer
-from ..question import QEssay, QMultichoice
+import logging
+import os
+import re
+from typing import TYPE_CHECKING, List, Type
+
+from ..answer import Answer, ChoiceItem, ChoiceOption, TextItem
+from ..enums import Language, Numbering
+from ..question import QEssay, QMultichoice, QQuestion
 from .text import FText
+
 if TYPE_CHECKING:
-    from ..category import Category
     from io import StringIO
+
+    from ..category import Category
 
 _LOG = logging.getLogger(__name__)
 _TEX_BASE_CMD = re.compile(r"\\(\w+).*(?:\{(.+)\})")
@@ -87,12 +90,13 @@ class LaTex():
         if cls._NAME is not None:
             _TEMPLATES[cls._NAME] = cls
 
-    def __init__(self, cat: Category, buffer: StringIO, path: str):
+    def __init__(self, cat: Category, buffer: StringIO, path: str, lang: Language):
         self.cat = cat
         self.buf = buffer
         self.path = path
         self.idx = 0
         self.line = "\n"
+        self.lang = lang
 
     @staticmethod
     def _wrap_env(items: list):
@@ -273,6 +277,7 @@ class _PkgLatexToMoodle(LaTex):
         params = {"question": FText()}
         options = []
         ended = False
+        question = QQuestion({self.lang: ""})
         while self.line and not ended:
             for item in self._parse():
                 if isinstance(item, Cmd):
@@ -283,6 +288,7 @@ class _PkgLatexToMoodle(LaTex):
                         ended = True
                         break
                     elif item.name == "answer":
+                        ChoiceItem()
                         options.append(Answer(float(item.opts[0]), value))
                     elif item.name in self._CMDS:
                         key, cast = self._CMDS[item.name]
@@ -293,8 +299,9 @@ class _PkgLatexToMoodle(LaTex):
                     else:
                         params["question"].text.append(item)
                 elif item.strip():
-                    params["question"].text.append(item)
+                    question.body[self.lang].add()
         params["question"].text.pop(0)
+
         self.cat.add_question(self._QTYPE[qtype](**params))
 
     def _category(self, name):
@@ -327,11 +334,10 @@ class _PkgLatexToMoodle(LaTex):
                 self._question(cmd.opts[0])
 
 
-def read_latex(cls: Type[Category], file_name: str) -> "Category":
+def read_latex(cls: Type[Category], file_name: str, lang: Language) -> "Category":
     """
     """
     category = cls()
-    category.metadata["latex"] = []
     tex_class = None
     with open(file_name, 'r', encoding='utf-8') as ifile:
         for line in ifile:
@@ -339,18 +345,17 @@ def read_latex(cls: Type[Category], file_name: str) -> "Category":
                 match = _TEX_BASE_CMD.match(line.strip())
                 if match:
                     cmd, value = match.groups()
-                    category.metadata["latex"].append((cmd, value))
                     if cmd in ("usepackage", "documentclass"):
                         if value in _TEMPLATES:
                             tex_class = _TEMPLATES[value]
             elif line == "\\begin{document}\n":
-                tex = tex_class(category, ifile, file_name)
+                tex = tex_class(category, ifile, file_name, lang)
                 tex.read()
                 break
     return category
 
 
-def write_latex(self, file_path: str, ftype: type) -> None:
+def write_latex(self, file_path: str, ftype: type, lang: Language) -> None:
     """_summary_
     Args:
         file_path (str): _description_

@@ -19,21 +19,88 @@
 """
 from __future__ import annotations
 
+import base64
 import logging
+import os
+import shutil
+import subprocess
+import tempfile
 from html import parser, unescape
 from importlib import util
-from io import TextIOWrapper
-from typing import Callable, List
+from io import BytesIO, TextIOWrapper
+from typing import Dict, List
 from urllib import parse
+from xml.sax import saxutils
 
-from ..enums import FileAddr, MathType, OutFormat
-from ..utils import File, ParseError, render_latex
+from ..enums import FileAddr, MathType, Platform, TextFormat
+from ..utils import File, ParseError
 
 EXTRAS_FORMULAE = util.find_spec("sympy") is not None
 if EXTRAS_FORMULAE:
+    from matplotlib import figure, font_manager, mathtext
+    from matplotlib.backends import backend_agg
+    from pyparsing import ParseFatalException  # Part of matplotlib package
     from sympy import Expr, printing
 
 _LOG = logging.getLogger(__name__)
+
+
+_latex_cache: Dict[str, str] = {}
+def render_latex(latex: str, path: str, scale=1.0):
+    """TODO optimize. It has just too many calls. But at least it works...
+    """
+    key = saxutils.escape(latex, entities={'[': '(', ']': ')'})
+    if key in _latex_cache:
+        return _latex_cache[key]
+    res = None
+    name = f"eq{len(_latex_cache): 10}.svg"
+    if latex[:2] == "$$":
+        attr = {'style':'vertical-align:middle;'}
+    else:
+        attr = {'style':'display:block;margin-left:auto;margin-right:auto;'}
+    if shutil.which("dvisvgm"):
+        def run_me(cmd):
+            flag = 0x08000000 if os.name == 'nt' else 0
+            return subprocess.run(cmd, stdout=subprocess.PIPE, check=True, 
+                                    creationflags=flag, cmd=path)
+
+        with open(f"{path}/texput.tex", 'w', encoding='utf-8') as fh:
+            fh.write("\\documentclass[varwidth,12pt]{standalone}"
+                        "\n\\usepackage{amsmath}\n\\usepackage{amsmath}\n\n"
+                        "\\begin{document}\n"+ latex + "\n\n\\end{document}")
+        run_me(['latex', '-halt-on-error', '-interaction=nonstopmode',
+                'text.tex'])
+        if path:
+            res = run_me(["dvisvgm", "--no-fonts", "--stdout", "text.dvi"])
+            res = str(base64.b64encode(res.stdout), "utf-8")
+        else:
+            run_me(["dvisvgm", "--no-fonts", "-o", name, "text.dvi"])
+            shutil.move(f"{path}/{name}", ".")
+            res = f"{path}/{name}"
+    elif EXTRAS_FORMULAE:
+        try:
+            prop = font_manager.FontProperties(size=12)
+            dpi = 120 * scale
+            parser = mathtext.MathTextParser("path")
+            width, height, depth, _, _ = parser.parse(latex, dpi=72, prop=prop)
+            fig = figure.Figure(figsize=(width / 72, height / 72))
+            fig.text(0, depth / height, latex, fontproperties=prop, color='Black')
+            backend_agg.FigureCanvasAgg(fig)  # set the canvas used
+            if path:
+                fig.savefig(f"{path}/{name}", dpi=dpi, format="svg", transparent=True)
+                res = f"{path}/{name}"
+            else:
+                buffer = BytesIO()
+                fig.savefig(name, dpi=dpi, format="svg", transparent=True)
+                buffer.close()
+                res = str(base64.b64encode(buffer.getvalue()), "utf-8")
+        except (ValueError, RuntimeError):
+            return None
+        except ParseFatalException:
+            return None
+    _latex_cache[key] = res
+    return res
+
 
 
 class Var:
@@ -76,7 +143,7 @@ class XItem:
     def extend(self, items: list):
         self._children.extend(items)
 
-    def get(self, mtype: MathType, ftype: FileAddr, otype: OutFormat) -> str:
+    def get(self, path: str, otype: Platform, ttype: TextFormat) -> str:
         """_summary_
         Args:
             mtype (MathType): _description_
@@ -91,7 +158,7 @@ class XItem:
         if self._children:
             value = value.rstrip() + ">"
             for child in self._children:
-                value += FText.to_string(child, mtype, ftype, otype)
+                value += FText.to_string(child, path, otype, ttype)
             value += f"</{self.tag}>"
         else:
             value = value.rstrip() + "/>"
@@ -112,7 +179,7 @@ class LinkRef:
         self.file = file
         self.attrs = attrs
 
-    def _replace_href_scr(self, value: str, format: OutFormat):
+    def _replace_href_scr(self, value: str, format: Platform):
         if "$IMS-CC-FILEBASE$" in value:
             new_item = parse.unquote(value).replace("$IMS-CC-FILEBASE$", "/static")
             return new_item.split("?")[0].replace("&amp;", "&")
@@ -131,7 +198,7 @@ class LinkRef:
         elif "@@PLUGINFILE@@" in value:
             return parse.unquote(value).replace("@@PLUGINFILE@@", "/")
 
-    def get(self, embedded: bool, otype: OutFormat) -> str:
+    def get(self, embedded: bool, otype: Platform) -> str:
         """_summary_
         Args:
             embedded (bool): _description_
@@ -142,14 +209,14 @@ class LinkRef:
         for val in ("href", "src"):
             if val in self.attrs:
                 self.attrs[val] = self._replace_href_scr(self.attrs[val])
-        if self.tag == "iframe" and otype == OutFormat.OLX:
+        if self.tag == "iframe" and otype == Platform.OLX:
             output_bb = '<video ' # TODO probably need something else here
-        elif self.tag == "transcript" or self.file.mtype == "transcript":
+        elif self.tag == "transcript" or self.file.mime == "transcript":
             return '<transcript language="" src="">'
         else:
             output_bb = f'<{self.tag}'
         if embedded:
-            output_bb += f'data:{self.file.mtype};base64,{self.file.data}" '
+            output_bb += f'data:{self.file.mime};base64,{self.file.data}" '
         else:
             output_bb += self._replace_href_scr(self.file.path) + '" '
         for key, value in self.attrs.items():
@@ -171,8 +238,9 @@ class PlainParser():
     justing putting the text in a list.
     """
 
-    def __init__(self):
+    def __init__(self, rpath: str):
         self.ftext = []
+        self._rpath = rpath
 
     def parse(self, data: str|TextIOWrapper):
         """Parse the data provided.
@@ -197,15 +265,16 @@ class XHTMLParser(parser.HTMLParser):
     REFS = ("a", "base", "base", "input", "link", "img", "audio", "embed",
             "video", "file", "track", "script", "source", "iframe")
 
-    def __init__(self, convert_charrefs: bool = True, check_closing: bool = False,
-                 files: List[File] = None):
+    def __init__(self, rpath: str, convert_charrefs: bool = True, 
+                 check_closing: bool = False, files: List[File] = None):
         super().__init__(convert_charrefs=convert_charrefs)
         self.ftext: list = None
+        self.files = files or []
         self._stack: List[XItem] = [XItem("")]
         self._check = check_closing
-        self.files = files or []
+        self._rpath = rpath
 
-    def handle_startendtag(self, tag: str, attrs: tuple):
+    def handle_startendtag(self, tag: str, attrs: List[tuple]):
         if self._check and tag not in self.AUTOCLOSE:
             raise ParseError(f"Tag {tag} should not be autoclosed")
         attrs = dict(attrs)
@@ -215,7 +284,7 @@ class XHTMLParser(parser.HTMLParser):
                 data, scr = attrs.pop("src").split(";", 1)
                 _, ext = data.split("/", 1)
                 path = f"/{len(self.files)}.{ext}"
-                xitem.file = file = File(path, scr[7:])
+                xitem.file = file = File(path, scr[7:], self._rpath)
             else:
                 path = attrs.pop("src")
                 for item in self.files:
@@ -223,7 +292,7 @@ class XHTMLParser(parser.HTMLParser):
                         file = xitem.file = item
                         break
                 else:
-                    file = xitem.file = File(path)
+                    file = xitem.file = File(path, None, self._rpath)
             if file not in self.files:
                 self.files.append(file)
         else:
@@ -231,6 +300,8 @@ class XHTMLParser(parser.HTMLParser):
         self._stack[-1].append(xitem)
 
     def handle_starttag(self, tag: str, attrs: tuple):
+        if tag in self.AUTOCLOSE:
+            return self.handle_startendtag(tag, attrs)
         if tag in self.REFS:
             item = LinkRef(tag, None, dict(attrs))
         else:
@@ -245,7 +316,7 @@ class XHTMLParser(parser.HTMLParser):
         if self._stack[-1].tag == "file":
             attrs = self._stack[-1].attrs
             path = attrs.pop("path", "/") + attrs.pop("name")
-            file = File(path, data)
+            file = File(path, data, self._rpath)
             if file not in self.files:
                 self.files.append(file)
         elif isinstance(self._stack[-1], XItem):
@@ -272,55 +343,31 @@ class XHTMLParser(parser.HTMLParser):
         self.ftext = list(self._stack[0])
 
 
-class TextParser():
-    """A global text parser to generate FText instances
+class Parser():
+    """Abstract class to represent parsers. All parsers must have (at least) 
+    these attributes and methods.
     """
 
     def __init__(self):
-        self.ftext = []
-        self.text = ""
-        self.pos = 0
-        self.lst = 0
-        self.scp = False
+        self.ftext: list = []
+        self.files: List[File] = None
+        self._rpath: str = None
 
-    def _nxt(self):
-        self.scp = (self.text[self.pos] == "\\") and not self.scp
-        self.pos += 1
-
-    def do(self):
-        """Modify this functions in super classes.
-        """
-
-    def clean_up(self):
-        """Clean up process
-        """
-        if self.text[self.lst:]:
-            self.ftext.append(self.text[self.lst:])
-
-    def parse(self, data: str|TextIOWrapper):
+    def parse(self, data: str|TextIOWrapper) -> None:
         """Parse the data provided.
         Args:
             data (str | TextIOWrapper): data to be parsed
         Raises:
             ParseError: If the data is not a string or TextIO
         """
-        if isinstance(data, str):
-            self.text = data
-        elif isinstance(data, TextIOWrapper):
-            self.text = data.read()
-        else:
-            raise ParseError()
-        while self.pos < len(self.text):
-            self.do()
-            self._nxt()
-        self.clean_up()
+        return None
 
 
 class FText:
     """A formatted text.
     """
 
-    def __init__(self, parser = None, files: List[File] = None):
+    def __init__(self, parser: Parser|str = None, files: List[File] = None):
         self._text = []
         self._files = files if files is not None else []
         if parser is not None:
@@ -354,7 +401,7 @@ class FText:
         return self._text
 
     @staticmethod
-    def to_string(item, mtype: MathType, ftype: FileAddr, otype: OutFormat) -> str|File:
+    def to_string(item, path: str, otype: Platform, ttype: TextFormat) -> str:
         """_summary_
         Args:
             item (_type_): _description_
@@ -362,33 +409,38 @@ class FText:
         Returns:
             str: _description_
         """
+        res = ""
         if isinstance(item, str):
             res = item
         elif isinstance(item, XItem):
-            res = item.get(mtype, ftype, otype)
+            res = item.get(path, otype, ttype)
         elif hasattr(item, "MARKER_INT"):
             res = chr(item.MARKER_INT)
         elif isinstance(item, LinkRef):
-            res = item.get(ftype == FileAddr.EMBEDDED, otype)
+            res = item.get(path, otype)
         elif EXTRAS_FORMULAE and isinstance(item, Expr):
-            if mtype == MathType.LATEX:
-                res = f"$${printing.latex(item)}$$"
-            elif mtype == MathType.MOODLE:
-                res =  "{" + ("" if item.is_Atom else "=") + printing.latex(item) + "}"
-            elif mtype == MathType.MATHJAX:
-                res =  f"[mathjax]{printing.latex(item)}[/mathjax]"
-            elif mtype == MathType.MATHML:
-                res = str(printing.mathml(item))
-            elif mtype == MathType.ASCII:
+            if ttype == TextFormat.PLAIN:
                 res = str(printing.pretty(item))
-            elif mtype == MathType.FILE:
-                res = render_latex(printing.latex(item), ftype)
+            elif ttype in (TextFormat.LATEX, TextFormat.MD):
+                res = f"$${printing.latex(item)}$$"
+            elif ttype == TextFormat.HTML:
+                res = str(printing.mathml(item))
+            elif ttype == TextFormat.XHTML:
+                if path:
+                    res = f'<img src="{render_latex(printing.latex(item), path)}"/>'
+                else:
+                    res = str('<img src="data:image/png;base64, ' +
+                          render_latex(printing.latex(item), path) + '"/>')
+            elif otype == Platform.MOODLE and path:
+                res = str("{" + ("" if item.is_Atom else "=") + printing.latex(item) + "}")
+            elif otype == Platform.OLX:
+                res =  f"[mathjax]{printing.latex(item)}[/mathjax]"
         else:
             raise TypeError(f"Item has unknown type {type(item)}")
         return res
 
     def get(self, mtype=MathType.ASCII, ftype=FileAddr.LOCAL, 
-            otype: OutFormat=OutFormat.QTI) -> str:
+            otype: Platform=Platform.NONE) -> str:
         """Get a string representation of the object. This representation 
         replaces Items with marker.
         Args:
@@ -398,12 +450,18 @@ class FText:
         """
         data = ""
         for item in self._text:
-            data += self.to_string(item, mtype, ftype, otype)
+            tmp = self.to_string(item, mtype, ftype, otype)
+            if tmp:
+                data += tmp
         return data
 
-    def add(self, parser):
-        self._text.extend(parser.ftext)
-        if hasattr(parser, "files"):
-            for file in parser.files:
-                if file not in self._files:
-                    self._files.append(file)
+    def add(self, parser: Parser|str):
+        if isinstance(parser, str):
+            self._text.append(parser)
+        else:
+            self._text.extend(parser.ftext)
+            if hasattr(parser, "files"):
+                for file in parser.files:
+                    if file not in self._files:
+                        self._files.append(file)
+

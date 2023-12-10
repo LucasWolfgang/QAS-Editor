@@ -3,15 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# C extensions
-*.so
-
 # Distribution / packaging
 .Python
 build/
 develop-eggs/
 dist/
-downloads/
 eggs/
 .eggs/
 lib/
@@ -20,6 +16,7 @@ parts/
 sdist/
 var/
 wheels/
+docs/
 pip-wheel-metadata/
 share/python-wheels/
 *.egg-info/
@@ -56,7 +53,6 @@ coverage.xml
 .venv
 env/
 venv/
-ENV/
 env.bak/
 venv.bak/
 
@@ -68,3 +64,10 @@ venv.bak/
 
 # I was wrong. No need for setup.py anymore
 poetry.lock
+**.log
+**.pdf
+**.fls
+**.aux
+**.synctex.gz
+**.fdb_latexmk
+**.amc

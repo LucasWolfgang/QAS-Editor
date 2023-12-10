@@ -1,4 +1,4 @@
-"""
+"""<pre>
 Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
 Copyright (C) 2022  Lucas Wolfgang
 
@@ -14,8 +14,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
+</pre>
+
+## Description
 """
 
 from ..utils import EXTRAS_GUI
+
 if not EXTRAS_GUI:
     raise ImportError()

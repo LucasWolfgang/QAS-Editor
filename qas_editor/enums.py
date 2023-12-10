@@ -127,16 +127,15 @@ class Numbering(EnhancedEnum):
     ROM_UR = "IIII", "IIII"
 
 
-class OutFormat(Enum):
+class Platform(Enum):
     """_summary_
     """
-    TEXT = auto()
+    ANKI = auto()
     MOODLE = auto()
+    QUIZLET = auto()
     OLX = auto()
     QTI = auto()
-    GIFT = auto()
-    LATEX = auto()
-
+    NONE = auto()
 
 class Orientation(Enum):
     """_summary_

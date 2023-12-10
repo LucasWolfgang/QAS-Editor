@@ -13,8 +13,8 @@
 \usepackage{amsmath,amssymb}
 \usepackage{color}
 \usepackage{graphicx}
-\usepackage[francais,bloc,completemulti]{automultiplechoice}     % Mandatory for conversion
-\usepackage{mhchem} % needed for chemical equations
+\usepackage[francais,bloc,completemulti]{sty/automultiplechoice}     % Mandatory for conversion
+\usepackage{sty/mhchem} % needed for chemical equations
 % needed by amc to be commented for amc2moodle usage (fp is not yet supported)
 %\usepackage{fp} 
 % exemple de commande utilisateur
@@ -22,8 +22,6 @@
 %#########################################################################
 % Entête
 %#########################################################################
-
-
 
 \title{Conversion test for AMC to moodle}
 \author{BN}
@@ -38,8 +36,8 @@
 %
 % B A R E M E
 % e=incohérence; b=bonne; m=mauvaise; p planché (on ne descent pas en dessous)
-\baremeDefautS{e=-0.5,b=1,m=-0.5}% never put b<1,
-\baremeDefautM{e=-0.5,b=1,m=-0.25,p=-0.5}% never put b<1, with amc2moodle m correspond to the grade if all the wrong answers are ticked, b correspond to the grade if all the good answers are ticked
+\scoringDefaultS{e=-0.5,b=1,m=-0.5}% never put b<1,
+\scoringDefaultM{e=-0.5,b=1,m=-0.25,p=-0.5}% never put b<1, with amc2moodle m correspond to the grade if all the wrong answers are ticked, b correspond to the grade if all the good answers are ticked
 
 
 
@@ -51,8 +49,8 @@
 %mauvaise : commande
 % B A R E M E
 % e=incohérence; b=bonne; m=mauvaise; p planché (on ne descent pas en dessous)
-%\baremeDefautS{e=-0.5,b=1,m=-0.5}
-%\baremeDefautM{e=-0.5,b=0.5,m=-0.25,p=-0.5}
+%\scoringDefaultS{e=-0.5,b=1,m=-0.5}
+%\scoringDefaultM{e=-0.5,b=0.5,m=-0.25,p=-0.5}
 % ajouter aucune de ces réponses n'est correcte
 %\usepackage[francais,bloc,completemulti]{automultiplechoice}
 

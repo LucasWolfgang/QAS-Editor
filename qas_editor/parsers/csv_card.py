@@ -24,7 +24,10 @@ for each card in your deck. This parser handles this type of files.
 from __future__ import annotations
 
 import csv
+import os
 from typing import TYPE_CHECKING, Callable
+
+from qas_editor.enums import Platform, TextFormat
 
 from ..answer import EntryItem
 from ..processors import Proc
@@ -56,12 +59,21 @@ def read_cards(cls, file_path: str, lang: Language) -> Category:
     return cls
 
 
+def read_anki(cls, file_path: str, lang: Language):
+    read_cards(cls, file_path, lang)
+
+
+def read_quizlet(cls, file_path: str, lang: Language):
+    read_cards(cls, file_path, lang)
+
+
 # -----------------------------------------------------------------------------
 
 
-def write_cards(self, file_path: str, lang: Language):
+def write_cards(self, file_path: str, lang: Language, plat: Platform):
     """Write a comma separated deck.
     """
+    path = os.path.dirname(file_path)
     def _kwrecursive(cat: "Category", write: Callable):
         for qst in cat.questions:
             qst.check()
@@ -73,9 +85,17 @@ def write_cards(self, file_path: str, lang: Language):
                         break
                 else:
                     continue
-                head = FText.to_string(head)
+                head = FText.to_string(head, path, plat, TextFormat.PLAIN)
                 write((head, key))
         for name in cat:                            # Then add children data
             _kwrecursive(cat[name], write)
     with open(file_path, "w", encoding="utf-8") as ofile:
         _kwrecursive(self, csv.writer(ofile, delimiter="\t").writerow)
+
+
+def write_anki(self, file_path: str, lang: Language):
+    write_cards(self, file_path, lang, Platform.ANKI)
+
+
+def write_quizlet(self, file_path: str, lang: Language):
+    write_cards(self, file_path, lang, Platform.QUIZLET)

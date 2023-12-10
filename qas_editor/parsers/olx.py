@@ -1,40 +1,44 @@
+# Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
+# Copyright (C) 2022  Lucas Wolfgang
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
-Question and Answer Sheet Editor <https://github.com/LucasWolfgang/QAS-Editor>
-Copyright (C) 2022  Lucas Wolfgang
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
+## Description
+Parser for the Open Learning XML Format (OLX) from Open EdX
 """
 from __future__ import annotations
+
 import codecs
+import json
+import logging
 import os
 import re
-import json
 import shutil
-import logging
-from io import StringIO
 import tarfile
-from xml.etree import ElementTree as et
 from html.parser import HTMLParser
+from io import StringIO
 from typing import TYPE_CHECKING, Type
-from ..question import  QMultichoice
+from xml.etree import ElementTree as et
+
+from ..question import QMultichoice
 from ..utils import serialize_fxml
+
 if TYPE_CHECKING:
     from ..category import Category
-    from ..question import _Question, _QHasOptions, QQuestion
+    from ..question import QQuestion, _QHasOptions, _Question
 
 
-__doc__="Parser for the Open Learning XML Format (OLX) from Open EdX"
 _LOG = logging.getLogger(__name__)
 _POLICY = { "course/1": { "tabs": [
     {"course_staff_only": True, "name": "Home", "type": "course_info"},

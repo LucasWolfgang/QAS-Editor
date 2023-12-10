@@ -15,7 +15,10 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 ## Description
-
+BlackBoard uses a modified version of QTI Content Package v1.2.
+See https://www.imsglobal.org/content/packaging/index.html.
+https://www.imsglobal.org/question/qtiv1p2/imsqti_res_bestv1p2.html
+https://www.imsglobal.org/question/qtiv1p2/imsqti_asi_outv1p2.html
 """
 from __future__ import annotations
 
@@ -36,13 +39,6 @@ if TYPE_CHECKING:
 
     from ...category import Category
     from ...question import _QHasOptions, _Question
-
-
-__doc__= """BlackBoard uses a modified version of QTI Content Package v1.2.
-            See https://www.imsglobal.org/content/packaging/index.html.
-            https://www.imsglobal.org/question/qtiv1p2/imsqti_res_bestv1p2.html
-            https://www.imsglobal.org/question/qtiv1p2/imsqti_asi_outv1p2.html
-            """
 
 
 class Pool:

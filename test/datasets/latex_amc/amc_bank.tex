@@ -3,24 +3,16 @@
 % simple
 \element{cat1}{
   \begin{question}{Qsimple:img}
-    On souhaite faire passer \textit{exactement}, par $N$ points donnés, un \texttt{polynôme} de degré \textbf{strictement} égal à $N-1$. Pour trouver les coefficients on doit résoudre un \emph{problème}
+    We wish to pass \textit{exactly}, through $N$ given points, a \texttt{polynomial} of degree \textbf{strictly} equal to $N-1$. To find the coefficients we must solve a \emph{problem}
 % Use "magic comments" to set imgResolution amc2moodle.
 %amc2moodle \SetOption{imgResolution}{72}  
     \begin{center}
-      \includegraphics[width=0.5\textwidth]{./amc_schema_interpL.png}
+      \includegraphics[width=0.5\textwidth]{src/5.png}
     \end{center}
-
     \begin{reponses}
       \bonne{d'interpolation}
       \mauvaise{de moindre carré}
-      \mauvaise{de Thelonius Sphere Monk
-        \begin{flushright}
-          \includegraphics[height=2cm]{./Figures/tinymonk.pdf}
-        \end{flushright}
-        \begin{flushleft}   
-          \includegraphics[height=3cm]{./Figures/tinymonk.pdf}
-        \end{flushleft}
-      }
+      \mauvaise{de Thelonius Sphere Monk}
     \end{reponses}
   \end{question}
 }
@@ -32,15 +24,14 @@
 % test for `\explain`.
 % magic comment for feeback at question and answer level
 \element{cat1}{
-  \begin{questionmult}{Qmult:Aucune}  \bareme{e=-0.5,b=1,m=-1.,p=-0.5} % never put b<1,
-    Quel fruit possède un noyau?
+  \begin{questionmult}{Qmult:Aucune}  \scoring{e=-0.5,b=1,m=-1.,p=-0.5} % never put b<1,
+    Which fruit has a stone?
     \begin{reponseshoriz}[o] % keep answers order
-      \mauvaise{La pomme}
-      \mauvaise{La tomate}
+      \mauvaise{Apple}
+      \mauvaise{Tomato}
       \mauvaise{
 %amc2moodle \AddXMLAElement{feedback}{This is an \textbf{answer} feedback !}
       le Kiwi}
-      %    \mauvaise{En allant à $$ \int_0^2 x \mathrm{d} x $$ la ligne}
     \end{reponseshoriz}
     \explain{Fruits grow on trees $x^3$, most of the \emph{time}.}
 %amc2moodle \AddXMLQElement{partiallycorrectfeedback}{This is \textbf{partially} correct !}
@@ -57,7 +48,7 @@
       \begin{tabular}{ccc}
         \hline
         12                       & 2                                                    & $2^3$ \\
-        \multicolumn{2}{c}{Deux} & \includegraphics[height=16pt]{4.png}         \\
+        \multicolumn{2}{c}{Deux} & \includegraphics[height=16pt]{src/4.png}         \\
         \hline
       \end{tabular}
     \end{center}
@@ -77,7 +68,7 @@
         %        \end{verbatim}
       }
       \bonne{$\abs{-10-2}$ (math inline and newcommand)}
-      \mauvaise{la réponse en image \includegraphics[height=16pt]{./4r.png}}
+      \mauvaise{la réponse en image \includegraphics[height=16pt]{src/4r.png}}
       \mauvaise{$6\times 6$}
       \mauvaise{Avec une équation  $$ \int_0^2 x \mathrm{d} x $$ } % works
       \bonne{Avec une équation matricielle
@@ -103,7 +94,7 @@
       \correctchoice{René Coty}
       \wrongchoice{Alain Prost}
       \wrongchoice{Marcel Proust}
-      \wrongchoice{with an image \includegraphics[height=16pt]{./4r.png}}
+      \wrongchoice{with an image \includegraphics[height=16pt]{src/4r.png}}
     \end{choiceshoriz}
   \end{question}
 }
@@ -125,8 +116,8 @@
 \begin{question}{itemize-enumerate} \scoring{m=0,p=0}
 Test for itemize html rendering,
 \begin{itemize}
-   \item first item
-   \item Second item blablabla
+  \item first item
+  \item Second item blablabla
 \end{itemize}
 test for enumerate html rendering,
 \begin{enumerate}
@@ -191,13 +182,13 @@ Combien de fois le programme suivant affiche-t-il \texttt{"x"} ?
 \begin{question}{pb-description} \QuestionIndicative
 Provide a description of a problem that can be common to several questions. It is useful to define notation, pictures
 \begin{center}
-\includegraphics[height=32pt]{4.png}
+\includegraphics[height=32pt]{src/4.png}
 \end{center}
 equations $\int_0^1 x \mathrm{d} x = 0$\dots. Since, it is not a \emph{real} question, the \texttt{choices} environment is not provided. In this case, the question will be converted by \texttt{amc2moodle} into moodle \texttt{description} question type.
 
 To use it in AMC, do not forget to use \texttt{QuestionIndicative} to tell AMC not to count points for this question (with a 0-point scoring).
 
-% the associated scoring is \bareme{b=0,m=0,e=0,v=0} cf AMC doc
+% the associated scoring is \scoring{b=0,m=0,e=0,v=0} cf AMC doc
 \end{question}
 }
 

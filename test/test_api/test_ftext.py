@@ -22,7 +22,7 @@ import os
 from sympy import Symbol, sqrt
 
 from qas_editor import utils
-from qas_editor.enums import FileAddr, MathType, OutFormat
+from qas_editor.enums import FileAddr, MathType, Platform
 from qas_editor.parsers.moodle import MoodleXHTMLParser
 from qas_editor.parsers.text import (FText, LinkRef, PlainParser, XHTMLParser,
                                      XItem)
@@ -63,7 +63,7 @@ def test_xhtml_tag_flat():
     assert len(ftext.text[0]) == 1
     assert ftext[0][0] == ("Moodle and fp latex package syntax "
             "is not always equivalent. Here some test for pathological cases.")
-    assert ftext.get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.TEXT) == text
+    assert ftext.get(MathType.ASCII, FileAddr.EMBEDDED, Platform.NONE) == text
 
 
 def test_xhtml_tag_hierarchical():
@@ -83,7 +83,7 @@ def test_xhtml_tag_hierarchical():
     assert len(ftext[0][0]) == 1
     assert len(ftext[2]) == 4
     assert len(ftext[2][3]) == 2
-    assert ftext.get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.TEXT) == text
+    assert ftext.get(MathType.ASCII, FileAddr.EMBEDDED, Platform.NONE) == text
 
 
 def test_xhtml_img_ref():
@@ -123,7 +123,7 @@ def test_moodle_latex_embedded():
     parser = MoodleXHTMLParser("", True, False, None)
     parser.parse(text)
     ftext = FText(parser)
-    assert ftext.get(MathType.LATEX, FileAddr.EMBEDDED, OutFormat.MOODLE) == "var $$x$$"
+    assert ftext.get(MathType.LATEX, FileAddr.EMBEDDED, Platform.MOODLE) == "var $$x$$"
 
 
 def test_moodle_ascii_embeeded():
@@ -146,13 +146,13 @@ def test_moodle_ascii_embeeded():
     tmp = XItem("p")
     tmp.extend(("Let ", X, ' and ', Y, " some real number.", XItem("br", closed=True)))
     assert ftext[1] == tmp
-    assert ftext[1].get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.MOODLE) == (
+    assert ftext[1].get(MathType.ASCII, FileAddr.EMBEDDED, Platform.MOODLE) == (
             "<p>Let x and y some real number.<br/></p>")
     tmp = XItem("li")
     tmp.extend(("the 'sqrt' function doesn't exist, need 'root(n, x)' in fp, ", 
                 sqrt((X - Y)*(X + Y))))
     assert ftext[2][1] == tmp
-    assert ftext[2][1].get(MathType.ASCII, FileAddr.EMBEDDED, OutFormat.MOODLE) == (
+    assert ftext[2][1].get(MathType.ASCII, FileAddr.EMBEDDED, Platform.MOODLE) == (
             "<li>the 'sqrt' function doesn't exist, need 'root(n, x)' in fp, "
             "  _________________\n╲╱ (x - y)⋅(x + y) </li>")
     assert ftext[3] == "Something outside"
