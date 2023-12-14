@@ -135,6 +135,8 @@ class Platform(Enum):
     QUIZLET = auto()
     OLX = auto()
     QTI = auto()
+    LATEX_AMC = auto()
+    LATEX_L2M = auto()
     NONE = auto()
 
 class Orientation(Enum):

@@ -24,11 +24,10 @@ from __future__ import annotations
 
 import logging
 import os
-import re
-from typing import TYPE_CHECKING, List, Type
+from typing import TYPE_CHECKING, Any, Generator, Type
 
 from ..answer import Answer, ChoiceItem, ChoiceOption, TextItem
-from ..enums import Language, Numbering
+from ..enums import Language, Numbering, Platform
 from ..question import QEssay, QMultichoice, QQuestion
 from .text import FText
 
@@ -38,7 +37,7 @@ if TYPE_CHECKING:
     from ..category import Category
 
 _LOG = logging.getLogger(__name__)
-_TEX_BASE_CMD = re.compile(r"\\(\w+).*(?:\{(.+)\})")
+
 
 class Env:
 
@@ -75,7 +74,6 @@ class Cmd():
         return self.name + "{" + "}{".join(self.args) + "}[" + "][".join(self.opts) + "]"
 
 
-_TEMPLATES = {}
 class LaTex():
     """_summary_
     """
@@ -85,18 +83,21 @@ class LaTex():
     _QTYPE = {}
     _HEADER = ""
 
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if cls._NAME is not None:
-            _TEMPLATES[cls._NAME] = cls
-
-    def __init__(self, cat: Category, buffer: StringIO, path: str, lang: Language):
+    def __init__(self, cat: Category, buffer: StringIO, lang: Language, 
+                 bsize: int, path: str):
         self.cat = cat
-        self.buf = buffer
+        self._io = buffer
+        self._bsize = bsize
         self.path = path
         self.idx = 0
         self.line = "\n"
         self.lang = lang
+
+    def _next(self):
+        self.idx += 1
+        if self.idx > len(self.line)-1:
+            self.idx = 0
+            self.line = self._io.read(self._bsize)
 
     @staticmethod
     def _wrap_env(items: list):
@@ -114,16 +115,14 @@ class LaTex():
 
     def _parse_opt(self):
         start = self.idx + 1
-        while self.idx < len(self.line) and self.line[self.idx] != "]":
-            self.idx += 1
-            if self.idx > len(self.line)-1:
-                self.line += next(self.buf, "") 
+        while self.line[self.idx] != "]":
+            self._next() 
         return self.line[start:self.idx]
 
     def _parse_arg(self):
         start = self.idx + 1
         items = []
-        while self.idx < len(self.line):
+        while self.line:
             if self.line[self.idx] == "}":
                 tmp = self.line[start: self.idx].strip()
                 if start < self.idx and tmp:
@@ -137,58 +136,62 @@ class LaTex():
                 if items[-1].name == "end":
                     self._wrap_env(items)
                 start = self.idx
-            self.idx += 1
-            if self.idx > len(self.line)-1:
-                self.line += next(self.buf, "")
+            self._next()
         return items if len(items) > 1 else items[0]
 
     def _parse_cmd(self):
-        self.idx += 1
+        self._next()
         start = self.idx
         while self.line[self.idx].isalpha():
-            self.idx += 1
+            self._next()
         cmd = Cmd(self.line[start: self.idx])
-        while self.idx < len(self.line):
+        while self.line:
             if self.line[self.idx] == "[":
                 cmd.opts.append(self._parse_opt())
             elif self.line[self.idx] == "{":
                 cmd.args.append(self._parse_arg())
             elif self.line[self.idx]:
                 break
-            self.idx += 1
-            if self.idx > len(self.line)-1:
-                self.line += next(self.buf, "")
+            self._next()
         return cmd
 
-    def _parse(self):
-        self.idx = start = 0
-        self.line = next(self.buf, "")
-        while self.idx < len(self.line):
+    def _parse(self) -> Generator[Cmd|str, Any, None]:
+        start = 0
+        self._next()
+        while self.line:
             if self.line[self.idx] == "\\" and self.line[self.idx+1].isalpha():
                 if self.line[start: self.idx].strip():
                     yield self.line[start: self.idx]
                 yield self._parse_cmd()
                 start = self.idx + 1
             elif self.line[self.idx] == "%":
-                start = self.idx
-                break
-            self.idx += 1
+                while self.line[self.idx] != "\n": # ignores comments
+                    self._next()
+                start = self.idx + 1
+            self._next()
         if self.line[start: self.idx].strip() and self.line[start] != "%":
             yield self.line[start: self.idx]
 
-    def build(self, cmd: Cmd|Env|str):
-        if isinstance(cmd, Cmd) and cmd.name == "include":
+    def build(self, cmd: Cmd|str, gen: Generator):
+        if not isinstance(cmd, Cmd):
+            return None
+        if cmd.name == "include":
             path = cmd.args[0]
             if os.path.relpath(path):
                 path = self.path.rsplit("/", 1)[0] + "/" + path
             with open(path) as ifile:
                 self.__class__(self.cat, ifile, path)
+            return True
+        elif cmd.name in ("usepackage", 'documentclass'):
+            self.cat.metadata.setdefault("latex", []).append(cmd)
+            return True
+        return False
 
     def read(self):
         try:
-            while self.line:
-                for cmd in self._parse():
-                    self.build(cmd)
+            gen = self._parse()
+            for cmd in gen:
+                self.build(cmd, gen)
             return True
         except StopIteration:
             return False
@@ -247,11 +250,6 @@ class _PkgLatexToMoodle(LaTex):
     """
     _NAME = "latextomoodle"
 
-    _QTYPE = {
-        "multichoice": QMultichoice,
-        "essay": QEssay
-    }
-
     _CMDS = {
         "title": ("name", str),
         "generalfeedback": ("feedback", "_ftext"),
@@ -273,86 +271,87 @@ class _PkgLatexToMoodle(LaTex):
     def _ftext(string: str):
         return FText(string)
 
-    def _question(self, qtype: str):
-        params = {"question": FText()}
-        options = []
-        ended = False
-        question = QQuestion({self.lang: ""})
-        while self.line and not ended:
-            for item in self._parse():
-                if isinstance(item, Cmd):
-                    value = item.args[0] if len(item.args) >0 else None
-                    if item.name == "end" and value == "question":
-                        if options:
-                            params["options"] = options
-                        ended = True
-                        break
-                    elif item.name == "answer":
-                        ChoiceItem()
-                        options.append(Answer(float(item.opts[0]), value))
-                    elif item.name in self._CMDS:
-                        key, cast = self._CMDS[item.name]
-                        if isinstance(cast, str):
-                            params[key] = getattr(self, cast)(value)
-                        else:
-                            params[key] = cast(value)
+    def _question_essay(self, question: QQuestion, gen: Generator):
+        for item in gen:
+            if isinstance(item, Cmd):
+                value = item.args[0] if len(item.args) > 0 else None
+                if item.name == "end" and value == "question":
+                    break
+                elif item.name in self._CMDS:
+                    key, cast = self._CMDS[item.name]
+                    if isinstance(cast, str):
+                        val = getattr(self, cast)(value)
                     else:
-                        params["question"].text.append(item)
-                elif item.strip():
-                    question.body[self.lang].add()
-        params["question"].text.pop(0)
+                        val = cast(value)
+                    setattr(question, key, val)
+                else:
+                    question.body[self.lang].add(str(item))
+            else:
+                question.body[self.lang].add(item)
 
-        self.cat.add_question(self._QTYPE[qtype](**params))
+    def _question(self, cmd: Cmd, gen: Generator):
+        question = QQuestion({self.lang: ""})
+        if cmd.opts[0] == "multichoice":
+            pass
+        elif cmd.opts[0] == "eassay":
+            self._question_essay(question, gen)
+        else:
+            _LOG.warning("LATEX: Question type is not valid: %s", cmd.opts)
+            return
+        self.cat.add_question(question)
 
-    def _category(self, name):
+    def _category(self, cmd: Cmd|str, gen: Generator):
         tmp = self.cat
         try:
-            self.cat = self.cat.__class__(name)
+            self.cat = self.cat.__class__(cmd.opts[0])
             tmp.add_subcat(self.cat)
-            for line in self.buf:
-                line = line.strip()
-                if not line:
+            for _cmd in gen:
+                if isinstance(_cmd, str):
+                    _LOG.warning("LATEX: Unexpected string '%s' after cat start.",
+                                 _cmd)
                     continue
-                if line[:16] == "\\begin{question}":
-                    self._question(line[17:-1])
-                elif line[:16] == "\\begin{category}":
-                    self._category(line[17:-1])
-                elif line == "\\end{category}":
+                if _cmd.name == "begin":
+                    if "question" in _cmd.args:
+                        self._question(_cmd, gen)
+                    elif "category" in _cmd.args:
+                        self._category(_cmd, gen)
+                elif _cmd.name == "end" and "category" in _cmd.args:
                     break
                 else:
                     raise ValueError(f"Couldnt map line {self.line}")
         except ValueError:
-            _LOG.exception(f"Failed to parse category {name}")
+            _LOG.exception(f"Failed to parse category {cmd.opts[0]}")
         self.cat = tmp
 
-    def build(self, cmd):
-        super().build(cmd)
-        if isinstance(cmd, Cmd):
+    def build(self, cmd: Cmd|str, gen: Generator) -> bool|None:
+        if super().build(cmd, gen) in (None, True):
+            return None
+        if cmd.name == "begin":
             if "category" in cmd.args:
-                self._category(cmd.opts[0])
+                self._category(cmd, gen)
             elif "question" in cmd.args:
-                self._question(cmd.opts[0])
+                self._question(cmd, gen)
+        return False
 
 
-def read_latex(cls: Type[Category], file_name: str, lang: Language) -> "Category":
-    """
-    """
+# -----------------------------------------------------------------------------
+
+
+def read_amc(cls: Type[Category], file_name: str, lang: Language):
     category = cls()
-    tex_class = None
     with open(file_name, 'r', encoding='utf-8') as ifile:
-        for line in ifile:
-            if tex_class is None:
-                match = _TEX_BASE_CMD.match(line.strip())
-                if match:
-                    cmd, value = match.groups()
-                    if cmd in ("usepackage", "documentclass"):
-                        if value in _TEMPLATES:
-                            tex_class = _TEMPLATES[value]
-            elif line == "\\begin{document}\n":
-                tex = tex_class(category, ifile, file_name, lang)
-                tex.read()
-                break
+        _PkgAMQ(category, ifile, lang, 1024, file_name).read()
     return category
+
+
+def read_l2m(cls: Type[Category], file_name: str, lang: Language):
+    category = cls()
+    with open(file_name, 'r', encoding='utf-8') as ifile:
+        _PkgLatexToMoodle(category, ifile, lang, 2048, file_name).read()
+    return category
+
+
+# ----------------------------------------------------------------------------
 
 
 def write_latex(self, file_path: str, ftype: type, lang: Language) -> None:

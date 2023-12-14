@@ -62,7 +62,7 @@ def test_raw_subitems():
 def test_latextomoodle_read():
     EXAMPLE = f"{TEST_PATH}/datasets/latex_l2m/read.tex"
     lang = enums.Language.EN_US
-    control = Category.read_latex(EXAMPLE, lang)
+    control = Category.read_latex_l2m(EXAMPLE, lang)
     control = control["My little category from latex"]
     assert len(control) == 1
     assert control.get_size(False) == 3
@@ -80,15 +80,13 @@ def test_latextomoodle_vs_moodle():
     EXAMPLE = f"{TEST_PATH}/datasets/latex_l2m/multichoice.tex"
     lang = enums.Language.EN_US
     data = Category.read_latex(EXAMPLE, lang)
-    
-
 
 def test_amc_element():
-    EXAMPLE = f"{TEST_PATH}/datasets/latex_amc/hotspot.tex"
+    EXAMPLE = f"{TEST_PATH}/datasets/latex_amc/tikz.tex"
     lang = enums.Language.EN_US
     cat = Category()
     with open(EXAMPLE) as ifile:
-        tex = latex._PkgAMQ(cat, ifile, "")
+        tex = latex._PkgAMQ(cat, ifile, "", lang)
         data = []
         while tex.line:
             data.extend(item for item in tex._parse())

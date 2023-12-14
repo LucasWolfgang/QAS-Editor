@@ -60,7 +60,8 @@ class Category:  # pylint: disable=R0904
     read_quizlet = classmethod(csv_card.read_quizlet)
     read_gift = classmethod(gift.read_gift)
     read_kahoot = classmethod(kahoot.read_kahoot)
-    read_latex = classmethod(latex.read_latex)
+    read_latex_l2m = classmethod(latex.read_l2m)
+    read_latex_amc = classmethod(latex.read_amc)
     read_markdown = classmethod(markdown.read_markdown)
     read_moodle = classmethod(moodle.read_moodle)
     read_moodle_backup = classmethod(moodle.read_moodle_backup)
@@ -84,9 +85,9 @@ class Category:  # pylint: disable=R0904
         self.__categories: Dict[str, Category] = {}
         self.__name = name or "$course$"
         self.__parent = None
-        self.metadata: Dict[str, str] = None
+        self.metadata: Dict[str, str] = {}
         self.datasets: List[Dataset] = None
-        self.resources: List[File] = None
+        self.resources: List[File] = []
         self.info: str = ""
 
     def __iter__(self):
@@ -138,9 +139,6 @@ class Category:  # pylint: disable=R0904
             raise ValueError("This attribute shouldn't be assigned directly. U"
                              "se parent's add/pop_question functions instead.")
         self.__parent = value
-        self.metadata = value.metadata
-        self.datasets = value.datasets
-        self.resources = value.resources
 
     def add_subcat(self, child: Category | str) -> bool:
         """Adds a category child to this category. This implementation avoids
