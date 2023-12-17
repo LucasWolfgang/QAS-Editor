@@ -24,12 +24,14 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any, Generator, Type
+import re
+from typing import TYPE_CHECKING, Any, Dict, Generator, Type
 
-from ..answer import Answer, ChoiceItem, ChoiceOption, TextItem
-from ..enums import Language, Numbering, Platform
-from ..question import QEssay, QMultichoice, QQuestion
-from .text import FText
+from ..answer import ChoiceItem, ChoiceOption, TextItem
+from ..enums import Language, MathType, Platform, TextFormat
+from ..processors import Proc
+from ..question import QQuestion
+from .text import FText, Math, Parser, XItem
 
 if TYPE_CHECKING:
     from io import StringIO
@@ -37,48 +39,24 @@ if TYPE_CHECKING:
     from ..category import Category
 
 _LOG = logging.getLogger(__name__)
+_WRITER = XItem.WRITER.setdefault(TextFormat.LATEX, {})  
 
 
-class Env:
-
-    def __init__(self, name: str, args=None, opt=None):
-        self.name = name
-        self.args = args  # Does not include the env name
-        self.opts = opt
-        self.subitems = None
-
-    def get(self, indent=0) -> str:
-        tmp = "\\begin\{" + self.name + "}"
-        if self.args:
-            tmp += "{" + "}{".join(self.args) + "}"
-        if self.opts:
-            tmp += "[" + "][".join(self.args) + "]"
-        tmp += "\t".join(self.subitems)
-        tmp += "\\end{" + self.name + "}"
-        return tmp
-
-    def __str__(self) -> str:
-        return self.get()
+class CmdParser(Parser):
+    
+    def parse(self, data: Dict[Any, str|XItem]) -> None:
+        if len(data) == 1:
+            self.ftext = list(data.values())
+        else:
+            self.ftext = data[-1]
+            for item in self.ftext:
+                pass
 
 
-class Cmd():
+class LaTexParser:
     """_summary_
     """
 
-    def __init__(self, name: str):
-        self.name = name
-        self.args = []
-        self.opts = []
-
-    def __str__(self) -> str:
-        return self.name + "{" + "}{".join(self.args) + "}[" + "][".join(self.opts) + "]"
-
-
-class LaTex():
-    """_summary_
-    """
-
-    _NAME = ""
     _CMDS = {}
     _QTYPE = {}
     _HEADER = ""
@@ -90,120 +68,182 @@ class LaTex():
         self._bsize = bsize
         self.path = path
         self.idx = 0
-        self.line = "\n"
+        self.start = 0
+        self.line = " "
         self.lang = lang
+        self.end = False
+    
+    def _build_from(self, item: XItem) -> None:
+        pass
 
     def _next(self):
-        self.idx += 1
-        if self.idx > len(self.line)-1:
+        self.idx += 1 # This 2 account for the lookahead parts
+        if self.idx > len(self.line)-2 and not self.end:
             self.idx = 0
-            self.line = self._io.read(self._bsize)
+            tmp = self._io.read(self._bsize)
+            if len(tmp) < self._bsize:
+                self.end = True
+            self.line = self.line[self.start:] + tmp
+            self.start = 0
 
-    @staticmethod
-    def _wrap_env(items: list):
-        env_name = items.pop().args[0]
-        data = []
-        cmd = items.pop()
-        while isinstance(cmd, str) or not (cmd.name == "begin" and 
-                cmd.args[0] == env_name):
-            data.append(cmd)
-            cmd = items.pop()
-        data.reverse()
-        cmd = Env(env_name, cmd.args[1:], cmd.opts)
-        cmd.subitems = data
-        items.append(cmd)
+    def _cmd_replace(self, item: XItem):
+        if item.attrs is None and item.opts is None and len(item) == 0:
+            if item.tag in ("newline", "break"):
+                return "\n"
+            if item.tag == "Vert":
+                return "|"
+        return item
 
-    def _parse_opt(self):
-        start = self.idx + 1
-        while self.line[self.idx] != "]":
-            self._next() 
-        return self.line[start:self.idx]
-
-    def _parse_arg(self):
-        start = self.idx + 1
-        items = []
-        while self.line:
-            if self.line[self.idx] == "}":
-                tmp = self.line[start: self.idx].strip()
-                if start < self.idx and tmp:
-                    items.append(tmp)
+    def _parse_arg(self, is_opt, prev: int):
+        self.start = self.idx + 1
+        items = {}
+        char = "]" if is_opt else "}"
+        while self.idx < len(self.line):
+            if self.line[self.idx] == char:
+                tmp = self.line[self.start: self.idx]
+                if self.start < self.idx and tmp: 
+                    tmp = tmp.split(",") if "," in tmp else (tmp,)
+                    for val in tmp:
+                        if "=" in val:
+                           val = val.split("=")   
+                           items[val[0].strip()] = val[1]  .strip()
+                        else:
+                            items[prev] = val.strip()
+                            prev += 1
                 break
-            elif self.line[self.idx] == "\\":
-                tmp = self.line[start: self.idx].strip()
-                if start < self.idx and tmp:
-                    items.append(tmp)
-                items.append(self._parse_cmd())
-                if items[-1].name == "end":
-                    self._wrap_env(items)
-                start = self.idx
+            elif self.line[self.idx] == "\\" and self.line[self.idx+1].isalpha():
+                items[prev] = self._parse_cmd()
             self._next()
-        return items if len(items) > 1 else items[0]
+        self.start = self.idx
+        return items, prev
 
     def _parse_cmd(self):
         self._next()
-        start = self.idx
+        self.start = self.idx
         while self.line[self.idx].isalpha():
             self._next()
-        cmd = Cmd(self.line[start: self.idx])
-        while self.line:
+        tag, args, opts, aprv, oprv = self.line[self.start: self.idx], {}, {}, 0, 0
+        while self.idx < len(self.line):
             if self.line[self.idx] == "[":
-                cmd.opts.append(self._parse_opt())
+                items, oprv = self._parse_arg(True, oprv)
+                opts.update(items)
             elif self.line[self.idx] == "{":
-                cmd.args.append(self._parse_arg())
+                items, aprv = self._parse_arg(False, aprv)
+                args.update(items)
             elif self.line[self.idx]:
                 break
             self._next()
-        return cmd
+        item = XItem(tag, args, opts)
+        if tag == "begin":
+            self.start = self.idx
+            for env in self._parse_env():
+                if isinstance(env, XItem) and env.tag == "end":
+                    break
+                item.append(env)
+            item.tag = None
+        self.start = self.idx
+        return self._cmd_replace(item)   
 
-    def _parse(self) -> Generator[Cmd|str, Any, None]:
-        start = 0
-        self._next()
-        while self.line:
+    def _parse_string(self):
+        string = self.line[self.start: self.idx]
+        string = re.sub(r"\n{2,}", r"\\", string)
+        string = string.replace("\n","")
+        string = string.replace("\\","\n")
+        return string
+
+    def _parse_env(self) -> Generator[XItem|str, Any, None]:
+        while self.idx < len(self.line):
             if self.line[self.idx] == "\\" and self.line[self.idx+1].isalpha():
-                if self.line[start: self.idx].strip():
-                    yield self.line[start: self.idx]
+                if self.line[self.start: self.idx].strip():
+                    yield self._parse_string()
                 yield self._parse_cmd()
-                start = self.idx + 1
-            elif self.line[self.idx] == "%":
+            elif self.line[self.idx] == "%" and self.line[self.idx-1] != "\\":
                 while self.line[self.idx] != "\n": # ignores comments
                     self._next()
-                start = self.idx + 1
-            self._next()
-        if self.line[start: self.idx].strip() and self.line[start] != "%":
-            yield self.line[start: self.idx]
+                self.start = self.idx + 1
+            else:
+                self._next()
+        if self.line[self.start: self.idx].strip() and self.line[self.start] != "%":
+            yield self._parse_string()
 
-    def build(self, cmd: Cmd|str, gen: Generator):
-        if not isinstance(cmd, Cmd):
-            return None
-        if cmd.name == "include":
-            path = cmd.args[0]
-            if os.path.relpath(path):
-                path = self.path.rsplit("/", 1)[0] + "/" + path
-            with open(path) as ifile:
-                self.__class__(self.cat, ifile, path)
-            return True
-        elif cmd.name in ("usepackage", 'documentclass'):
-            self.cat.metadata.setdefault("latex", []).append(cmd)
-            return True
-        return False
+    @staticmethod
+    def _to_string(item: XItem, *_) -> str:
+        tmp = "\\" + item.tag
+        if item.opts:
+            opt = [f"{k}={v}" if isinstance(k) else f"{v}" for k,v in item.opts.items()]
+            tmp += "[" + ",".join(opt) + "]"
+        if item.attrs:
+            tmp += "{" + "}{".join(item.attrs) + "}"
+        return tmp
 
     def read(self):
         try:
-            gen = self._parse()
-            for cmd in gen:
-                self.build(cmd, gen)
+            self._next() # Load the initial bytes
+            for item in self._parse_env():
+                if not isinstance(item, XItem):
+                    continue
+                if item.tag == "include":
+                    path = item.args[0]
+                    if os.path.relpath(path):
+                        path = self.path.rsplit("/", 1)[0] + "/" + path
+                    with open(path) as ifile:
+                        self.__class__(self.cat, ifile, self.lang, self._bsize, path)
+                    return True
+                elif item.tag in ("usepackage", 'documentclass'):
+                    self.cat.metadata.setdefault("latex", []).append(item)
+                else:
+                    self._build_from(item)
             return True
         except StopIteration:
             return False
+_WRITER[Platform.NONE] = LaTexParser._to_string 
 
 
-class _ClassExam(LaTex):
+class LatexWriter:
+
+    def __init__(self, buffer: StringIO, cat: Category, lang: Language) -> None:
+        self.buffer = buffer
+        self.lang = lang
+        self.cat = cat
+
+    def _write_cat(self, cat: Category):
+        self.buffer.write("\\begin{category}[" + cat.name + "]\n")
+        for qst in cat.questions:
+            self._write_ftext(qst.body[self.lang])      
+        for name in cat:
+            self._write_cat(cat[name])
+        self.buffer.write("\\end{category}]\n")
+
+    def _write_header(self, cat: Category):
+        if "latex" in cat.metadata:
+            for meta in cat.metadata["latex"]:
+                self.buffer.write(str(meta)+ "\n")
+        self.buffer.write("\n")
+
+    def _write_ftext(self, ftext: FText):
+        for item in ftext:
+            if isinstance(item, str):
+                self.buffer.write(item)
+            elif isinstance(item, XItem):
+                pass
+            elif isinstance(item, Math):
+                self.buffer.write(item.get(MathType.LATEX, None))
+
+    def write(self):
+        self._write_header(self.cat)
+        self.buffer.write("\\begin{document}\n")
+        self._write_cat(self.cat)
+        self.buffer.write("\\end{document}\n")
+
+
+
+class _ClsExamParser(LaTexParser):
     """See: https://ctan.org/pkg/exam
     """
     _NAME = "exam"
 
 
-class _PkgAMQ(LaTex):
+class _AMQReader(LaTexParser):
     """See: https://www.auto-multiple-choice.net/
     """
     _NAME = "automultiplechoice"
@@ -229,19 +269,19 @@ class _PkgAMQ(LaTex):
     """
 
 
-class _PkgMcExam(LaTex):
+class _McExamParser(LaTexParser):
     """See: https://ctan.org/pkg/mcexam
     """
     _NAME = "mcexam"
 
 
-class _PkgAlterQCM(LaTex):
+class _AlterQCMParser(LaTexParser):
     """See: https://www.ctan.org/pkg/alterqcm
     """
     _NAME = "alterqcm"
 
 
-class _PkgLatexToMoodle(LaTex):
+class _LatexToMoodleParser(LaTexParser):
     """Parsers the package created by Guillame for the latextomoodle repo.
     Since document classes have priority, it will only be used if the class of
     the document is not assigned to any parser. This is a LAZY parser! It is
@@ -251,87 +291,147 @@ class _PkgLatexToMoodle(LaTex):
     _NAME = "latextomoodle"
 
     _CMDS = {
-        "title": ("name", str),
-        "generalfeedback": ("feedback", "_ftext"),
-        "grade": ("default_grade", float),
-        "penalty": ("max_tries", lambda x: int(1/float(x)) if float(x) != 0 else -1),
-        "idnumber": ("dbid", int),
-        "responseformat": ("rsp_format", str),
-        "responserequired": ("rsp_required", bool),
-        "responsefieldlines": ("lines", int),
-        "attachments": ("attachments", int),
-        "attachmentsrequired": ("atts_required", bool),
-        "responsetemplate": ("template", str),
-        "single": ("single", bool),
-        "shuffleanswers": ("shuffle", bool),
-        "answernumbering": ("numbering", Numbering),
-        "shownumcorrect": ("show_ans", bool),
+        "title":  "_set_title",
+        "generalfeedback": "_set_generalfeedback",
+        "grade": "_set_grade",
+        "penalty": "_set_penalty",
+        "answer": "_set_answer",
+        "idnumber": "_set_dbid",
+        "responseformat": "_set_rsp_format",
+        "responserequired": "_set_rsp_required",
+        "responsefieldlines": "_set_lines",
+        "attachments": "_set_attachments",
+        "attachmentsrequired": "_set_atts_required",
+        "responsetemplate": "_set_template",
+        "single": "_set_single",
+        "shuffleanswers": "_set_shuffle",
+        "answernumbering": "_set_numbering",
+        "shownumcorrect": "_set_show_ans"
     }
 
-    def _ftext(string: str):
-        return FText(string)
+    def _set_answer(self, _, item: XItem):
+        return (item.attrs, float(item.opts[0]))
 
-    def _question_essay(self, question: QQuestion, gen: Generator):
-        for item in gen:
-            if isinstance(item, Cmd):
-                value = item.args[0] if len(item.args) > 0 else None
-                if item.name == "end" and value == "question":
-                    break
-                elif item.name in self._CMDS:
-                    key, cast = self._CMDS[item.name]
-                    if isinstance(cast, str):
-                        val = getattr(self, cast)(value)
-                    else:
-                        val = cast(value)
-                    setattr(question, key, val)
+    def _set_dbid(question: QQuestion, item: XItem):
+        question.dbid = item
+
+    def _set_generalfeedback(self, question: QQuestion, item: XItem):
+        question.feedback[self.lang].append(item)
+        question.procs.append(Proc.from_str())
+
+    def _set_grade(self, _, item: XItem):
+        return float(item.attrs[0])
+
+    def _set_penalty(self, _, item: XItem):
+        return float(item.attrs[0])
+
+    def _set_numbering(self, _, item: XItem):
+        return item.attrs[0]
+
+    def _set_rsp_format(self, _, item: XItem):
+        return item.attrs[0]
+    
+    def _set_rsp_required(self, _, item: XItem):
+        return item.attrs[0]
+
+    def _set_single(self, _, item: XItem):
+        return item.attrs[0].lower() == "true"
+    
+    def _set_show_ans(self, _, item: XItem):
+        return item.attrs[0].lower() == "true"
+
+    def _set_shuffle(self, _, item: XItem):
+        return item.attrs[0].lower() == "true"
+
+    def _set_template(self, _, item: XItem):
+        return item.attrs[0]
+
+    def _set_title(self, question: QQuestion, item: XItem):
+        question.name[self.lang] = item
+
+    def _question_essay(self, question: QQuestion, opts: Dict[str,XItem]):
+        args = {}
+        args["grade"] = opts["grade"][-1]
+        args["penalty"] = opts["penalty"][-1]
+        item = TextItem(None, Proc.from_template("no_result", args))
+        question.body[self.lang].text.append(item)
+
+    def _question_multichoice(self, question: QQuestion, opts: Dict[str,XItem]):
+        args = {"values": {}}
+        args["grade"] = opts["grade"][-1]
+        args["penalty"] = opts["penalty"][-1]
+        item = ChoiceItem()
+        for idx, (ans, val) in enumerate(opts["answer"]):
+            args["values"][idx] = {"value": val}
+            parser = CmdParser()
+            parser.parse(ans)
+            item.options.append(ChoiceOption(FText(parser)))
+        item.processor = Proc.from_template("mapper", args)
+        question.body[self.lang].text.append(item)
+
+    def _question(self, items: XItem):
+        question = QQuestion({self.lang: ""})
+        opt = {"grade": [1], "penalty": [0]}
+        for item in items:
+            if isinstance(item, XItem):
+                if item.tag in self._CMDS:
+                    res = getattr(self, self._CMDS[item.tag])(question, item)
+                    if res:
+                        opt.setdefault(item.tag, []).append(res)
                 else:
-                    question.body[self.lang].add(str(item))
+                    question.body[self.lang].add(item.get("", Platform.NONE, TextFormat.LATEX))
             else:
                 question.body[self.lang].add(item)
-
-    def _question(self, cmd: Cmd, gen: Generator):
-        question = QQuestion({self.lang: ""})
-        if cmd.opts[0] == "multichoice":
-            pass
-        elif cmd.opts[0] == "eassay":
-            self._question_essay(question, gen)
+        if items.opts[0] == "multichoice":
+            self._question_multichoice(question, opt)
+        elif items.opts[0] == "essay":
+            self._question_essay(question, opt)
         else:
-            _LOG.warning("LATEX: Question type is not valid: %s", cmd.opts)
+            _LOG.warning("LATEX: Question type is not valid: %s", items.opts)
             return
         self.cat.add_question(question)
 
-    def _category(self, cmd: Cmd|str, gen: Generator):
+    def _category(self, item: XItem):
         tmp = self.cat
         try:
-            self.cat = self.cat.__class__(cmd.opts[0])
+            self.cat = self.cat.__class__(item.opts[0])
             tmp.add_subcat(self.cat)
-            for _cmd in gen:
+            for _cmd in item:
                 if isinstance(_cmd, str):
                     _LOG.warning("LATEX: Unexpected string '%s' after cat start.",
                                  _cmd)
                     continue
-                if _cmd.name == "begin":
-                    if "question" in _cmd.args:
-                        self._question(_cmd, gen)
-                    elif "category" in _cmd.args:
-                        self._category(_cmd, gen)
-                elif _cmd.name == "end" and "category" in _cmd.args:
+                elif _cmd.tag is None:
+                    if _cmd.attrs.get(0) == "question":
+                        self._question(_cmd)
+                    elif _cmd.attrs.get(0) == "category":
+                        self._category(_cmd)
+                elif _cmd.tag == "end" and "category" in _cmd.attrs:
                     break
                 else:
                     raise ValueError(f"Couldnt map line {self.line}")
         except ValueError:
-            _LOG.exception(f"Failed to parse category {cmd.opts[0]}")
+            _LOG.exception(f"Failed to parse category {item.opts[0]}")
         self.cat = tmp
 
-    def build(self, cmd: Cmd|str, gen: Generator) -> bool|None:
-        if super().build(cmd, gen) in (None, True):
-            return None
-        if cmd.name == "begin":
-            if "category" in cmd.args:
-                self._category(cmd, gen)
-            elif "question" in cmd.args:
-                self._question(cmd, gen)
-        return False
+    @staticmethod
+    def _to_string(item: XItem, *args):
+        pass
+
+    def _build_from(self, item: XItem) -> None:
+        if item.tag is None:
+            if item.attrs.get(0) == "category":
+                self._category(item)
+            elif item.attrs.get(0) == "question":
+                self._question(item)
+            elif item.attrs.get(0) == "document":
+                for _item in item:
+                    self._build_from(_item)
+_WRITER[Platform.LATEX_L2M] = _LatexToMoodleParser._to_string 
+
+
+class _LatexToMoodleWriter(LatexWriter):
+    pass
 
 
 # -----------------------------------------------------------------------------
@@ -340,25 +440,28 @@ class _PkgLatexToMoodle(LaTex):
 def read_amc(cls: Type[Category], file_name: str, lang: Language):
     category = cls()
     with open(file_name, 'r', encoding='utf-8') as ifile:
-        _PkgAMQ(category, ifile, lang, 1024, file_name).read()
+        _AMQReader(category, ifile, lang, 1024, file_name).read()
     return category
 
 
 def read_l2m(cls: Type[Category], file_name: str, lang: Language):
     category = cls()
     with open(file_name, 'r', encoding='utf-8') as ifile:
-        _PkgLatexToMoodle(category, ifile, lang, 2048, file_name).read()
+        _LatexToMoodleParser(category, ifile, lang, 2048, file_name).read()
     return category
 
 
 # ----------------------------------------------------------------------------
 
 
-def write_latex(self, file_path: str, ftype: type, lang: Language) -> None:
+def write_l2m(self: Category, file_name: str, lang: Language) -> None:
     """_summary_
     Args:
         file_path (str): _description_
-    Raises:
-        NotImplementedError: _description_
     """
-    raise NotImplementedError("LaTex not implemented")
+    with open(file_name, 'w', encoding='utf-8') as ofile:
+        _write_header(self, ofile)
+        ofile.write("\\begin{document}\n")
+        _write_cat(self, ofile, lang, Platform.LATEX_L2M)
+        ofile.write("\\end{document}\n")
+     

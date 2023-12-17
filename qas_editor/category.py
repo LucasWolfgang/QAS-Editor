@@ -22,12 +22,13 @@ from __future__ import annotations
 import csv
 import logging
 import re
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Dict, Iterator, List
 
-from .enums import Status
+from .enums import TestStatus
 from .parsers import (aiken, cloze, csv_card, gift, ims, kahoot, latex,
                       markdown, moodle, olx)
-from .question import QQuestion, _Question
+from .question import QQuestion
 from .utils import File
 
 if TYPE_CHECKING:
@@ -74,14 +75,13 @@ class Category:  # pylint: disable=R0904
     write_quizlet = csv_card.write_quizlet
     write_gift = gift.write_gift
     write_kahoot = kahoot.write_kahoot
-    write_latex = latex.write_latex
+    write_latex_l2m = latex.write_l2m
     write_markdown = markdown.write_markdown
     write_moodle = moodle.write_moodle
     write_olx = olx.write_olx
 
-
     def __init__(self, name: str = None):
-        self.__questions: List[_Question] = []
+        self.__questions: List[QQuestion] = []
         self.__categories: Dict[str, Category] = {}
         self.__name = name or "$course$"
         self.__parent = None
@@ -172,7 +172,7 @@ class Category:  # pylint: disable=R0904
         return True
 
     def find(self, results: list, title: str = None, tags: list = None,
-             text: str = None, qtype: _Question = None, dbid: int = None):
+             text: str = None, qtype: QQuestion = None, dbid: int = None):
         """Find a question inside the category based on the provided arguments.
         If the argument is not passed (same as None), it is ignored.
         Args:
@@ -180,7 +180,7 @@ class Category:  # pylint: disable=R0904
             title (str): A regex that matchs the question's title.
             tags (list): A list of tags (str) used in the question.
             text (str): A regex that matchs the question's text.
-            qtype (_Question): The question type of the question.
+            qtype (QQuestion): The question type of the question.
             dbid (int): The dbid of the question (exact same number).
         """
         for question in self.__questions:
@@ -216,7 +216,7 @@ class Category:  # pylint: disable=R0904
             if hasattr(question, "datasets"):
                 for data in question.datasets:
                     key = f"{data.status.name}> {data.name}"
-                    if data.status == Status.PRV:
+                    if data.status == TestStatus.PRV:
                         key += f" ({hex(id(data))})"
                     if key in datasets and datasets[key] != data:
                         _LOG.error("Public dataset %s has different instances."
@@ -298,7 +298,7 @@ class Category:  # pylint: disable=R0904
         del child
         return True
 
-    def pop_question(self, question: _Question) -> bool:
+    def pop_question(self, question: QQuestion) -> bool:
         """_summary_
 
         Returns:
@@ -353,10 +353,10 @@ class Category:  # pylint: disable=R0904
         top_quiz = cls(category)
         for _path in files:
             ext = _path.rsplit(".", 1)[-1]
-            for parser in SERIALIZERS.values():
+            for func in dir(cls):
                 try:
-                    if parser[2] == ext:
-                        obj = getattr(cls, parser[0])(_path)
+                    if callable(getattr(cls, func)) and func[:6] == "write_":
+                        obj = getattr(cls, func)(_path)
                         if obj:
                             top_quiz.merge(obj)
                             break
@@ -383,10 +383,32 @@ class Category:  # pylint: disable=R0904
         for file in self.resources:
             pass
 
-    def write(self, ext: str, path: str):
-        """_summary_
-        Args:
-            ext (str): _description_
-            path (str): _description_
-        """
-        getattr(self, SERIALIZERS[ext][1])(path)
+@dataclass
+class TestStatus:
+    retries: int = 0
+    """Number of total retries in the test"""
+    grade: float = 0
+    """Grade resulting for a given test"""
+
+
+class Test:
+
+    def __init__(self, data: List[QQuestion]|Category) -> None:
+        self._idx = 0
+        if isinstance(data, list):
+            self._qlist = {qst: TestStatus() for qst in data}
+        else:
+            self._qlist = {}
+            def get_next(cat):
+                for question in data.questions:
+                    self._qlist[question] = TestStatus()
+                for subcat in cat:
+                    get_next(subcat)
+            get_next(data)
+
+    def start(self):
+        for question in self._qlist:
+            yield question
+
+    def process(self, question: QQuestion):
+        pass

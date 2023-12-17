@@ -110,7 +110,6 @@ class MathType(Enum):
     """
     MATHML = "MathML"
     LATEX = "LaTex"
-    MATHJAX = "MathJax"
     ASCII = "ASCII"
     MOODLE = "moodle"
     FILE = "File"
@@ -185,7 +184,7 @@ class ShuffleType(EnhancedEnum):
     STUDENT = "per_student"
 
 
-class Status(EnhancedEnum):
+class TestStatus(EnhancedEnum):
     """Enumerates Status for Datasets
     """
     PRV = "private"

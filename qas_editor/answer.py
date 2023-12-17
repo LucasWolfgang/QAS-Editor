@@ -21,10 +21,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List
+from typing import Dict, List
 
-from .enums import (Direction, EmbeddedFormat, Orientation, ShapeType,
-                    TextFormat, TolFormat, TolType)
+from .enums import (EmbeddedFormat, Orientation, ShapeType, TextFormat,
+                    TolFormat, TolType)
 from .parsers.text import FText
 from .processors import Proc
 from .utils import File
@@ -181,6 +181,7 @@ class TextItem(EntryItem):
         super().__init__(feedbacks, proc)
         self.max_strings = ""
         self.min_strings = ""
+
 
 
 class GapItem(Item):

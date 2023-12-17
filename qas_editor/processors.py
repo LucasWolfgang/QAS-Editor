@@ -34,61 +34,82 @@ import types
 from typing import Callable
 
 _mapper = """
-def processor(dbid: Any) -> Dict[str, Any]:
+def processor(dbid, status):
     args = {args}
-    return args["values"].get(dbid, {{"value": 0.0}})
+    retry = args.get("retry", [])
+    retry_multi = 0 if len(retry) < status.retries+1 else retry[status.retries]
+    val = args["values"].get(dbid, {{"value": 0.0}}) 
+    status.grade += val["value"] * retry_multi
+    return val
 """
 
 _string_process = """
-def processor(dbid: str):
+def processor(dbid, status):
     args = {args}
+    retry = args.get("retry", [])
+    retry_multi = 0 if len(retry) < status.retries+1 else retry[status.retries]
     flag = re.I if args.get("case") else 0
-    output = None
     for key, value in args["values"].items():
         if re.match(key, dbid, flags=flag):
-            output = value
+            val = value * retry_multi
             break
     else:
-        output = {{"value": 0.0}}
-    return output
+        val = {{"value": 0.0}}
+    status.grade += val["value"]
+    return val
 """
 
 _numerical_range = """
-def processor(dbid: float):
+def processor(dbid, status):
     args = {args}
-    output = None
+    retry = args.get("retry", [])
+    retry_multi = 0 if len(retry) < status.retries+1 else retry[status.retries]
     for key, value in args["values"].items():
         if key[0] < dbid < key[1]:
-            output = value
+            val = value * retry_multi
             break
     else:
-        output = {{"value": 0.0}}
-    return output
+        val = {{"value": 0.0}}
+    status.grade += val["value"]
+    return val
 """
 
 _matching = """
-def processor(dbid: dict):
+def processor(dbid, status):
     args = {args}
     total = 0.0
+    retry = args.get("retry", [])
+    retry_multi = 0 if len(retry) < status.retries+1 else retry[status.retries]
     for key, items in dbid.items():
         for nkey, val in args["values"][key].items():
             if nkey in items:
-                total += val
+                total += val * retry_multi
+    status.grade += total
     return {{"value": total}}
 """
 
 _numeric_value = """
-def processor(dbid: float):
+def processor(dbid, status):
     args = {args}
+    retry = args.get("retry", [])
+    retry_multi = 0 if len(retry) < status.retries+1 else retry[status.retries]
     if not isinstance(dbid, (int, float)):
         return {{"value": 0.0}}
     for items in args["values"]:
         if items["value"] - items["tol"] >= dbid >= items["value"] + items["tol"]:
-            data = {{"value": items["grade"]}}
+            data = {{"value": items["grade"] * retry_multi}}
             if "feedback" in items:
                 data["feedback"] = items["feedback"]
-            return data
-    return {{"value": 0.0}}
+            break
+    else:
+        data = {{"value": 0.0}}
+    status.grade += data["value"]
+    return data
+"""
+
+_no_result = """
+def processor(dbid, status):
+    return {args}
 """
 
 
@@ -101,7 +122,8 @@ class Proc:
         "string_process": _string_process,
         "numerical_range": _numerical_range,
         "matching": _matching,
-        "numeric_value": _numeric_value
+        "numeric_value": _numeric_value,
+        "no_result": _no_result
     }
 
     def __init__(self, func: Callable, args: dict = None, source: str = None) -> None:
